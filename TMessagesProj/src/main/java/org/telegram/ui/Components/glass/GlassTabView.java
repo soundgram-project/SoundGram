@@ -301,7 +301,8 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
             return;
         }
 
-        final int animationToSet = isSelected ? tabAnimation.iconToFilled : tabAnimation.iconToOutline;
+        final int animationToSet = isSelected ?
+            tabAnimation.iconToFilled : tabAnimation.iconToOutline;
 
         if (tabAnimation.endFrameMid != -1) {
             boolean update = lastIsSelected != isSelected;
@@ -498,15 +499,18 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
 
     @Override
     public float measureTextWidth() {
+        if (textView.getVisibility() != VISIBLE) {
+            return 0;
+        }
         return defaultTextPaint.measureText(textView.getText().toString());
     }
 
 
     public enum TabAnimation {
-        CONTACTS(R.raw.tab_music, R.raw.tab_music_reverse),
-        CALLS(R.raw.tab_calls, R.raw.tab_calls),
-        CHATS(R.raw.tab_chats, R.raw.tab_chats),
-        SETTINGS(R.raw.tab_settings, R.raw.tab_settings),
+        CONTACTS(R.raw.tab_music),
+        CALLS(R.raw.tab_calls),
+        CHATS(R.raw.tab_chats),
+        SETTINGS(R.raw.tab_settings),
 
         CHECKLIST(R.raw.tab_checklist, R.raw.tab_checklist_reverse),
         COLORS(R.raw.tab_colors, R.raw.tab_colors_reverse),
@@ -609,5 +613,32 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
 
     public void onPreBind() {
 
+    }
+
+    public void setMainTabsCompact(boolean compact) {
+        if (textView.getVisibility() == (compact ? GONE : VISIBLE)) {
+            return;
+        }
+
+        textView.setVisibility(compact ? GONE : VISIBLE);
+
+        if (compact) {
+            setContentDescription(textView.getText());
+        } else {
+            setContentDescription(null);
+        }
+
+        if (backupImageView != null) {
+            backupImageView.setLayoutParams(compact ?
+                    LayoutHelper.createFrame(22, 22, Gravity.CENTER) :
+                    LayoutHelper.createFrame(22, 22, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 5, 0, 0));
+        } else {
+            imageView.setLayoutParams(compact ?
+                    LayoutHelper.createFrame(24, 24, Gravity.CENTER) :
+                    LayoutHelper.createFrame(24, 24, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 4, 0, 0));
+        }
+
+        requestLayout();
+        invalidate();
     }
 }

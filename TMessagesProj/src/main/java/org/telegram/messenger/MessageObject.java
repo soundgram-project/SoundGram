@@ -108,6 +108,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -115,6 +116,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import me.vkryl.core.BitwiseUtils;
+
+import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.NekoXConfig;
+import tw.nekomimi.nekogram.parts.MessageTransKt;
+import xyz.nextalone.nagram.NaConfig;
+import tw.nekomimi.nekogram.helpers.MessageHelper;
+import tw.nekomimi.nekogram.syntaxhighlight.SyntaxHighlight;
 
 public class MessageObject {
 
@@ -242,7 +250,7 @@ public class MessageObject {
     public long actionDeleteGroupEventId = -1;
     public HashSet<Integer> expandedQuotes;
 
-    public boolean isSpoilersRevealed;
+    public boolean isSpoilersRevealed = NekoConfig.showSpoilersDirectly.Bool();
     public boolean isMediaSpoilersRevealed;
     public boolean isMediaSpoilersRevealedInSharedMedia;
     public boolean revealingMediaSpoilers;
@@ -474,6 +482,9 @@ public class MessageObject {
 
     @Deprecated
     private static long getTopicId(int currentAccount, TLRPC.Message message, boolean sureIsForum, boolean sureIsMonoForum) {
+        if (message == null) {
+            return sureIsForum ? 1 : 0;
+        }
         final long selfId = UserConfig.getInstance(currentAccount).getClientUserId();
         if (sureIsMonoForum) {
             return getMonoForumTopicId(message);
@@ -617,6 +628,7 @@ public class MessageObject {
     }
 
     public boolean hasMediaSpoilers() {
+        if (NekoConfig.showSpoilersDirectly.Bool()) return false;
         return !isRepostPreview && (messageOwner.media != null && messageOwner.media.spoiler || needDrawBluredPreview()) || isHiddenSensitive();
     }
 
@@ -676,14 +688,18 @@ public class MessageObject {
     }
 
     public boolean shouldDrawReactions() {
-        if (isRepostPreview) {
+        if (NaConfig.INSTANCE.getHideReactions().Bool()) {
             return false;
         }
-        return true;
+        return !isRepostPreview;
     }
 
     public boolean shouldDrawReactionsInLayout() {
         return true;
+    }
+
+    public boolean isSenderChannel() {
+        return messageOwner.from_id instanceof TLRPC.TL_peerChannel;
     }
 
     public TLRPC.MessagePeerReaction getRandomUnreadReaction() {
@@ -1917,7 +1933,7 @@ public class MessageObject {
         emojiAnimatedSticker = null;
         emojiAnimatedStickerId = null;
         if (emojiOnlyCount == 1 && !(getMedia(messageOwner) instanceof TLRPC.TL_messageMediaWebPage) && !(getMedia(messageOwner) instanceof TLRPC.TL_messageMediaInvoice) && (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaEmpty || getMedia(messageOwner) == null) && this.messageOwner.grouped_id == 0) {
-            if (messageOwner.entities.isEmpty()) {
+            if (messageOwner.entities == null || messageOwner.entities.isEmpty()) {
                 CharSequence emoji = messageText;
                 int index;
                 if ((index = TextUtils.indexOf(emoji, "\uD83C\uDFFB")) >= 0) {
@@ -3480,7 +3496,6 @@ public class MessageObject {
         layoutCreated = true;
         generateThumbs(false);
         checkMediaExistance();
-
     }
 
     private boolean spoiledLoginCode = false;
@@ -3595,19 +3610,30 @@ public class MessageObject {
     public boolean updateTranslation(boolean force) {
         boolean replyUpdated = replyMessageObject != null && replyMessageObject != this && replyMessageObject.updateTranslation(force);
         TranslateController translateController = MessagesController.getInstance(currentAccount).getTranslateController();
-        final TLRPC.TL_textWithEntities translatedText = messageOwner != null ? (messageOwner.voiceTranscriptionOpen ? messageOwner.translatedVoiceTranscription : messageOwner.translatedText) : null;
+        final boolean voiceTranscriptionOpen = messageOwner != null && messageOwner.voiceTranscriptionOpen;
+        final boolean manualTranslated = translateController.isManualTranslated(this);
+        final boolean autoTranslated = TranslateController.isTranslatable(this) && translateController.isTranslatingDialog(getDialogId());
+        final int translatorMode = NaConfig.INSTANCE.getTranslatorMode().Int();
+        final boolean showInline = autoTranslated || (manualTranslated && (voiceTranscriptionOpen || messageOwner != null && messageOwner.translatedPoll != null || translatorMode == MessageTransKt.TRANSLATE_MODE_REPLACE));
+        final TLRPC.TL_textWithEntities translatedText = messageOwner != null ? (voiceTranscriptionOpen ? messageOwner.translatedVoiceTranscription : messageOwner.translatedText) : null;
         final TLRPC.TL_textWithEntities summarizedText = messageOwner != null && messageOwner.summarizedOpen ? messageOwner.summaryText : null;
         final TLRPC.TL_textWithEntities summarizeTranslatedText = messageOwner != null && messageOwner.summarizedOpen ? messageOwner.translatedSummaryText : null;
-        if (
+        final boolean showSummarizedTranslated =
             summarizeTranslatedText != null &&
             messageOwner != null &&
             messageOwner.summarizedOpen &&
             TranslateController.isSummarizable(this) &&
-            TranslateController.isTranslatable(this) &&
-            translateController.isTranslatingDialog(getDialogId()) &&
-            !translateController.isTranslateDialogHidden(getDialogId()) &&
-            TextUtils.equals(translateController.getDialogTranslateTo(getDialogId()), messageOwner.translatedSummaryLanguage)
-        ) {
+            (
+                (
+                    autoTranslated &&
+                    !translateController.isTranslateDialogHidden(getDialogId()) &&
+                    TextUtils.equals(translateController.getDialogTranslateTo(getDialogId()), messageOwner.translatedSummaryLanguage)
+                ) || (
+                    manualTranslated &&
+                    messageOwner.translatedSummaryLanguage != null
+                )
+            );
+        if (showSummarizedTranslated) {
             if (summarized && translated) {
                 return replyUpdated || false;
             }
@@ -3631,12 +3657,12 @@ public class MessageObject {
             generateCaption();
             return replyUpdated || true;
         } else if (
+            showInline &&
             messageOwner != null &&
-            TranslateController.isTranslatable(this) &&
-            translateController.isTranslatingDialog(getDialogId()) &&
-            !translateController.isTranslateDialogHidden(getDialogId()) &&
             (translatedText != null || messageOwner.translatedPoll != null) &&
-            TextUtils.equals(translateController.getDialogTranslateTo(getDialogId()), messageOwner.translatedToLanguage)
+            (manualTranslated ||
+                TextUtils.equals(translateController.getDialogTranslateTo(getDialogId()), messageOwner.translatedToLanguage)
+            )
         ) {
             if (translated && !summarized) {
                 return replyUpdated || false;
@@ -3651,6 +3677,7 @@ public class MessageObject {
         } else if (messageOwner != null && (force || translated || summarized)) {
             translated = false;
             summarized = false;
+            messageOwner.translated = translated;
             applyNewText(messageOwner.message);
             generateCaption();
             return replyUpdated || true;
@@ -3688,6 +3715,7 @@ public class MessageObject {
         int[] emojiOnly = allowsBigEmoji() ? new int[1] : null;
         messageText = Emoji.replaceEmoji(messageText, paint.getFontMetricsInt(), false, emojiOnly);
         messageText = replaceAnimatedEmoji(messageText, entities, paint.getFontMetricsInt());
+        messageText = MessageHelper.zalgoFilter(messageText);
         if (emojiOnly != null && emojiOnly[0] > 1) {
             replaceEmojiToLottieFrame(messageText, emojiOnly);
         }
@@ -4100,6 +4128,22 @@ public class MessageObject {
 
     public boolean isSponsored() {
         return sponsoredId != null;
+    }
+
+    public boolean isAyuDeleted() {
+        return messageOwner != null && messageOwner.ayuDeleted;
+    }
+
+    public boolean isTranslated() {
+        if (messageOwner != null) {
+            if (messageOwner.summarizedOpen) return translated;
+            return messageOwner.translated || translated;
+        }
+        return translated;
+    }
+
+    public boolean isTranslatedSummary() {
+        return translated && summarized && messageOwner != null && messageOwner.translatedSummaryText != null;
     }
 
     public long getPollId() {
@@ -5817,6 +5861,8 @@ public class MessageObject {
                         }
                     }
                 }
+            } else if (messageOwner.translated) {
+                messageText = MessageHelper.zalgoFilter(messageOwner.translatedMessage);
             } else {
                 if (messageOwner.message != null) {
                     try {
@@ -5831,6 +5877,7 @@ public class MessageObject {
                 } else {
                     messageText = messageOwner.message;
                 }
+                messageText = MessageHelper.zalgoFilter(messageText);
             }
         }
 
@@ -6306,7 +6353,7 @@ public class MessageObject {
         } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaPhoto) {
             return "image/jpeg";
         } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaWebPage) {
-            if (getMedia(messageOwner).webpage.photo != null) {
+            if (getMedia(messageOwner).webpage != null && getMedia(messageOwner).webpage.photo != null) {
                 return "image/jpeg";
             }
         }
@@ -6589,7 +6636,7 @@ public class MessageObject {
                     photoThumbsObject = photoThumbsObject2;
                     photoThumbsObject2 = null;
                 }
-            } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaWebPage) {
+            } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaWebPage && getMedia(messageOwner).webpage != null) {
                 TLRPC.Photo photo = getMedia(messageOwner).webpage.photo;
                 TLRPC.Document document = getMedia(messageOwner).webpage.document;
                 if (photo != null) {
@@ -7038,26 +7085,26 @@ public class MessageObject {
             captionSummarized = false;
             captionTranslated = true;
             text = messageOwner.translatedText.text;
-            entities = messageOwner.translatedText.entities;
+            // entities = messageOwner.translatedText.entities;
+            entities = MessageHelper.reparseMessageEntities(messageOwner.translatedText.entities);
+        } else if (messageOwner.translated) {
+            // NekoX Translate
+            text = messageOwner.translatedMessage;
+            entities = MessageHelper.getEntitiesForText(this, text, summarized);
         } else {
             captionSummarized = false;
             captionTranslated = false;
         }
         if (!isMediaEmpty() && !(getMedia(messageOwner) instanceof TLRPC.TL_messageMediaGame) && !TextUtils.isEmpty(text)) {
-            // BOOTLEG START 2 - Расшифровка подписи к фото/видео
-            CharSequence captionToUse = text;
-            if (captionToUse.toString().contains("\u200D\u200D\u200D")) {
-                captionToUse = org.telegram.messenger.ZeroChat.decrypt(captionToUse);
-            }
-            caption = Emoji.replaceEmoji(captionToUse, Theme.chat_msgTextPaint.getFontMetricsInt(), false);
-            // BOOTLEG END 2
+            caption = Emoji.replaceEmoji(text, Theme.chat_msgTextPaint.getFontMetricsInt(), false);
             caption = replaceAnimatedEmoji(caption, entities, Theme.chat_msgTextPaint.getFontMetricsInt(), false);
+            caption = MessageHelper.zalgoFilter(caption);
 
             boolean hasEntities;
             if (messageOwner.send_state != MESSAGE_SEND_STATE_SENT) {
                 hasEntities = false;
             } else {
-                hasEntities = !entities.isEmpty();
+                hasEntities = entities != null && !entities.isEmpty();
             }
 
             boolean useManualParse = forceManualEntities || !hasEntities && (
@@ -7196,6 +7243,13 @@ public class MessageObject {
                                 uri = uri.replaceAll("∕|⁄|%E2%81%84|%E2%88%95", "/");
                             }
                             url = new URLSpanNoUnderline(uri);
+                            if (charSequence.charAt(start) == '#') {
+                                var run = new TextStyleSpan.TextStyleRun();
+                                run.start = start;
+                                run.end = end;
+                                run.urlEntity = new TLRPC.TL_messageEntityHashtag();
+                                SyntaxHighlight.highlight(run, spannable);
+                            }
                         }
                     }
                 }
@@ -7342,12 +7396,12 @@ public class MessageObject {
             entities.add(entityItalic);
             return addEntitiesToText(text, entities, isOutOwner(), true, photoViewer, useManualParse);
         } else {
-            return addEntitiesToText(text, getEntities(), isOutOwner(), true, photoViewer, useManualParse);
+            return addEntitiesToText(text, MessageHelper.getEntitiesForText(this, text, summarized), isOutOwner(), true, photoViewer, useManualParse);
         }
     }
 
     public void replaceEmojiToLottieFrame(CharSequence text, int[] emojiOnly) {
-        if (!(text instanceof Spannable)) {
+        if (!(text instanceof Spannable) || Emoji.isSelectedCustomPack()) {
             return;
         }
         Spannable spannable = (Spannable) text;
@@ -7378,7 +7432,7 @@ public class MessageObject {
     }
 
     public ArrayList<TLRPC.MessageEntity> getEntities() {
-        if (messageOwner == null) return null;
+        /*if (messageOwner == null) return null;
         if (summarized) {
             if (translated && messageOwner.translatedSummaryText != null) {
                 return messageOwner.translatedSummaryText.entities;
@@ -7394,7 +7448,8 @@ public class MessageObject {
                 return messageOwner.translatedText != null ? messageOwner.translatedText.entities : null;
             }
         }
-        return messageOwner.entities;
+        return messageOwner.entities;*/
+        return MessageHelper.getEntitiesForText(this, messageText, summarized);
     }
 
     public Spannable replaceAnimatedEmoji(CharSequence text, Paint.FontMetricsInt fontMetricsInt) {
@@ -7664,6 +7719,8 @@ public class MessageObject {
         for (int a = 0; a < count; a++) {
             TextStyleSpan.TextStyleRun run = runs.get(a);
 
+            if (run.start >= run.end)
+                continue;
             if (allowed == ENTITIES_ONLY_HASHTAGS && !(run.urlEntity instanceof TLRPC.TL_messageEntityHashtag))
                 continue;
 
@@ -7677,6 +7734,9 @@ public class MessageObject {
                 if (linksCount >= MediaDataController.MAX_LINKS_COUNT) continue;
                 linksCount++;
                 spannable.setSpan(new URLSpanNoUnderline(url, run), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                if (run.urlEntity instanceof TLRPC.TL_messageEntityHashtag) {
+                    SyntaxHighlight.highlight(run, spannable);
+                }
             } else if (run.urlEntity instanceof TLRPC.TL_messageEntityEmail) {
                 if (linksCount >= MediaDataController.MAX_LINKS_COUNT) continue;
                 linksCount++;
@@ -7932,7 +7992,8 @@ public class MessageObject {
         if (messageOwner.send_state != MESSAGE_SEND_STATE_SENT) {
             hasEntities = false;
         } else {
-            hasEntities = !getEntities().isEmpty();
+            ArrayList<TLRPC.MessageEntity> entities = getEntities();
+            hasEntities = entities != null && !entities.isEmpty();
         }
 
         boolean useManualParse = !hasEntities && (
@@ -9286,7 +9347,8 @@ public class MessageObject {
     }
 
     public static boolean shouldEncryptPhotoOrVideo(int currentAccount, TLRPC.Message message) {
-        if (message != null && message.media != null && (isVoiceDocument(getDocument(message)) || isRoundVideoMessage(message)) && message.media.ttl_seconds == 0x7FFFFFFF) {
+        return false;
+        /*if (message != null && message.media != null && (isVoiceDocument(getDocument(message)) || isRoundVideoMessage(message)) && message.media.ttl_seconds == 0x7FFFFFFF) {
             return true;
         }
         if (getMedia(message) instanceof TLRPC.TL_messageMediaPaidMedia) {
@@ -9299,7 +9361,7 @@ public class MessageObject {
             return (getMedia(message) instanceof TLRPC.TL_messageMediaPhoto || isVideoMessage(message)) && message.ttl > 0 && message.ttl <= 60;
         } else {
             return (getMedia(message) instanceof TLRPC.TL_messageMediaPhoto || getMedia(message) instanceof TLRPC.TL_messageMediaDocument) && getMedia(message).ttl_seconds != 0;
-        }
+        }*/
     }
 
     public boolean shouldEncryptPhotoOrVideo() {
@@ -9316,10 +9378,6 @@ public class MessageObject {
     }
 
     public static boolean isSecretMedia(TLRPC.Message message) {
-if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
-    return false; // Отменить логику уничтожения
-}
-
         if (message instanceof TLRPC.TL_message_secret) {
             return (getMedia(message) instanceof TLRPC.TL_messageMediaPhoto || isRoundVideoMessage(message) || isVideoMessage(message)) && getMedia(message).ttl_seconds != 0;
         } else if (message instanceof TLRPC.TL_message) {
@@ -9666,7 +9724,7 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
             }
             if (!TextUtils.isEmpty(document.mime_type)) {
                 String mime = document.mime_type.toLowerCase();
-                if (mime.equals("audio/flac") || mime.equals("audio/ogg") || mime.equals("audio/opus") || mime.equals("audio/x-opus+ogg")) {
+                if (mime.equals("audio/flac") || mime.equals("audio/ogg") || mime.equals("audio/opus") || mime.equals("audio/x-opus+ogg") || mime.equals("audio/wav") || mime.equals("audio/x-wav")) {
                     return true;
                 } else if (mime.equals("application/octet-stream") && FileLoader.getDocumentFileName(document).endsWith(".opus")) {
                     return true;
@@ -9791,28 +9849,36 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
     }
 
     public static TLRPC.Document getDocument(TLRPC.Message message) {
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return getMedia(message).webpage.document;
-        } else if (getMedia(message) instanceof TLRPC.TL_messageMediaGame) {
-            return getMedia(message).game.document;
-        } else if (getMedia(message) instanceof TLRPC.TL_messageMediaStory) {
-            TLRPC.TL_messageMediaStory story = (TLRPC.TL_messageMediaStory) getMedia(message);
-            if (story.storyItem != null && story.storyItem.media != null && story.storyItem.media.document != null)
+        if (message == null) {
+            return null;
+        }
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null ? media.webpage.document : null;
+        } else if (media instanceof TLRPC.TL_messageMediaGame) {
+            return media.game != null ? media.game.document : null;
+        } else if (media instanceof TLRPC.TL_messageMediaStory story) {
+            if (story.storyItem != null && story.storyItem.media != null && story.storyItem.media.document != null) {
                 return story.storyItem.media.document;
-        } else if (getMedia(message) instanceof TLRPC.TL_messageMediaPaidMedia) {
-            TLRPC.TL_messageMediaPaidMedia paidMedia = (TLRPC.TL_messageMediaPaidMedia) getMedia(message);
+            }
+        } else if (media instanceof TLRPC.TL_messageMediaPaidMedia paidMedia) {
             if (paidMedia.extended_media.size() == 1 && paidMedia.extended_media.get(0) instanceof TLRPC.TL_messageExtendedMedia) {
-                return ((TLRPC.TL_messageExtendedMedia) paidMedia.extended_media.get(0)).media.document;
+                TLRPC.MessageMedia extendedMedia = ((TLRPC.TL_messageExtendedMedia) paidMedia.extended_media.get(0)).media;
+                return extendedMedia != null ? extendedMedia.document : null;
             }
         }
-        return getMedia(message) != null ? getMedia(message).document : null;
+        return media != null ? media.document : null;
     }
 
     public static TLRPC.Photo getPhoto(TLRPC.Message message) {
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return getMedia(message).webpage.photo;
+        if (message == null) {
+            return null;
         }
-        return getMedia(message) != null ? getMedia(message).photo : null;
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null ? media.webpage.photo : null;
+        }
+        return media != null ? media.photo : null;
     }
 
     public static boolean isStickerMessage(TLRPC.Message message) {
@@ -9836,17 +9902,25 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
     }
 
     public static boolean isMusicMessage(TLRPC.Message message) {
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return isMusicDocument(getMedia(message).webpage.document);
+        if (message == null) {
+            return false;
         }
-        return getMedia(message) != null && isMusicDocument(getMedia(message).document);
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null && isMusicDocument(media.webpage.document);
+        }
+        return media != null && isMusicDocument(media.document);
     }
 
     public static boolean isGifMessage(TLRPC.Message message) {
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return isGifDocument(getMedia(message).webpage.document);
+        if (message == null) {
+            return false;
         }
-        return getMedia(message) != null && isGifDocument(getMedia(message).document, message.grouped_id != 0);
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null && isGifDocument(media.webpage.document);
+        }
+        return media != null && isGifDocument(media.document, message.grouped_id != 0);
     }
 
     public static boolean isRoundVideoMessage(TLRPC.Message message) {
@@ -9857,27 +9931,39 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
     }
 
     public static boolean isPhoto(TLRPC.Message message) {
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return getMedia(message).webpage.photo instanceof TLRPC.TL_photo && !(getMedia(message).webpage.document instanceof TLRPC.TL_document);
+        if (message == null) {
+            return false;
         }
-        if (message != null && message.action != null && message.action.photo != null) {
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null && media.webpage.photo instanceof TLRPC.TL_photo && !(media.webpage.document instanceof TLRPC.TL_document);
+        }
+        if (message.action != null && message.action.photo != null) {
             return message.action.photo instanceof TLRPC.TL_photo;
         }
-        return getMedia(message) instanceof TLRPC.TL_messageMediaPhoto;
+        return media instanceof TLRPC.TL_messageMediaPhoto;
     }
 
     public static boolean isVoiceMessage(TLRPC.Message message) {
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return isVoiceDocument(getMedia(message).webpage.document);
+        if (message == null) {
+            return false;
         }
-        return getMedia(message) != null && isVoiceDocument(getMedia(message).document);
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null && isVoiceDocument(media.webpage.document);
+        }
+        return media != null && isVoiceDocument(media.document);
     }
 
     public static boolean isNewGifMessage(TLRPC.Message message) {
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return isNewGifDocument(getMedia(message).webpage.document);
+        if (message == null) {
+            return false;
         }
-        return getMedia(message) != null && isNewGifDocument(getMedia(message).document);
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null && isNewGifDocument(media.webpage.document);
+        }
+        return media != null && isNewGifDocument(media.document);
     }
 
     public static boolean isLiveLocationMessage(TLRPC.Message message) {
@@ -9885,13 +9971,17 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
     }
 
     public static boolean isVideoMessage(TLRPC.Message message) {
-        if (getMedia(message) != null && isVideoSticker(getMedia(message).document)) {
+        if (message == null) {
             return false;
         }
-        if (getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
-            return isVideoDocument(getMedia(message).webpage.document);
+        TLRPC.MessageMedia media = getMedia(message);
+        if (media != null && isVideoSticker(media.document)) {
+            return false;
         }
-        return getMedia(message) != null && isVideoDocument(getMedia(message).document);
+        if (media instanceof TLRPC.TL_messageMediaWebPage) {
+            return media.webpage != null && isVideoDocument(media.webpage.document);
+        }
+        return media != null && isVideoDocument(media.document);
     }
 
     public static boolean isGameMessage(TLRPC.Message message) {
@@ -10495,7 +10585,7 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
     }
 
     public boolean isWebpageDocument() {
-        return getMedia(messageOwner) instanceof TLRPC.TL_messageMediaWebPage && getMedia(messageOwner).webpage.document != null && !isGifDocument(getMedia(messageOwner).webpage.document);
+        return getMedia(messageOwner) instanceof TLRPC.TL_messageMediaWebPage && getMedia(messageOwner).webpage != null && getMedia(messageOwner).webpage.document != null && !isGifDocument(getMedia(messageOwner).webpage.document);
     }
 
     public boolean isWebpage() {
@@ -10787,7 +10877,9 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
     }
 
     public boolean canForwardMessage() {
-         return true;
+        if (isQuickReply()) return false;
+        if (type == TYPE_GIFT_STARS || type == TYPE_GIFT_THEME_UPDATE || type == TYPE_SUGGEST_BIRTHDAY || type == TYPE_GIFT_OFFER || type == TYPE_SHARING_OFFER) return false;
+        return !(messageOwner instanceof TLRPC.TL_message_secret) && !needDrawBluredPreview() && !isLiveLocation() && type != MessageObject.TYPE_PHONE_CALL && !isSponsored() && !messageOwner.noforwards && !isAyuDeleted();
     }
 
     public boolean canEditMedia() {
@@ -10918,7 +11010,8 @@ if (SoundGramConfig.stealthMode && SoundGramConfig.keepOnce) {
     public boolean canDeleteMessage(boolean inScheduleMode, TLRPC.Chat chat) {
         return (
             isStory() && messageOwner != null && messageOwner.dialog_id == UserConfig.getInstance(currentAccount).getClientUserId() ||
-            eventId == 0 && sponsoredId == null && canDeleteMessage(currentAccount, inScheduleMode, messageOwner, chat)
+            eventId == 0 && sponsoredId == null && canDeleteMessage(currentAccount, inScheduleMode, messageOwner, chat) ||
+            isAyuDeleted()
         );
     }
 

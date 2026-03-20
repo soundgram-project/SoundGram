@@ -10,7 +10,9 @@ package org.telegram.messenger;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.Application;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -23,14 +25,18 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
@@ -41,22 +47,34 @@ import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.Components.ForegroundDetector;
+import org.telegram.ui.Components.UpdateAppAlertDialog;
 import org.telegram.ui.Components.ItemOptions;
+import org.telegram.ui.Components.UpdateLayout;
 import org.telegram.ui.IUpdateLayout;
 import org.telegram.ui.LauncherIconController;
 import org.telegram.messenger.SoundGramConfig;
 import org.telegram.ui.SoundGramSettingsActivity;
 import java.io.File;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+
+import tw.nekomimi.nekogram.NekoConfig;
+import xyz.nextalone.nagram.NaConfig;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
+
+import static android.os.Build.VERSION.SDK_INT;
 
 public class ApplicationLoader extends Application {
 
     public static ApplicationLoader applicationLoaderInstance;
 
+    private static PendingIntent pendingIntent;
+
     @SuppressLint("StaticFieldLeak")
     public static volatile Context applicationContext;
     public static volatile NetworkInfo currentNetworkInfo;
     public static volatile Handler applicationHandler;
+    public static final CountDownLatch countDownLatch = new CountDownLatch(1);
 
     private static ConnectivityManager connectivityManager;
     private static volatile boolean applicationInited = false;
@@ -81,49 +99,59 @@ public class ApplicationLoader extends Application {
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
+        try {
+            applicationContext = getApplicationContext();
+        } catch (Throwable ignore) {
+        }
+        Thread.currentThread().setUncaughtExceptionHandler((thread, error) -> {
+            Log.e("nekox", "from " + thread.toString(), error);
+        });
     }
 
     public static ILocationServiceProvider getLocationServiceProvider() {
         if (locationServiceProvider == null) {
-            locationServiceProvider = applicationLoaderInstance.onCreateLocationServiceProvider();
-            locationServiceProvider.init(applicationContext);
+            locationServiceProvider = new GoogleLocationProvider();
         }
         return locationServiceProvider;
     }
 
-    protected ILocationServiceProvider onCreateLocationServiceProvider() {
+    /*protected ILocationServiceProvider onCreateLocationServiceProvider() {
         return new GoogleLocationProvider();
-    }
+    }*/
 
     public static IMapsProvider getMapsProvider() {
         if (mapsProvider == null) {
-            mapsProvider = applicationLoaderInstance.onCreateMapsProvider();
+            if (NekoConfig.useOSMDroidMap.Bool())
+                mapsProvider = new OSMDroidMapsProvider();
+            else {
+                mapsProvider = new GoogleMapsProvider();
+            }
         }
         return mapsProvider;
     }
 
-    protected IMapsProvider onCreateMapsProvider() {
+    /*protected IMapsProvider onCreateMapsProvider() {
         return new GoogleMapsProvider();
-    }
+    }*/
 
     public static PushListenerController.IPushListenerServiceProvider getPushProvider() {
         if (pushProvider == null) {
-            pushProvider = applicationLoaderInstance.onCreatePushProvider();
+            pushProvider = PushListenerController.getProvider();
         }
         return pushProvider;
     }
 
-    protected PushListenerController.IPushListenerServiceProvider onCreatePushProvider() {
+    /*protected PushListenerController.IPushListenerServiceProvider onCreatePushProvider() {
         return PushListenerController.GooglePushListenerServiceProvider.INSTANCE;
-    }
+    }*/
 
     public static String getApplicationId() {
-        return applicationLoaderInstance.onGetApplicationId();
+        return BuildConfig.APPLICATION_ID;
     }
 
-    protected String onGetApplicationId() {
+    /*protected String onGetApplicationId() {
         return null;
-    }
+    }*/
 
     public static boolean isHuaweiStoreBuild() {
         return applicationLoaderInstance.isHuaweiBuild();
@@ -146,11 +174,11 @@ public class ApplicationLoader extends Application {
     }
 
     protected boolean isStandalone() {
-        return false;
+        return true;
     }
 
     protected boolean isBeta() {
-        return false;
+        return BuildConfig.DEBUG;
     }
 
     protected boolean isAndroidTestEnv() {
@@ -172,7 +200,7 @@ public class ApplicationLoader extends Application {
         } catch (Exception e) {
             FileLog.e(e);
         }
-        return new File("/data/data/org.telegram.messenger/files");
+        return new File("/data/data/" + BuildConfig.APPLICATION_ID + "/files");
     }
 
     public static File getFilesDirFixed(String child) {
@@ -245,7 +273,10 @@ public class ApplicationLoader extends Application {
         }
 
         SharedConfig.loadConfig();
+        NekoConfig.init();
+        NaConfig.init();
         SharedPrefsHelper.init(applicationContext);
+        FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(!NaConfig.INSTANCE.getDisableCrashlyticsCollection().Bool());
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
             UserConfig.getInstance(a).loadConfig();
             MessagesController.getInstance(a);
@@ -261,8 +292,8 @@ public class ApplicationLoader extends Application {
             }
         }
 
-        ApplicationLoader app = (ApplicationLoader) ApplicationLoader.applicationContext;
-        app.initPushServices();
+        // init fcm
+        initPushServices();
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("app initied");
         }
@@ -288,6 +319,7 @@ public class ApplicationLoader extends Application {
 
         }
         SoundGramConfig.load();
+
         super.onCreate();
 
         if (BuildVars.LOGS_ENABLED) {
@@ -341,29 +373,67 @@ public class ApplicationLoader extends Application {
 
         applicationHandler = new Handler(applicationContext.getMainLooper());
 
-        AndroidUtilities.runOnUIThread(ApplicationLoader::startPushService);
+        org.osmdroid.config.Configuration.getInstance().setUserAgentValue("Telegram-FOSS ( NekoX ) " + BuildConfig.VERSION_NAME);
+        org.osmdroid.config.Configuration.getInstance().setOsmdroidBasePath(new File(ApplicationLoader.applicationContext.getCacheDir(), "osmdroid"));
 
         LauncherIconController.tryFixLauncherIconIfNeeded();
         ProxyRotationController.init();
     }
 
+    // Local Push Service, TFoss implementation
     public static void startPushService() {
-        SharedPreferences preferences = MessagesController.getGlobalNotificationsSettings();
+        Utilities.stageQueue.postRunnable(ApplicationLoader::startPushServiceInternal);
+    }
+
+    private static void startPushServiceInternal() {
+        if (PushListenerController.getProvider().hasServices()) {
+            return;
+        }
+        SharedPreferences preferences = MessagesController.getNotificationsSettings(UserConfig.selectedAccount);
         boolean enabled;
         if (preferences.contains("pushService")) {
             enabled = preferences.getBoolean("pushService", true);
         } else {
             enabled = MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("keepAliveService", false);
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putBoolean("pushService", enabled);
+            editor.putBoolean("pushConnection", enabled);
+            editor.apply();
+            ConnectionsManager.getInstance(UserConfig.selectedAccount).setPushConnectionEnabled(enabled);
         }
         if (enabled) {
-            try {
-                applicationContext.startService(new Intent(applicationContext, NotificationsService.class));
-            } catch (Throwable ignore) {
+            AndroidUtilities.runOnUIThread(() -> {
+                try {
+                    Log.d("TFOSS", "Starting push service...");
+                    if (NaConfig.INSTANCE.getPushServiceTypeInAppDialog().Bool()) {
+                        applicationContext.startForegroundService(new Intent(applicationContext, NotificationsService.class));
+                    } else {
+                        applicationContext.startService(new Intent(applicationContext, NotificationsService.class));
+                    }
 
-            }
-        } else {
+                    Log.d("TFOSS", "Trying to start push service every 10 minutes");
+                    // Telegram-FOSS: unconditionally enable push service
+                    AlarmManager am = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
+                    Intent i = new Intent(applicationContext, NotificationsService.class);
+                    pendingIntent = PendingIntent.getBroadcast(applicationContext, 0, i, PendingIntent.FLAG_IMMUTABLE);
+
+                    am.cancel(pendingIntent);
+                    am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 10 * 60 * 1000, pendingIntent);
+                } catch (Throwable e) {
+                    Log.e("TFOSS", "Failed to start push service");
+                }
+            });
+
+        } else AndroidUtilities.runOnUIThread(() -> {
             applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
-        }
+
+            PendingIntent pintent = PendingIntent.getService(applicationContext, 0, new Intent(applicationContext, NotificationsService.class), PendingIntent.FLAG_MUTABLE);
+            AlarmManager alarm = (AlarmManager)applicationContext.getSystemService(Context.ALARM_SERVICE);
+            alarm.cancel(pintent);
+            if (pendingIntent != null) {
+                alarm.cancel(pendingIntent);
+            }
+        });
     }
 
     @Override
@@ -379,7 +449,7 @@ public class ApplicationLoader extends Application {
         }
     }
 
-    private void initPushServices() {
+    private static void initPushServices() {
         AndroidUtilities.runOnUIThread(() -> {
             if (getPushProvider().hasServices()) {
                 getPushProvider().onRequestPushToken();
@@ -389,11 +459,12 @@ public class ApplicationLoader extends Application {
                 }
                 SharedConfig.pushStringStatus = "__NO_GOOGLE_PLAY_SERVICES__";
                 PushListenerController.sendRegistrationToServer(getPushProvider().getPushType(), null);
+                startPushService();
             }
         }, 1000);
     }
 
-    private boolean checkPlayServices() {
+    /*private boolean checkPlayServices() {
         try {
             int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
             return resultCode == ConnectionResult.SUCCESS;
@@ -401,7 +472,7 @@ public class ApplicationLoader extends Application {
             FileLog.e(e);
         }
         return true;
-    }
+    }*/
 
     private static long lastNetworkCheck = -1;
     private static void ensureCurrentNetworkGet() {
@@ -631,11 +702,52 @@ public class ApplicationLoader extends Application {
     }
 
     public boolean openApkInstall(Activity activity, TLRPC.Document document) {
-        return false;
+        boolean exists = false;
+        try {
+            String fileName = FileLoader.getAttachFileName(document);
+            File f = FileLoader.getInstance(UserConfig.selectedAccount).getPathToAttach(document, true);
+            if (exists = f.exists()) {
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                if (Build.VERSION.SDK_INT >= 24) {
+                    intent.setDataAndType(FileProvider.getUriForFile(activity, ApplicationLoader.getApplicationId() + ".provider", f), "application/vnd.android.package-archive");
+                } else {
+                    intent.setDataAndType(Uri.fromFile(f), "application/vnd.android.package-archive");
+                }
+                try {
+                    activity.startActivityForResult(intent, 500);
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return exists;
+    }
+
+    @Nullable
+    public static Intent registerReceiverNotExported(@Nullable BroadcastReceiver receiver, IntentFilter filter) {
+        return ApplicationLoader.registerReceiverNotExported(ApplicationLoader.applicationContext, receiver, filter);
+    }
+
+    @Nullable
+    public static Intent registerReceiverNotExported(Context context, @Nullable BroadcastReceiver receiver, IntentFilter filter) {
+        if (SDK_INT < 33) {
+            return context.registerReceiver(receiver, filter);
+        } else {
+            return context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        }
     }
 
     public boolean showUpdateAppPopup(Context context, TLRPC.TL_help_appUpdate update, int account) {
-        return false;
+        try {
+            (new UpdateAppAlertDialog(context, update, account)).show();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return true;
     }
 
     public boolean showCustomUpdateAppPopup(Context context, BetaUpdate update, int account) {
@@ -643,7 +755,7 @@ public class ApplicationLoader extends Application {
     }
 
     public IUpdateLayout takeUpdateLayout(Activity activity, ViewGroup sideMenuContainer) {
-        return null;
+        return new UpdateLayout(activity, sideMenuContainer);
     }
 
     public TLRPC.Update parseTLUpdate(int constructor) {

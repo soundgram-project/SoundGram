@@ -69,11 +69,14 @@ import android.view.WindowManager;
 import android.webkit.MimeTypeMap;
 import android.widget.FrameLayout;
 
+import androidx.annotation.RequiresApi;
+
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
 import com.google.android.gms.cast.MediaMetadata;
 import com.google.android.gms.common.images.WebImage;
+import com.radolyn.ayugram.AyuConstants;
 
 import org.telegram.messenger.audioinfo.AudioInfo;
 import org.telegram.messenger.chromecast.ChromecastController;
@@ -94,6 +97,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Adapters.FiltersView;
 import org.telegram.ui.CastSync;
 import org.telegram.ui.ChatActivity;
+import org.telegram.ui.Components.AudioPlayerAlert;
 import org.telegram.ui.Components.EmbedBottomSheet;
 import org.telegram.ui.Components.PermissionRequest;
 import org.telegram.ui.Components.PhotoFilterView;
@@ -116,6 +120,7 @@ import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -124,6 +129,12 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+
+import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.SaveToDownloadReceiver;
+import tw.nekomimi.nekogram.helpers.ChatsHelper;
+import xyz.nextalone.nagram.NaConfig;
+import xyz.nextalone.nagram.helper.AudioEnhance;
 
 public class MediaController implements AudioManager.OnAudioFocusChangeListener, NotificationCenter.NotificationCenterDelegate, SensorEventListener {
 
@@ -493,7 +504,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         public boolean isCropped;
         public int ttl;
         public long effectId;
-        public boolean highQuality;
+        public boolean highQuality = NaConfig.INSTANCE.getSendHighQualityPhoto().Bool();
 
         public CropState cropState;
 
@@ -522,7 +533,24 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             savedFilterState = null;
             stickers = null;
             cropState = null;
-            highQuality = false;
+            highQuality = NaConfig.INSTANCE.getSendHighQualityPhoto().Bool();
+        }
+
+        public void resetEdit() {
+            thumbPath = null;
+            filterPath = null;
+            imagePath = null;
+            paintPath = null;
+            croppedPaintPath = null;
+            isFiltered = false;
+            isPainted = false;
+            isCropped = false;
+            mediaEntities = null;
+            editedInfo = null;
+            entities = null;
+            savedFilterState = null;
+            stickers = null;
+            cropState = null;
         }
 
         public void copyFrom(MediaEditState state) {
@@ -707,7 +735,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             Bitmap b;
             if (cropState != null) {
                 b = PhotoViewer.createCroppedBitmap(bitmap, cropState, new int[] { orientation.first, orientation.second }, true);
-                bitmap.recycle();
+                AndroidUtilities.recycleBitmap(bitmap);
             } else {
                 if (orientation.first != 0) {
                     Matrix matrix = new Matrix();
@@ -718,7 +746,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         matrix.postScale(1, -1);
                     }
                     b = Bitmaps.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-                    bitmap.recycle();
+                    AndroidUtilities.recycleBitmap(bitmap);
                 } else {
                     b = bitmap;
                 }
@@ -731,7 +759,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (cropState != null) {
                     Bitmap b2 = BitmapFactory.decodeFile(fullPaintPath);
                     paintBitmap = PhotoViewer.createCroppedBitmap(b2, cropState, null, false);
-                    b2.recycle();
+                    AndroidUtilities.recycleBitmap(b2);
                 } else {
                     paintBitmap = BitmapFactory.decodeFile(fullPaintPath);
                 }
@@ -838,6 +866,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
     };
 
+    public final static int VIDEO_BITRATE_2160 = 28400_000;
+    public final static int VIDEO_BITRATE_1440 = 14000_000;
     public final static int VIDEO_BITRATE_1080 = 6800_000;
     public final static int VIDEO_BITRATE_720 = 2621_440;
     public final static int VIDEO_BITRATE_480 = 1000_000;
@@ -1318,6 +1348,21 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         return localInstance;
     }
 
+    public void recreateProximityWakeLock() {
+
+        if (NekoConfig.disableProximityEvents.Bool()) {
+            proximityWakeLock = null;
+            return;
+        }
+
+        try {
+            PowerManager powerManager = (PowerManager) ApplicationLoader.applicationContext.getSystemService(Context.POWER_SERVICE);
+            proximityWakeLock = powerManager.newWakeLock(0x00000020, "telegram:proximity_lock");
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
     public MediaController() {
         recordQueue = new DispatchQueue("recordQueue");
         recordQueue.setPriority(Thread.MAX_PRIORITY);
@@ -1360,8 +1405,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     gravitySensor = null;
                 }
                 proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-                PowerManager powerManager = (PowerManager) ApplicationLoader.applicationContext.getSystemService(Context.POWER_SERVICE);
-                proximityWakeLock = powerManager.newWakeLock(0x00000020, "telegram:proximity_lock");
+                recreateProximityWakeLock();
             } catch (Exception e) {
                 FileLog.e(e);
             }
@@ -1721,7 +1765,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 }
             }
         }
-        if (send) {
+        if (send && false) {
             if (lastSecretChat != null) {
                 SecretChatHelper.getInstance(lastChatAccount).sendScreenshotMessage(lastSecretChat, lastChatVisibleMessages, null);
             } else {
@@ -1770,7 +1814,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             ArrayList<Integer> markAsDeletedMessages = (ArrayList<Integer>) args[0];
             if (playingMessageObject != null) {
                 if (channelId == playingMessageObject.messageOwner.peer_id.channel_id) {
-                    if (markAsDeletedMessages.contains(playingMessageObject.getId())) {
+                    if (markAsDeletedMessages.contains(playingMessageObject.getId()) && !NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
                         cleanupPlayer(true, true);
                     }
                 }
@@ -1916,7 +1960,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
 
     private boolean isNearToSensor(float value) {
-        return value < 5.0f && value != proximitySensor.getMaximumRange();
+        return !NekoConfig.disableProximityEvents.Bool() && value < 5.0f && value != proximitySensor.getMaximumRange();
     }
 
     public boolean isRecordingOrListeningByProximity() {
@@ -2605,6 +2649,12 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         return -1;
     }
 
+    public void seekShift(int ms) {
+        if (audioPlayer != null) {
+            audioPlayer.seekTo(Math.max(0, audioPlayer.getCurrentPosition() + ms));
+        }
+    }
+
     public long getDuration() {
         if (audioPlayer == null) {
             return 0;
@@ -2749,17 +2799,17 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         if (classGuid < 0) {
             // БЛОК ДЛЯ ВАШИХ ПЛЕЙЛИСТОВ (Поиск, Избранное и т.д.)
             // Прерываем попытку загрузки истории из чата, так как список локальный/статичный
-            
+
             if (BuildVars.LOGS_ENABLED) {
                 FileLog.d("telegram: Игнорируем автозагрузку из чата, так как это кастомный плейлист (Guid: " + classGuid + ")");
             }
 
-            loadingPlaylist = false; 
-            playlistEndReached[0] = true; 
+            loadingPlaylist = false;
+            playlistEndReached[0] = true;
 
         } else {
             // СТАНДАРТНАЯ ЛОГИКА ТЕЛЕГРАМА (Загрузка истории основного канала)
-            
+
             //TODO topics
             if (!playlistEndReached[0]) {
                 loadingPlaylist = true;
@@ -2814,7 +2864,7 @@ if (!SharedConfig.playOrderReversed) {
             playlistMap.put(id, messageObject);
         }
     }
-    
+
     // --- ИЗМЕНЕНИЕ: Сортируем ТОЛЬКО если это стандартный чат (ID > 0) ---
     // Если mergeDialogId < 0 (ваш кастомный плейлист), мы сохраняем порядок добавления (из вашего ArrayList)
     if (mergeDialogId >= 0) {
@@ -2914,40 +2964,14 @@ if (!SharedConfig.playOrderReversed) {
             return;
         }
 
+        if (byStop && SharedConfig.repeatMode == AudioPlayerAlert.PLAY_ONCE && !forceLoopCurrentPlaylist) {
+            stopPlaybackOnTrackEnd();
+            return;
+        }
+
         boolean last = traversePlaylist(currentPlayList, SharedConfig.playOrderReversed ? +1 : -1);
         if (last && byStop && SharedConfig.repeatMode == 0 && !forceLoopCurrentPlaylist) {
-            if (audioPlayer != null || videoPlayer != null) {
-                if (audioPlayer != null) {
-                    try {
-                        audioPlayer.releasePlayer(true);
-                    } catch (Exception e) {
-                        FileLog.e(e);
-                    }
-                    audioPlayer = null;
-                    Theme.unrefAudioVisualizeDrawable(playingMessageObject);
-                } else {
-                    currentAspectRatioFrameLayout = null;
-                    currentTextureViewContainer = null;
-                    currentAspectRatioFrameLayoutReady = false;
-                    currentTextureView = null;
-                    videoPlayer.releasePlayer(true);
-                    videoPlayer = null;
-                    try {
-                        baseActivity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                    } catch (Exception e) {
-                        FileLog.e(e);
-                    }
-                    AndroidUtilities.cancelRunOnUIThread(setLoadingRunnable);
-                    FileLoader.getInstance(playingMessageObject.currentAccount).removeLoadingVideo(playingMessageObject.getDocument(), true, false);
-                }
-                stopProgressTimer();
-                lastProgress = 0;
-                isPaused = true;
-                playingMessageObject.audioProgress = 0.0f;
-                playingMessageObject.audioProgressSec = 0;
-                NotificationCenter.getInstance(playingMessageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingProgressDidChanged, playingMessageObject.getId(), 0);
-                NotificationCenter.getInstance(playingMessageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingPlayStateChanged, playingMessageObject.getId());
-            }
+            stopPlaybackOnTrackEnd();
             return;
         }
         if (currentPlaylistNum < 0 || currentPlaylistNum >= currentPlayList.size()) {
@@ -2958,6 +2982,41 @@ if (!SharedConfig.playOrderReversed) {
         }
         playMusicAgain = true;
         playMessage(currentPlayList.get(currentPlaylistNum));
+    }
+
+    private void stopPlaybackOnTrackEnd() {
+        if (audioPlayer != null || videoPlayer != null) {
+            if (audioPlayer != null) {
+                try {
+                    audioPlayer.releasePlayer(true);
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+                audioPlayer = null;
+                Theme.unrefAudioVisualizeDrawable(playingMessageObject);
+            } else {
+                currentAspectRatioFrameLayout = null;
+                currentTextureViewContainer = null;
+                currentAspectRatioFrameLayoutReady = false;
+                currentTextureView = null;
+                videoPlayer.releasePlayer(true);
+                videoPlayer = null;
+                try {
+                    baseActivity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+                AndroidUtilities.cancelRunOnUIThread(setLoadingRunnable);
+                FileLoader.getInstance(playingMessageObject.currentAccount).removeLoadingVideo(playingMessageObject.getDocument(), true, false);
+            }
+            stopProgressTimer();
+            lastProgress = 0;
+            isPaused = true;
+            playingMessageObject.audioProgress = 0.0f;
+            playingMessageObject.audioProgressSec = 0;
+            NotificationCenter.getInstance(playingMessageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingProgressDidChanged, playingMessageObject.getId(), 0);
+            NotificationCenter.getInstance(playingMessageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingPlayStateChanged, playingMessageObject.getId());
+        }
     }
 
     public void playPreviousMessage() {
@@ -3790,6 +3849,9 @@ if (!SharedConfig.playOrderReversed) {
             if (exists) {
                 if (!messageObject.mediaExists && cacheFile != file) {
                     AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.fileLoaded, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
+                    if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && messageObject.isAyuDeleted()) {
+                        AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(AyuConstants.DELETED_MEDIA_LOADED_NOTIFICATION, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
+                    }
                 }
                 videoPlayer.preparePlayer(Uri.fromFile(cacheFile), "other");
             } else {
@@ -3846,8 +3908,10 @@ if (!SharedConfig.playOrderReversed) {
                                 if (!playlist.isEmpty() && (playlist.size() > 1 || !messageObject.isVoice())) {
                                     playNextMessageWithoutOrder(true);
                                 } else {
-                                    cleanupPlayer(true, hasNoNextVoiceOrRoundVideoMessage(), messageObject.isVoice(), false);
+                                    if (NaConfig.INSTANCE.getDontAutoPlayNextVoice().Bool()) {
+                                    MediaController.getInstance().cleanupPlayer(true, true);
                                 }
+                                cleanupPlayer(true, hasNoNextVoiceOrRoundVideoMessage(), messageObject.isVoice(), false);}
                             }
                         } else if (audioPlayer != null && seekToProgressPending != 0 && (playbackState == ExoPlayer.STATE_READY || playbackState == ExoPlayer.STATE_IDLE)) {
                             int seekTo = (int) (audioPlayer.getDuration() * seekToProgressPending);
@@ -3898,6 +3962,9 @@ if (!SharedConfig.playOrderReversed) {
                 if (exists) {
                     if (!messageObject.mediaExists && cacheFile != file) {
                         AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.fileLoaded, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
+                        if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && messageObject.isAyuDeleted()) {
+                            AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(AyuConstants.DELETED_MEDIA_LOADED_NOTIFICATION, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
+                        }
                     }
                     audioPlayer.preparePlayer(Uri.fromFile(cacheFile), "other");
                     isStreamingCurrentAudio = false;
@@ -4663,7 +4730,7 @@ if (!SharedConfig.playOrderReversed) {
         requestRecordAudioFocus(true);
 
         try {
-            feedbackView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+            if (!NekoConfig.disableVibration.Bool()) feedbackView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
         } catch (Exception ignore) {}
 
         recordQueue.postRunnable(recordStartRunnable = () -> {
@@ -4732,6 +4799,7 @@ if (!SharedConfig.playOrderReversed) {
                 recordQuickReplyShortcut = quick_shortcut;
                 recordQuickReplyShortcutId = quick_shortcut_id;
                 fileBuffer.rewind();
+                AudioEnhance.INSTANCE.initVoiceEnhance(audioRecorder);
 
                 audioRecorder.startRecording();
             } catch (Exception e) {
@@ -4746,6 +4814,7 @@ if (!SharedConfig.playOrderReversed) {
                     recordingPrevAudioFile = null;
                 }
                 try {
+                    AudioEnhance.INSTANCE.releaseVoiceEnhance();
                     audioRecorder.release();
                     audioRecorder = null;
                 } catch (Exception e2) {
@@ -4870,6 +4939,7 @@ if (!SharedConfig.playOrderReversed) {
                     audioToSend.attributes.clear();
                     audioToSend.attributes.add(attributeAudio);
                     if (duration > 700) {
+                        NotificationCenter.getInstance(recordingCurrentAccount).postNotificationName(NotificationCenter.beforeAudioDidSent, recordingGuid, send == 2 ? audioToSend : null, send == 2 ? recordingAudioFileToSend.getAbsolutePath() : null);
                         if (send == 1) {
                             SendMessagesHelper.SendMessageParams params = SendMessagesHelper.SendMessageParams.of(audioToSend, null, recordingAudioFileToSend.getAbsolutePath(), recordDialogId, recordReplyingMsg, recordReplyingTopMsg, null, null, null, null, notify, scheduleDate, 0, once ? 0x7FFFFFFF : 0, null, null, false);
                             params.monoForumPeer = recordMonoForumPeerId;
@@ -4899,6 +4969,7 @@ if (!SharedConfig.playOrderReversed) {
             requestRecordAudioFocus(false);
         }
         try {
+            AudioEnhance.INSTANCE.releaseVoiceEnhance();
             if (audioRecorder != null) {
                 audioRecorder.release();
                 audioRecorder = null;
@@ -4953,7 +5024,7 @@ if (!SharedConfig.playOrderReversed) {
                 stopRecordingInternal(0, false, 0, false, 0);
             }
             try {
-                feedbackView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+                if (!NekoConfig.disableVibration.Bool()) feedbackView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
             } catch (Exception ignore) {}
             AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(recordingCurrentAccount).postNotificationName(NotificationCenter.recordStopped, recordingGuid, send == 2 ? 1 : 0));
         });
@@ -4973,7 +5044,10 @@ if (!SharedConfig.playOrderReversed) {
         private MessagesStorage.IntCallback onFinishRunnable;
         private boolean isMusic;
 
+        private final int notificationId;
+
         public MediaLoader(Context context, AccountInstance accountInstance, ArrayList<MessageObject> messages, MessagesStorage.IntCallback onFinish) {
+            notificationId = SaveToDownloadReceiver.createNotificationId();
             currentAccount = accountInstance;
             messageObjects = messages;
             onFinishRunnable = onFinish;
@@ -4991,10 +5065,10 @@ if (!SharedConfig.playOrderReversed) {
             });
         }
 
-        public void start() {
+        public void start(Context context) {
             AndroidUtilities.runOnUIThread(() -> {
                 if (!finished) {
-                    progressDialog.show();
+                    SaveToDownloadReceiver.showNotification(context, notificationId, messageObjects.size(), () -> cancelled = true);
                 }
             }, 250);
 
@@ -5043,22 +5117,30 @@ if (!SharedConfig.playOrderReversed) {
                                 break;
                             }
                             if (!sourceFile.exists()) {
-                                sourceFile = FileLoader.getInstance(currentAccount.getCurrentAccount()).getPathToAttach(message.messageOwner, true);
+                                sourceFile = FileLoader.getInstance(currentAccount.getCurrentAccount()).getPathToMessage(message.messageOwner);
                                 FileLog.d("saving file: correcting path from " + path + " to " + (sourceFile == null ? null : sourceFile.getAbsolutePath()));
                             }
                             if (sourceFile != null && sourceFile.exists()) {
-                                saveFileInternal(isMusic ? 3 : 2, sourceFile, name);
+                                saveFileInternal(isMusic ? 3 : 2, sourceFile, name, message);
                                 copiedFiles++;
                             }
                         }
                     } else {
                         File dir;
+                        String folderName = NekoConfig.customSavePath.String();
+                        if (messageObjects.get(0) != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
+                            String chatFolderName = ChatsHelper.getChatFolderName(messageObjects.get(0));
+                            folderName = folderName + File.separator + chatFolderName;
+                        }
                         if (isMusic) {
                             dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC);
                         } else {
                             dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
                         }
-                        dir.mkdir();
+                        if (!TextUtils.isEmpty(folderName)) {
+                            dir = new File(dir, folderName);
+                        }
+                        dir.mkdirs();
                         for (int b = 0, N = messageObjects.size(); b < N; b++) {
                             MessageObject message = messageObjects.get(b);
                             TLRPC.Document document = message.getDocument();
@@ -5129,11 +5211,8 @@ if (!SharedConfig.playOrderReversed) {
             }
             AndroidUtilities.runOnUIThread(() -> {
                 try {
-                    if (progressDialog.isShowing()) {
-                        progressDialog.dismiss();
-                    } else {
-                        finished = true;
-                    }
+                    SaveToDownloadReceiver.cancelNotification(notificationId);
+                    finished = true;
                     if (onFinishRunnable != null) {
                         AndroidUtilities.runOnUIThread(() -> onFinishRunnable.run(copiedFiles));
                     }
@@ -5171,15 +5250,7 @@ if (!SharedConfig.playOrderReversed) {
                     @SuppressLint("DiscouragedPrivateApi") Method getInt = FileDescriptor.class.getDeclaredMethod("getInt$");
                     int fdint = (Integer) getInt.invoke(inputStream.getFD());
                     if (AndroidUtilities.isInternalUri(fdint)) {
-                        if (progressDialog != null) {
-                            AndroidUtilities.runOnUIThread(() -> {
-                                try {
-                                    progressDialog.dismiss();
-                                } catch (Exception e) {
-                                    FileLog.e(e);
-                                }
-                            });
-                        }
+                        AndroidUtilities.runOnUIThread(() -> SaveToDownloadReceiver.cancelNotification(notificationId));
                         return false;
                     }
                 } catch (Throwable e) {
@@ -5194,13 +5265,7 @@ if (!SharedConfig.playOrderReversed) {
                     if (a + 4096 >= size || lastProgress <= SystemClock.elapsedRealtime() - 500) {
                         lastProgress = SystemClock.elapsedRealtime();
                         final int progress = (int) (finishedProgress + 100.0f / messageObjects.size() * a / size);
-                        AndroidUtilities.runOnUIThread(() -> {
-                            try {
-                                progressDialog.setProgress(progress);
-                            } catch (Exception e) {
-                                FileLog.e(e);
-                            }
-                        });
+                        AndroidUtilities.runOnUIThread(() -> SaveToDownloadReceiver.updateNotification(notificationId, progress));
                     }
                 }
                 if (!cancelled) {
@@ -5227,13 +5292,7 @@ if (!SharedConfig.playOrderReversed) {
                     }
                     finishedProgress += 100.0f / messageObjects.size();
                     final int progress = (int) (finishedProgress);
-                    AndroidUtilities.runOnUIThread(() -> {
-                        try {
-                            progressDialog.setProgress(progress);
-                        } catch (Exception e) {
-                            FileLog.e(e);
-                        }
-                    });
+                    AndroidUtilities.runOnUIThread(() -> SaveToDownloadReceiver.updateNotification(notificationId, progress));
                     return true;
                 }
             } catch (Exception e) {
@@ -5257,13 +5316,7 @@ if (!SharedConfig.playOrderReversed) {
                     Long totalSize = (Long) args[2];
                     float loadProgress = loadedSize / (float) totalSize;
                     final int progress = (int) (finishedProgress + loadProgress / messageObjects.size() * 100);
-                    AndroidUtilities.runOnUIThread(() -> {
-                        try {
-                            progressDialog.setProgress(progress);
-                        } catch (Exception e) {
-                            FileLog.e(e);
-                        }
-                    });
+                    AndroidUtilities.runOnUIThread(() -> SaveToDownloadReceiver.updateNotification(notificationId, progress));
                 }
             }
         }
@@ -5273,7 +5326,7 @@ if (!SharedConfig.playOrderReversed) {
         if (messageObjects == null || messageObjects.isEmpty()) {
             return;
         }
-        new MediaLoader(context, accountInstance, messageObjects, onSaved).start();
+        new MediaLoader(context, accountInstance, messageObjects, onSaved).start(context);
     }
 
     public static void saveFile(String fullPath, Context context, final int type, final String name, final String mime) {
@@ -5285,6 +5338,18 @@ if (!SharedConfig.playOrderReversed) {
     }
 
     public static void saveFile(String fullPath, Context context, final int type, final String name, final String mime, final Utilities.Callback<Uri> onSaved, boolean showProgress) {
+        saveFile(null, fullPath, context, type, name, mime, onSaved, true);
+    }
+
+    public static void saveFile(MessageObject selectedObject, String fullPath, Context context, final int type, final String name, final String mime) {
+        saveFile(selectedObject, fullPath, context, type, name, mime, null);
+    }
+
+    public static void saveFile(MessageObject selectedObject, String fullPath, Context context, final int type, final String name, final String mime, final Utilities.Callback<Uri> onSaved) {
+        saveFile(selectedObject, fullPath, context, type, name, mime, onSaved, true);
+    }
+
+    public static void saveFile(MessageObject selectedObject, String fullPath, Context context, final int type, final String name, final String mime, final Utilities.Callback<Uri> onSaved, boolean showProgress) {
         if (fullPath == null || context == null) {
             return;
         }
@@ -5292,7 +5357,7 @@ if (!SharedConfig.playOrderReversed) {
         File file = null;
         if (!TextUtils.isEmpty(fullPath)) {
             file = new File(fullPath);
-            if (!file.exists() || AndroidUtilities.isInternalUri(Uri.fromFile(file))) {
+            if (!file.exists()) {
                 file = null;
             }
         }
@@ -5305,7 +5370,7 @@ if (!SharedConfig.playOrderReversed) {
         final boolean[] cancelled = new boolean[]{false};
         if (sourceFile.exists()) {
 
-            AlertDialog progressDialog = null;
+            int notificationId = SaveToDownloadReceiver.createNotificationId();
             final boolean[] finished = new boolean[1];
             if (context != null && type != 0) {
                 try {
@@ -5316,32 +5381,34 @@ if (!SharedConfig.playOrderReversed) {
                     dialog.setOnCancelListener(d -> cancelled[0] = true);
                     AndroidUtilities.runOnUIThread(() -> {
                         if (!finished[0]) {
-                            dialog.show();
+                            SaveToDownloadReceiver.showNotification(context, notificationId, 1, () -> cancelled[0] = true);
                         }
                     }, 250);
-                    progressDialog = dialog;
                 } catch (Exception e) {
                     FileLog.e(e);
                 }
             }
 
-            final AlertDialog finalProgress = progressDialog;
-
             new Thread(() -> {
                 try {
                     Uri uri;
                     boolean result = true;
+                    String folderName = NekoConfig.customSavePath.String();
+                    if (selectedObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
+                        String chatFolderName = ChatsHelper.getChatFolderName(selectedObject);
+                        folderName = folderName + File.separator + chatFolderName;
+                    }
                     if (Build.VERSION.SDK_INT >= 29) {
-                        uri = saveFileInternal(type, sourceFile, null);
+                        uri = saveFileInternal(type, sourceFile, name, selectedObject);
                         result = uri != null;
                     } else {
                         File destFile;
                         if (type == 0) {
-                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Telegram");
+                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), folderName);
                             destFile.mkdirs();
                             destFile = new File(destFile, AndroidUtilities.generateFileName(0, FileLoader.getFileExtension(sourceFile)));
                         } else if (type == 1) {
-                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "Telegram");
+                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), folderName);
                             destFile.mkdirs();
                             destFile = new File(destFile, AndroidUtilities.generateFileName(1, FileLoader.getFileExtension(sourceFile)));
                         } else {
@@ -5351,7 +5418,9 @@ if (!SharedConfig.playOrderReversed) {
                             } else {
                                 dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC);
                             }
-                            dir = new File(dir, "Telegram");
+                            if (!TextUtils.isEmpty(folderName)) {
+                                dir = new File(dir, folderName);
+                            }
                             dir.mkdirs();
                             destFile = new File(dir, name);
                             if (destFile.exists()) {
@@ -5380,15 +5449,7 @@ if (!SharedConfig.playOrderReversed) {
                                 @SuppressLint("DiscouragedPrivateApi") Method getInt = FileDescriptor.class.getDeclaredMethod("getInt$");
                                 int fdint = (Integer) getInt.invoke(inputStream.getFD());
                                 if (AndroidUtilities.isInternalUri(fdint)) {
-                                    if (finalProgress != null) {
-                                        AndroidUtilities.runOnUIThread(() -> {
-                                            try {
-                                                finalProgress.dismiss();
-                                            } catch (Exception e) {
-                                                FileLog.e(e);
-                                            }
-                                        });
-                                    }
+                                    AndroidUtilities.runOnUIThread(() -> SaveToDownloadReceiver.cancelNotification(notificationId));
                                     return;
                                 }
                             } catch (Throwable e) {
@@ -5399,19 +5460,13 @@ if (!SharedConfig.playOrderReversed) {
                                     break;
                                 }
                                 destination.transferFrom(source, a, Math.min(4096, size - a));
-                                if (finalProgress != null) {
+                                //if (finalProgress != null) {
                                     if (lastProgress <= System.currentTimeMillis() - 500) {
                                         lastProgress = System.currentTimeMillis();
                                         final int progress = (int) ((float) a / (float) size * 100);
-                                        AndroidUtilities.runOnUIThread(() -> {
-                                            try {
-                                                finalProgress.setProgress(progress);
-                                            } catch (Exception e) {
-                                                FileLog.e(e);
-                                            }
-                                        });
+                                        AndroidUtilities.runOnUIThread(() -> SaveToDownloadReceiver.updateNotification(notificationId, progress));
                                     }
-                                }
+                                //}
                             }
                         } catch (Exception e) {
                             FileLog.e(e);
@@ -5437,24 +5492,22 @@ if (!SharedConfig.playOrderReversed) {
                 } catch (Exception e) {
                     FileLog.e(e);
                 }
-                if (finalProgress != null) {
+                //if (finalProgress != null) {
                     AndroidUtilities.runOnUIThread(() -> {
                         try {
-                            if (finalProgress.isShowing()) {
-                                finalProgress.dismiss();
-                            } else {
-                                finished[0] = true;
-                            }
+                            SaveToDownloadReceiver.cancelNotification(notificationId);
+                            finished[0] = true;
                         } catch (Exception e) {
                             FileLog.e(e);
                         }
                     });
-                }
+                //}
             }).start();
         }
     }
 
-    private static Uri saveFileInternal(int type, File sourceFile, String filename) {
+    @RequiresApi(api = Build.VERSION_CODES.Q)
+    private static Uri saveFileInternal(int type, File sourceFile, String filename, MessageObject messageObject) {
         try {
             int selectedType = type;
             ContentValues contentValues = new ContentValues();
@@ -5472,12 +5525,17 @@ if (!SharedConfig.playOrderReversed) {
                     selectedType = 1;
                 }
             }
+            String folderName = NekoConfig.customSavePath.String();
+            if (messageObject != null && NaConfig.INSTANCE.getSaveToChatSubfolder().Bool()) {
+                String chatFolderName = ChatsHelper.getChatFolderName(messageObject);
+                folderName = folderName + File.separator + chatFolderName;
+            }
             if (selectedType == 0) {
                 if (filename == null) {
                     filename = AndroidUtilities.generateFileName(0, extension);
                 }
                 uriToInsert = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-                File dirDest = new File(Environment.DIRECTORY_PICTURES, "Telegram");
+                File dirDest = new File(Environment.DIRECTORY_PICTURES, folderName);
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 contentValues.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
                 contentValues.put(MediaStore.Images.Media.MIME_TYPE, mimeType);
@@ -5485,7 +5543,7 @@ if (!SharedConfig.playOrderReversed) {
                 if (filename == null) {
                     filename = AndroidUtilities.generateFileName(1, extension);
                 }
-                File dirDest = new File(Environment.DIRECTORY_MOVIES, "Telegram");
+                File dirDest = new File(Environment.DIRECTORY_MOVIES, folderName);
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 uriToInsert = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Video.Media.DISPLAY_NAME, filename);
@@ -5493,7 +5551,7 @@ if (!SharedConfig.playOrderReversed) {
                 if (filename == null) {
                     filename = sourceFile.getName();
                 }
-                File dirDest = new File(Environment.DIRECTORY_DOWNLOADS, "Telegram");
+                File dirDest = new File(Environment.DIRECTORY_DOWNLOADS, folderName);
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 uriToInsert = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Downloads.DISPLAY_NAME, filename);
@@ -5501,7 +5559,7 @@ if (!SharedConfig.playOrderReversed) {
                 if (filename == null) {
                     filename = sourceFile.getName();
                 }
-                File dirDest = new File(Environment.DIRECTORY_MUSIC, "Telegram");
+                File dirDest = new File(Environment.DIRECTORY_MUSIC, folderName);
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 uriToInsert = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Audio.Media.DISPLAY_NAME, filename);
@@ -6278,9 +6336,10 @@ if (!SharedConfig.playOrderReversed) {
 
         if (framerate == 0) {
             framerate = 25;
-        } else if (framerate > 59) {
-            framerate = 59;
         }
+//        else if (framerate > 59) {
+//            framerate = 59;
+//        }
 
         if (rotationValue == 90 || rotationValue == 270) {
             int temp = resultHeight;
@@ -6288,10 +6347,10 @@ if (!SharedConfig.playOrderReversed) {
             resultWidth = temp;
         }
 
-        if (!info.shouldLimitFps && framerate > 40 && (Math.min(resultHeight, resultWidth) <= 480)) {
-            framerate = 30;
-        }
-
+//        if (!info.shouldLimitFps && framerate > 40 && (Math.min(resultHeight, resultWidth) <= 480)) {
+//            framerate = 30;
+//        }
+//
         boolean needCompress = avatarStartTime != -1 || info.cropState != null || info.mediaEntities != null || info.paintPath != null || info.filterState != null ||
                 resultWidth != originalWidth || resultHeight != originalHeight || rotationValue != 0 || info.roundVideo || startTime != -1 || !info.mixedSoundInfos.isEmpty();
 
@@ -6382,7 +6441,15 @@ if (!SharedConfig.playOrderReversed) {
         float compressFactor;
         float minCompressFactor;
         int maxBitrate;
-        if (Math.min(height, width) >= 1080) {
+        if (Math.min(height, width) >= 2160) {
+            maxBitrate = 12000_000;
+            compressFactor = 1f;
+            minCompressFactor = 1f;
+        } else if (Math.min(height, width) >= 1440) {
+            maxBitrate = 8000_000;
+            compressFactor = 1f;
+            minCompressFactor = 1f;
+        } else if (Math.min(height, width) >= 1080) {
             maxBitrate = 6800_000;
             compressFactor = 1f;
             minCompressFactor = 1f;
@@ -6398,6 +6465,18 @@ if (!SharedConfig.playOrderReversed) {
             maxBitrate = 750_000;
             compressFactor = 0.6f;
             minCompressFactor = 0.7f;
+        }
+        if (NaConfig.INSTANCE.getEnhancedVideoBitrate().Bool()) {
+            int size = Math.min(height, width);
+            if (size >= 2160) {
+                maxBitrate = VIDEO_BITRATE_2160;
+            } else if (size >= 1440) {
+                maxBitrate = VIDEO_BITRATE_1440;
+            } else if (size >= 1080) {
+                maxBitrate = VIDEO_BITRATE_1440;
+            } else if (size >= 720) {
+                maxBitrate = VIDEO_BITRATE_1080;
+            }
         }
         int remeasuredBitrate = (int) (originalBitrate / (Math.min(originalHeight / (float) (height), originalWidth / (float) (width))));
         remeasuredBitrate *= compressFactor;
