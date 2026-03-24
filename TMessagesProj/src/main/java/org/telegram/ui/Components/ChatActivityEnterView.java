@@ -123,6 +123,7 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import androidx.recyclerview.widget.ChatListItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
+import org.telegram.messenger.ZeroChat;
 import org.jetbrains.annotations.NotNull;
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
@@ -153,6 +154,7 @@ import org.telegram.messenger.R;
 import org.telegram.messenger.SendMessagesHelper;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.SharedPrefsHelper;
+import org.telegram.messenger.SoundGramConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.messenger.Utilities;
@@ -4932,6 +4934,26 @@ public class ChatActivityEnterView extends FrameLayout implements
             cell.setMinimumWidth(AndroidUtilities.dp(196));
             menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
 
+            // ZeroChat
+            cell = new ActionBarMenuSubItem(getContext(), false, false); // <--- ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЛО!
+            cell.setTextAndIcon("Выбрать ключ ZeroChat", R.drawable.msg_secret);
+            cell.setOnClickListener(v-> {
+                // Закрываем менюшку перед показом диалога (как в оригинале)
+                if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
+                    menuPopupWindow.dismiss();
+                }
+
+                AlertDialog.Builder b = new AlertDialog.Builder(parentActivity);
+                java.util.List<String> list = new java.util.ArrayList<>(SoundGramConfig.zeroChatKeys.keySet());
+                list.add(0, "🚫 Отключить");
+                b.setItems(list.toArray(new String[0]), (d, w) -> {
+                    SoundGramConfig.activeZeroChatKey = (w == 0) ? null : SoundGramConfig.zeroChatKeys.get(list.get(w));
+                });
+                b.show();
+            });
+            cell.setMinimumWidth(AndroidUtilities.dp(196));
+            menuPopupLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT, 0, 48 * a++, 0, 0));
+
             // Attach
             if (attachButton != null) {
                 cell = new ActionBarMenuSubItem(getContext(), false, true);
@@ -7796,6 +7818,27 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
     }
 
     public boolean sendMessage() {
+        // Находим начало метода sendMessage...
+
+// ВСТАВЛЯЕМ ТВОЙ ПЕРЕХВАТ:
+        if (SoundGramConfig.activeZeroChatKey != null && messageEditText.length() > 0) {
+            AlertDialog.Builder b = new AlertDialog.Builder(parentActivity);
+            b.setTitle("Скрытое сообщение");
+            final EditText input = new EditText(parentActivity);
+            input.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+            b.setView(input);
+            b.setPositiveButton("Отправить", (d, w) -> {
+                String finalTxt = ZeroChat.encryptAndEmbed(messageEditText.getText().toString(), input.getText().toString(), SoundGramConfig.activeZeroChatKey);
+                messageEditText.setText(finalTxt);
+                // Обрати внимание: если sendMessageInternal недоступен в ChatActivityEnterView,
+                // возможно придется вызывать delegate.onMessageSend(...)
+                sendMessageInternal(true, 0, 0, 0, true);
+            });
+            b.show();
+            return false; // Важно: делаем return (или return false, если метод boolean), чтобы оригинальная отправка остановилась!
+        }
+
+// ... дальше идет оригинальный код NagramX по отправке ...
         if (isInScheduleMode()) {
             AlertsCreator.createScheduleDatePickerDialog(parentActivity, parentFragment.getDialogId(), new AlertsCreator.ScheduleDatePickerDelegate() {
                 @Override

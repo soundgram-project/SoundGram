@@ -281,6 +281,27 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
             player = builder.build();
 
+            // --- SOUNDGRAM FX: ПОДКЛЮЧАЕМ ЭФФЕКТЫ И ПИТЧ ---
+            try {
+                // Инициализируем FX (ExoPlayer сам свяжет сессии через AuxEffectInfo)
+                org.telegram.ui.SoundGramAudioFX.initFX(0);
+
+                // Направляем звук в реверберацию (1.0f - максимальный уровень отправки)
+                if (org.telegram.ui.SoundGramAudioFX.getReverbId() != 0) {
+                    com.google.android.exoplayer2.audio.AuxEffectInfo effectInfo =
+                            new com.google.android.exoplayer2.audio.AuxEffectInfo(org.telegram.ui.SoundGramAudioFX.getReverbId(), 1.0f);
+                    player.setAuxEffectInfo(effectInfo);
+                }
+
+                // Применяем сохраненную скорость и тон (Pitch) сразу при старте трека
+                player.setPlaybackParameters(new PlaybackParameters(
+                        org.telegram.ui.SoundGramAudioFX.getCurrentSpeed(),
+                        org.telegram.ui.SoundGramAudioFX.getCurrentPitch()
+                ));
+            } catch (Exception e) {
+                FileLog.e("SoundGram FX Init Error: " + e.getMessage());
+            }
+            // ----------------------------------------------
             player.addAnalyticsListener(this);
             player.addListener(this);
             player.addVideoListener(this);
@@ -297,7 +318,6 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         if (mixedAudio) {
             if (audioPlayer == null) {
                 audioPlayer = new ExoPlayer.Builder(ApplicationLoader.applicationContext)
-                        .setRenderersFactory(new DefaultRenderersFactory(ApplicationLoader.applicationContext).setExtensionRendererMode(getPlayerExtensionRendererMode()))
                         .setTrackSelector(trackSelector)
                         .setLoadControl(loadControl).buildSimpleExoPlayer();
                 audioPlayer.addListener(new Player.Listener() {
@@ -1504,7 +1524,9 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public void setPlaybackSpeed(float speed) {
         try {
             if (player != null) {
-                player.setPlaybackParameters(new PlaybackParameters(speed, speed > 1.0f ? 0.98f : 1.0f));
+                // Меняем только скорость
+                PlaybackParameters param = new PlaybackParameters(speed, org.telegram.ui.SoundGramAudioFX.getCurrentPitch());
+                player.setPlaybackParameters(param);
             }
         } catch (Exception ignore) {}
     }

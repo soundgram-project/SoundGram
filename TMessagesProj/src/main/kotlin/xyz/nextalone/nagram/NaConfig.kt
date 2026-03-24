@@ -151,7 +151,7 @@ object NaConfig {
         addConfig(
             "DoubleTapAction",
             ConfigItem.configTypeInt,
-            3
+            1
         )
     val doubleTapActionOut =
         addConfig(
@@ -175,7 +175,7 @@ object NaConfig {
         addConfig(
             "CustomTitle",
             ConfigItem.configTypeString,
-            "Nagram X"
+            "SoundGram"
         )
     val dateOfForwardedMsg =
         addConfig(

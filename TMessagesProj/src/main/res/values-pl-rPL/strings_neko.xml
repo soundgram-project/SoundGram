@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="NekoSettings">Ustawienia Nagram X</string>
+    <string name="NekoSettings">Ustawienia SoundGram</string>
     <string name="IPv6">Preferuj IPv6</string>
     <string name="MessageMenu">Menu Wiadomości</string>
     <string name="HidePhone">Ukryj numer telefonu</string>
@@ -73,7 +73,7 @@
     <string name="OfficialChannel">Kanał Nagram</string>
     <string name="About">O aplikacji</string>
     <string name="IgnoreBlockedAbout">Nie będziesz już widzieć wiadomości od zablokowanych użytkowników w grupach.</string>
-    <string name="SourceCode">Kod źródłowy</string>
+    <string name="SourceCode">Support</string>
     <string name="ResetStickerSize">Zresetuj rozmiar naklejki</string>
     <string name="RestartAppToTakeEffect">Zresetuj aplikację, aby zastosować zmiany.</string>
     <string name="MediaPreview">Podgląd multimediów na liście czatów</string>
@@ -112,10 +112,10 @@
     <string name="enhancedFileLoader">Zwiększ prędkość pobierania</string>
     <string name="mapDriftingFixForGoogleMaps">Napraw dryfujące mapy Google w Chinach</string>
     <string name="useOSMDroidMap">Użyj mapy OSMDroid</string>
-    <string name="UnknownNekoSettingsOption">Nie ma takiej opcji w ustawieniach Nagram</string>
+    <string name="UnknownNekoSettingsOption">Nie ma takiej opcji w ustawieniach SoundGram</string>
     <string name="PasscodeNeeded">Najpierw musisz włączyć blokadę hasłem</string>
     <string name="PasscodeNeko">Hasło</string>
-    <string name="PasscodeShowInSettings">Pokaż w ustawieniach Nagram</string>
+    <string name="PasscodeShowInSettings">Pokaż w ustawieniach SounGram</string>
     <string name="PasscodeShowInSettingsAbout">Po ukryciu możesz otworzyć tę stronę **TYLKO** za pomocą linku:</string>
     <string name="PasscodeSet">Ustaw hasło</string>
     <string name="PasscodeEdit">Zmień hasło</string>

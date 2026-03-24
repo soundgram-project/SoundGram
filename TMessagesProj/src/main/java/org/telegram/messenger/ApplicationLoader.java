@@ -53,7 +53,6 @@ import org.telegram.ui.Components.UpdateLayout;
 import org.telegram.ui.IUpdateLayout;
 import org.telegram.ui.LauncherIconController;
 import org.telegram.messenger.SoundGramConfig;
-import org.telegram.ui.SoundGramSettingsActivity;
 import java.io.File;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;

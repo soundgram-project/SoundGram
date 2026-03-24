@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.Parcelable;
 import android.os.SystemClock;
@@ -32,6 +33,7 @@ import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.NotificationsService;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
+import org.telegram.messenger.SoundGramConfig;
 import org.telegram.messenger.UnifiedPushService;
 import org.telegram.messenger.UserConfig;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -39,6 +41,8 @@ import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.INavigationLayout;
 import org.telegram.ui.ActionBar.SimpleTextView;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Cells.TextCheckCell;
+import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
@@ -69,6 +73,12 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
 
     private ListAdapter listAdapter;
 
+    // Константы для SoundGram Кастомизации
+    private static final int CUSTOM_ITEM_CHAT_LIST_WALL = 1011;
+    private static final int CUSTOM_ITEM_CHAT_WALL = 1012;
+    private static final int CUSTOM_ITEM_LOCAL_PREMIUM = 1013;
+    private static final int CUSTOM_ITEM_HIDE_ALL_FOLDER = 1014;
+
     @Override
     protected RecyclerListView.SelectionAdapter getListAdapter() {
         return listAdapter;
@@ -97,8 +107,8 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     // General
     private final AbstractConfigCell headerGeneral = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.General)));
     private final AbstractConfigCell customTitleRow = cellGroup.appendCell(new ConfigCellTextInput(null, NaConfig.INSTANCE.getCustomTitle(),
-        getString(R.string.CustomTitleHint), null,
-        (input) -> input.isEmpty() ? (String) NaConfig.INSTANCE.getCustomTitle().defaultValue : input));
+            getString(R.string.CustomTitleHint), null,
+            (input) -> input.isEmpty() ? (String) NaConfig.INSTANCE.getCustomTitle().defaultValue : input));
     private final AbstractConfigCell folderNameAsTitleRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getFolderNameAsTitle()));
     private final AbstractConfigCell customTitleUserNameRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getCustomTitleUserName()));
     private final AbstractConfigCell disableNumberRoundingRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.disableNumberRounding, "4.8K -> 4777"));
@@ -115,6 +125,17 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             getString(R.string.FirstLast)
     }, null));
     private final AbstractConfigCell dividerGeneral = cellGroup.appendCell(new ConfigCellDivider());
+
+    // Customization (SoundGram)
+    private final AbstractConfigCell headerCustomization = cellGroup.appendCell(new ConfigCellHeader("Кастомизация"));
+    private final AbstractConfigCell chatListWallRow = cellGroup.appendCell(
+            new ConfigCellCustom("chatListWallRow", CUSTOM_ITEM_CHAT_LIST_WALL, true)
+    );
+
+    private final AbstractConfigCell chatWallRow = cellGroup.appendCell(
+            new ConfigCellCustom("chatWallRow", CUSTOM_ITEM_CHAT_WALL, true)
+    );
+    private final AbstractConfigCell dividerCustomization = cellGroup.appendCell(new ConfigCellDivider());
 
     // Storage
     private final AbstractConfigCell headerStorage = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.StorageSettings)));
@@ -143,7 +164,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     }, null));
     private final AbstractConfigCell dnsTypeRow = cellGroup.appendCell(new ConfigCellSelectBox(null, NekoConfig.dnsType, new String[]{
             getString(R.string.MapPreviewProviderTelegram),
-            getString(R.string.NagramX),
+            getString(R.string.SoundGram),
             getString(R.string.DnsTypeSystem),
             getString(R.string.CustomDoH),
     }, null));
@@ -226,7 +247,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     }, null));
     private final AbstractConfigCell notificationIconRow = cellGroup.appendCell(new ConfigCellSelectBox(null, NaConfig.INSTANCE.getNotificationIcon(), new String[]{
             getString(R.string.MapPreviewProviderTelegram),
-            getString(R.string.NagramX),
+            getString(R.string.SoundGram),
             getString(R.string.Nagram),
             getString(R.string.NekoX)
     }, null));
@@ -300,9 +321,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
         View superView = super.createView(context);
 
         listAdapter = new ListAdapter(context);
-
         listView.setAdapter(listAdapter);
-
         setupDefaultListeners();
 
         // Cells: Set OnSettingChanged Callbacks
@@ -438,8 +457,85 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             showLongClickOptions(view, options);
             return true;
         }
-        return false;
+        return super.onItemLongClick(view, position, x, y);
     }
+
+    // --- Обработчики кастомных кликов SoundGram ---
+    private void handleChatListWallClick() {
+        if (SoundGramConfig.chatListWallPath.isEmpty()) {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/*");
+            startActivityForResult(intent, 101);
+        } else {
+            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+            builder.setTitle("Фон списка чатов");
+            builder.setItems(new CharSequence[]{"Изменить", "Удалить"}, (dialog, which) -> {
+                if (which == 0) {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("image/*");
+                    startActivityForResult(intent, 101);
+                } else {
+                    SoundGramConfig.chatListWallPath = "";
+                    applyAndRestart();
+                }
+            });
+            showDialog(builder.create());
+        }
+    }
+
+    private void handleChatWallClick() {
+        if (SoundGramConfig.chatVideoPath.isEmpty()) {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("video/*");
+            startActivityForResult(intent, 102);
+        } else {
+            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+            builder.setTitle("Живые обои внутри чатов");
+            builder.setItems(new CharSequence[]{"Изменить", "Удалить"}, (dialog, which) -> {
+                if (which == 0) {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("video/*");
+                    startActivityForResult(intent, 102);
+                } else {
+                    SoundGramConfig.chatVideoPath = "";
+                    applyAndRestart();
+                }
+            });
+            showDialog(builder.create());
+        }
+    }
+
+    @Override
+    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        super.onActivityResultFragment(requestCode, resultCode, data);
+        if (resultCode == android.app.Activity.RESULT_OK && data != null && data.getData() != null) {
+            Uri uri = data.getData();
+            try {
+                getParentActivity().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (Exception e) {}
+            if (requestCode == 101) SoundGramConfig.chatListWallPath = uri.toString();
+            else if (requestCode == 102) SoundGramConfig.chatVideoPath = uri.toString();
+            applyAndRestart();
+        }
+    }
+
+    private void applyAndRestart() {
+        SoundGramConfig.save();
+        if (getParentActivity() != null) {
+            android.widget.Toast.makeText(getParentActivity(), "Применение настроек...", android.widget.Toast.LENGTH_SHORT).show();
+            AndroidUtilities.runOnUIThread(() -> {
+                Intent intent = new Intent(getParentActivity(), LaunchActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                getParentActivity().startActivity(intent);
+                Runtime.getRuntime().exit(0);
+            }, 300);
+        }
+    }
+    // ----------------------------------------------
 
     @Override
     public int getBaseGuid() {
@@ -469,8 +565,36 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             if (viewType == ConfigCellCustom.CUSTOM_ITEM_CharBlurAlpha) {
                 view = chatBlurAlphaSeekbar = new ChatBlurAlphaSeekBar(mContext);
                 chatBlurAlphaSeekbar.setEnabled(NekoConfig.forceBlurInChat.Bool());
+            } else if (viewType == CUSTOM_ITEM_CHAT_LIST_WALL) {
+                view = new TextSettingsCell(mContext);
+            } else if (viewType == CUSTOM_ITEM_CHAT_WALL) {
+                view = new TextSettingsCell(mContext);
+            }
+
+            // Задаем параметры слоя для кастомных ячеек
+            if (view != null && viewType != ConfigCellCustom.CUSTOM_ITEM_CharBlurAlpha) {
+                view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             }
             return view;
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            super.onBindViewHolder(holder, position);
+            int viewType = holder.getItemViewType();
+
+            // Обработка кликов и текста для фона списка чатов
+            if (viewType == CUSTOM_ITEM_CHAT_LIST_WALL) {
+                TextSettingsCell cell = (TextSettingsCell) holder.itemView;
+                cell.setText(SoundGramConfig.chatListWallPath.isEmpty() ? "Выбрать фон для списка" : "Изменить/Удалить фон списка", true);
+                cell.setOnClickListener(v -> handleChatListWallClick());
+            }
+            // Обработка кликов и текста для видео-обоев чатов
+            else if (viewType == CUSTOM_ITEM_CHAT_WALL) {
+                TextSettingsCell cell = (TextSettingsCell) holder.itemView;
+                cell.setText(SoundGramConfig.chatVideoPath.isEmpty() ? "Выбрать фон для чатов" : "Изменить/Удалить обои чатов", true);
+                cell.setOnClickListener(v -> handleChatWallClick());
+            }
         }
     }
 

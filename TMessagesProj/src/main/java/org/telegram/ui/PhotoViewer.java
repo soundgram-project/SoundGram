@@ -4485,7 +4485,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
 
     private void showDownloadAlert() {
         AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity, resourcesProvider);
-        builder.setTitle(getString(R.string.NagramX));
+        builder.setTitle(getString(R.string.SoundGram));
         builder.setPositiveButton(getString("OK", R.string.OK), null);
         boolean alreadyDownloading = currentMessageObject != null && currentMessageObject.isVideo() && FileLoader.getInstance(currentMessageObject.currentAccount).isLoadingFile(currentFileNames[0]);
         if (alreadyDownloading) {
@@ -7529,32 +7529,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 return false;
             }
             if (currentIndex < 0 || currentIndex >= imagesArrLocals.size()) {
-            return false;
-         }
+                return false;
+            }
 
             Object rawObject = imagesArrLocals.get(currentIndex);
             if (!(rawObject instanceof MediaController.PhotoEntry)) {
                 return false;
             }
             MediaController.PhotoEntry rounderEntry = (MediaController.PhotoEntry) rawObject;
-        // Показываем меню ТОЛЬКО если это видео
-        if (rounderEntry != null && rounderEntry.isVideo) {
-            // Создаем красивое системное меню (как на твоем скриншоте)
-            org.telegram.ui.Components.ItemOptions options = org.telegram.ui.Components.ItemOptions.makeOptions(containerView, pickerViewSendButton);
 
 
-            options.add(R.drawable.msg_archive_stories, "Отправить как кружок", () -> {
-                if (parentChatActivity != null) {
-                    org.telegram.messenger.RounderSender.sendRoundVideo(rounderEntry.path, getCurrentVideoEditedInfo(), parentChatActivity.getDialogId(), parentChatActivity);
-                }
-            });
 
-            // Показываем меню
-            options.show();
-
-            // Возвращаем true, чтобы не сработала обычная отправка
-            return true;
-        }
 
 
             if (sendPhotoType == SELECT_TYPE_STICKER) {
@@ -10875,7 +10860,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                         return;
                     }
                     AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity, resourcesProvider);
-                    builder.setTitle(getString(R.string.NagramX));
+                    builder.setTitle(getString(R.string.SoundGram));
                     builder.setMessage(getString(R.string.CantPlayVideo));
                     builder.setPositiveButton(getString("Open", R.string.Open), (dialog, which) -> {
                         try {
@@ -12803,7 +12788,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                         }
                         AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity, resourcesProvider);
                         builder.setMessage(getString("DiscardChanges", R.string.DiscardChanges));
-                        builder.setTitle(getString(R.string.NagramX));
+                        builder.setTitle(getString(R.string.SoundGram));
                         builder.setPositiveButton(getString("OK", R.string.OK), (dialogInterface, i) -> switchToEditMode(0));
                         builder.setNegativeButton(getString("Cancel", R.string.Cancel), null);
                         showAlertDialog(builder);

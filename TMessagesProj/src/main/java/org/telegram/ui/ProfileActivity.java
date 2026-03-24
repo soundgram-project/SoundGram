@@ -4581,7 +4581,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 AlertDialog.Builder builder1 = new AlertDialog.Builder(getParentActivity(), resourcesProvider);
                 builder1.setMessage(LocaleController.getString(R.string.AreYouSure));
-                builder1.setTitle(LocaleController.getString(R.string.NagramX));
+                builder1.setTitle(LocaleController.getString(R.string.SoundGram));
                 builder1.setPositiveButton(LocaleController.getString(R.string.OK), (dialogInterface, i) -> {
                     SharedConfig.pushAuthKey = null;
                     SharedConfig.pushAuthKeyId = null;
@@ -7370,7 +7370,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         if (channelParticipant instanceof TLRPC.TL_channelParticipantAdmin || participant instanceof TLRPC.TL_chatParticipantAdmin) {
                             showDialog(
                                     new AlertDialog.Builder(getParentActivity(), resourcesProvider)
-                                        .setTitle(LocaleController.getString(R.string.NagramX))
+                                        .setTitle(LocaleController.getString(R.string.SoundGram))
                                             .setMessage(formatString(R.string.AdminWillBeRemoved, ContactsController.formatName(user.first_name, user.last_name)))
                                             .setPositiveButton(LocaleController.getString(R.string.OK), (dialog, which) -> openRightsEdit.run(1))
                                             .setNegativeButton(LocaleController.getString(R.string.Cancel), null)

@@ -135,7 +135,7 @@ import org.telegram.ui.bots.BotLocation;
 import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.bots.SetupEmojiStatusSheet;
 import org.telegram.messenger.SoundGramConfig;
-import org.telegram.ui.SoundGramSettingsActivity;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -721,7 +721,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         items.add(SettingCell.Factory.of(100, 0xFF3CCFFF, 0xFF007AFF, R.drawable.filled_profile_settings, getString(R.string.NekoSettings)));
         items.add(UItem.asShadow(null));
 
-        items.add(SettingCell.Factory.of(777, 0xFF9F55DF, 0xFFC46EF4, R.drawable.msg_settings, "SoundGram settings"));
         items.add(SettingCell.Factory.of(1, 0xFF1CA5ED, 0xFF1488E1, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
         items.add(SettingCell.Factory.of(2, 0xFFF09F1B, 0xFFE18A11, R.drawable.settings_chat, getString(R.string.SettingsChat), getString(R.string.SettingsChatInfo)));
         if (NaConfig.INSTANCE.getShowStickersRowToplevel().Bool()) {
@@ -844,9 +843,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             return;
         }
         switch (item.id) {
-            case 777:
-                presentFragment(new SoundGramSettingsActivity());
-                break;
             case 1:
                 presentFragment(new UserInfoActivity());
                 break;
@@ -1453,9 +1449,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             case UpdateHelper.UPDATE_CHANNEL_RELEASE:
                 currentChannel += getString(R.string.AutoCheckUpdateRelease);
                 break;
-            case UpdateHelper.UPDATE_CHANNEL_BETA:
-                currentChannel += getString(R.string.AutoCheckUpdateBeta);
-                break;
         }
 
         builder.addItem(getString(R.string.AutoCheckUpdateSwitch) + currentChannel, R.drawable.sync_outline_28, (it) -> {
@@ -1472,15 +1465,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             });
             switchBuilder.addRadioItem(getString(R.string.AutoCheckUpdateRelease), NaConfig.INSTANCE.getAutoUpdateChannel().Int() == UpdateHelper.UPDATE_CHANNEL_RELEASE, (radioButtonCell) -> {
                 NaConfig.INSTANCE.getAutoUpdateChannel().setConfigInt(UpdateHelper.UPDATE_CHANNEL_RELEASE);
-                switchBuilder.doRadioCheck(radioButtonCell);
-                AndroidUtilities.runOnUIThread(() -> {
-                    switchBuilder.dismiss();
-                    Browser.openUrl(getContext(), "tg://update");
-                }, 500);
-                return Unit.INSTANCE;
-            });
-            switchBuilder.addRadioItem(getString(R.string.AutoCheckUpdateBeta), NaConfig.INSTANCE.getAutoUpdateChannel().Int() == UpdateHelper.UPDATE_CHANNEL_BETA, (radioButtonCell) -> {
-                NaConfig.INSTANCE.getAutoUpdateChannel().setConfigInt(UpdateHelper.UPDATE_CHANNEL_BETA);
                 switchBuilder.doRadioCheck(radioButtonCell);
                 AndroidUtilities.runOnUIThread(() -> {
                     switchBuilder.dismiss();

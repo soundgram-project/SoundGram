@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="NekoSettings">N-設定</string>
+    <string name="NekoSettings">SoundGram-設定</string>
     <string name="IPv6">IPv6 を優先</string>
     <string name="MessageMenu">メッセージメニュー</string>
     <string name="HidePhone">電話番号を非表示</string>
@@ -73,7 +73,7 @@
     <string name="OfficialChannel">Nagram チャンネル</string>
     <string name="About">アプリについて</string>
     <string name="IgnoreBlockedAbout">当ユーザーからのグループメッセージは表示されなくなります。</string>
-    <string name="SourceCode">ソースコード</string>
+    <string name="SourceCode">Support</string>
     <string name="ResetStickerSize">ステッカーサイズをリセット</string>
     <string name="RestartAppToTakeEffect">変更適用にはアプリを再起動。</string>
     <string name="MediaPreview">チャットリストのメディアプレビュー</string>
@@ -112,10 +112,10 @@
     <string name="enhancedFileLoader">ダウンロード速度の高速化</string>
     <string name="mapDriftingFixForGoogleMaps">中国における Google マップのずれを修正</string>
     <string name="useOSMDroidMap">OSMDroid マップを使用</string>
-    <string name="UnknownNekoSettingsOption">そのようなN-設定オプションはありません。</string>
+    <string name="UnknownNekoSettingsOption">そのようなSoundGram-設定オプションはありません。</string>
     <string name="PasscodeNeeded">最初にパスコードを有効にする必要があります</string>
     <string name="PasscodeNeko">パスコード</string>
-    <string name="PasscodeShowInSettings">N-設定に表示</string>
+    <string name="PasscodeShowInSettings">SoundGram-設定に表示</string>
     <string name="PasscodeShowInSettingsAbout">非表示にすると、**以下のリンクからしか**このページを開くことができなくなります。</string>
     <string name="PasscodeSet">パスコードを設定</string>
     <string name="PasscodeEdit">パスコードを変更</string>

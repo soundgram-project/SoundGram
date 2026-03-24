@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="NekoSettings">Настройки N</string>
+    <string name="NekoSettings">Настройки SoundGram</string>
     <string name="IPv6">Предпочитать IPv6</string>
     <string name="MessageMenu">Меню сообщений</string>
     <string name="HidePhone">Скрыть номер телефона</string>
@@ -73,7 +73,7 @@
     <string name="OfficialChannel">Канал Nagram</string>
     <string name="About">О проекте</string>
     <string name="IgnoreBlockedAbout">Вы больше не будете видеть сообщения от заблокированных пользователей в группах.</string>
-    <string name="SourceCode">Исходный код</string>
+    <string name="SourceCode">Поддержать</string>
     <string name="ResetStickerSize">Размер стикеров по умолчанию</string>
     <string name="RestartAppToTakeEffect">Перезапустите приложение.</string>
     <string name="MediaPreview">Предпросмотр медиа в списке чатов</string>
@@ -112,10 +112,10 @@
     <string name="enhancedFileLoader">Увеличить скорость загрузки</string>
     <string name="mapDriftingFixForGoogleMaps">Исправить дрейф Google Карт в Китае</string>
     <string name="useOSMDroidMap">Использовать карту OSMDroid</string>
-    <string name="UnknownNekoSettingsOption">В «Настройках N» нет такой опции.</string>
+    <string name="UnknownNekoSettingsOption">В «Настройках SoundGram» нет такой опции.</string>
     <string name="PasscodeNeeded">Сначала необходимо включить блокировку паролем</string>
     <string name="PasscodeNeko">Пароль</string>
-    <string name="PasscodeShowInSettings">Показывать в «Настройках N»</string>
+    <string name="PasscodeShowInSettings">Показывать в «Настройках SoundGram»</string>
     <string name="PasscodeShowInSettingsAbout">После скрытия вы сможете **ТОЛЬКО** открыть эту страницу по ссылке:</string>
     <string name="PasscodeSet">Установить пароль</string>
     <string name="PasscodeEdit">Изменить пароль</string>

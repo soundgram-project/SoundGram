@@ -4223,7 +4223,7 @@ public class NotificationsController extends BaseController {
                         name = LocaleController.getString(R.string.NotificationHiddenName);
                     }
                 } else {
-                    name = LocaleController.getString(R.string.NagramX);
+                    name = LocaleController.getString(R.string.SoundGram);
                 }
                 replace = false;
             } else {

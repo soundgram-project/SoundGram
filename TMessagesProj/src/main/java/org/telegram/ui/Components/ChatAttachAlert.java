@@ -6002,14 +6002,14 @@ public class ChatAttachAlert extends BottomSheet implements NotificationCenter.N
                         attachButton.setTextAndIcon(6, getString(R.string.ChatLocation), GlassTabView.TabAnimation.LOCATION);
                         attachButton.setTag(6);
                     } else if (position == musicButton) {
-                        attachButton.setTextAndIcon(3, getString(R.string.AttachMusic), GlassTabView.TabAnimation.MUSIC);
+                        attachButton.setTextAndIcon(3, getString(R.string.AttachMusic), GlassTabView.TabAnimation.CONTACTS);
                         attachButton.setTag(3);
                         err = !checkMusicPermission(mContext);
                     } else if (position == pollButton) {
                         attachButton.setTextAndIcon(9, getString(R.string.Poll), GlassTabView.TabAnimation.POLL);
                         attachButton.setTag(9);
                     } else if (position == contactButton) {
-                        attachButton.setTextAndIcon(5, getString(R.string.AttachContact), GlassTabView.TabAnimation.CONTACTS);
+                        attachButton.setTextAndIcon(5, getString(R.string.AttachMusic), GlassTabView.TabAnimation.CONTACTS);
                         attachButton.setTag(5);
                         err = UserConfig.getInstance(currentAccount).syncContacts && !checkContactsPermission(mContext);
                     } else if (position == quickRepliesButton) {
