@@ -127,7 +127,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     private final AbstractConfigCell dividerGeneral = cellGroup.appendCell(new ConfigCellDivider());
 
     // Customization (SoundGram)
-    private final AbstractConfigCell headerCustomization = cellGroup.appendCell(new ConfigCellHeader("Кастомизация"));
+    private final AbstractConfigCell headerCustomization = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.cstm)));
     private final AbstractConfigCell chatListWallRow = cellGroup.appendCell(
             new ConfigCellCustom("chatListWallRow", CUSTOM_ITEM_CHAT_LIST_WALL, true)
     );
@@ -469,8 +469,8 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             startActivityForResult(intent, 101);
         } else {
             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-            builder.setTitle("Фон списка чатов");
-            builder.setItems(new CharSequence[]{"Изменить", "Удалить"}, (dialog, which) -> {
+            builder.setTitle(getString(R.string.backchatl));
+            builder.setItems(new CharSequence[]{getString(R.string.chlw), getString(R.string.dlw)}, (dialog, which) -> {
                 if (which == 0) {
                     Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -493,8 +493,8 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             startActivityForResult(intent, 102);
         } else {
             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-            builder.setTitle("Живые обои внутри чатов");
-            builder.setItems(new CharSequence[]{"Изменить", "Удалить"}, (dialog, which) -> {
+            builder.setTitle(getString(R.string.livewall));
+            builder.setItems(new CharSequence[]{getString(R.string.chlw), getString(R.string.dlw)}, (dialog, which) -> {
                 if (which == 0) {
                     Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -526,7 +526,6 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     private void applyAndRestart() {
         SoundGramConfig.save();
         if (getParentActivity() != null) {
-            android.widget.Toast.makeText(getParentActivity(), "Применение настроек...", android.widget.Toast.LENGTH_SHORT).show();
             AndroidUtilities.runOnUIThread(() -> {
                 Intent intent = new Intent(getParentActivity(), LaunchActivity.class);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

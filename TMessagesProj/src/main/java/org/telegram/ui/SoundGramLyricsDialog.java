@@ -1,5 +1,7 @@
 package org.telegram.ui;
 
+import static org.telegram.messenger.LocaleController.getString;
+
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
@@ -24,6 +26,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MessageObject;
+import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
@@ -179,7 +182,14 @@ public class SoundGramLyricsDialog extends Dialog {
                     progressBar.setProgress((int) (playing.audioProgress * 1000));
 
                     if (!lyricsLines.isEmpty()) {
-                        long currentMs = (long) (playing.audioProgress * playing.getDuration() * 1000);
+                        // --- ИСПРАВЛЕНИЕ РАССИНХРОНА ---
+                        // Берем точную позицию напрямую из плеера, а не умножаем прогресс на фейковую длительность
+                        long currentMs = MediaController.getInstance().getCurrentPosition();
+                        if (currentMs <= 0) {
+                            currentMs = (long) (playing.audioProgress * playing.getDuration() * 1000);
+                        }
+                        // -------------------------------
+
                         updateHighlight(currentMs);
                     }
                 }
@@ -296,8 +306,30 @@ public class SoundGramLyricsDialog extends Dialog {
                     String syncedLyrics = "";
                     if (response.startsWith("[")) {
                         org.json.JSONArray array = new org.json.JSONArray(response);
-                        if (array.length() > 0) {
-                            syncedLyrics = array.getJSONObject(0).optString("syncedLyrics", "");
+
+                        // Ищем точное или частичное совпадение по названию
+                        for (int i = 0; i < array.length(); i++) {
+                            org.json.JSONObject trackObj = array.getJSONObject(i);
+                            String resultTitle = trackObj.optString("trackName", "").toLowerCase();
+                            String currentLyrics = trackObj.optString("syncedLyrics", "");
+
+                            // Если есть текст и название песни совпадает с искомым
+                            if (!TextUtils.isEmpty(currentLyrics) &&
+                                    (resultTitle.contains(title.toLowerCase()) || title.toLowerCase().contains(resultTitle))) {
+                                syncedLyrics = currentLyrics;
+                                break;
+                            }
+                        }
+
+                        // Фолбэк: если точного совпадения не нашлось, берем первый попавшийся с текстом
+                        if (TextUtils.isEmpty(syncedLyrics)) {
+                            for (int i = 0; i < array.length(); i++) {
+                                String currentLyrics = array.getJSONObject(i).optString("syncedLyrics", "");
+                                if (!TextUtils.isEmpty(currentLyrics)) {
+                                    syncedLyrics = currentLyrics;
+                                    break;
+                                }
+                            }
                         }
                     }
 
@@ -315,6 +347,7 @@ public class SoundGramLyricsDialog extends Dialog {
             }
         }).start();
     }
+
 
     private void parseLrc(String lrc) {
         Pattern pattern = Pattern.compile("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})\\](.*)");
@@ -344,7 +377,7 @@ public class SoundGramLyricsDialog extends Dialog {
 
     private void showNoLyrics() {
         lyricsLines.clear();
-        lyricsLines.add(new LrcLine(0, "Синхронный текст не найден 😔"));
+        lyricsLines.add(new LrcLine(0, getString(R.string.synctxt)));
         AndroidUtilities.runOnUIThread(() -> adapter.notifyDataSetChanged());
     }
 }

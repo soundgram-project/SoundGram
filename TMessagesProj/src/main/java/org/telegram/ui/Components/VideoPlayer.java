@@ -334,6 +334,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
         }
     }
+    public int getAudioSessionId() {
+        return player != null ? player.getAudioSessionId() : 0;
+    }
+
 
     public void preparePlayerLoop(Uri videoUri, String videoType, Uri audioUri, String audioType) {
         this.videoQualities = null;

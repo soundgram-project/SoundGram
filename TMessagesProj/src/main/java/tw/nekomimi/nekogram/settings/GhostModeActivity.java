@@ -273,25 +273,25 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
     // --- Диалоги Шифрования ---
     private void showAddKeyDialog() {
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Новый ключ Шифрования");
+        b.setTitle(getString(R.string.encr));
         LinearLayout l = new LinearLayout(getParentActivity());
         l.setOrientation(LinearLayout.VERTICAL);
         l.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(10), AndroidUtilities.dp(24), 0);
 
         final EditText ed1 = new EditText(getParentActivity());
-        ed1.setHint("Название");
+        ed1.setHint(getString(R.string.nm));
         ed1.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         ed1.setHintTextColor(Theme.getColor(Theme.key_dialogTextHint));
         l.addView(ed1, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
 
         final EditText ed2 = new EditText(getParentActivity());
-        ed2.setHint("Секретный пароль");
+        ed2.setHint(getString(R.string.scpw));
         ed2.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         ed2.setHintTextColor(Theme.getColor(Theme.key_dialogTextHint));
         l.addView(ed2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         b.setView(l);
-        b.setPositiveButton("Создать", (d, w) -> {
+        b.setPositiveButton(getString(R.string.create), (d, w) -> {
             String n = ed1.getText().toString().trim();
             String p = ed2.getText().toString().trim();
             if (!n.isEmpty() && !p.isEmpty()) {
@@ -301,21 +301,21 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
                 listAdapter.notifyDataSetChanged();
             }
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(getString(R.string.cancel), null);
         showDialog(b.create());
     }
 
     private void showDeleteKeyDialog(String keyName) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Удаление ключа");
-        builder.setMessage("Удалить ключ '" + keyName + "'?");
-        builder.setPositiveButton("Удалить", (dialog, which) -> {
+        builder.setTitle(getString(R.string.dlk));
+        builder.setMessage(getString(R.string.dlkk)+ "'" + keyName + "'?");
+        builder.setPositiveButton(getString(R.string.dlw), (dialog, which) -> {
             SoundGramConfig.zeroChatKeys.remove(keyName);
             SoundGramConfig.save();
             updateRows(); // Пересчитываем строки
             listAdapter.notifyDataSetChanged();
         });
-        builder.setNegativeButton("Отмена", null);
+        builder.setNegativeButton(getString(R.string.cancel), null);
         showDialog(builder.create());
     }
 
@@ -366,7 +366,7 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
                     } else if (position == showGhostModeStatusRow) {
                         textCheckCell.setTextAndCheck(getString(R.string.GhostModeStatusIndicator), NekoConfig.showGhostModeStatus.Bool(), false);
                     } else if (position == globalEncryptionToggleRow) {
-                        textCheckCell.setTextAndCheck("Шифровать сообщения", SoundGramConfig.zeroChatGloballyEnabled, true);
+                        textCheckCell.setTextAndCheck(getString(R.string.encm), SoundGramConfig.zeroChatGloballyEnabled, true);
                     }
                     break;
                 case TYPE_HEADER:
@@ -374,7 +374,7 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
                     if (position == ghostEssentialsHeaderRow) {
                         headerCell.setText(getString(R.string.GhostEssentialsHeader));
                     } else if (position == encryptionHeaderRow) {
-                        headerCell.setText("Шифрование");
+                        headerCell.setText(getString(R.string.encrypt));
                     }
                     break;
                 case TYPE_INFO_PRIVACY:
@@ -387,7 +387,7 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
                     } else if (position == sendWithoutSoundNoticeRow) {
                         cell.setText(getString(R.string.SendWithoutSoundRowNotice));
                     } else if (position == emptyKeysShadowRow) {
-                        cell.setText("У вас пока нет созданных ключей. Ключ нужен для шифровки и расшифровки сообщений в чатах.");
+                        cell.setText(getString(R.string.encp));
                     } else if (keysListStartRow != -1 && position >= keysListStartRow && position < keysListEndRow) {
                         // Это тень-подсказка под конкретным ключом
                         int index = (position - keysListStartRow) / 2;
@@ -395,13 +395,13 @@ public class GhostModeActivity extends BaseNekoSettingsActivity {
                         String keyName = keys[index];
                         String pass = SoundGramConfig.zeroChatKeys.get(keyName);
 
-                        cell.setText("Пароль ключа: " + pass + "\nНажмите на ключ выше для удаления.");
+                        cell.setText(getString(R.string.key) + pass + "\n" + getString(R.string.dlkey));
                     }
                     break;
                 case TYPE_TEXT_SETTINGS:
                     TextSettingsCell settingsCell = (TextSettingsCell) holder.itemView;
                     if (position == createKeyRow) {
-                        settingsCell.setTextAndIcon("Создать новый ключ", R.drawable.msg_add, keysListStartRow != -1);
+                        settingsCell.setTextAndIcon(getString(R.string.mkkey), R.drawable.msg_add, keysListStartRow != -1);
                         settingsCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
                     } else if (keysListStartRow != -1 && position >= keysListStartRow && position < keysListEndRow) {
                         // Это кнопка с самим ключом

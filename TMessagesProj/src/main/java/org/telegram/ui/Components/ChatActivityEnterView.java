@@ -4936,7 +4936,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 
             // ZeroChat
             cell = new ActionBarMenuSubItem(getContext(), false, false); // <--- ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЛО!
-            cell.setTextAndIcon("Выбрать ключ ZeroChat", R.drawable.msg_secret);
+            cell.setTextAndIcon(getString(R.string.zero), R.drawable.msg_secret);
             cell.setOnClickListener(v-> {
                 // Закрываем менюшку перед показом диалога (как в оригинале)
                 if (menuPopupWindow != null && menuPopupWindow.isShowing()) {
@@ -4945,7 +4945,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 
                 AlertDialog.Builder b = new AlertDialog.Builder(parentActivity);
                 java.util.List<String> list = new java.util.ArrayList<>(SoundGramConfig.zeroChatKeys.keySet());
-                list.add(0, "🚫 Отключить");
+                list.add(0, getString(R.string.to));
                 b.setItems(list.toArray(new String[0]), (d, w) -> {
                     SoundGramConfig.activeZeroChatKey = (w == 0) ? null : SoundGramConfig.zeroChatKeys.get(list.get(w));
                 });
@@ -7823,11 +7823,11 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
 // ВСТАВЛЯЕМ ТВОЙ ПЕРЕХВАТ:
         if (SoundGramConfig.activeZeroChatKey != null && messageEditText.length() > 0) {
             AlertDialog.Builder b = new AlertDialog.Builder(parentActivity);
-            b.setTitle("Скрытое сообщение");
+            b.setTitle(getString(R.string.hm));
             final EditText input = new EditText(parentActivity);
             input.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
             b.setView(input);
-            b.setPositiveButton("Отправить", (d, w) -> {
+            b.setPositiveButton(getString(R.string.send), (d, w) -> {
                 String finalTxt = ZeroChat.encryptAndEmbed(messageEditText.getText().toString(), input.getText().toString(), SoundGramConfig.activeZeroChatKey);
                 messageEditText.setText(finalTxt);
                 // Обрати внимание: если sendMessageInternal недоступен в ChatActivityEnterView,

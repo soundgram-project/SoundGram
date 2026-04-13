@@ -1,7 +1,11 @@
 package org.telegram.ui;
 
+import static org.telegram.messenger.LocaleController.getString;
+import static org.telegram.messenger.LocaleController.getStringResId;
+
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
@@ -17,8 +21,10 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -69,16 +75,35 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Timer;
 import java.util.TimerTask;
+import androidx.viewpager.widget.PagerAdapter;
+import androidx.viewpager.widget.ViewPager;
+import android.widget.LinearLayout;
+import android.util.TypedValue;
+import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.MusicWebSearcher;
 
 public class ChannelMusicFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate, ChatActivityInterface {
 
     public interface PlaylistUpdateListener {
         void onPlaylistUpdated();
     }
+    private ImageView playWaveBtn;
+    private WaveAnimatedWidget waveWidget; // Добавь в начало класса
 
-    private SwipeRefreshLayout swipeRefreshLayout;
+    // Добавьте или замените эти переменные в классе:
+    private SavedAlbumsAdapter savedAlbumsAdapter;
+    public static ArrayList<MessageObject> savedAlbumMessages = new ArrayList<>();
+    private RecyclerListView albumsRecyclerView;
+    private AlbumAdapter albumsAdapter; // Адаптер для альбомов добавим ниже
+    private LinearLayout tabStrip;
+    private androidx.viewpager.widget.ViewPager viewPager;
+    private LinearLayout libraryListHeader;
+    private RecyclerListView artistRecyclerView;
+    private ArtistAdapter artistAdapter;
+    private SwipeRefreshLayout swipeRefreshLayout; // ИСПРАВЛЕНИЕ: Сделать переменную глобальной
     private RecyclerListView listView;
     private MusicAdapter adapter;
+
     private RecyclerListView playlistsListView;
     private PlaylistsHorizontalAdapter playlistsAdapter;
 
@@ -130,19 +155,27 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     @Override
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
+        if (waveWidget != null) {
+            waveWidget.stopAnimation();
+        }
         isWaitingForUpload = false;
         AndroidUtilities.cancelRunOnUIThread(pollMessagesRunnable);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.didReceiveNewMessages);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidStart);
+
     }
+
 
     @Override
     public boolean onBackPressed(boolean force) {
         if (isSearching) {
             closeSearch();
             return false;
+        }
+        if (fragmentView != null) {
+            AndroidUtilities.hideKeyboard(fragmentView);
         }
         return super.onBackPressed(force);
     }
@@ -163,7 +196,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (!isWaitingForUpload) return;
             if (audioMessages.size() > countBeforeUpload) {
                 isWaitingForUpload = false;
-                Toast.makeText(getParentActivity(), "Список обновлен!", Toast.LENGTH_SHORT).show();
                 return;
             }
             loadMusicFromChannel();
@@ -171,18 +203,227 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
     };
 
-
     @Override
     public View createView(Context context) {
         actionBar.setAddToContainer(false);
         SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context) {
-            @Override protected void onDraw(Canvas canvas) {
+            @Override
+            protected void onDraw(Canvas canvas) {
                 canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             }
         };
         fragmentView = content;
 
-        // Обновление стягиванием
+        LinearLayout mainColumn = new LinearLayout(context);
+        mainColumn.setOrientation(LinearLayout.VERTICAL);
+
+        headerContainer = new LinearLayout(context);
+        headerContainer.setOrientation(LinearLayout.VERTICAL);
+        headerContainer.setClickable(true);
+        headerContainer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        headerContainer.setPadding(0, AndroidUtilities.statusBarHeight, 0, 0);
+
+        artistRecyclerView = new RecyclerListView(context);
+        artistRecyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        artistAdapter = new ArtistAdapter(context);
+        artistRecyclerView.setAdapter(artistAdapter);
+        artistRecyclerView.setVisibility(View.GONE);
+
+        albumsRecyclerView = new RecyclerListView(context);
+        albumsRecyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        albumsAdapter = new AlbumAdapter(context);
+        albumsRecyclerView.setAdapter(albumsAdapter);
+        albumsRecyclerView.setVisibility(View.GONE);
+
+        createSearchMenu(context, headerContainer);
+
+        headerContainer.addView(artistRecyclerView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        headerContainer.addView(albumsRecyclerView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        mainColumn.addView(headerContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        tabStrip = new LinearLayout(context);
+        tabStrip.setOrientation(LinearLayout.HORIZONTAL);
+        tabStrip.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
+
+        TextView waveTabBtn = new TextView(context);
+        waveTabBtn.setText(getString(R.string.mywave));
+        waveTabBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        waveTabBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        waveTabBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        waveTabBtn.setPadding(0, 0, AndroidUtilities.dp(24), 0);
+
+        TextView libraryTabBtn = new TextView(context);
+        libraryTabBtn.setText(getString(R.string.lib));
+        libraryTabBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        libraryTabBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        libraryTabBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        libraryTabBtn.setPadding(0, 0, AndroidUtilities.dp(24), 0);
+
+        TextView albumsTabBtn = new TextView(context);
+        albumsTabBtn.setText("Альбомы");
+        albumsTabBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        albumsTabBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        albumsTabBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+
+        tabStrip.addView(waveTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        tabStrip.addView(libraryTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        tabStrip.addView(albumsTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        mainColumn.addView(tabStrip, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+
+        // --- 1. VIEWPAGER С ИДЕАЛЬНЫМИ СВАЙПАМИ (ДЛЯ ГЛАВНОГО МЕНЮ ТГ) ---
+        viewPager = new androidx.viewpager.widget.ViewPager(context) {
+            private float initialX, initialY;
+
+            @Override
+            public boolean onInterceptTouchEvent(android.view.MotionEvent ev) {
+                if (ev.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                    initialX = ev.getX();
+                    initialY = ev.getY();
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                } else if (ev.getAction() == android.view.MotionEvent.ACTION_MOVE) {
+                    float dx = ev.getX() - initialX;
+                    float dy = ev.getY() - initialY;
+
+                    if (Math.abs(dx) > Math.abs(dy)) { // Горизонтальный свайп
+                        if (dx > 0 && getCurrentItem() == 0) {
+                            // Мы на левой вкладке (Моя Волна) и свайпаем вправо -> отдаем жест Чатам
+                            getParent().requestDisallowInterceptTouchEvent(false);
+                            return false;
+                        } else if (dx < 0 && getCurrentItem() == getAdapter().getCount() - 1) {
+                            // Мы на правой вкладке (Альбомы) и свайпаем влево -> отдаем жест Настройкам
+                            getParent().requestDisallowInterceptTouchEvent(false);
+                            return false;
+                        } else {
+                            getParent().requestDisallowInterceptTouchEvent(true);
+                        }
+                    }
+                }
+                try { return super.onInterceptTouchEvent(ev); } catch (Exception e) { return false; }
+            }
+
+            @Override
+            public boolean onTouchEvent(android.view.MotionEvent ev) {
+                try { return super.onTouchEvent(ev); } catch (Exception e) { return false; }
+            }
+        };
+        viewPager.setOffscreenPageLimit(3);
+
+
+        // --- 2. ПОЛНОЭКРАННЫЙ ДИЗАЙН "МОЯ ВОЛНА" ---
+        FrameLayout waveContainer = new FrameLayout(context);
+        waveContainer.setClipChildren(false);
+
+        // СЛОЙ 1: АНИМАЦИЯ (Самый задний фон)
+        waveWidget = new WaveAnimatedWidget(context);
+        waveContainer.addView(waveWidget, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+        // СЛОЙ 2: КОНТЕЙНЕР ДЛЯ UI (Чтобы интерфейс гарантированно был ПОВЕРХ шара)
+        FrameLayout uiLayer = new FrameLayout(context);
+
+        // Кнопка настроек жанров (Стеклянная)
+        TextView waveSettingsBtn = new TextView(context);
+        waveSettingsBtn.setText(SmartRadioEngine.currentConfig.query);
+        waveSettingsBtn.setTextSize(15);
+        waveSettingsBtn.setTextColor(0xFFFFFFFF);
+        waveSettingsBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        waveSettingsBtn.setGravity(Gravity.CENTER);
+        waveSettingsBtn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(20), 0x33FFFFFF));
+        waveSettingsBtn.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(10), AndroidUtilities.dp(24), AndroidUtilities.dp(10));
+
+        uiLayer.addView(waveSettingsBtn, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 40, 0, 0));
+        // --- ТУМБЛЕР ИИ ---
+        TextView aiToggleBtn = new TextView(context);
+        aiToggleBtn.setText(SmartRadioEngine.useNeuralNetwork ? "✨ Нейросеть: ВКЛ" : "✨ Нейросеть: ВЫКЛ");
+        aiToggleBtn.setTextSize(13);
+        aiToggleBtn.setTextColor(SmartRadioEngine.useNeuralNetwork ? 0xFF1DB954 : 0xFFAAAAAA);
+        aiToggleBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        aiToggleBtn.setGravity(Gravity.CENTER);
+        aiToggleBtn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), 0x33000000));
+        aiToggleBtn.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(6), AndroidUtilities.dp(16), AndroidUtilities.dp(6));
+        aiToggleBtn.setOnClickListener(v -> {
+            SmartRadioEngine.useNeuralNetwork = !SmartRadioEngine.useNeuralNetwork;
+            aiToggleBtn.setText(SmartRadioEngine.useNeuralNetwork ? "✨ Нейросеть: ВКЛ" : "✨ Нейросеть: ВЫКЛ");
+            aiToggleBtn.setTextColor(SmartRadioEngine.useNeuralNetwork ? 0xFF1DB954 : 0xFFAAAAAA);
+            Toast.makeText(context, SmartRadioEngine.useNeuralNetwork ? "Умный подбор включен" : "Обычный подбор включен", Toast.LENGTH_SHORT).show();
+        });
+        uiLayer.addView(aiToggleBtn, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 90, 0, 0));
+        // --- КОНЕЦ ТУМБЛЕРА ---
+        // Кнопка Play и заголовок
+        playWaveBtn = new ImageView(context);
+        playWaveBtn.setScaleType(ImageView.ScaleType.CENTER);
+        boolean isInitialPlaying = !MediaController.getInstance().isMessagePaused() && MediaController.getInstance().isMyWave;
+        playWaveBtn.setVisibility(isInitialPlaying ? View.GONE : View.VISIBLE);
+
+        TextView waveTitle = new TextView(context);
+        waveTitle.setText("");
+        waveTitle.setTextSize(42);
+        waveTitle.setTextColor(0xFFFFFFFF);
+        waveTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        waveTitle.setShadowLayer(8, 0, 4, 0x88000000);
+        waveTitle.setGravity(Gravity.CENTER);
+
+        LinearLayout centerGroup = new LinearLayout(context);
+        centerGroup.setOrientation(LinearLayout.VERTICAL);
+        centerGroup.setGravity(Gravity.CENTER);
+        centerGroup.addView(playWaveBtn, LayoutHelper.createLinear(80, 80, Gravity.CENTER, 0, 0, 0, 20));
+        centerGroup.addView(waveTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+
+        uiLayer.addView(centerGroup, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+
+        // Добавляем UI слой поверх анимации
+        waveContainer.addView(uiLayer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+        // Обработчик кнопки настроек
+        waveSettingsBtn.setOnClickListener(v -> showWaveSettingsSheet(context, waveSettingsBtn));
+
+        // Запуск анимации с привязкой к сессии ТГ
+        waveWidget.startAnimation();
+        int tgSessionId = MediaController.getInstance().getAudioSessionId();
+        waveWidget.linkToAudioSession(tgSessionId);
+
+        // 1. НАЖАТИЕ НА ТЕКСТ "МОЯ ВОЛНА" - ЖЕСТКАЯ ГЕНЕРАЦИЯ С НУЛЯ
+        waveTitle.setOnClickListener(v -> {
+            Toast.makeText(context, "Создаем новую волну...", Toast.LENGTH_SHORT).show();
+            MediaController.getInstance().cleanupPlayer(true, true);
+            MediaController.getInstance().myWaveBasePlaylist.clear();
+            MediaController.getInstance().isMyWave = true;
+
+            SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
+                @Override
+                public void onTracksFound(ArrayList<MessageObject> tracks) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                        MediaController.getInstance().playMessage(tracks.get(0));
+                    });
+                }
+
+                @Override
+                public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        ArrayList<MessageObject> currentPlaylist = MediaController.getInstance().getPlaylist();
+                        if (currentPlaylist != null && !currentPlaylist.isEmpty()) {
+                            currentPlaylist.addAll(tracks);
+                        } else {
+                            MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                        }
+                    });
+                }
+
+                @Override
+                public void onError() {
+                    Toast.makeText(context, "Не удалось сгенерировать волну", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+        });
+
+        // 2. НАЖАТИЕ НА КНОПКУ PLAY/ШАР - ТОЛЬКО ГЕНЕРАЦИЯ НОВОЙ ВОЛНЫ
+        playWaveBtn.setOnClickListener(v -> waveTitle.callOnClick());
+        centerGroup.setOnClickListener(v -> waveTitle.callOnClick());
+
+        FrameLayout libraryContainer = new FrameLayout(context);
         swipeRefreshLayout = new SwipeRefreshLayout(context);
         swipeRefreshLayout.setColorSchemeColors(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         swipeRefreshLayout.setOnRefreshListener(() -> {
@@ -190,7 +431,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             AndroidUtilities.runOnUIThread(() -> swipeRefreshLayout.setRefreshing(false), 1500);
         });
 
-        // 1. СПИСОК
         listView = new RecyclerListView(context);
         listView.setLayoutManager(new LinearLayoutManager(context));
         listView.setBackgroundColor(Color.TRANSPARENT);
@@ -198,55 +438,84 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         listView.setAdapter(adapter);
         listView.setVerticalScrollBarEnabled(false);
         listView.setGlowColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        listView.setClipToPadding(false);
 
+        this.libraryListHeader = new LinearLayout(context);
+        this.libraryListHeader.setOrientation(LinearLayout.VERTICAL);
+        createHorizontalPlaylists(context, this.libraryListHeader);
+
+        libraryContainer.addView(this.libraryListHeader, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
+
+        FrameLayout.LayoutParams swipeParams = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT);
+        swipeParams.topMargin = AndroidUtilities.dp(130);
         swipeRefreshLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        content.addView(swipeRefreshLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        libraryContainer.addView(swipeRefreshLayout, swipeParams);
 
-        // 2. ШАПКА
-        headerContainer = new LinearLayout(context);
-        headerContainer.setOrientation(LinearLayout.VERTICAL);
-        headerContainer.setClickable(true);
-        headerContainer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        headerContainer.setPadding(0, AndroidUtilities.statusBarHeight, 0, 0);
+        FrameLayout albumsTabContainer = new FrameLayout(context);
+        RecyclerListView savedAlbumsListView = new RecyclerListView(context);
+        savedAlbumsListView.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(context, 2));
+        savedAlbumsAdapter = new SavedAlbumsAdapter(context);
+        savedAlbumsListView.setAdapter(savedAlbumsAdapter);
+        savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(80));
+        savedAlbumsListView.setClipToPadding(false);
+        albumsTabContainer.addView(savedAlbumsListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        createSearchMenu(context, headerContainer);
-        createHorizontalPlaylists(context, headerContainer);
-
-        content.addView(headerContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
-
-        // 3. МИНИ-ПЛЕЕР
-        MiniPlayerView miniPlayerView = new MiniPlayerView(context, getParentActivity());
-        miniPlayerView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-
-        View shadow = new View(context);
-        shadow.setBackgroundColor(0x1A000000);
-        miniPlayerView.addView(shadow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1, Gravity.TOP));
-
-        FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM);
-        int sysNavBar = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
-        int tgBottomMenu = AndroidUtilities.dp(60);
-        playerParams.bottomMargin = sysNavBar + tgBottomMenu;
-        content.addView(miniPlayerView, playerParams);
-
-        // 4. ДИНАМИЧЕСКИЕ ОТСТУПЫ
-        headerContainer.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
-            @Override
-            public boolean onPreDraw() {
-                headerContainer.getViewTreeObserver().removeOnPreDrawListener(this);
-                int headerHeight = headerContainer.getMeasuredHeight();
-                int bottomPadding = AndroidUtilities.dp(64) + playerParams.bottomMargin;
-                listView.setPadding(0, headerHeight, 0, bottomPadding);
-                swipeRefreshLayout.setProgressViewOffset(false, headerHeight, headerHeight + AndroidUtilities.dp(32));
-                return true;
+        viewPager.setAdapter(new androidx.viewpager.widget.PagerAdapter() {
+            @Override public int getCount() { return 3; }
+            @Override public boolean isViewFromObject(View view, Object object) { return view == object; }
+            @Override public Object instantiateItem(ViewGroup container, int position) {
+                View view = position == 0 ? waveContainer : (position == 1 ? libraryContainer : albumsTabContainer);
+                container.addView(view);
+                return view;
+            }
+            @Override public void destroyItem(ViewGroup container, int position, Object object) {
+                container.removeView((View) object);
             }
         });
+
+        viewPager.addOnPageChangeListener(new androidx.viewpager.widget.ViewPager.OnPageChangeListener() {
+            @Override public void onPageScrolled(int pos, float off, int posPx) {}
+            @Override public void onPageScrollStateChanged(int state) {}
+            @Override public void onPageSelected(int position) {
+                waveTabBtn.setTextColor(Theme.getColor(position == 0 ? Theme.key_windowBackgroundWhiteBlackText : Theme.key_windowBackgroundWhiteGrayText));
+                libraryTabBtn.setTextColor(Theme.getColor(position == 1 ? Theme.key_windowBackgroundWhiteBlackText : Theme.key_windowBackgroundWhiteGrayText));
+                albumsTabBtn.setTextColor(Theme.getColor(position == 2 ? Theme.key_windowBackgroundWhiteBlackText : Theme.key_windowBackgroundWhiteGrayText));
+            }
+        });
+
+        waveTabBtn.setOnClickListener(v -> viewPager.setCurrentItem(0, true));
+        libraryTabBtn.setOnClickListener(v -> viewPager.setCurrentItem(1, true));
+        albumsTabBtn.setOnClickListener(v -> viewPager.setCurrentItem(2, true));
+
+        viewPager.setCurrentItem(1, false);
+        waveTabBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        libraryTabBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        albumsTabBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+
+        mainColumn.addView(viewPager, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 0, 1.0f));
+        content.addView(mainColumn, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+        MiniPlayerView miniPlayerView = new MiniPlayerView(context, getParentActivity());
+        int sysNavBar = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
+        int tgBottomMenu = AndroidUtilities.dp(60);
+
+        FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM);
+        playerParams.setMargins(AndroidUtilities.dp(8), 0, AndroidUtilities.dp(8), sysNavBar + tgBottomMenu + AndroidUtilities.dp(8));
+        content.addView(miniPlayerView, playerParams);
+
+        listView.setPadding(0, 0, 0, AndroidUtilities.dp(40));
 
         listView.setOnItemClickListener((view, position) -> {
             if (adapter.getItemViewType(position) == 2) return;
             if (isSearching) {
                 if (position < webResultTracks.size()) {
-                    downloadAndUploadTrack(webResultTracks.get(position));
+                    ArrayList<MessageObject> queue = new ArrayList<>();
+                    for (MusicWebSearcher.WebTrack wt : webResultTracks) {
+                        int durSec = parseDuration(wt.duration);
+                        MessageObject fakeMsg = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, durSec, -(long)wt.downloadUrl.hashCode(), wt.coverUrl);
+                        queue.add(fakeMsg);
+                    }
+                    MessageObject streamMsg = queue.get(position);
+                    playContext(streamMsg, queue, -Math.abs((long) "search_context".hashCode()));
                 } else {
                     int localPos = position - webResultTracks.size();
                     if (localPos >= 0 && localPos < searchResultMessages.size()) {
@@ -263,77 +532,350 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         return fragmentView;
     }
 
-    private void saveListeningStat(MessageObject msg) {
-        if (msg == null) return;
+    private void showWaveSettingsSheet(Context context, TextView updateTextTarget) {
+        BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity());
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        int bgColor = Theme.getColor(Theme.key_dialogBackground);
+        int glassColor = android.graphics.Color.argb(240, android.graphics.Color.red(bgColor), android.graphics.Color.green(bgColor), android.graphics.Color.blue(bgColor));
+        gd.setColor(glassColor);
+        float radius = AndroidUtilities.dp(16);
+        gd.setCornerRadii(new float[]{radius, radius, radius, radius, 0, 0, 0, 0});
+        container.setBackground(gd);
+        container.setPadding(0, AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16));
+
+        TextView title = new TextView(context);
+        title.setText(getString(R.string.wave_settings)); // "Настройка Моей волны"
+        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
+        title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        title.setGravity(Gravity.CENTER);
+        container.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 24));
+
+        String[] genres = {
+                "Любой жанр", "Поп", "Хип-Хоп", "Рок", "Инди", "Фонк",
+                "Гиперпоп", "Пост-панк", "Эмо-рэп", "Метал", "Альтернатива",
+                "К-поп", "Джаз", "Блюз", "Классика", "Электроника", "Дабстеп",
+                "Панк-рок", "Синтвейв", "Ло-фай", "Эмбиент", "Фолк"
+        };
+
+        TextView genreTitle = new TextView(context);
+        genreTitle.setText("Жанр");
+        genreTitle.setTextSize(14);
+        genreTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        container.addView(genreTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 8));
+
+        RecyclerListView genreListView = new RecyclerListView(context);
+        genreListView.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(context, 3));
+        ChipsAdapter genreAdapter = new ChipsAdapter(context, genres, SmartRadioEngine.currentConfig.query);
+        genreListView.setAdapter(genreAdapter);
+        genreListView.setClipToPadding(false);
+        genreListView.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), AndroidUtilities.dp(16));
+
+        ScrollView genreScroll = new ScrollView(context);
+        genreScroll.addView(genreListView);
+        container.addView(genreScroll, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 300, 0, 0, 0, 16));
+
+        TextView applyBtn = new TextView(context);
+        applyBtn.setText("Применить");
+        applyBtn.setGravity(Gravity.CENTER);
+        applyBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        applyBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        applyBtn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(8), 0xFF8A2BE2));
+        applyBtn.setTextColor(0xFFFFFFFF);
+
+        applyBtn.setOnClickListener(v -> {
+            SmartRadioEngine.currentConfig.query = genreAdapter.getSelectedItem();
+            updateTextTarget.setText(SmartRadioEngine.currentConfig.query);
+            builder.getDismissRunnable().run();
+        });
+
+        container.addView(applyBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 0, 16, 8));
+
+        builder.setCustomView(container);
+        showDialog(builder.create());
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id == NotificationCenter.didReceiveNewMessages) {
+            if ((Long) args[0] == getTargetChannelId()) {
+                ArrayList<MessageObject> newMsgs = (ArrayList<MessageObject>) args[1];
+                for (MessageObject msg : newMsgs) {
+                    if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                        String[] p = msg.messageOwner.message.split("\\|\\|\\|");
+                        if(p.length >= 5) audioMessages.add(0, createWebMessageObject(currentAccount, p[1], p[2], p[3], parseDuration(p[4]), msg.getId(), ""));
+                    } else if (msg.isMusic()) {
+                        audioMessages.add(0, msg);
+                    }
+                }
+                if (isSearching) filterMusic(searchField.getText().toString());
+                else safeNotifyAdapter(adapter, listView);
+            }
+        } else if (id == NotificationCenter.messagePlayingDidStart) {
+            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+            if (playing != null && playing.getId() != lastTrackedId) {
+                lastTrackedId = playing.getId();
+            }
+            safeNotifyAdapter(adapter, listView);
+        }
+        else if (id == NotificationCenter.messagePlayingDidReset || id == NotificationCenter.messagePlayingPlayStateChanged) {
+            safeNotifyAdapter(adapter, listView);
+        }
+    }
+
+    private void openSearch() {
+        isSearching = true;
+        standardHeaderLayout.setVisibility(View.GONE);
+        searchHeaderLayout.setVisibility(View.VISIBLE);
+        searchField.requestFocus();
+        AndroidUtilities.showKeyboard(searchField);
+
+        if (viewPager != null) viewPager.setCurrentItem(1, false);
+        if (tabStrip != null) tabStrip.setVisibility(View.GONE);
+        if (libraryListHeader != null) libraryListHeader.setVisibility(View.GONE);
+        if (playlistsListView != null) playlistsListView.setVisibility(View.GONE); // Скрываем плейлисты
+
+        // ИСПРАВЛЕНИЕ: Убираем отступ у swipeRefreshLayout в поиске
+        if (swipeRefreshLayout != null) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) swipeRefreshLayout.getLayoutParams();
+            lp.topMargin = AndroidUtilities.dp(0); // Огромный отступ 130dp заменяется на 0dp
+            swipeRefreshLayout.setLayoutParams(lp);
+        }
+    }
+
+
+    private void closeSearch() {
+        isSearching = false;
+        searchField.setText("");
+
+        if (searchField.isFocused()) {
+            searchField.clearFocus();
+        }
+        AndroidUtilities.hideKeyboard(searchField);
+        if (fragmentView != null) {
+            AndroidUtilities.hideKeyboard(fragmentView);
+        }
+
+        searchHeaderLayout.setVisibility(View.GONE);
+        standardHeaderLayout.setVisibility(View.VISIBLE);
+
+        if (tabStrip != null) tabStrip.setVisibility(View.VISIBLE);
+        if (libraryListHeader != null) libraryListHeader.setVisibility(View.VISIBLE);
+        if (playlistsListView != null) playlistsListView.setVisibility(View.VISIBLE); // Возвращаем плейлисты
+
+        artistRecyclerView.setVisibility(View.GONE);
+        albumsRecyclerView.setVisibility(View.GONE);
+        // ИСПРАВЛЕНИЕ: Обнуляем высоту и маргины
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, 0);
+        p.setMargins(0, 0, 0, 0); // Обнуляем маргины
+        artistRecyclerView.setLayoutParams(p);
+        albumsRecyclerView.setLayoutParams(p);
+
+        // ИСПРАВЛЕНИЕ: Возвращаем отступ у swipeRefreshLayout при закрытии поиска
+        if (swipeRefreshLayout != null) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) swipeRefreshLayout.getLayoutParams();
+            lp.topMargin = AndroidUtilities.dp(130); // Старый маргин возвращается
+            swipeRefreshLayout.setLayoutParams(lp);
+        }
+
+        if (webResultTracks != null) webResultTracks.clear();
+        if (searchResultMessages != null) searchResultMessages.clear();
+        safeNotifyAdapter(adapter, listView);
+    }
+
+
+    public static void saveAlbumToLibrary(String title, String url, String cover) {
+        File file = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null), "saved_albums.txt");
         try {
-            File file = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null), "soundgram_stats.txt");
-            long totalSeconds = 0;
-            int totalTracks = 0;
+            boolean exists = false;
             if (file.exists()) {
-                BufferedReader br = new BufferedReader(new FileReader(file));
-                String line = br.readLine();
-                if (line != null && line.contains(",")) {
-                    String[] parts = line.split(",");
-                    totalTracks = Integer.parseInt(parts[0]);
-                    totalSeconds = Long.parseLong(parts[1]);
+                BufferedReader br = new BufferedReader(new java.io.FileReader(file));
+                String line;
+                while ((line = br.readLine()) != null) {
+                    if (line.contains(url)) { exists = true; break; }
                 }
                 br.close();
             }
-            totalTracks++;
-            totalSeconds += msg.getDuration();
-            BufferedWriter bw = new BufferedWriter(new FileWriter(file));
-            bw.write(totalTracks + "," + totalSeconds);
-            bw.close();
-        } catch (Exception e) { e.printStackTrace(); }
+            if (!exists) {
+                BufferedWriter bw = new BufferedWriter(new java.io.FileWriter(file, true));
+                bw.write(title + "|||" + url + "|||" + cover);
+                bw.newLine();
+                bw.close();
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+
+    }
+
+    public static ArrayList<MusicWebSearcher.WebAlbum> getSavedAlbums() {
+        ArrayList<MusicWebSearcher.WebAlbum> list = new ArrayList<>();
+        File file = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null), "saved_albums.txt");
+        if (!file.exists()) return list;
+        try (BufferedReader br = new BufferedReader(new java.io.FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] p = line.split("\\|\\|\\|");
+                if (p.length >= 3) {
+                    list.add(new MusicWebSearcher.WebAlbum(p[0], "", p[1], p[2]));
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return list;
     }
 
     private void showStatisticsBottomSheet() {
+        if (getParentActivity() == null) return;
+
         BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity());
         LinearLayout container = new LinearLayout(getParentActivity());
         container.setOrientation(LinearLayout.VERTICAL);
 
         android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-        gd.setColor(Theme.getColor(Theme.key_dialogBackground));
-        gd.setCornerRadii(new float[]{AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), 0, 0, 0, 0});
+        int bgColor = Theme.getColor(Theme.key_dialogBackground);
+        int glassColor = Color.argb(230, Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor));
+        gd.setColor(glassColor);
+
+        float radius = AndroidUtilities.dp(16);
+        gd.setCornerRadii(new float[]{radius, radius, radius, radius, 0, 0, 0, 0});
         container.setBackground(gd);
-        container.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(24), AndroidUtilities.dp(16), AndroidUtilities.dp(24));
+        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(24), AndroidUtilities.dp(24), AndroidUtilities.dp(32));
 
         TextView title = new TextView(getParentActivity());
-        title.setText("Статистика SoundGram");
+        title.setText(getString(R.string.stat));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         title.setGravity(Gravity.CENTER);
-        container.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
+        container.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        File file = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null), "soundgram_stats.txt");
-        int totalTracks = 0;
-        long totalSeconds = 0;
-        if (file.exists()) {
-            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-                String line = br.readLine();
-                if (line != null && line.contains(",")) {
-                    String[] parts = line.split(",");
-                    totalTracks = Integer.parseInt(parts[0]);
-                    totalSeconds = Long.parseLong(parts[1]);
-                }
-            } catch (Exception e) {}
-        }
+        SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_stats", Context.MODE_PRIVATE);
+        int totalTracks = prefs.getInt("total_tracks", 0);
+        long totalSeconds = prefs.getLong("total_seconds", 0L);
 
-        long hours = totalSeconds / 3600;
+        long days = totalSeconds / 86400;
+        long hours = (totalSeconds % 86400) / 3600;
         long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+
+        StringBuilder timeFormatted = new StringBuilder();
+        if (days > 0) timeFormatted.append(days).append(getString(R.string.day));
+        if (hours > 0 || days > 0) timeFormatted.append(hours).append(getString(R.string.hour));
+        if (minutes > 0 || hours > 0 || days > 0) timeFormatted.append(minutes).append(getString(R.string.min));
+        timeFormatted.append(seconds).append(getString(R.string.sec));
 
         TextView statsText = new TextView(getParentActivity());
-        statsText.setText("Всего прослушано треков: " + totalTracks + "\nОбщее время: " + hours + " ч " + minutes + " мин");
+        statsText.setText(getString(R.string.trc) + totalTracks + "\n"+getString(R.string.tm) + timeFormatted.toString());
         statsText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        statsText.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        statsText.setTextColor(Theme.getColor(Theme.key_dialogTextGray2));
         statsText.setGravity(Gravity.CENTER);
-        statsText.setLineSpacing(AndroidUtilities.dp(6), 1.0f);
+        statsText.setLineSpacing(AndroidUtilities.dp(8), 1.0f);
         container.addView(statsText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         builder.setCustomView(container);
         showDialog(builder.create());
     }
+
+    public static int parseDuration(String durationStr) {
+        try {
+            if (TextUtils.isEmpty(durationStr)) return 0;
+            String[] parts = durationStr.split(":");
+            if (parts.length == 2) {
+                return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
+            } else if (parts.length == 3) {
+                return Integer.parseInt(parts[0]) * 3600 + Integer.parseInt(parts[1]) * 60 + Integer.parseInt(parts[2]);
+            }
+        } catch (Exception e) {}
+        return 0;
+    }
+
+    // Хелпер создания фейкового MessageObject для стриминга (без скачивания)
+    public static MessageObject createWebMessageObject(int currentAccount, String title, String artist, String url, int duration, long messageId, String coverUrl) {
+        TLRPC.TL_message webMsg = new TLRPC.TL_message();
+        webMsg.id = (int) messageId;
+        String safeCover = TextUtils.isEmpty(coverUrl) ? "" : coverUrl;
+        webMsg.message = "SG_STREAM|||" + title + "|||" + artist + "|||" + url + "|||" + duration + "|||" + messageId + "|||" + safeCover;
+        webMsg.date = (int) (System.currentTimeMillis() / 1000);
+        webMsg.dialog_id = 0;
+
+        webMsg.peer_id = new TLRPC.TL_peerChannel();
+        webMsg.peer_id.channel_id = 0;
+
+        webMsg.media = new TLRPC.TL_messageMediaDocument();
+        webMsg.media.document = new TLRPC.TL_document();
+        webMsg.media.document.id = messageId;
+        webMsg.media.document.dc_id = 0;
+        webMsg.media.document.mime_type = "audio/mp3";
+        webMsg.media.document.size = 0;
+
+        TLRPC.TL_documentAttributeAudio attr = new TLRPC.TL_documentAttributeAudio();
+        attr.title = title;
+        attr.performer = artist;
+        attr.duration = duration;
+        webMsg.media.document.attributes.add(attr);
+
+        MessageObject msgObj = new MessageObject(currentAccount, webMsg, false, false);
+        msgObj.messageOwner.attachPath = url;
+
+        return msgObj;
+    }
+
+    public static void setAudioCover(BackupImageView coverImage, MessageObject msg, String filter, int radius) {
+        coverImage.setRoundRadius(AndroidUtilities.dp(radius));
+        android.graphics.drawable.Drawable placeholder = Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_graySection));
+
+        if (msg == null) {
+            coverImage.setImageDrawable(placeholder);
+            return;
+        }
+
+        // ПАРСИМ КАСТОМНУЮ ОБЛОЖКУ
+        if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+            String[] parts = msg.messageOwner.message.split("\\|\\|\\|");
+            if (parts.length >= 7 && !TextUtils.isEmpty(parts[6])) {
+                coverImage.setImage(parts[6], filter, placeholder);
+                return;
+            }
+        }
+
+        TLRPC.Document document = msg.getDocument();
+        TLRPC.PhotoSize thumb = null;
+
+        if (msg.photoThumbs != null && !msg.photoThumbs.isEmpty()) {
+            thumb = org.telegram.messenger.FileLoader.getClosestPhotoSizeWithSize(msg.photoThumbs, 320);
+        }
+
+        if (thumb == null && document != null && document.thumbs != null && !document.thumbs.isEmpty()) {
+            thumb = org.telegram.messenger.FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 320);
+        }
+
+        if (thumb != null && document != null) {
+            coverImage.setImage(org.telegram.messenger.ImageLocation.getForDocument(thumb, document), filter, placeholder, msg);
+            return;
+        }
+
+        String artworkUrl = msg.getArtworkUrl(true);
+        if (!TextUtils.isEmpty(artworkUrl)) {
+            coverImage.setImage(artworkUrl, filter, placeholder);
+            return;
+        }
+
+        if (document != null) {
+            org.telegram.messenger.ImageLocation loc = org.telegram.messenger.ImageLocation.getForDocument(document);
+            if (loc != null) {
+                coverImage.setImage(loc, filter, placeholder, msg);
+                return;
+            }
+        }
+
+        coverImage.setImageDrawable(placeholder);
+    }
+
 
     private void saveMessagesToCache(ArrayList<MessageObject> messages) {
         if (messages == null || messages.isEmpty()) return;
@@ -350,6 +892,21 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         } catch (Exception e) { FileLog.e(e); }
     }
 
+
+    // 1. Метод сохранения альбома напрямую в канал
+    public void saveAlbumToChannel(String title, String url, String coverUrl) {
+        long targetId = getTargetChannelId();
+        if (targetId == 0) return;
+        String text = "SG_ALBUM|||" + title + "|||" + url + "|||" + coverUrl;
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+        Toast.makeText(getParentActivity(), "Альбом сохранен в библиотеку", Toast.LENGTH_SHORT).show();
+
+        countBeforeUpload = audioMessages.size();
+        isWaitingForUpload = true;
+        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+    }
+
+    // 2. Метод загрузки кэша (парсинг SG_ALBUM)
     private void loadMessagesFromCache() {
         try {
             File dir = ApplicationLoader.applicationContext.getExternalFilesDir(null);
@@ -361,26 +918,156 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             SerializedData data = new SerializedData(fileData);
             int count = data.readInt32(false);
-            ArrayList<MessageObject> cached = new ArrayList<>();
+            ArrayList<MessageObject> cachedTracks = new ArrayList<>();
+            ArrayList<MessageObject> cachedAlbums = new ArrayList<>();
             long selfUserId = UserConfig.getInstance(currentAccount).getClientUserId();
             for (int i = 0; i < count; i++) {
                 int constructor = data.readInt32(false);
                 TLRPC.Message message = TLRPC.Message.TLdeserialize(data, constructor, false);
                 if (message != null) {
                     message.readAttachPath(data, selfUserId);
-                    cached.add(new MessageObject(currentAccount, message, false, false));
+                    if (message.message != null) {
+                        if (message.message.startsWith("SG_STREAM|||")) {
+                            String[] parts = message.message.split("\\|\\|\\|");
+                            if (parts.length >= 5) {
+                                cachedTracks.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], parseDuration(parts[4]), Long.parseLong(parts[5]), parts.length > 6 ? parts[6] : ""));
+                            }
+                        } else if (message.message.startsWith("SG_ALBUM|||")) {
+                            cachedAlbums.add(new MessageObject(currentAccount, message, false, false));
+                        } else {
+                            // Обычный трек (даже с припиской) добавляется!
+                            MessageObject obj = new MessageObject(currentAccount, message, false, false);
+                            if (obj.isMusic()) cachedTracks.add(obj);
+                        }
+                    } else {
+                        MessageObject obj = new MessageObject(currentAccount, message, false, false);
+                        if (obj.isMusic()) cachedTracks.add(obj);
+                    }
                 }
+
+
             }
             data.cleanup();
             AndroidUtilities.runOnUIThread(() -> {
                 audioMessages.clear();
-                audioMessages.addAll(cached);
+                audioMessages.addAll(cachedTracks);
+                savedAlbumMessages.clear();
+                savedAlbumMessages.addAll(cachedAlbums);
                 safeNotifyAdapter(adapter, listView);
-                safeNotifyAdapter(playlistsAdapter, playlistsListView); // Авто-подтягивание обложек
+                safeNotifyAdapter(playlistsAdapter, playlistsListView);
+                safeNotifyAdapter(savedAlbumsAdapter, null);
                 if (audioMessages.isEmpty() && ApplicationLoader.isNetworkOnline()) loadMusicFromChannel();
             });
         } catch (Exception e) { FileLog.e(e); }
     }
+
+    // 3. Метод загрузки из канала онлайн (парсинг SG_ALBUM)
+    private void loadMusicFromChannel() {
+        long targetId = getTargetChannelId();
+        if (targetId == 0) return;
+        loadMessagesFromCache();
+        if (!org.telegram.messenger.ApplicationLoader.isNetworkOnline()) return;
+
+        TLRPC.TL_messages_search searchReq = new TLRPC.TL_messages_search();
+        TLRPC.TL_inputPeerChannel inputPeer = new TLRPC.TL_inputPeerChannel();
+        inputPeer.channel_id = targetId; inputPeer.access_hash = musicChannelHash;
+        searchReq.peer = inputPeer;
+        searchReq.filter = new TLRPC.TL_inputMessagesFilterEmpty();
+        searchReq.q = ""; searchReq.limit = 3000;
+
+        org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount).sendRequest(searchReq, (response, error) -> {
+            if (response instanceof TLRPC.messages_Messages) {
+                TLRPC.messages_Messages messages = (TLRPC.messages_Messages) response;
+                ArrayList<MessageObject> loadedTracks = new ArrayList<>();
+                ArrayList<MessageObject> loadedAlbums = new ArrayList<>();
+                for (TLRPC.Message msg : messages.messages) {
+                    if (msg.message != null) {
+                        if (msg.message.startsWith("SG_STREAM|||")) {
+                            String[] parts = msg.message.split("\\|\\|\\|");
+                            if (parts.length >= 5) loadedTracks.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], parseDuration(parts[4]), msg.id, ""));
+                        } else if (msg.message.startsWith("SG_ALBUM|||")) {
+                            loadedAlbums.add(new MessageObject(currentAccount, msg, false, false));
+                        } else {
+                            MessageObject messageObject = new MessageObject(currentAccount, msg, false, false);
+                            if (messageObject.isMusic()) loadedTracks.add(messageObject);
+                        }
+                    } else {
+                        MessageObject messageObject = new MessageObject(currentAccount, msg, false, false);
+                        if (messageObject.isMusic()) loadedTracks.add(messageObject);
+                    }
+                }
+
+
+
+                // Сохраняем в кэш ОБА списка, слив их вместе
+                ArrayList<MessageObject> combinedToCache = new ArrayList<>(loadedTracks);
+                combinedToCache.addAll(loadedAlbums);
+                saveMessagesToCache(combinedToCache);
+
+                AndroidUtilities.runOnUIThread(() -> {
+                    audioMessages.clear();
+                    audioMessages.addAll(loadedTracks);
+                    savedAlbumMessages.clear();
+                    savedAlbumMessages.addAll(loadedAlbums);
+                    safeNotifyAdapter(adapter, listView);
+                    safeNotifyAdapter(playlistsAdapter, playlistsListView);
+                    safeNotifyAdapter(savedAlbumsAdapter, null);
+                });
+            }
+        });
+    }
+
+    // 4. Адаптер для 3-й вкладки (Альбомы из канала)
+    private class SavedAlbumsAdapter extends RecyclerListView.SelectionAdapter {
+        private Context mContext;
+        public SavedAlbumsAdapter(Context context) { this.mContext = context; }
+
+        @Override public boolean isEnabled(RecyclerView.ViewHolder holder) { return true; }
+        @Override public int getItemCount() { return savedAlbumMessages.size(); }
+
+        @Override public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            LinearLayout layout = new LinearLayout(mContext);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.setGravity(Gravity.CENTER);
+            layout.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            layout.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(16));
+
+            BackupImageView cover = new BackupImageView(mContext);
+            cover.setRoundRadius(AndroidUtilities.dp(12));
+            layout.addView(cover, LayoutHelper.createLinear(140, 140, Gravity.CENTER, 0, 5, 0, 5));
+
+            TextView titleText = new TextView(mContext);
+            titleText.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            titleText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            titleText.setGravity(Gravity.CENTER);
+            titleText.setMaxLines(2);
+            titleText.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            layout.addView(titleText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER, 4, 4, 4, 0));
+
+            return new RecyclerListView.Holder(layout);
+        }
+
+        @Override public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            LinearLayout layout = (LinearLayout) holder.itemView;
+            BackupImageView cover = (BackupImageView) layout.getChildAt(0);
+            TextView titleText = (TextView) layout.getChildAt(1);
+
+            MessageObject msgObj = savedAlbumMessages.get(position);
+            String[] parts = msgObj.messageOwner.message.split("\\|\\|\\|");
+
+            String title = parts.length > 1 ? parts[1] : "Unknown";
+            String url = parts.length > 2 ? parts[2] : "";
+            String coverUrl = parts.length > 3 ? parts[3] : "";
+
+            titleText.setText(title);
+            cover.setImage(coverUrl, "200_200", null);
+
+            layout.setOnClickListener(v -> {
+                presentFragment(new AlbumProfileFragment(title, url, coverUrl));
+            });
+        }
+    }
+
 
     private void createSearchMenu(Context context, LinearLayout container) {
         FrameLayout topBar = new FrameLayout(context);
@@ -418,7 +1105,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         refreshBtn.setOnClickListener(v -> showImportDialog());
 
         standardHeaderLayout.addView(statsBtn, LayoutHelper.createLinear(48, 48));
-        standardHeaderLayout.addView(headerTitle, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f, 0, 0, 0, 0));
+        standardHeaderLayout.addView(headerTitle, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f, 40, 0, 0, 0));
         standardHeaderLayout.addView(searchIconBtn, LayoutHelper.createLinear(48, 48));
         standardHeaderLayout.addView(refreshBtn, LayoutHelper.createLinear(48, 48));
 
@@ -426,7 +1113,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchHeaderLayout.setOrientation(LinearLayout.HORIZONTAL);
         searchHeaderLayout.setGravity(Gravity.CENTER_VERTICAL);
         searchHeaderLayout.setVisibility(View.GONE);
-        searchHeaderLayout.setBackgroundColor(Theme.getColor(Theme.key_dialogBackground));
+        searchHeaderLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
 
         searchBackBtn = new ImageView(context);
         searchBackBtn.setImageResource(R.drawable.ic_ab_back);
@@ -435,14 +1122,24 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchBackBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
         searchBackBtn.setOnClickListener(v -> closeSearch());
 
+        // Уменьшенная строка поиска
+        FrameLayout searchFieldContainer = new FrameLayout(context);
+        searchFieldContainer.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), 0x1A000000));
+        searchFieldContainer.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(4), AndroidUtilities.dp(12), AndroidUtilities.dp(4));
+
+        ImageView searchInnerIcon = new ImageView(context);
+        searchInnerIcon.setImageResource(R.drawable.ic_ab_search);
+        searchInnerIcon.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.MULTIPLY));
+        searchFieldContainer.addView(searchInnerIcon, LayoutHelper.createFrame(20, 20, Gravity.LEFT | Gravity.CENTER_VERTICAL));
+
         searchField = new EditText(context);
-        searchField.setHint("Search track...");
-        searchField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        searchField.setHint(getString(R.string.searchtrc));
+        searchField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         searchField.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         searchField.setHintTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         searchField.setSingleLine(true);
+        searchField.setBackgroundDrawable(null);
         searchField.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        searchField.setPadding(AndroidUtilities.dp(10), 0, AndroidUtilities.dp(10), 0);
         searchField.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -455,34 +1152,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             @Override public void afterTextChanged(Editable s) {}
         });
 
+        searchFieldContainer.addView(searchField, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 28, 0, 0, 0));
+
         searchHeaderLayout.addView(searchBackBtn, LayoutHelper.createLinear(48, 48));
-        searchHeaderLayout.addView(searchField, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        searchHeaderLayout.addView(searchFieldContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
 
-        topBar.addView(standardHeaderLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 50));
-        topBar.addView(searchHeaderLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 50));
-        container.addView(topBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50));
-    }
-
-    private void openSearch() {
-        isSearching = true;
-        standardHeaderLayout.setVisibility(View.GONE);
-        searchHeaderLayout.setVisibility(View.VISIBLE);
-        searchField.requestFocus();
-        AndroidUtilities.showKeyboard(searchField);
-    }
-
-    private void closeSearch() {
-        isSearching = false;
-        searchField.setText("");
-        if (searchField.isFocused()) {
-            searchField.clearFocus();
-            AndroidUtilities.hideKeyboard(searchField);
-        }
-        searchHeaderLayout.setVisibility(View.GONE);
-        standardHeaderLayout.setVisibility(View.VISIBLE);
-        if (webResultTracks != null) webResultTracks.clear();
-        if (searchResultMessages != null) searchResultMessages.clear();
-        safeNotifyAdapter(adapter, listView);
+        // Высота уменьшена до 48
+        topBar.addView(standardHeaderLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48));
+        topBar.addView(searchHeaderLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48));
+        container.addView(topBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
     }
 
     private void saveChannelIdToFile(long channelId) {
@@ -513,6 +1191,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         return musicChannelId = getChannelIdFromFile();
     }
 
+    private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
+        long targetId = getTargetChannelId();
+        if (targetId == 0) return;
+        String text = "SG_STREAM|||" + track.title + "|||" + track.artist + "|||" + track.downloadUrl + "|||" + parseDuration(track.duration);
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+        Toast.makeText(getParentActivity(), getString(R.string.trconl), Toast.LENGTH_SHORT).show();
+
+        countBeforeUpload = audioMessages.size();
+        isWaitingForUpload = true;
+        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+    }
+
     private void downloadAndUploadTrack(MusicWebSearcher.WebTrack track) {
         long targetIdFromFile = getChannelIdFromFile();
         if (targetIdFromFile == 0) {
@@ -521,12 +1211,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
         musicChannelId = targetIdFromFile;
         File cacheDir = ApplicationLoader.applicationContext.getExternalCacheDir();
-        AlertDialog progressDialog = new AlertDialog.Builder(getParentActivity()).setMessage("Загрузка: 0%").create();
+        AlertDialog progressDialog = new AlertDialog.Builder(getParentActivity()).setMessage(getString(R.string.dwld)+ "0%").create();
         progressDialog.show();
 
         MusicWebSearcher.downloadTrack(track.downloadUrl, cacheDir, new MusicWebSearcher.DownloadCallback() {
             @Override public void onProgress(int percent) {
-                AndroidUtilities.runOnUIThread(() -> progressDialog.setMessage("Загрузка: " + percent + "%"));
+                AndroidUtilities.runOnUIThread(() -> progressDialog.setMessage(getString(R.string.dwld) + percent + "%"));
             }
             @Override public void onResult(File file) {
                 progressDialog.dismiss();
@@ -556,7 +1246,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         audioMessages.remove(msg);
         if (isSearching) searchResultMessages.remove(msg);
         safeNotifyAdapter(adapter, listView);
-        Toast.makeText(getParentActivity(), "Удалено", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getParentActivity(), getString(R.string.dl), Toast.LENGTH_SHORT).show();
     }
 
     private void createHorizontalPlaylists(Context context, LinearLayout container) {
@@ -578,27 +1268,27 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     private void showCreatePlaylistDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("New Playlist");
+        builder.setTitle(getString(R.string.nwpl));
         LinearLayout container = new LinearLayout(getParentActivity());
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(6), AndroidUtilities.dp(24), 0);
         final EditText input = new EditText(getParentActivity());
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        input.setHint("Enter title");
+        input.setHint(getString(R.string.enttit));
         input.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         input.setHintTextColor(Theme.getColor(Theme.key_dialogTextHint));
         input.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(4), Theme.getColor(Theme.key_windowBackgroundGray)));
         input.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(10), AndroidUtilities.dp(10), AndroidUtilities.dp(10));
         container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         builder.setView(container);
-        builder.setPositiveButton("Create", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.create), (dialog, which) -> {
             String name = input.getText().toString().trim();
             if (!TextUtils.isEmpty(name)) {
                 File file = new File(getPlaylistsDir(), name + ".txt");
                 try { if (file.createNewFile()) refreshPlaylistFiles(); } catch (IOException e) { e.printStackTrace(); }
             }
         });
-        builder.setNegativeButton("Cancel", null);
+        builder.setNegativeButton(getString(R.string.cancel), null);
         builder.show();
     }
 
@@ -660,36 +1350,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         });
     }
 
-    private void loadMusicFromChannel() {
-        long targetId = getTargetChannelId();
-        if (targetId == 0) return;
-        loadMessagesFromCache();
-        if (!org.telegram.messenger.ApplicationLoader.isNetworkOnline()) return;
 
-        TLRPC.TL_messages_search searchReq = new TLRPC.TL_messages_search();
-        TLRPC.TL_inputPeerChannel inputPeer = new TLRPC.TL_inputPeerChannel();
-        inputPeer.channel_id = targetId; inputPeer.access_hash = musicChannelHash;
-        searchReq.peer = inputPeer; searchReq.filter = new TLRPC.TL_inputMessagesFilterMusic();
-        searchReq.q = ""; searchReq.limit = 3000;
-
-        org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount).sendRequest(searchReq, (response, error) -> {
-            if (response instanceof TLRPC.messages_Messages) {
-                TLRPC.messages_Messages messages = (TLRPC.messages_Messages) response;
-                ArrayList<MessageObject> loaded = new ArrayList<>();
-                for (TLRPC.Message msg : messages.messages) {
-                    MessageObject messageObject = new MessageObject(currentAccount, msg, false, false);
-                    if (messageObject.isMusic()) loaded.add(messageObject);
-                }
-                saveMessagesToCache(loaded);
-                AndroidUtilities.runOnUIThread(() -> {
-                    audioMessages.clear();
-                    audioMessages.addAll(loaded);
-                    safeNotifyAdapter(adapter, listView);
-                    safeNotifyAdapter(playlistsAdapter, playlistsListView);
-                });
-            }
-        });
-    }
 
     public void playContext(MessageObject track, ArrayList<MessageObject> queue, long contextId) {
         MediaController mediaController = MediaController.getInstance();
@@ -710,24 +1371,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         mediaController.playMessage(track);
     }
 
-    private void filterMusic(String query) {
-        searchResultMessages.clear();
-        webResultTracks.clear();
-        if (!TextUtils.isEmpty(query)) {
-            String lower = query.toLowerCase();
-            for (MessageObject msg : audioMessages) {
-                if (msg.getMusicTitle().toLowerCase().contains(lower) || msg.getMusicAuthor().toLowerCase().contains(lower)) {
-                    searchResultMessages.add(msg);
-                }
-            }
-            MusicWebSearcher.search(query, results -> {
-                webResultTracks.clear();
-                webResultTracks.addAll(results);
-                safeNotifyAdapter(adapter, listView);
-            });
-        }
-        safeNotifyAdapter(adapter, listView);
-    }
+
+
 
     public static class AddTracksFragment extends BaseFragment {
         private File playlistFile;
@@ -750,7 +1395,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 try (BufferedReader br = new BufferedReader(new FileReader(playlistFile))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        try { playlistIds.add(Integer.parseInt(line.trim())); } catch (Exception ignored) {}
+                        try {
+                            if (line.startsWith("SG_STREAM|||")) {
+                                String[] p = line.split("\\|\\|\\|");
+                                if (p.length >= 4) playlistIds.add(p[3].hashCode());
+                            } else {
+                                playlistIds.add(Integer.parseInt(line.trim()));
+                            }
+                        } catch (Exception ignored) {}
                     }
                 } catch (IOException e) { e.printStackTrace(); }
             }
@@ -761,33 +1413,39 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         public void onFragmentDestroy() {
             super.onFragmentDestroy();
 
-            ArrayList<Integer> existingOrder = new ArrayList<>();
+            ArrayList<String> existingOrder = new ArrayList<>();
             if (playlistFile.exists()) {
                 try (BufferedReader br = new BufferedReader(new FileReader(playlistFile))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        existingOrder.add(Integer.parseInt(line.trim()));
+                        existingOrder.add(line.trim());
                     }
                 } catch (Exception e) { e.printStackTrace(); }
             }
 
-            ArrayList<Integer> finalOrder = new ArrayList<>();
+            ArrayList<String> finalOrder = new ArrayList<>();
 
             for (MessageObject msg : allTracks) {
-                if (playlistIds.contains(msg.getId()) && !existingOrder.contains(msg.getId())) {
-                    finalOrder.add(msg.getId());
+                int idToCheck = (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) ? msg.messageOwner.message.split("\\|\\|\\|")[3].hashCode() : msg.getId();
+
+                if (playlistIds.contains(idToCheck)) {
+                    String identifier = (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) ? msg.messageOwner.message : String.valueOf(msg.getId());
+                    if (!existingOrder.contains(identifier)) {
+                        finalOrder.add(identifier);
+                    }
                 }
             }
 
-            for (Integer id : existingOrder) {
-                if (playlistIds.contains(id)) {
-                    finalOrder.add(id);
+            for (String idStr : existingOrder) {
+                int idToCheck = idStr.startsWith("SG_STREAM|||") ? idStr.split("\\|\\|\\|")[3].hashCode() : Integer.parseInt(idStr);
+                if (playlistIds.contains(idToCheck)) {
+                    finalOrder.add(idStr);
                 }
             }
 
             try (BufferedWriter bw = new BufferedWriter(new FileWriter(playlistFile, false))) {
-                for (Integer id : finalOrder) {
-                    bw.write(String.valueOf(id));
+                for (String identifier : finalOrder) {
+                    bw.write(identifier);
                     bw.newLine();
                 }
             } catch (IOException e) { e.printStackTrace(); }
@@ -798,7 +1456,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         @Override
         public View createView(Context context) {
             actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle("Добавить треки");
+            actionBar.setTitle(getString(R.string.addtrc));
             actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
             actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
@@ -818,8 +1476,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             listView.setOnItemClickListener((view, position) -> {
                 MessageObject msg = allTracks.get(position);
-                if (playlistIds.contains(msg.getId())) playlistIds.remove(msg.getId());
-                else playlistIds.add(msg.getId());
+                int msgId = (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) ? msg.messageOwner.message.split("\\|\\|\\|")[3].hashCode() : msg.getId();
+
+                if (playlistIds.contains(msgId)) playlistIds.remove(msgId);
+                else playlistIds.add(msgId);
                 adapter.notifyItemChanged(position);
             });
 
@@ -844,7 +1504,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 MessageObject msg = allTracks.get(position);
                 cell.setMessageObject(msg);
 
-                boolean isAdded = playlistIds.contains(msg.getId());
+                int msgId = (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) ? msg.messageOwner.message.split("\\|\\|\\|")[3].hashCode() : msg.getId();
+                boolean isAdded = playlistIds.contains(msgId);
+
                 if (isAdded) {
                     cell.optionsButton.setImageResource(R.drawable.ic_ab_done);
                     cell.optionsButton.setColorFilter(0xFF1DB954, PorterDuff.Mode.SRC_IN);
@@ -918,7 +1580,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     cropped.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out);
                     out.close();
 
-                    Toast.makeText(getParentActivity(), "Обложка обновлена", Toast.LENGTH_SHORT).show();
                     if (listener != null) listener.onPlaylistUpdated();
                     safeNotifyAdapter(adapter, listView);
                 } catch (Exception e) {}
@@ -957,8 +1618,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         isEditingMode = !isEditingMode;
                         if (isEditingMode) {
                             editItem.setIcon(R.drawable.ic_ab_done);
-                            Toast.makeText(context, "Удерживайте трек для сортировки", Toast.LENGTH_SHORT).show();
-                            menu.addItem(4, R.drawable.msg_gallery_locked1); // Кастомная иконка
+                            Toast.makeText(context, getString(R.string.holdtrc), Toast.LENGTH_SHORT).show();
+                            menu.addItem(4, R.drawable.msg_gallery_locked1);
                         } else {
                             editItem.setIcon(R.drawable.msg_edit);
                             savePlaylistOrder();
@@ -1034,22 +1695,27 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private void loadPlaylistData() {
             playlistMessages.clear();
-            ArrayList<Integer> orderIds = new ArrayList<>();
             if (playlistFile.exists()) {
                 try (BufferedReader br = new BufferedReader(new FileReader(playlistFile))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        try { orderIds.add(Integer.parseInt(line.trim())); } catch (Exception ignored) {}
+                        line = line.trim();
+                        if (line.startsWith("SG_STREAM|||")) {
+                            String[] parts = line.split("\\|\\|\\|");
+                            if (parts.length >= 5) {
+                                int dur = 0; try { dur = Integer.parseInt(parts[4]); } catch (Exception e){}
+                                playlistMessages.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], dur, parts[3].hashCode(), ""));
+                            }
+                        } else {
+                            try {
+                                int id = Integer.parseInt(line);
+                                for (MessageObject msg : ChannelMusicFragment.audioMessages) {
+                                    if (msg.getId() == id) { playlistMessages.add(msg); break; }
+                                }
+                            } catch (Exception ignored) {}
+                        }
                     }
                 } catch (IOException e) { e.printStackTrace(); }
-            }
-            for (Integer id : orderIds) {
-                for (MessageObject msg : ChannelMusicFragment.audioMessages) {
-                    if (msg.getId() == id) {
-                        playlistMessages.add(msg);
-                        break;
-                    }
-                }
             }
             safeNotifyAdapter(adapter, listView);
             if (listener != null) listener.onPlaylistUpdated();
@@ -1145,7 +1811,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             deleteIcon.setColorFilter(Theme.getColor(Theme.key_dialogIcon), PorterDuff.Mode.SRC_IN);
 
             TextView deleteText = new TextView(context);
-            deleteText.setText("Удалить из плейлиста");
+            deleteText.setText(getString(R.string.dlpl));
             deleteText.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
             deleteText.setTextSize(16);
 
@@ -1157,11 +1823,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             showDialog(builder.create());
         }
 
-        private void savePlaylistOrder() {
+        public void savePlaylistOrder() {
             if (playlistFile == null) return;
             try (java.io.FileWriter fw = new java.io.FileWriter(playlistFile, false)) {
                 for (MessageObject msg : playlistMessages) {
-                    fw.write(msg.getId() + "\n");
+                    if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                        fw.write(msg.messageOwner.message + "\n");
+                    } else {
+                        fw.write(msg.getId() + "\n");
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -1231,7 +1901,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     buttonsLayout.setGravity(Gravity.CENTER);
 
                     TextView playButton = new TextView(mContext);
-                    playButton.setText("Слушать");
+                    playButton.setText(getString(R.string.hear));
                     playButton.setTextColor(0xFFFFFFFF);
                     playButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
                     playButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -1246,6 +1916,41 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     shuffleButton.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(24), Theme.getColor(Theme.key_listSelector)));
                     shuffleButton.setScaleType(ImageView.ScaleType.CENTER);
                     buttonsLayout.addView(shuffleButton, LayoutHelper.createLinear(48, 48));
+
+                    TextView waveButton = new TextView(mContext);
+                    waveButton.setText(getString(R.string.mywave));
+                    waveButton.setTextColor(0xFFFFFFFF);
+                    waveButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                    waveButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                    waveButton.setGravity(Gravity.CENTER);
+                    waveButton.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(24), 0xFF8A2BE2));
+                    waveButton.setPadding(AndroidUtilities.dp(20), 0, AndroidUtilities.dp(20), 0);
+                    buttonsLayout.addView(waveButton, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 48, 16, 0, 0, 0));
+
+                    waveButton.setOnClickListener(v -> {
+                        if (playlistMessages.isEmpty()) return;
+                        Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
+
+                        ArrayList<MessageObject> originalList = new ArrayList<>(playlistMessages);
+
+                        // ИСПРАВЛЕНО ЗДЕСЬ (Заменен метод на актуальный)
+                        SmartRadioEngine.generateWaveByPlaylist(originalList, currentAccount, new SmartRadioEngine.WaveCallback() {
+                            @Override
+                            public void onTracksFound(ArrayList<MessageObject> waveQueue) {
+                                MediaController.getInstance().myWaveBasePlaylist.clear();
+                                MediaController.getInstance().myWaveBasePlaylist.addAll(waveQueue);
+                                playContext(waveQueue.get(0), MediaController.getInstance().myWaveBasePlaylist, MediaController.WAVE_CONTEXT_ID);
+                            }
+
+                            @Override
+                            public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {}
+
+                            @Override
+                            public void onError() {
+                                Toast.makeText(mContext, getString(R.string.er), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    });
 
                     playButton.setOnClickListener(v -> {
                         if (!playlistMessages.isEmpty()) {
@@ -1292,7 +1997,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         totalSeconds += m.getDuration();
                     }
                     int minutes = totalSeconds / 60;
-                    metaText.setText(playlistMessages.size() + " треков • " + minutes + " мин");
+                    metaText.setText(playlistMessages.size() + getString(R.string.trck) + minutes + getString(R.string.min));
 
                     MessageObject coverMsg = null;
                     for (MessageObject m : playlistMessages) {
@@ -1323,26 +2028,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
     }
 
-    @Override
-    public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.didReceiveNewMessages) {
-            if ((Long) args[0] == getTargetChannelId()) {
-                ArrayList<MessageObject> newMsgs = (ArrayList<MessageObject>) args[1];
-                for (MessageObject msg : newMsgs) if (msg.isMusic()) audioMessages.add(0, msg);
-                if (isSearching) filterMusic(searchField.getText().toString());
-                else safeNotifyAdapter(adapter, listView);
-            }
-        } else if (id == NotificationCenter.messagePlayingDidStart) {
-            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-            if (playing != null && playing.getId() != lastTrackedId) {
-                lastTrackedId = playing.getId();
-                saveListeningStat(playing);
-            }
-            safeNotifyAdapter(adapter, listView);
-        } else if (id == NotificationCenter.messagePlayingDidReset || id == NotificationCenter.messagePlayingPlayStateChanged) {
-            safeNotifyAdapter(adapter, listView);
-        }
-    }
+
 
     private class PlaylistsHorizontalAdapter extends RecyclerListView.SelectionAdapter {
         private Context mContext;
@@ -1394,7 +2080,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (position == 0) {
                 coverImage.setImageDrawable(Theme.createRoundRectDrawable(AndroidUtilities.dp(8), Theme.getColor(Theme.key_dialogBackground)));
                 plusIcon.setVisibility(View.VISIBLE);
-                nameText.setText("Создать");
+                nameText.setText(getString(R.string.create));
             } else {
                 plusIcon.setVisibility(View.GONE);
                 File pFile = playlistFiles.get(position - 1);
@@ -1405,7 +2091,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 try (BufferedReader br = new BufferedReader(new FileReader(pFile))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        int id = Integer.parseInt(line.trim());
+                        line = line.trim();
+                        if (line.startsWith("SG_STREAM|||")) continue; // пропускаем для обложки
+                        int id = Integer.parseInt(line);
                         for (MessageObject msg : audioMessages) {
                             if (msg.getId() == id && hasValidIcon(msg)) {
                                 coverMsg = msg;
@@ -1483,7 +2171,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             artistTextView.setText(msg.getMusicAuthor());
 
             MessageObject playingMsg = MediaController.getInstance().getPlayingMessageObject();
-            boolean isPlaying = playingMsg != null && playingMsg.getId() == msg.getId();
+            boolean isPlaying = playingMsg != null && playingMsg.getId() == msg.getId() && msg.getId() != 0;
 
             if (isPlaying) {
                 titleTextView.setTextColor(0xFF1DB954);
@@ -1540,16 +2228,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             SpotifyTrackCell myCell = (SpotifyTrackCell) holder.itemView;
 
             if (getItemViewType(position) == TYPE_WEB_TRACK) {
-                myCell.optionsButton.setVisibility(View.GONE);
+                myCell.optionsButton.setVisibility(View.VISIBLE); // Теперь кнопка видна
                 MusicWebSearcher.WebTrack track = webResultTracks.get(position);
-                TLRPC.TL_message webMsg = new TLRPC.TL_message();
-                webMsg.media = new TLRPC.TL_messageMediaDocument();
-                webMsg.media.document = new TLRPC.TL_document();
-                TLRPC.TL_documentAttributeAudio attr = new TLRPC.TL_documentAttributeAudio();
-                attr.title = track.title;
-                attr.performer = track.artist;
-                webMsg.media.document.attributes.add(attr);
-                myCell.setMessageObject(new MessageObject(currentAccount, webMsg, false, false));
+                int durSec = parseDuration(track.duration);
+                MessageObject fakeObj = createWebMessageObject(currentAccount, track.title, track.artist, track.downloadUrl, durSec, -(long)track.downloadUrl.hashCode(), "");
+                myCell.setMessageObject(fakeObj);
+
+                myCell.optionsButton.setOnClickListener(v -> {
+                    showWebTrackOptionsBottomSheet(mContext, track);
+                });
             } else {
                 myCell.optionsButton.setVisibility(View.VISIBLE);
                 int idx = (isSearching && customList == null) ? position - webResultTracks.size() : position;
@@ -1562,6 +2249,67 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 });
             }
         }
+    }
+
+    private void showWebTrackOptionsBottomSheet(Context context, MusicWebSearcher.WebTrack track) {
+        BottomSheet.Builder builder = new BottomSheet.Builder(context);
+
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        gd.setColor(Theme.getColor(Theme.key_dialogBackground));
+        gd.setCornerRadii(new float[]{AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), 0, 0, 0, 0});
+        container.setBackground(gd);
+        container.setPadding(0, AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16));
+
+        LinearLayout header = new LinearLayout(context);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        BackupImageView cover = new BackupImageView(context);
+        cover.setRoundRadius(AndroidUtilities.dp(4));
+        setAudioCover(cover, null, "50_50", 4);
+
+        LinearLayout textContainer = new LinearLayout(context);
+        textContainer.setOrientation(LinearLayout.VERTICAL);
+        textContainer.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
+
+        TextView title = new TextView(context);
+        title.setText(track.title);
+        title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        title.setTextSize(16);
+        title.setSingleLine(true);
+        title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+
+        TextView artist = new TextView(context);
+        artist.setText(track.artist);
+        artist.setTextColor(Theme.getColor(Theme.key_dialogTextGray2));
+        artist.setTextSize(14);
+        artist.setSingleLine(true);
+
+        textContainer.addView(title);
+        textContainer.addView(artist);
+        header.addView(cover, LayoutHelper.createLinear(48, 48));
+        header.addView(textContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        container.addView(header);
+
+        View divider = new View(context);
+        divider.setBackgroundColor(Theme.getColor(Theme.key_divider));
+        container.addView(divider, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 0, 0, 0, 8));
+
+        container.addView(createMenuOption(context, getString(R.string.addlb), R.drawable.msg_add, () -> {
+            builder.getDismissRunnable().run();
+            saveWebTrackToLibrary(track);
+        }));
+
+        container.addView(createMenuOption(context, getString(R.string.dwch), R.drawable.msg_download, () -> {
+            builder.getDismissRunnable().run();
+            downloadAndUploadTrack(track);
+        }));
+
+        builder.setCustomView(container);
+        showDialog(builder.create());
     }
 
     private void showTrackOptionsBottomSheet(Context context, MessageObject msg, boolean isInsidePlaylist, Runnable onDeleteCallback) {
@@ -1612,13 +2360,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         container.addView(divider, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 0, 0, 0, 8));
 
         if (!isInsidePlaylist) {
-            container.addView(createMenuOption(context, "Добавить в плейлист", R.drawable.msg_add, () -> {
+            container.addView(createMenuOption(context, getString(R.string.addpl), R.drawable.msg_add, () -> {
                 builder.getDismissRunnable().run();
                 showSelectPlaylistBottomSheet(context, msg);
             }));
         }
 
-        String deleteText = isInsidePlaylist ? "Удалить из плейлиста" : "Удалить из библиотеки";
+        String deleteText = isInsidePlaylist ? getString(R.string.dlpl) : getString(R.string.dll);
         container.addView(createMenuOption(context, deleteText, R.drawable.msg_delete, () -> {
             builder.getDismissRunnable().run();
             if (onDeleteCallback != null) onDeleteCallback.run();
@@ -1652,7 +2400,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     private void showSelectPlaylistBottomSheet(Context context, MessageObject msg) {
         if (playlistFiles.isEmpty()) {
-            Toast.makeText(context, "Сначала создайте плейлист!", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1666,7 +2413,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         container.setBackground(gd);
 
         TextView title = new TextView(context);
-        title.setText("Добавить в плейлист");
+        title.setText(getString(R.string.addpl));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         title.setTextSize(18);
         title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -1686,13 +2433,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
 
                 try (BufferedWriter bw = new BufferedWriter(new FileWriter(pFile, false))) {
-                    bw.write(String.valueOf(msg.getId()));
+                    if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                        bw.write(msg.messageOwner.message);
+                    } else {
+                        bw.write(String.valueOf(msg.getId()));
+                    }
                     bw.newLine();
                     for (String oldLine : existingLines) {
                         bw.write(oldLine);
                         bw.newLine();
                     }
-                    Toast.makeText(context, "Добавлено в " + name, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, getString(R.string.addin) + name, Toast.LENGTH_SHORT).show();
                     safeNotifyAdapter(playlistsAdapter, playlistsListView);
                 } catch (IOException e) { e.printStackTrace(); }
                 builder.getDismissRunnable().run();
@@ -1704,23 +2455,23 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     private void showImportDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Import Music from Channel");
+        builder.setTitle(getString(R.string.imm));
         LinearLayout container = new LinearLayout(getParentActivity());
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(6), AndroidUtilities.dp(24), 0);
         final EditText input = new EditText(getParentActivity());
-        input.setHint("Enter channel @username");
+        input.setHint(getString(R.string.chus));
         input.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         input.setHintTextColor(Theme.getColor(Theme.key_dialogTextHint));
         input.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(4), Theme.getColor(Theme.key_windowBackgroundGray)));
         input.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(10), AndroidUtilities.dp(10), AndroidUtilities.dp(10));
         container.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         builder.setView(container);
-        builder.setPositiveButton("Search", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.src), (dialog, which) -> {
             String query = input.getText().toString().replace("https://t.me/", "").replace("@", "").trim();
             if (!TextUtils.isEmpty(query)) searchChannelAndFetchMusic(query);
         });
-        builder.setNegativeButton("Cancel", null);
+        builder.setNegativeButton(getString(R.string.cancel), null);
         builder.show();
     }
 
@@ -1763,7 +2514,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private void showImportSelectionSheet(ArrayList<MessageObject> availableTracks) {
         if (availableTracks.isEmpty()) return;
         BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity());
-        builder.setTitle("Import to SoundGram", true);
+        builder.setTitle(getString(R.string.ims), true);
         LinearLayout container = new LinearLayout(getParentActivity());
         container.setOrientation(LinearLayout.VERTICAL);
 
@@ -1774,7 +2525,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         HashSet<Integer> selectedIds = new HashSet<>();
         TextView importButton = new TextView(getParentActivity());
-        importButton.setText("Import Tracks");
+        importButton.setText(getString(R.string.imports));
         importButton.setGravity(Gravity.CENTER);
         importButton.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(6), Theme.getColor(Theme.key_featuredStickers_addButton)));
         importButton.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
@@ -1797,7 +2548,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (selectedIds.contains(msg.getId())) selectedIds.remove(msg.getId());
             else selectedIds.add(msg.getId());
             ((CheckBoxCell) view).setChecked(selectedIds.contains(msg.getId()), true);
-            importButton.setText(selectedIds.isEmpty() ? "Import Tracks" : "Import (" + selectedIds.size() + ")");
+            importButton.setText(selectedIds.isEmpty() ? getString(R.string.imports) : getString(R.string.im) + selectedIds.size() + ")");
         });
         importButton.setOnClickListener(v -> {
             if (!selectedIds.isEmpty()) {
@@ -1832,47 +2583,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         setAudioCover(coverImage, defaultMsg, "100_100_b", radius);
     }
 
-    public static void setAudioCover(BackupImageView coverImage, MessageObject msg, String filter, int radius) {
-        coverImage.setRoundRadius(AndroidUtilities.dp(radius));
-        android.graphics.drawable.Drawable placeholder = Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_graySection));
-
-        if (msg == null) {
-            coverImage.setImageDrawable(placeholder);
-            return;
-        }
-
-        TLRPC.Document document = msg.getDocument();
-        TLRPC.PhotoSize thumb = null;
-
-        if (msg.photoThumbs != null && !msg.photoThumbs.isEmpty()) {
-            thumb = org.telegram.messenger.FileLoader.getClosestPhotoSizeWithSize(msg.photoThumbs, 320);
-        }
-
-        if (thumb == null && document != null && document.thumbs != null && !document.thumbs.isEmpty()) {
-            thumb = org.telegram.messenger.FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 320);
-        }
-
-        if (thumb != null && document != null) {
-            coverImage.setImage(org.telegram.messenger.ImageLocation.getForDocument(thumb, document), filter, placeholder, msg);
-            return;
-        }
-
-        String artworkUrl = msg.getArtworkUrl(true);
-        if (!TextUtils.isEmpty(artworkUrl)) {
-            coverImage.setImage(artworkUrl, filter, placeholder);
-            return;
-        }
-
-        if (document != null) {
-            org.telegram.messenger.ImageLocation loc = org.telegram.messenger.ImageLocation.getForDocument(document);
-            if (loc != null) {
-                coverImage.setImage(loc, filter, placeholder, msg);
-                return;
-            }
-        }
-
-        coverImage.setImageDrawable(placeholder);
-    }
 
     private boolean hasValidIcon(MessageObject m) {
         if (m == null) return false;
@@ -1902,12 +2612,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         public MiniPlayerView(Context context, android.app.Activity parentActivity) {
             super(context);
             this.parentContext = context;
-            setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+
+            // Плавающий дизайн
+            setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), Theme.getColor(Theme.key_dialogBackground)));
+            if (android.os.Build.VERSION.SDK_INT >= 21) {
+                setElevation(AndroidUtilities.dp(4));
+            }
             setClickable(true);
 
-            View border = new View(context);
-            border.setBackgroundColor(Theme.getColor(Theme.key_divider));
-            addView(border, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1, Gravity.TOP));
 
             coverImage = new BackupImageView(context);
             coverImage.setRoundRadius(AndroidUtilities.dp(4));
@@ -1932,29 +2644,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             textLayout.addView(titleTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
             textLayout.addView(artistTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
 
-            addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 76, 0, 240, 0));
-
-            ImageView lyricsBtn = new ImageView(context);
-            lyricsBtn.setImageResource(R.drawable.menu_quote_specific);
-            lyricsBtn.setScaleType(ImageView.ScaleType.CENTER);
-            lyricsBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN);
-            lyricsBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
-            lyricsBtn.setOnClickListener(v -> {
-                MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-                if (playing != null) new SoundGramLyricsDialog(parentActivity, playing).show();
-            });
-            addView(lyricsBtn, LayoutHelper.createFrame(48, 48, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 192, 0));
-
-            ImageView eqBtn = new ImageView(context);
-            eqBtn.setImageResource(R.drawable.files_music);
-            eqBtn.setScaleType(ImageView.ScaleType.CENTER);
-            eqBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN);
-            eqBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
-            eqBtn.setOnClickListener(v -> showDialog(new SoundGramEQAlert(parentActivity)));
-            addView(eqBtn, LayoutHelper.createFrame(48, 48, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 144, 0));
+            addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 76, 0, 144, 0));
 
             ImageView prevBtn = new ImageView(context);
-            prevBtn.setImageResource(R.drawable.cast_ic_expanded_controller_skip_previous);
+            prevBtn.setImageResource(R.drawable.baseline_skip_previous_24_white);
             prevBtn.setScaleType(ImageView.ScaleType.CENTER);
             prevBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN);
             prevBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
@@ -1975,7 +2668,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             addView(playPauseBtn, LayoutHelper.createFrame(48, 48, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 48, 0));
 
             ImageView nextBtn = new ImageView(context);
-            nextBtn.setImageResource(R.drawable.cast_ic_expanded_controller_skip_next);
+            nextBtn.setImageResource(R.drawable.baseline_skip_next_24_white);
             nextBtn.setScaleType(ImageView.ScaleType.CENTER);
             nextBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN);
             nextBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
@@ -2020,7 +2713,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private void updateView() {
             MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-            if (playing == null || !playing.isMusic()) {
+            if (playing == null || (!playing.isMusic() && playing.messageOwner.attachPath == null)) {
+
                 setVisibility(View.GONE);
                 return;
             }
@@ -2036,4 +2730,952 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         }
     }
+    // filterMusic в ChannelMusicFragment:
+    private void filterMusic(String query) {
+        searchResultMessages.clear();
+        webResultTracks.clear();
+
+        if (!TextUtils.isEmpty(query)) {
+            if (tabStrip != null) tabStrip.setVisibility(View.GONE);
+            if (libraryListHeader != null) libraryListHeader.setVisibility(View.GONE);
+            if (viewPager != null && viewPager.getCurrentItem() != 1) viewPager.setCurrentItem(1, false);
+
+            String lower = query.toLowerCase();
+            for (MessageObject msg : audioMessages) {
+                if (msg.getMusicTitle().toLowerCase().contains(lower) || msg.getMusicAuthor().toLowerCase().contains(lower)) {
+                    searchResultMessages.add(msg);
+                }
+            }
+
+            MusicWebSearcher.search(query, (tracks, artists, albums) -> {
+                webResultTracks.clear();
+                if (tracks != null) webResultTracks.addAll(tracks);
+
+                ArrayList<MusicWebSearcher.WebArtist> validArtists = new ArrayList<>();
+                if (artists != null) {
+                    for (MusicWebSearcher.WebArtist a : artists) {
+                        if (a.name != null && !a.name.trim().isEmpty() && !a.name.equals("Unknown") && a.name.length() > 1) {
+                            validArtists.add(a);
+                        }
+                    }
+                }
+
+                ArrayList<MusicWebSearcher.WebAlbum> validAlbums = new ArrayList<>();
+                if (albums != null) {
+                    for (MusicWebSearcher.WebAlbum a : albums) {
+                        if (a.title != null && !a.title.trim().isEmpty() && !a.title.equals("Unknown") && a.title.length() > 1) {
+                            validAlbums.add(a);
+                        }
+                    }
+                }
+
+                if (artistAdapter != null) artistAdapter.setArtists(validArtists);
+                if (albumsAdapter != null) albumsAdapter.setAlbums(validAlbums);
+
+                // ОЧЕНЬ ВАЖНО: ИСПРАВЛЕНИЕ ОГРОМНЫХ ОТСТУПОВ (устанавливаем WRAP_CONTENT при обновлении и обнуляем маргины)
+                LinearLayout.LayoutParams artistLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validArtists.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
+                artistLP.setMargins(0, 0, 0, 0); // Обнуляем маргины
+                artistRecyclerView.setLayoutParams(artistLP);
+
+                LinearLayout.LayoutParams albumsLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validAlbums.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
+                albumsLP.setMargins(0, 0, 0, 0); // Обнуляем маргины
+                albumsRecyclerView.setLayoutParams(albumsLP);
+
+                artistRecyclerView.setVisibility(validArtists.isEmpty() ? View.GONE : View.VISIBLE);
+                albumsRecyclerView.setVisibility(validAlbums.isEmpty() ? View.GONE : View.VISIBLE);
+
+                safeNotifyAdapter(adapter, listView);
+            });
+
+        } else {
+            if (tabStrip != null) tabStrip.setVisibility(View.VISIBLE);
+            if (libraryListHeader != null) libraryListHeader.setVisibility(View.VISIBLE);
+
+            artistRecyclerView.setVisibility(View.GONE);
+            albumsRecyclerView.setVisibility(View.GONE);
+            // ИСПРАВЛЕНИЕ: Обнуляем высоту и маргины
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, 0);
+            p.setMargins(0, 0, 0, 0);
+            artistRecyclerView.setLayoutParams(p);
+            albumsRecyclerView.setLayoutParams(p);
+
+            if (artistAdapter != null) artistAdapter.setArtists(new ArrayList<>());
+            if (albumsAdapter != null) albumsAdapter.setAlbums(new ArrayList<>());
+            safeNotifyAdapter(adapter, listView);
+        }
+    }
+
+    public class ArtistProfileFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
+        private String artistName;
+        private String artistUrl;
+        private String bannerUrl;
+
+        private LinearLayout contentLayout;
+        private LinearLayout albumsContainer;
+        private LinearLayout tracksContainer;
+        private TextView albumsTitle;
+        private HorizontalScrollView albumsScroll;
+        private ArrayList<MessageObject> queue = new ArrayList<>();
+        private BackupImageView bannerView;
+
+        public ArtistProfileFragment(String name, String url, String banner) {
+            this.artistName = name;
+            this.artistUrl = url;
+            this.bannerUrl = banner;
+        }
+
+        @Override
+        public boolean onFragmentCreate() {
+            super.onFragmentCreate();
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidStart);
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
+            return true;
+        }
+
+        @Override
+        public void onFragmentDestroy() {
+            super.onFragmentDestroy();
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidStart);
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
+        }
+
+        @Override
+        public void didReceivedNotification(int id, int account, Object... args) {
+            if (id == NotificationCenter.messagePlayingDidStart || id == NotificationCenter.messagePlayingPlayStateChanged) {
+                updatePlayingTrackColor();
+            }
+        }
+
+        private void updatePlayingTrackColor() {
+            if (tracksContainer == null || queue.isEmpty()) return;
+            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+
+            for (int i = 0; i < tracksContainer.getChildCount(); i++) {
+                View v = tracksContainer.getChildAt(i);
+                if (v instanceof LinearLayout) {
+                    LinearLayout trackRow = (LinearLayout) v;
+                    LinearLayout textContainer = (LinearLayout) trackRow.getChildAt(2);
+                    TextView titleTxt = (TextView) textContainer.getChildAt(0);
+
+                    if (i < queue.size()) {
+                        MessageObject rowMsg = queue.get(i);
+                        if (playing != null && playing.getId() == rowMsg.getId() && playing.getId() != 0) {
+                            titleTxt.setTextColor(0xFF1DB954);
+                        } else {
+                            titleTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                        }
+                    }
+                }
+            }
+        }
+
+        @Override
+        public View createView(Context context) {
+            actionBar.setBackButtonImage(org.telegram.messenger.R.drawable.ic_ab_back);
+            actionBar.setAllowOverlayTitle(false);
+            actionBar.setTitle("");
+            actionBar.setBackgroundColor(Color.TRANSPARENT);
+            actionBar.setItemsColor(0xFFFFFFFF, false);
+            actionBar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() {
+                @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
+            });
+
+            FrameLayout rootFrame = new FrameLayout(context) {
+                @Override protected void onDraw(Canvas canvas) {
+                    canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                }
+            };
+            fragmentView = rootFrame;
+
+            ScrollView scrollView = new ScrollView(context);
+            scrollView.setVerticalScrollBarEnabled(false);
+            scrollView.setClipToPadding(false);
+            scrollView.setPadding(0, 0, 0, AndroidUtilities.dp(70));
+            rootFrame.addView(scrollView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+            contentLayout = new LinearLayout(context);
+            contentLayout.setOrientation(LinearLayout.VERTICAL);
+            scrollView.addView(contentLayout, LayoutHelper.createScroll(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
+
+            FrameLayout headerFrame = new FrameLayout(context);
+            bannerView = new BackupImageView(context);
+            bannerView.setImage(bannerUrl, "600_600", null);
+            headerFrame.addView(bannerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 320));
+
+            MusicWebSearcher.fetchArtistPictureFromDeezer(artistName, url -> {
+                if (url != null) bannerView.setImage(url, "600_600", null);
+            });
+
+            View gradientView = new View(context);
+            int bgColor = Theme.getColor(Theme.key_windowBackgroundWhite);
+            android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, new int[]{(bgColor & 0x00FFFFFF), bgColor});
+            gradientView.setBackground(gd);
+            headerFrame.addView(gradientView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 320));
+
+            TextView nameText = new TextView(context);
+            nameText.setText(artistName);
+            nameText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 42);
+            nameText.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            nameText.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            nameText.setShadowLayer(4, 0, 2, 0x88000000);
+            headerFrame.addView(nameText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.LEFT, 16, 0, 16, 16));
+
+            contentLayout.addView(headerFrame, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 320));
+
+            FrameLayout actionsFrame = new FrameLayout(context);
+            ImageView playButton = new ImageView(context);
+            playButton.setImageResource(org.telegram.messenger.R.drawable.ic_play);
+            playButton.setColorFilter(0xFFFFFFFF, android.graphics.PorterDuff.Mode.SRC_IN);
+            playButton.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(28), 0xFF1DB954));
+            playButton.setScaleType(ImageView.ScaleType.CENTER);
+            playButton.setOnClickListener(v -> {
+                if (!queue.isEmpty()) {
+                    MediaController.getInstance().setPlaylist(queue, queue.get(0), -(long)"artist_context".hashCode());
+                    MediaController.getInstance().seekToProgress(queue.get(0), 0);
+                    MediaController.getInstance().playMessage(queue.get(0));
+                } else Toast.makeText(context, "Треки загружаются...", Toast.LENGTH_SHORT).show();
+            });
+            actionsFrame.addView(playButton, LayoutHelper.createFrame(56, 56, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 16, 16, 16));
+            contentLayout.addView(actionsFrame, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            albumsTitle = new TextView(context);
+            albumsTitle.setText("Популярные релизы");
+            albumsTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+            albumsTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            albumsTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            albumsTitle.setVisibility(View.GONE);
+            contentLayout.addView(albumsTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 16, 8, 16, 12));
+
+            albumsScroll = new HorizontalScrollView(context);
+            albumsScroll.setHorizontalScrollBarEnabled(false);
+            albumsScroll.setClipToPadding(false);
+            albumsScroll.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
+            albumsScroll.setVisibility(View.GONE);
+
+            albumsContainer = new LinearLayout(context);
+            albumsContainer.setOrientation(LinearLayout.HORIZONTAL);
+            albumsScroll.addView(albumsContainer, LayoutHelper.createScroll(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER_VERTICAL));
+            contentLayout.addView(albumsScroll, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 180, 0, 0, 0, 16));
+
+            TextView tracksTitle = new TextView(context);
+            tracksTitle.setText("Популярные треки");
+            tracksTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+            tracksTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            tracksTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            contentLayout.addView(tracksTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 16, 16, 16, 8));
+
+            // --- ШИРОКАЯ КНОПКА ВОЛНЫ ---
+            TextView waveBtn = ChannelMusicFragment.createYandexWaveButton(context, "🔮 Моя Волна по исполнителю", v -> {
+                Toast.makeText(context, "Генерация волны...", Toast.LENGTH_SHORT).show();
+                SmartRadioEngine.generateWaveByArtist(artistName, currentAccount, new SmartRadioEngine.WaveCallback() {
+                    @Override
+                    public void onTracksFound(ArrayList<MessageObject> tracks) {
+                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), 0);
+                        MediaController.getInstance().playMessage(tracks.get(0));
+                    }
+                    @Override public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {
+                        MediaController.getInstance().addTracksToPlaylist(tracks);
+                    }
+                    @Override public void onError() { Toast.makeText(context, "Ошибка", Toast.LENGTH_SHORT).show(); }
+                });
+            });
+            contentLayout.addView(waveBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 8, 16, 16));
+
+            tracksContainer = new LinearLayout(context);
+            tracksContainer.setOrientation(LinearLayout.VERTICAL);
+            contentLayout.addView(tracksContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            ChannelMusicFragment.MiniPlayerView miniPlayerView = new ChannelMusicFragment.MiniPlayerView(context, getParentActivity());
+            rootFrame.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM));
+
+            loadData(context);
+            return fragmentView;
+        }
+
+        private void loadData(Context context) {
+            // Загружаем альбомы ТОЛЬКО из Deezer (чтобы не было чужих)
+            MusicWebSearcher.loadArtistAlbumsViaDeezer(artistName, new MusicWebSearcher.ArtistProfileCallback() {
+                @Override
+                public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> dummy) {
+                    if (albums.isEmpty()) return;
+
+                    albumsTitle.setVisibility(View.VISIBLE);
+                    albumsScroll.setVisibility(View.VISIBLE);
+                    albumsContainer.removeAllViews();
+
+                    for (MusicWebSearcher.WebAlbum album : albums) {
+                        LinearLayout albumCell = new LinearLayout(context);
+                        albumCell.setOrientation(LinearLayout.VERTICAL);
+                        albumCell.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
+                        albumCell.setPadding(0, 0, AndroidUtilities.dp(16), 0);
+
+                        BackupImageView cover = new BackupImageView(context);
+                        cover.setRoundRadius(AndroidUtilities.dp(8));
+                        cover.setImage(album.coverUrl, "150_150", null);
+                        albumCell.addView(cover, LayoutHelper.createLinear(130, 130, 0, 0, 0, 8));
+
+                        TextView title = new TextView(context);
+                        title.setText(album.title);
+                        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+                        title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                        title.setMaxLines(2);
+                        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                        title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                        albumCell.addView(title, LayoutHelper.createLinear(130, LayoutHelper.WRAP_CONTENT));
+
+                        albumCell.setOnClickListener(v -> presentFragment(new AlbumProfileFragment(album.title, album.albumUrl, album.coverUrl)));
+                        albumsContainer.addView(albumCell);
+                    }
+                }
+                @Override public void onFailed() {}
+            });
+
+            // Загружаем треки (альбомы Хитмоса игнорируем)
+            MusicWebSearcher.loadArtistProfile(artistUrl, new MusicWebSearcher.ArtistProfileCallback() {
+                @Override
+                public void onResult(ArrayList<MusicWebSearcher.WebAlbum> ignoredAlbums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
+                    queue.clear();
+                    int trackIndex = 1;
+                    for (MusicWebSearcher.WebTrack track : tracks) {
+                        int durSec = ChannelMusicFragment.parseDuration(track.duration);
+                        MessageObject fakeMsg = ChannelMusicFragment.createWebMessageObject(currentAccount, track.title, track.artist, track.downloadUrl, durSec, -(long)track.downloadUrl.hashCode(), "");
+                        queue.add(fakeMsg);
+
+                        LinearLayout trackRow = new LinearLayout(context);
+                        trackRow.setOrientation(LinearLayout.HORIZONTAL);
+                        trackRow.setGravity(Gravity.CENTER_VERTICAL);
+                        trackRow.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
+                        trackRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
+
+                        TextView numberTxt = new TextView(context);
+                        numberTxt.setText(String.valueOf(trackIndex++));
+                        numberTxt.setTextSize(15);
+                        numberTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                        numberTxt.setGravity(Gravity.CENTER);
+                        trackRow.addView(numberTxt, LayoutHelper.createLinear(24, LayoutHelper.WRAP_CONTENT, 0, 0, 12, 0));
+
+                        BackupImageView trackCover = new BackupImageView(context);
+                        trackCover.setRoundRadius(AndroidUtilities.dp(4));
+                        String useCover = track.coverUrl != null && !track.coverUrl.isEmpty() ? track.coverUrl : bannerUrl;
+                        trackCover.setImage(useCover, "50_50", null);
+                        trackRow.addView(trackCover, LayoutHelper.createLinear(48, 48, 0, 0, 12, 0));
+
+                        LinearLayout textContainer = new LinearLayout(context);
+                        textContainer.setOrientation(LinearLayout.VERTICAL);
+
+                        TextView titleTxt = new TextView(context);
+                        titleTxt.setText(track.title);
+                        titleTxt.setTextSize(16);
+                        titleTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                        titleTxt.setSingleLine(true);
+                        titleTxt.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+                        TextView artistTxt = new TextView(context);
+                        artistTxt.setText(track.artist);
+                        artistTxt.setTextSize(14);
+                        artistTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                        artistTxt.setSingleLine(true);
+
+                        textContainer.addView(titleTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+                        textContainer.addView(artistTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+                        trackRow.addView(textContainer, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                        ImageView optionsIcon = new ImageView(context);
+                        optionsIcon.setImageResource(org.telegram.messenger.R.drawable.ic_ab_other);
+                        optionsIcon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon));
+                        optionsIcon.setScaleType(ImageView.ScaleType.CENTER);
+                        optionsIcon.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
+                        trackRow.addView(optionsIcon, LayoutHelper.createLinear(40, 40));
+                        optionsIcon.setOnClickListener(v -> showWebTrackOptionsBottomSheet(getParentActivity(), track));
+
+                        trackRow.setOnClickListener(v -> {
+                            MediaController.getInstance().setPlaylist(queue, fakeMsg, -(long)"artist_context".hashCode());
+                            MediaController.getInstance().seekToProgress(fakeMsg, 0);
+                            MediaController.getInstance().playMessage(fakeMsg);
+                            updatePlayingTrackColor();
+                        });
+                        tracksContainer.addView(trackRow);
+                    }
+                    updatePlayingTrackColor();
+                }
+                @Override public void onFailed() {}
+            });
+        }
+    }
+
+    public class AlbumProfileFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
+        private String title;
+        private String albumUrl;
+        private String coverUrl;
+        private ArrayList<MessageObject> playlistMessages = new ArrayList<>();
+        private RecyclerListView listView;
+        private AlbumMusicAdapter adapter;
+        private long albumUniqueId;
+
+        public AlbumProfileFragment(String title, String albumUrl, String coverUrl) {
+            this.title = title;
+            this.albumUrl = albumUrl;
+            this.coverUrl = coverUrl;
+            this.albumUniqueId = -(long) Math.abs(albumUrl.hashCode());
+        }
+
+        private MessageObject getSavedAlbumMessage() {
+            for (MessageObject msg : savedAlbumMessages) {
+                if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.contains(albumUrl)) {
+                    return msg;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public boolean onFragmentCreate() {
+            super.onFragmentCreate();
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidStart);
+            loadAlbumData();
+            return true;
+        }
+
+        @Override
+        public void onFragmentDestroy() {
+            super.onFragmentDestroy();
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidStart);
+        }
+
+        @Override
+        public View createView(Context context) {
+            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
+            actionBar.setTitle("");
+            actionBar.setOccupyStatusBar(true);
+
+            ActionBarMenu menu = actionBar.createMenu();
+            boolean isSaved = getSavedAlbumMessage() != null;
+            if (isSaved) {
+                menu.addItem(1, R.drawable.msg_delete);
+            } else {
+                menu.addItem(1, R.drawable.msg_add);
+            }
+            menu.addItem(5, R.drawable.msg_download);
+
+            actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
+            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+                @Override
+                public void onItemClick(int id) {
+                    if (id == -1) finishFragment();
+                    else if (id == 1) {
+                        MessageObject savedMsg = getSavedAlbumMessage();
+                        if (savedMsg != null) {
+                            deleteTrackFromChannel(savedMsg);
+                            savedAlbumMessages.remove(savedMsg);
+                            safeNotifyAdapter(savedAlbumsAdapter, null);
+                            finishFragment();
+                            Toast.makeText(getParentActivity(), "Альбом удален", Toast.LENGTH_SHORT).show();
+                        } else {
+                            saveAlbumToChannel(title, albumUrl, coverUrl);
+                            menu.getItem(1).setIcon(R.drawable.msg_delete);
+                        }
+                    } else if (id == 5) {
+                        Toast.makeText(getParentActivity(), "Скачивание альбома в фоне началось...", Toast.LENGTH_LONG).show();
+                        File cacheDir = ApplicationLoader.applicationContext.getExternalCacheDir();
+                        long rawId = getChannelIdFromFile();
+                        if (rawId == 0) return;
+
+                        new Thread(() -> {
+                            for (MessageObject m : playlistMessages) {
+                                if (m.messageOwner.message != null && m.messageOwner.message.startsWith("SG_STREAM|||")) {
+                                    String[] parts = m.messageOwner.message.split("\\|\\|\\|");
+                                    if (parts.length >= 4) {
+                                        File downloadedFile = MusicWebSearcher.downloadTrackSync(parts[3], cacheDir);
+                                        if (downloadedFile != null) {
+                                            ArrayList<String> paths = new ArrayList<>();
+                                            paths.add(downloadedFile.getAbsolutePath());
+                                            AndroidUtilities.runOnUIThread(() -> {
+                                                countBeforeUpload = audioMessages.size();
+                                                isWaitingForUpload = true;
+                                                AndroidUtilities.runOnUIThread(pollMessagesRunnable, 5000);
+                                                SendMessagesHelper.prepareSendingDocuments(AccountInstance.getInstance(currentAccount), paths, new ArrayList<>(paths), null, null, "audio/mp3", -rawId, null, null, null, null, null, true, 0, null, null, 0, 0, false, 0);
+                                            });
+                                        }
+                                        try { Thread.sleep(2000); } catch (Exception e){}
+                                    }
+                                }
+                            }
+
+                            AndroidUtilities.runOnUIThread(() -> {
+                                SendMessagesHelper.getInstance(currentAccount).sendMessage("Ссылка на альбом: " + albumUrl, -rawId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+                                Toast.makeText(getParentActivity(), "Все треки альбома отправлены на загрузку", Toast.LENGTH_SHORT).show();
+                            });
+                        }).start();
+                    }
+                }
+            });
+
+            FrameLayout content = new FrameLayout(context) {
+                @Override protected void onDraw(Canvas canvas) {
+                    canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+                }
+            };
+            fragmentView = content;
+
+            listView = new RecyclerListView(context);
+            listView.setLayoutManager(new LinearLayoutManager(context));
+            adapter = new AlbumMusicAdapter(context);
+            listView.setAdapter(adapter);
+            listView.setPadding(0, 0, 0, AndroidUtilities.dp(70));
+            listView.setClipToPadding(false);
+            listView.setOnItemClickListener((view, position) -> {
+                if (adapter.getItemViewType(position) == 2) return;
+                if (position > 0 && position <= playlistMessages.size()) {
+                    playStrictInPlaylist(playlistMessages.get(position - 1));
+                }
+            });
+
+            content.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+            ChannelMusicFragment.MiniPlayerView miniPlayerView = new ChannelMusicFragment.MiniPlayerView(context, getParentActivity());
+            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM));
+
+            return fragmentView;
+        }
+
+        private void loadAlbumData() {
+            if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
+                String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("\\|\\|\\|", 2);
+                String aTitle = parts[0];
+                String aArtist = parts.length > 1 ? parts[1] : "";
+
+                playlistMessages.clear();
+                MusicWebSearcher.loadAlbumWithDeezerFallback(aTitle, aArtist, new MusicWebSearcher.ArtistProfileCallback() {
+                    @Override
+                    public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
+                        safeNotifyAdapter(adapter, listView);
+                    }
+                    @Override
+                    public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
+                        playlistMessages.add(createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl));
+                        safeNotifyAdapter(adapter, listView);
+                    }
+                    @Override
+                    public void onFailed() {
+                        Toast.makeText(getParentActivity(), "Альбом не найден", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } else {
+                fetchRealAlbum(albumUrl);
+            }
+        }
+
+        private void fetchRealAlbum(String realUrl) {
+            playlistMessages.clear();
+            MusicWebSearcher.loadArtistProfile(realUrl, new MusicWebSearcher.ArtistProfileCallback() {
+                @Override public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
+                    safeNotifyAdapter(adapter, listView);
+                }
+                @Override
+                public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
+                    playlistMessages.add(createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl));
+                    safeNotifyAdapter(adapter, listView);
+                }
+                @Override public void onFailed() { Toast.makeText(getParentActivity(), "Ошибка загрузки", Toast.LENGTH_SHORT).show(); }
+            });
+        }
+
+        private void playStrictInPlaylist(MessageObject messageObject) {
+            MediaController mediaController = MediaController.getInstance();
+            MessageObject currentPlaying = mediaController.getPlayingMessageObject();
+            if (currentPlaying != null && currentPlaying.getId() == messageObject.getId()) {
+                if (mediaController.isMessagePaused()) mediaController.playMessage(messageObject);
+                else mediaController.pauseMessage(messageObject);
+                return;
+            }
+            for (MessageObject m : playlistMessages) { m.audioProgress = 0.0f; m.audioProgressSec = 0; }
+            mediaController.setPlaylist(new ArrayList<>(playlistMessages), messageObject, albumUniqueId);
+            mediaController.seekToProgress(messageObject, 0);
+            mediaController.playMessage(messageObject);
+        }
+
+        @Override
+        public void didReceivedNotification(int id, int account, Object... args) {
+            if (id == NotificationCenter.messagePlayingDidStart || id == NotificationCenter.messagePlayingPlayStateChanged || id == NotificationCenter.messagePlayingDidReset) {
+                safeNotifyAdapter(adapter, listView);
+            }
+        }
+
+        private class AlbumMusicAdapter extends RecyclerListView.SelectionAdapter {
+            private Context mContext;
+            public AlbumMusicAdapter(Context context) { mContext = context; }
+            @Override public boolean isEnabled(RecyclerView.ViewHolder holder) { return holder.getItemViewType() == 1; }
+            @Override public int getItemCount() { return playlistMessages.size() + 2; }
+            @Override public int getItemViewType(int position) {
+                if (position == 0) return 0;
+                if (position == playlistMessages.size() + 1) return 2;
+                return 1;
+            }
+            @Override public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+                if (viewType == 2) {
+                    View phantom = new View(mContext);
+                    phantom.setLayoutParams(new RecyclerView.LayoutParams(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(70)));
+                    return new RecyclerListView.Holder(phantom);
+                }
+                if (viewType == 0) {
+                    FrameLayout headerContainer = new FrameLayout(mContext);
+                    headerContainer.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+                    BackupImageView bgCover = new BackupImageView(mContext);
+                    bgCover.setImage(coverUrl, "100_100_b", null);
+                    headerContainer.addView(bgCover, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+                    View gradientView = new View(mContext);
+                    int bgColor = Theme.getColor(Theme.key_windowBackgroundWhite);
+                    int transparentBg = (bgColor & 0x00FFFFFF) | 0x88000000;
+                    android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable(
+                            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                            new int[]{transparentBg, bgColor});
+                    gradientView.setBackground(gd);
+                    headerContainer.addView(gradientView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+                    LinearLayout content = new LinearLayout(mContext);
+                    content.setOrientation(LinearLayout.VERTICAL);
+                    content.setGravity(Gravity.CENTER_HORIZONTAL);
+                    content.setPadding(0, AndroidUtilities.dp(60), 0, AndroidUtilities.dp(24));
+
+                    BackupImageView centerCover = new BackupImageView(mContext);
+                    centerCover.setRoundRadius(AndroidUtilities.dp(8));
+                    centerCover.setImage(coverUrl, "200_200", null);
+                    content.addView(centerCover, LayoutHelper.createLinear(200, 200, Gravity.CENTER_HORIZONTAL));
+
+                    TextView albumTitleText = new TextView(mContext);
+                    albumTitleText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
+                    albumTitleText.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                    albumTitleText.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                    albumTitleText.setGravity(Gravity.CENTER);
+                    albumTitleText.setText(title);
+                    content.addView(albumTitleText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 20, 0, 0));
+
+                    LinearLayout buttonsLayout = new LinearLayout(mContext);
+                    buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
+                    buttonsLayout.setGravity(Gravity.CENTER);
+
+                    TextView playButton = new TextView(mContext);
+                    playButton.setText("Слушать");
+                    playButton.setTextColor(0xFFFFFFFF);
+                    playButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                    playButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                    playButton.setGravity(Gravity.CENTER);
+                    playButton.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(24), 0xFF1DB954));
+                    playButton.setPadding(AndroidUtilities.dp(40), 0, AndroidUtilities.dp(40), 0);
+                    buttonsLayout.addView(playButton, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 48, 0, 0, 0, 0));
+
+                    playButton.setOnClickListener(v -> {
+                        if (!playlistMessages.isEmpty()) playStrictInPlaylist(playlistMessages.get(0));
+                    });
+
+                    content.addView(buttonsLayout, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 48, Gravity.CENTER_HORIZONTAL, 0, 20, 0, 0));
+
+                    // --- ШИРОКАЯ КНОПКА ВОЛНЫ ДЛЯ АЛЬБОМОВ ---
+                    TextView waveBtn = new TextView(mContext);
+                    waveBtn.setText("🔮 Моя Волна по альбому");
+                    waveBtn.setTextColor(0xFFFFFFFF);
+                    waveBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                    waveBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                    waveBtn.setGravity(Gravity.CENTER);
+                    android.graphics.drawable.GradientDrawable gdBtn = new android.graphics.drawable.GradientDrawable(
+                            android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                            new int[]{0xFF8A2BE2, 0xFF4B0082});
+                    gdBtn.setCornerRadius(AndroidUtilities.dp(12));
+                    waveBtn.setBackground(gdBtn);
+                    waveBtn.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
+                    waveBtn.setOnClickListener(v -> {
+                        Toast.makeText(mContext, "Генерация волны...", Toast.LENGTH_SHORT).show();
+                        String aArtist = "";
+                        if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
+                            String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("\\|\\|\\|", 2);
+                            aArtist = parts.length > 1 ? parts[1] : "";
+                        }
+                        SmartRadioEngine.generateWaveByAlbum(aArtist, title, currentAccount, new SmartRadioEngine.WaveCallback() {
+                            @Override
+                            public void onTracksFound(ArrayList<MessageObject> tracks) {
+                                MediaController.getInstance().setPlaylist(tracks, tracks.get(0), 0);
+                                MediaController.getInstance().playMessage(tracks.get(0));
+                            }
+                            @Override public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {}
+                            @Override public void onError() { Toast.makeText(mContext, "Ошибка", Toast.LENGTH_SHORT).show(); }
+                        });
+                    });
+                    content.addView(waveBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 24, 20, 24, 0));
+                    // --- КОНЕЦ КНОПКИ ---
+
+                    headerContainer.addView(content, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+                    return new RecyclerListView.Holder(headerContainer);
+                }
+                SpotifyTrackCell cell = new SpotifyTrackCell(mContext);
+                return new RecyclerListView.Holder(cell);
+            }
+
+            @Override
+            public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+                if (holder.getItemViewType() == 2 || holder.getItemViewType() == 0) return;
+                SpotifyTrackCell myCell = (SpotifyTrackCell) holder.itemView;
+                MessageObject msg = playlistMessages.get(position - 1);
+                myCell.setMessageObject(msg);
+
+                myCell.optionsButton.setVisibility(View.VISIBLE);
+                myCell.optionsButton.setOnClickListener(v -> {
+                    if (msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                        String[] parts = msg.messageOwner.message.split("\\|\\|\\|");
+                        if (parts.length >= 5) {
+                            String durStr = String.valueOf(parseDuration(parts[4]) / 60) + ":" + String.format("%02d", parseDuration(parts[4]) % 60);
+                            String cUrl = parts.length >= 6 ? parts[5] : "";
+                            MusicWebSearcher.WebTrack track = new MusicWebSearcher.WebTrack(parts[1], parts[2], parts[3], durStr, cUrl);
+                            showWebTrackOptionsBottomSheet(getParentActivity(), track);
+                            return;
+                        }
+                    }
+                    showTrackOptionsBottomSheet(getParentActivity(), msg, true, () -> {
+                        playlistMessages.remove(msg);
+                        safeNotifyAdapter(this, listView);
+                    });
+                });
+            }
+        }
+    }
+
+
+public static class ChipCell extends FrameLayout {
+        private TextView textView;
+
+        public ChipCell(Context context) {
+            super(context);
+            // MATCH_PARENT по ширине, чтобы занимать всю колонку
+            setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            setPadding(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
+
+            textView = new TextView(context);
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            textView.setGravity(Gravity.CENTER);
+            textView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+
+            // Ограничение в 1 строку, если не влезает — ставится троеточие
+            textView.setSingleLine(true);
+            textView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            textView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8));
+
+            addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+        }
+
+        public void setChip(String text, boolean isSelected) {
+            textView.setText(text);
+            if (isSelected) {
+                textView.setTextColor(0xFFFFFFFF);
+                textView.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), 0xFF8A2BE2));
+            } else {
+                textView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                textView.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), Theme.getColor(Theme.key_windowBackgroundGray)));
+            }
+        }
+    }
+
+    private class ChipsAdapter extends RecyclerListView.SelectionAdapter {
+        private Context mContext;
+        private String[] items;
+        private int selectedIndex;
+
+        public ChipsAdapter(Context context, String[] items, String currentSelection) {
+            this.mContext = context;
+            this.items = items;
+
+            this.selectedIndex = 0;
+            for (int i = 0; i < items.length; i++) {
+                if (items[i].equals(currentSelection)) {
+                    this.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        public String getSelectedItem() {
+            return items[selectedIndex];
+        }
+
+        @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) { return true; }
+
+        @Override
+        public int getItemCount() { return items.length; }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            return new RecyclerListView.Holder(new ChipCell(mContext));
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            ChipCell cell = (ChipCell) holder.itemView;
+            cell.setChip(items[position], position == selectedIndex);
+
+            cell.setOnClickListener(v -> {
+                int oldIndex = selectedIndex;
+                selectedIndex = position;
+                notifyItemChanged(oldIndex);
+                notifyItemChanged(selectedIndex);
+            });
+        }
+    }
+    private class AlbumAdapter extends RecyclerListView.SelectionAdapter {
+        private Context mContext;
+        private ArrayList<MusicWebSearcher.WebAlbum> albums = new ArrayList<>();
+
+        public AlbumAdapter(Context context) {
+            this.mContext = context;
+        }
+
+        public void setAlbums(ArrayList<MusicWebSearcher.WebAlbum> newAlbums) {
+            this.albums.clear();
+            if (newAlbums != null) {
+                this.albums.addAll(newAlbums);
+            }
+            notifyDataSetChanged();
+        }
+
+        @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) { return true; }
+
+        @Override
+        public int getItemCount() { return albums.size(); }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            LinearLayout layout = new LinearLayout(mContext);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.setGravity(Gravity.CENTER);
+            // ИСПРАВЛЕНИЕ: Высота WRAP_CONTENT убирает черную дыру
+            layout.setLayoutParams(new RecyclerView.LayoutParams(AndroidUtilities.dp(100), ViewGroup.LayoutParams.WRAP_CONTENT));
+            layout.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(8));
+
+            BackupImageView cover = new BackupImageView(mContext);
+            cover.setRoundRadius(AndroidUtilities.dp(8));
+            layout.addView(cover, LayoutHelper.createLinear(70, 70, Gravity.CENTER, 0, 5, 0, 5));
+
+            TextView titleText = new TextView(mContext);
+            titleText.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            titleText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+            titleText.setGravity(Gravity.CENTER);
+            titleText.setMaxLines(1);
+            titleText.setEllipsize(TextUtils.TruncateAt.END);
+            layout.addView(titleText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER, 4, 0, 4, 0));
+
+            return new RecyclerListView.Holder(layout);
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            LinearLayout layout = (LinearLayout) holder.itemView;
+            BackupImageView cover = (BackupImageView) layout.getChildAt(0);
+            TextView titleText = (TextView) layout.getChildAt(1);
+
+            MusicWebSearcher.WebAlbum album = albums.get(position);
+            titleText.setText(album.title);
+            cover.setImage(album.coverUrl, "100_100", null);
+
+            layout.setOnClickListener(v -> {
+                presentFragment(new AlbumProfileFragment(album.title, album.albumUrl, album.coverUrl));
+            });
+
+        }
+    }
+
+
+    private class ArtistAdapter extends RecyclerListView.SelectionAdapter {
+        private Context mContext;
+        private ArrayList<MusicWebSearcher.WebArtist> artists = new ArrayList<>();
+
+        public ArtistAdapter(Context context) {
+            this.mContext = context;
+        }
+
+        public void setArtists(ArrayList<MusicWebSearcher.WebArtist> newArtists) {
+            this.artists.clear();
+            if (newArtists != null) {
+                this.artists.addAll(newArtists);
+            }
+            notifyDataSetChanged();
+        }
+
+        @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) { return true; }
+
+        @Override
+        public int getItemCount() { return artists.size(); }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            LinearLayout layout = new LinearLayout(mContext);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.setGravity(Gravity.CENTER);
+            layout.setLayoutParams(new RecyclerView.LayoutParams(AndroidUtilities.dp(80), ViewGroup.LayoutParams.WRAP_CONTENT));
+            layout.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(8));
+
+            BackupImageView avatar = new BackupImageView(mContext);
+            avatar.setRoundRadius(AndroidUtilities.dp(30)); // Идеальный круг
+            layout.addView(avatar, LayoutHelper.createLinear(60, 60, Gravity.CENTER, 0, 5, 0, 5));
+
+            TextView nameText = new TextView(mContext);
+            nameText.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            nameText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+            nameText.setGravity(Gravity.CENTER);
+            nameText.setMaxLines(1);
+            nameText.setEllipsize(TextUtils.TruncateAt.END);
+            layout.addView(nameText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER, 4, 0, 4, 0));
+
+            return new RecyclerListView.Holder(layout);
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            LinearLayout layout = (LinearLayout) holder.itemView;
+            BackupImageView avatar = (BackupImageView) layout.getChildAt(0);
+            TextView nameText = (TextView) layout.getChildAt(1);
+
+            MusicWebSearcher.WebArtist artist = artists.get(position);
+            nameText.setText(artist.name);
+
+            // Принудительно грузим с Deezer с высоким разрешением
+            MusicWebSearcher.fetchArtistPictureFromDeezer(artist.name, url -> {
+                if (url != null) {
+                    artist.imageUrl = url;
+                    avatar.setImage(url, "150_150", null);
+                } else if (!TextUtils.isEmpty(artist.imageUrl)) {
+                    avatar.setImage(artist.imageUrl, "150_150", null);
+                }
+            });
+
+            layout.setOnClickListener(v -> {
+                presentFragment(new ArtistProfileFragment(artist.name, artist.artistUrl, artist.imageUrl));
+            });
+
+
+        }
+    }
+    public static TextView createYandexWaveButton(Context context, String text, View.OnClickListener onClickListener) {
+        TextView waveBtn = new TextView(context);
+        waveBtn.setText(text);
+        waveBtn.setTextColor(0xFFFFFFFF);
+        waveBtn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 16);
+        waveBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        waveBtn.setGravity(android.view.Gravity.CENTER);
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xFF8A2BE2, 0xFF4B0082});
+        gd.setCornerRadius(AndroidUtilities.dp(12));
+        waveBtn.setBackground(gd);
+        waveBtn.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
+        waveBtn.setOnClickListener(onClickListener);
+        return waveBtn;
+    }
+
 }

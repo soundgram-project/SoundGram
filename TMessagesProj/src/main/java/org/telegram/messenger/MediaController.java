@@ -137,7 +137,67 @@ import xyz.nextalone.nagram.NaConfig;
 import xyz.nextalone.nagram.helper.AudioEnhance;
 
 public class MediaController implements AudioManager.OnAudioFocusChangeListener, NotificationCenter.NotificationCenterDelegate, SensorEventListener {
+    // ==========================================
+    // SOUNDGRAM STATS ВСТАВКА: НАЧАЛО
+    // ==========================================
+    private long soundgramTrackStartTime = 0;
+    private MessageObject soundgramCurrentMsg = null;
+    private boolean soundgramTrackCounted = false; // Флаг: посчитали ли мы уже этот трек?
+    // ==========================================
+    // SOUNDGRAM: MY WAVE VARIABLES
+    // ==========================================
+    public boolean isMyWave = false;
+    public ArrayList<MessageObject> myWaveBasePlaylist = new ArrayList<>();
+    private boolean isGeneratingWave = false;
+    public static final long WAVE_CONTEXT_ID = -192837465L;
+    // ==========================================
 
+    private void commitSoundgramStat() {
+        if (soundgramCurrentMsg == null || soundgramTrackStartTime == 0) return;
+
+        long playedMillis = System.currentTimeMillis() - soundgramTrackStartTime;
+        long listenedSeconds = playedMillis / 1000L;
+
+        long maxDuration = (long) soundgramCurrentMsg.getDuration();
+        if (listenedSeconds > maxDuration) {
+            listenedSeconds = maxDuration;
+        }
+
+        if (listenedSeconds > 0) {
+            // Засчитываем трек, если слушали его дольше 1 секунд и еще не считали в этой сессии
+            boolean shouldCountTrack = false;
+            if (!soundgramTrackCounted && listenedSeconds >= 1) {
+                shouldCountTrack = true;
+                soundgramTrackCounted = true; // Помечаем, что трек учтен
+            }
+            saveListeningStat(listenedSeconds, shouldCountTrack);
+        }
+
+        soundgramTrackStartTime = 0;
+    }
+
+    private void saveListeningStat(long listenedSeconds, boolean incrementTrack) {
+        try {
+            android.content.SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_stats", android.content.Context.MODE_PRIVATE);
+            int totalTracks = prefs.getInt("total_tracks", 0);
+            long totalSeconds = prefs.getLong("total_seconds", 0L);
+
+            if (incrementTrack) {
+                totalTracks++;
+            }
+            totalSeconds += listenedSeconds;
+
+            prefs.edit()
+                    .putInt("total_tracks", totalTracks)
+                    .putLong("total_seconds", totalSeconds)
+                    .apply();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    // ==========================================
+    // SOUNDGRAM STATS ВСТАВКА: КОНЕЦ
+    // ==========================================
     private native int startRecord(String path, int sampleRate);
 
     private native int writeFrame(ByteBuffer frame, int len);
@@ -2418,7 +2478,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         if (stopService && restoreMusicPlaylistState()) {
             return;
         }
-
+        // --- SOUNDGRAM ВСТАВКА ---
+        commitSoundgramStat();
+        soundgramCurrentMsg = null; // Полностью сбрасываем текущий трек
+        // -------------------------
         if (audioPlayer != null) {
             if (audioVolumeAnimator != null) {
                 audioVolumeAnimator.removeAllUpdateListeners();
@@ -2874,6 +2937,13 @@ if (!SharedConfig.playOrderReversed) {
         Collections.reverse(playlist);
     }
     // ---------------------------------------------------------------------
+    if (mergeDialogId == WAVE_CONTEXT_ID) {
+        isMyWave = true;
+        // myWaveBasePlaylist не очищаем, он задается извне!
+    } else {
+        isMyWave = false;
+        myWaveBasePlaylist.clear();
+    }
 
     currentPlaylistNum = playlist.indexOf(current);
     if (currentPlaylistNum == -1) {
@@ -3084,6 +3154,13 @@ if (!SharedConfig.playOrderReversed) {
             return;
         }
         MessageObject nextAudio = voiceMessagesPlaylist.get(1);
+
+        // --- SOUNDGRAM ВСТАВКА ---
+        if (nextAudio.messageOwner.attachPath != null && (nextAudio.messageOwner.attachPath.startsWith("http://") || nextAudio.messageOwner.attachPath.startsWith("https://"))) {
+            return; // Пропускаем фоновую загрузку для онлайн-треков
+        }
+        // -------------------------
+
         File file = null;
         if (nextAudio.messageOwner.attachPath != null && nextAudio.messageOwner.attachPath.length() > 0) {
             file = new File(nextAudio.messageOwner.attachPath);
@@ -3643,6 +3720,16 @@ if (!SharedConfig.playOrderReversed) {
         if (messageObject == null) {
             return false;
         }
+        // --- SOUNDGRAM ВСТАВКА ---
+        if (messageObject != null) {
+            if (soundgramCurrentMsg != messageObject) {
+                commitSoundgramStat();
+                soundgramCurrentMsg = messageObject;
+                soundgramTrackCounted = false;
+            }
+            soundgramTrackStartTime = System.currentTimeMillis();
+        }
+        // -------------------------
         isSilent = silent;
         checkVolumeBarUI();
         if ((audioPlayer != null || videoPlayer != null) && isSamePlayingMessage(messageObject)) {
@@ -3675,9 +3762,14 @@ if (!SharedConfig.playOrderReversed) {
         lastSaveTime = 0;
         playMusicAgain = false;
         seekToProgressPending = 0;
+
+        boolean isDirectStream = messageObject.messageOwner.attachPath != null &&
+                (messageObject.messageOwner.attachPath.startsWith("http://") ||
+                        messageObject.messageOwner.attachPath.startsWith("https://"));
+
         File file = null;
         boolean exists = false;
-        if (messageObject.messageOwner.attachPath != null && messageObject.messageOwner.attachPath.length() > 0) {
+        if (!isDirectStream && messageObject.messageOwner.attachPath != null && messageObject.messageOwner.attachPath.length() > 0) {
             file = new File(messageObject.messageOwner.attachPath);
             exists = file.exists();
             if (!exists) {
@@ -3686,7 +3778,8 @@ if (!SharedConfig.playOrderReversed) {
         }
         final File cacheFile = file != null ? file : FileLoader.getInstance(messageObject.currentAccount).getPathToMessage(messageObject.messageOwner);
         boolean canStream = SharedConfig.streamMedia && (messageObject.isMusic() || messageObject.isRoundVideo() || messageObject.isVideo() && messageObject.canStreamVideo()) && !messageObject.shouldEncryptPhotoOrVideo() && !DialogObject.isEncryptedDialog(messageObject.getDialogId());
-        if (cacheFile != file && !(exists = cacheFile.exists()) && !canStream) {
+
+        if (!isDirectStream && cacheFile != file && !(exists = cacheFile.exists()) && !canStream) {
             FileLoader.getInstance(messageObject.currentAccount).loadFile(messageObject.getDocument(), messageObject, FileLoader.PRIORITY_LOW, messageObject.shouldEncryptPhotoOrVideo() ? 2 : 0);
             downloadingCurrentMessage = true;
             isPaused = false;
@@ -3696,11 +3789,7 @@ if (!SharedConfig.playOrderReversed) {
             if (canStartMusicPlayerService()) {
                 Intent intent = new Intent(ApplicationLoader.applicationContext, MusicPlayerService.class);
                 try {
-                    /*if (Build.VERSION.SDK_INT >= 26) {
-                        ApplicationLoader.applicationContext.startForegroundService(intent);
-                    } else {*/
                     ApplicationLoader.applicationContext.startService(intent);
-                    //}
                 } catch (Throwable e) {
                     FileLog.e(e);
                 }
@@ -3769,9 +3858,6 @@ if (!SharedConfig.playOrderReversed) {
                         isDrawingWasReady = true;
                         currentAspectRatioFrameLayout.setDrawingReady(true);
                         currentTextureViewContainer.setTag(1);
-                        //if (currentTextureViewContainer != null && currentTextureViewContainer.getVisibility() != View.VISIBLE) {
-                        //    currentTextureViewContainer.setVisibility(View.VISIBLE);
-                        //}
                     }
                     if (videoPlayer != null && CastSync.isActive()) {
                         videoPlayer.setMute(true);
@@ -3846,7 +3932,9 @@ if (!SharedConfig.playOrderReversed) {
                 videoPlayer.setTextureView(currentTextureView);
             }
 
-            if (exists) {
+            if (isDirectStream) {
+                videoPlayer.preparePlayer(Uri.parse(messageObject.messageOwner.attachPath), "other");
+            } else if (exists) {
                 if (!messageObject.mediaExists && cacheFile != file) {
                     AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.fileLoaded, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
                     if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && messageObject.isAyuDeleted()) {
@@ -3909,9 +3997,9 @@ if (!SharedConfig.playOrderReversed) {
                                     playNextMessageWithoutOrder(true);
                                 } else {
                                     if (NaConfig.INSTANCE.getDontAutoPlayNextVoice().Bool()) {
-                                    MediaController.getInstance().cleanupPlayer(true, true);
-                                }
-                                cleanupPlayer(true, hasNoNextVoiceOrRoundVideoMessage(), messageObject.isVoice(), false);}
+                                        MediaController.getInstance().cleanupPlayer(true, true);
+                                    }
+                                    cleanupPlayer(true, hasNoNextVoiceOrRoundVideoMessage(), messageObject.isVoice(), false);}
                             }
                         } else if (audioPlayer != null && seekToProgressPending != 0 && (playbackState == ExoPlayer.STATE_READY || playbackState == ExoPlayer.STATE_IDLE)) {
                             int seekTo = (int) (audioPlayer.getDuration() * seekToProgressPending);
@@ -3959,7 +4047,10 @@ if (!SharedConfig.playOrderReversed) {
                         return Theme.getCurrentAudiVisualizerDrawable().getParentView() != null;
                     }
                 });
-                if (exists) {
+                if (isDirectStream) {
+                    audioPlayer.preparePlayer(Uri.parse(messageObject.messageOwner.attachPath), "other");
+                    isStreamingCurrentAudio = true;
+                } else if (exists) {
                     if (!messageObject.mediaExists && cacheFile != file) {
                         AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.fileLoaded, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
                         if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && messageObject.isAyuDeleted()) {
@@ -4003,10 +4094,15 @@ if (!SharedConfig.playOrderReversed) {
                     }
                 } else {
                     try {
-                        audioInfo = AudioInfo.getAudioInfo(cacheFile);
+                        if (!isDirectStream) {
+                            audioInfo = AudioInfo.getAudioInfo(cacheFile);
+                        } else {
+                            audioInfo = null; // Данные берем из самого MessageObject
+                        }
                     } catch (Exception e) {
                         FileLog.e(e);
                     }
+
                     String name = messageObject.getFileName();
                     if (!TextUtils.isEmpty(name) && messageObject.getDuration() >= 10 * 60) {
                         SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences("media_saved_pos", Activity.MODE_PRIVATE);
@@ -4111,11 +4207,7 @@ if (!SharedConfig.playOrderReversed) {
         if (canStartMusicPlayerService()) {
             Intent intent = new Intent(ApplicationLoader.applicationContext, MusicPlayerService.class);
             try {
-                /*if (Build.VERSION.SDK_INT >= 26) {
-                    ApplicationLoader.applicationContext.startForegroundService(intent);
-                } else {*/
                 ApplicationLoader.applicationContext.startService(intent);
-                //}
             } catch (Throwable e) {
                 FileLog.e(e);
             }
@@ -4135,9 +4227,84 @@ if (!SharedConfig.playOrderReversed) {
         } catch (Exception e) {
             FileLog.e(e);
         }
+        // ==========================================
+        // SOUNDGRAM: БЕСКОНЕЧНАЯ МОЯ ВОЛНА (АГРЕССИВНЫЙ ДРИФТ)
+        // ==========================================
+        if (isMyWave && playlist != null) {
+            // Если осталось 5 или меньше треков - СРОЧНО генерируем
+            if (playlist.size() - currentPlaylistNum <= 5 && !org.telegram.ui.SmartRadioEngine.isLoading) {
+
+                org.telegram.ui.SmartRadioEngine.WaveCallback driftCallback = new org.telegram.ui.SmartRadioEngine.WaveCallback() {
+                    @Override
+                    public void onTracksFound(java.util.ArrayList<org.telegram.messenger.MessageObject> tracks) {}
+
+                    @Override
+                    public void onMoreTracksAdded(java.util.ArrayList<org.telegram.messenger.MessageObject> tracks) {
+                        if (tracks != null && !tracks.isEmpty()) {
+                            java.util.ArrayList<org.telegram.messenger.MessageObject> uniqueTracks = new java.util.ArrayList<>();
+                            for (org.telegram.messenger.MessageObject newTrack : tracks) {
+                                boolean exists = false;
+                                for (org.telegram.messenger.MessageObject existing : playlist) {
+                                    if (existing.getMusicTitle().equals(newTrack.getMusicTitle()) &&
+                                            existing.getMusicAuthor().equals(newTrack.getMusicAuthor())) {
+                                        exists = true;
+                                        break;
+                                    }
+                                }
+                                if (!exists) {
+                                    uniqueTracks.add(newTrack);
+                                }
+                            }
+                            if (uniqueTracks.isEmpty()) return;
+                            addTracksToPlaylist(uniqueTracks);
+                        }
+                    }
+
+                    @Override
+                    public void onError() {}
+                };
+                org.telegram.ui.SmartRadioEngine.loadMoreForCurrentWave(playingMessageObject, playingMessageObject.currentAccount, driftCallback);
+            }
+        }
+        // ==========================================
+
 
         return true;
     }
+    public void addTracksToPlaylist(java.util.ArrayList<org.telegram.messenger.MessageObject> tracks) {
+        if (tracks == null || tracks.isEmpty()) return;
+        org.telegram.messenger.AndroidUtilities.runOnUIThread(() -> {
+            // Добавляем треки в основной плейлист
+            if (playlist != null) {
+                playlist.addAll(tracks);
+            }
+            // Если включен шаффл, добавляем их и в перемешанный список
+            if (org.telegram.messenger.SharedConfig.shuffleMusic && shuffledPlaylist != null) {
+                shuffledPlaylist.addAll(tracks);
+            }
+
+            // Уведомляем интерфейс, что плейлист изменился
+            if (playingMessageObject != null) {
+                org.telegram.messenger.NotificationCenter.getInstance(org.telegram.messenger.UserConfig.selectedAccount)
+                        .postNotificationName(org.telegram.messenger.NotificationCenter.messagePlayingPlayStateChanged,
+                                playingMessageObject.getId());
+            }
+        });
+    }
+
+
+    public int getAudioSessionId() {
+        try {
+            if (audioPlayer != null) {
+                // Если используется стандартный MediaPlayer или ExoPlayer-обертка ТГ
+                return audioPlayer.getAudioSessionId();
+            }
+        } catch (Exception e) {
+            FileLog.e("SoundGram: Could not get AudioSessionId", e);
+        }
+        return 0; // Фолбек на системный микс
+    }
+
 
     private boolean ignorePlayerUpdate;
     public void syncCastedPlayer() {
@@ -4323,6 +4490,7 @@ if (!SharedConfig.playOrderReversed) {
             return false;
         }
         stopProgressTimer();
+        commitSoundgramStat();
         try {
             if (audioPlayer != null) {
                 if (smoothFade && !CastSync.isActive() && !playingMessageObject.isVoice() && (playingMessageObject.getDuration() * (1f - playingMessageObject.audioProgress) > 1) && LaunchActivity.isResumed) {
