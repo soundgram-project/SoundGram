@@ -3158,22 +3158,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         });
         lyricsAnimator.start();
     }
-    private void onLyricsButtonClick() {
-        isLyricsVisible = !isLyricsVisible;
 
-        if (isLyricsVisible) {
-            lyricsContainer.setVisibility(View.VISIBLE);
-            lyricsContainer.animate().alpha(1f).setDuration(250).start();
-            // Скрываем обложку, чтобы не мешала
-            coverContainer.animate().alpha(0f).setDuration(250).start();
-            updateProgress(); // Сразу обновляем позицию текста
-        } else {
-            lyricsContainer.animate().alpha(0f).setDuration(250).withEndAction(() -> {
-                lyricsContainer.setVisibility(View.GONE);
-            }).start();
-            coverContainer.animate().alpha(1f).setDuration(250).start();
-        }
-    }
 
 
     private void fetchLyrics(MessageObject msg) {
