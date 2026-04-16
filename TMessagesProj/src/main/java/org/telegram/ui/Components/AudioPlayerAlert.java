@@ -41,6 +41,7 @@ import android.os.SystemClock;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -125,6 +126,8 @@ import java.util.List;
 import org.telegram.ui.SoundGramLyricsDialog;
 import org.telegram.ui.SoundGramEQAlert;
 import xyz.nextalone.nagram.NaConfig;
+import androidx.recyclerview.widget.LinearSmoothScroller;
+
 
 public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.NotificationCenterDelegate, DownloadController.FileDownloadProgressListener {
     public static final int PLAY_ONCE = 3;
@@ -145,6 +148,17 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private ImageView emptyImageView;
     private TextView emptyTitleTextView;
     private TextView emptySubtitleTextView;
+    private FrameLayout lyricsContainer;
+    private RecyclerListView lyricsListView;
+    private LyricsAdapter lyricsAdapter;
+    private ArrayList<LrcLine> lyricsLines = new ArrayList<>();
+    private boolean isLyricsVisible = false;
+    private ValueAnimator lyricsAnimator;
+    private int currentLyricIndex = -1;
+    private LinearSmoothScroller smoothScroller; // Для плавного центрального скролла
+
+    private View borderView; // <--- ДОБАВЬ ЭТУ СТРОКУ
+
 
     private FrameLayout playerLayout;
     private ButtonWithCounterView saveToProfileButton;
@@ -194,6 +208,17 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private int searchOpenOffset;
 
     private boolean padWithItem;
+
+
+    public static class LrcLine {
+        public long timeMs;
+        public String text;
+        public LrcLine(long timeMs, String text) {
+            this.timeMs = timeMs;
+            this.text = text;
+        }
+    }
+
 
     private MessagesController.SavedMusicList savedMusicList;
     private boolean isMyList() {
@@ -555,7 +580,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             }
         };
 
-        View borderView = new View(context);
+        borderView = new View(context);
         android.graphics.drawable.GradientDrawable borderDrawable = new android.graphics.drawable.GradientDrawable();
         borderDrawable.setColor(Color.TRANSPARENT);
         borderDrawable.setStroke(dp(1), 0x44FFFFFF);
@@ -565,7 +590,35 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         FrameLayout coverFrame = new FrameLayout(context);
         coverFrame.addView(coverContainer, LayoutHelper.createFrame(300, 300, Gravity.CENTER));
         coverFrame.addView(borderView, LayoutHelper.createFrame(300, 300, Gravity.CENTER));
+
         playerUiContainer.addView(coverFrame, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 300, Gravity.CENTER_HORIZONTAL, 0, 10, 0, 30));
+
+        // --- ПРАВИЛЬНОЕ СОЗДАНИЕ КОНТЕЙНЕРА ---
+        lyricsContainer = new FrameLayout(context);
+        lyricsContainer.setVisibility(View.GONE);
+        lyricsContainer.setAlpha(0f);
+        lyricsContainer.setBackgroundColor(0xEE000000); // Небольшой темный фон для читаемости, если нужно
+
+        lyricsListView = new RecyclerListView(context);
+        lyricsListView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false) {
+            @Override
+            public boolean canScrollVertically() { return false; } // Скролл запрещен
+        });
+
+        lyricsAdapter = new LyricsAdapter(context);
+        lyricsListView.setAdapter(lyricsAdapter);
+
+        // Уменьшим отступы, чтобы текст не "терялся"
+        lyricsListView.setPadding(0, AndroidUtilities.dp(250), 0, AndroidUtilities.dp(300));
+        lyricsListView.setClipToPadding(false);
+        lyricsListView.setItemAnimator(null);
+        lyricsListView.setOnTouchListener((v, event) -> true);
+
+        lyricsContainer.addView(lyricsListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+        // ВАЖНО: Добавляем в containerView, а не в playerLayout
+        // Это положит текст ПОВЕРХ обложки
+        containerView.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 0, 0, dp(160)));
 
         FrameLayout textAndButtonsContainer = new FrameLayout(context);
 
@@ -584,10 +637,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         lyricsButton.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.MULTIPLY);
         lyricsButton.setScaleType(ImageView.ScaleType.CENTER);
         if (Build.VERSION.SDK_INT >= 21) lyricsButton.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
-        lyricsButton.setOnClickListener(view -> {
-            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-            if (playing != null && parentActivity != null) new SoundGramLyricsDialog(parentActivity, playing).show();
-        });
+
+        // ВМЕСТО ВЫЗОВА SoundGramLyricsDialog:
+        lyricsButton.setOnClickListener(view -> toggleLyrics());
+
         textAndButtonsContainer.addView(lyricsButton, LayoutHelper.createFrame(48, 48, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 16, 0));
 
         LinearLayout textLayout = new LinearLayout(context);
@@ -623,50 +676,19 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         };
         textLayout.addView(authorTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 70, 0, 0, 0));
 
-        // ИСПРАВЛЕНИЕ: Ищем правильную Hitmos-ссылку, чтобы треки загрузились!
         authorTextView.setOnClickListener(v -> {
             MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
             if (playing != null && parentActivity != null) {
                 String artistName = playing.getMusicAuthor();
                 if (!TextUtils.isEmpty(artistName)) {
-                    // Делаем поиск через твой парсер Hitmos
-                    org.telegram.ui.MusicWebSearcher.search(artistName, (tracks, artists, albums) -> {
-                        String hitmosUrl = null;
-                        String hitmosImg = null;
-
-                        if (artists != null && !artists.isEmpty()) {
-                            // Пытаемся найти точное совпадение по имени
-                            for (org.telegram.ui.MusicWebSearcher.WebArtist a : artists) {
-                                if (a.name.equalsIgnoreCase(artistName)) {
-                                    hitmosUrl = a.artistUrl;
-                                    hitmosImg = a.imageUrl;
-                                    break;
-                                }
-                            }
-                            // Если точного нет, берем первого из поиска
-                            if (hitmosUrl == null) {
-                                hitmosUrl = artists.get(0).artistUrl;
-                                hitmosImg = artists.get(0).imageUrl;
-                            }
-                        }
-
-                        if (hitmosUrl != null) {
-                            final String finalUrl = hitmosUrl;
-                            final String finalImg = hitmosImg;
-                            AndroidUtilities.runOnUIThread(() -> {
-                                dismiss(); // Скрываем плеер
-                                org.telegram.ui.ChannelMusicFragment dummyFragment = new org.telegram.ui.ChannelMusicFragment();
-                                parentActivity.presentFragment(dummyFragment.new ArtistProfileFragment(artistName, finalUrl, finalImg));
-                            });
-                        } else {
-                            AndroidUtilities.runOnUIThread(() -> {
-                                Toast.makeText(context, "Артист не найден в базе Hitmos", Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                    });
+                    dismiss(); // Моментально закрываем плеер
+                    // Открываем профиль сразу. URL найдем уже внутри фрагмента в фоне
+                    org.telegram.ui.ChannelMusicFragment dummyFragment = new org.telegram.ui.ChannelMusicFragment();
+                    parentActivity.presentFragment(dummyFragment.new ArtistProfileFragment(artistName, null, null));
                 }
             }
         });
+
 
         // Отступы по бокам 64, чтобы текст не наслаивался на кнопки EQ и текста песен
         textAndButtonsContainer.addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER, 64, 0, 64, 0));
@@ -1707,7 +1729,56 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             }
             seekBarView.updateTimestamps(messageObject, null);
         }
+        // --- ЛОГИКА ПЛАВНОГО ЦЕНТРИРОВАНИЯ ---
+        if (isLyricsVisible && !lyricsLines.isEmpty() && lyricsLines.get(0).timeMs != -1) {
+
+            // ИСПРАВЛЕНИЕ ТАЙМИНГА: Берем точное время объекта в секундах и переводим в миллисекунды.
+            // Это исключает любую погрешность анимации SeekBar'а.
+            long currentPosMs = (long) (messageObject.audioProgress * 1000f);
+
+            int newIndex = -1;
+            for (int i = 0; i < lyricsLines.size(); i++) {
+                if (currentPosMs >= lyricsLines.get(i).timeMs) {
+                    newIndex = i;
+                } else {
+                    break;
+                }
+            }
+
+            // ... дальше твой код создания LinearSmoothScroller ...
+
+            if (newIndex != -1 && newIndex != currentLyricIndex) {
+                currentLyricIndex = newIndex;
+
+                // Обновляем видимые строки, чтобы пересчитать их прозрачность (эффект света)
+                lyricsAdapter.notifyDataSetChanged();
+
+                // Кастомный плавный скроллер в центр
+                LinearSmoothScroller scroller = new LinearSmoothScroller(getContext()) {
+                    @Override
+                    protected int getVerticalSnapPreference() {
+                        return SNAP_TO_START; // Начинаем расчет от верха
+                    }
+
+                    @Override
+                    public int calculateDtToFit(int viewStart, int viewEnd, int boxStart, int boxEnd, int snapPreference) {
+                        // Магия математики: вычисляем смещение так, чтобы элемент был ровно по центру контейнера
+                        return (boxStart + (boxEnd - boxStart) / 2) - (viewStart + (viewEnd - viewStart) / 2);
+                    }
+
+                    @Override
+                    protected float calculateSpeedPerPixel(DisplayMetrics displayMetrics) {
+                        return 150f / displayMetrics.densityDpi; // Скорость прокрутки (чем меньше, тем быстрее)
+                    }
+                };
+
+                scroller.setTargetPosition(currentLyricIndex);
+                lyricsListView.getLayoutManager().startSmoothScroll(scroller);
+            }
+        }
+
     }
+
 
     private void checkIfMusicDownloaded(MessageObject messageObject) {
         File cacheFile = null;
@@ -3049,4 +3120,193 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         });
         rightPaddingAnimator.start();
     }
+    private void toggleLyrics() {
+        if (lyricsAnimator != null) lyricsAnimator.cancel();
+        isLyricsVisible = !isLyricsVisible;
+
+        if (isLyricsVisible) {
+            lyricsContainer.setVisibility(View.VISIBLE);
+            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+            if (playing != null) fetchLyrics(playing);
+        }
+
+        lyricsAnimator = ValueAnimator.ofFloat(isLyricsVisible ? 0f : 1f, isLyricsVisible ? 1f : 0f);
+        lyricsAnimator.setDuration(250);
+        lyricsAnimator.addUpdateListener(animation -> {
+            float alpha = (float) animation.getAnimatedValue();
+            lyricsContainer.setAlpha(alpha);
+
+            // Плавно скрываем обложку и рамку
+            if (coverContainer != null) coverContainer.setAlpha(1f - alpha);
+            if (borderView != null) borderView.setAlpha(1f - alpha);
+        });
+        lyricsAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator animation) {
+                if (isLyricsVisible) {
+                    lyricsContainer.setVisibility(View.VISIBLE);
+                    lyricsContainer.animate().alpha(1f).setDuration(250).start();
+                    // Скрываем обложку, чтобы не мешала
+                    coverContainer.animate().alpha(0f).setDuration(250).start();
+                    updateProgress(null, true); // Сразу обновляем позицию текста
+                } else {
+                    lyricsContainer.animate().alpha(0f).setDuration(250).withEndAction(() -> {
+                        lyricsContainer.setVisibility(View.GONE);
+                    }).start();
+                    coverContainer.animate().alpha(1f).setDuration(250).start();
+                }
+            }
+        });
+        lyricsAnimator.start();
+    }
+    private void onLyricsButtonClick() {
+        isLyricsVisible = !isLyricsVisible;
+
+        if (isLyricsVisible) {
+            lyricsContainer.setVisibility(View.VISIBLE);
+            lyricsContainer.animate().alpha(1f).setDuration(250).start();
+            // Скрываем обложку, чтобы не мешала
+            coverContainer.animate().alpha(0f).setDuration(250).start();
+            updateProgress(); // Сразу обновляем позицию текста
+        } else {
+            lyricsContainer.animate().alpha(0f).setDuration(250).withEndAction(() -> {
+                lyricsContainer.setVisibility(View.GONE);
+            }).start();
+            coverContainer.animate().alpha(1f).setDuration(250).start();
+        }
+    }
+
+
+    private void fetchLyrics(MessageObject msg) {
+        lyricsLines.clear();
+        lyricsLines.add(new LrcLine(0, "Поиск текста..."));
+        lyricsAdapter.notifyDataSetChanged();
+        currentLyricIndex = -1;
+
+        Utilities.globalQueue.postRunnable(() -> {
+            try {
+                String title = java.net.URLEncoder.encode(msg.getMusicTitle(), "UTF-8");
+                String artist = java.net.URLEncoder.encode(msg.getMusicAuthor(), "UTF-8");
+                java.net.URL url = new java.net.URL("https://lrclib.net/api/search?track_name=" + title + "&artist_name=" + artist);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String inputLine;
+                while ((inputLine = in.readLine()) != null) response.append(inputLine);
+                in.close();
+
+                org.json.JSONArray array = new org.json.JSONArray(response.toString());
+                if (array.length() > 0) {
+                    org.json.JSONObject track = array.getJSONObject(0);
+                    String syncedLyrics = track.optString("syncedLyrics", "");
+                    String plainLyrics = track.optString("plainLyrics", "");
+
+                    AndroidUtilities.runOnUIThread(() -> {
+                        lyricsLines.clear();
+                        if (!TextUtils.isEmpty(syncedLyrics)) {
+                            parseLrc(syncedLyrics);
+                        } else if (!TextUtils.isEmpty(plainLyrics)) {
+                            for (String line : plainLyrics.split("\n")) {
+                                lyricsLines.add(new LrcLine(-1, line));
+                            }
+                        } else {
+                            lyricsLines.add(new LrcLine(0, "Текст не найден"));
+                        }
+                        lyricsAdapter.notifyDataSetChanged();
+                    });
+                } else {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        lyricsLines.clear();
+                        lyricsLines.add(new LrcLine(0, "Текст не найден"));
+                        lyricsAdapter.notifyDataSetChanged();
+                    });
+                }
+            } catch (Exception e) {
+                AndroidUtilities.runOnUIThread(() -> {
+                    lyricsLines.clear();
+                    lyricsLines.add(new LrcLine(0, "Ошибка загрузки текста"));
+                    lyricsAdapter.notifyDataSetChanged();
+                });
+            }
+        });
+    }
+
+    private void parseLrc(String lrc) {
+        String[] lines = lrc.split("\n");
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\[(\\d+):(\\d+\\.\\d+)\\](.*)");
+        for (String line : lines) {
+            java.util.regex.Matcher matcher = pattern.matcher(line);
+            if (matcher.matches()) {
+                try {
+                    long min = Long.parseLong(matcher.group(1));
+                    float sec = Float.parseFloat(matcher.group(2));
+                    long timeMs = min * 60000 + (long)(sec * 1000);
+                    String text = matcher.group(3).trim();
+                    if (!TextUtils.isEmpty(text)) lyricsLines.add(new LrcLine(timeMs, text));
+                } catch (Exception e) {}
+            }
+        }
+    }
+
+    private class LyricsAdapter extends RecyclerListView.SelectionAdapter {
+        private Context mContext;
+
+        public LyricsAdapter(Context context) {
+            mContext = context;
+        }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            TextView textView = new TextView(mContext);
+            textView.setGravity(Gravity.CENTER); // Широкий текст жестко по центру
+            textView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            // Максимальная ширина, чтобы текст не был зажат в узкий квадрат
+            textView.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            textView.setPadding(AndroidUtilities.dp(30), AndroidUtilities.dp(15), AndroidUtilities.dp(30), AndroidUtilities.dp(15));
+            return new RecyclerListView.Holder(textView);
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            TextView textView = (TextView) holder.itemView;
+            textView.setText(lyricsLines.get(position).text);
+
+            // Если индекс еще не определен (-1), считаем от нулевой строки
+            int activeIndex = currentLyricIndex != -1 ? currentLyricIndex : 0;
+            int distance = Math.abs(position - activeIndex);
+
+            if (position == currentLyricIndex) {
+                textView.setAlpha(1.0f);
+                textView.setScaleX(1.05f);
+                textView.setScaleY(1.05f);
+                textView.setTextColor(0xFFFFFFFF);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
+                textView.setShadowLayer(20f, 0f, 0f, 0xCCFFFFFF);
+            } else {
+                // Геометрическая прогрессия: 0.5 ^ distance
+                // 1-я строка: 0.5, 2-я: 0.25, 3-я: 0.125
+                float alpha = (float) Math.pow(0.5, distance);
+
+                // Чтобы текст не обрывался слишком резко, сделаем минимальный порог
+                if (distance > 3) alpha = 0f;
+
+                textView.setAlpha(alpha);
+                textView.setScaleX(1.0f);
+                textView.setScaleY(1.0f);
+                textView.setTextColor(0xFFFFFFFF);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
+                textView.setShadowLayer(0f, 0f, 0f, 0);
+            }
+        }
+
+        @Override
+        public int getItemCount() {
+            return lyricsLines.size();
+        }
+
+        @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) { return true; }
+    }
+
 }
