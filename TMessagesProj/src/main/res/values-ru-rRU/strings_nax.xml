@@ -140,10 +140,6 @@
     <string name="MessageSavingSaveMediaInPublicGroups">… в публичных группах</string>
     <string name="MessageSavingSaveMediaInPrivateGroups">… в частных группах</string>
     <string name="TelegramUIAutoTranslate">Переводить чаты целиком</string>
-    <string name="TranslatorMode">Поведение при ручном переводе</string>
-    <string name="TranslatorModeAppend">Добавлять</string>
-    <string name="TranslatorModeInline">Заменять</string>
-    <string name="TranslatorModePopup">Всплывающее окно</string>
     <string name="Translated">переведено</string>
     <string name="ProviderRealMicrosoftTranslator">Microsoft</string>
     <string name="TranslatorSettings">Переводчик</string>
@@ -192,7 +188,7 @@
     <string name="DisableGhostMode">Отключить «Призрака»</string>
     <string name="GhostModeEnabled">Режим «Призрака» включён</string>
     <string name="GhostModeDisabled">Режим «Призрака» выключен</string>
-    <string name="GhostModeInDrawer">Ярлык на вкладке «Настройки»</string>
+    <string name="GhostModeInDrawer">Быстрый доступ</string>
     <string name="GhostModeStatusIndicator">Индикатор режима «Призрака»</string>
     <string name="DontSendReadMessagePackets">Не читать сообщения</string>
     <string name="DontReadStoriesPackets">Не читать истории</string>
@@ -267,12 +263,11 @@
     <string name="NoCaptionForward">Переслать без подписи</string>
     <string name="PreferCommonGroupsTab">Предпочитать вкладку «Группы»</string>
     <string name="PreferCommonGroupsTabNotice">Автоматически выбирать вкладку «Группы» вместо «Подарки», когда это возможно.</string>
-    <string name="SendHighQualityPhoto">Отправлять фото высокого качества</string>
     <string name="GroupedMessageMenu">Группировать меню сообщений</string>
     <string name="GroupedMessageMenuNotice">Группировка перемещает основные действия в нижнюю часть меню сообщений.</string>
     <string name="CopySticker">Копировать стикер</string>
     <string name="CheckUpdate">Проверить обновления</string>
-    <string name="AutoCheckUpdateOFF">ВЫКЛ</string>
+    <string name="AutoCheckUpdateOFF">ВЫКЛ.</string>
     <string name="AutoCheckUpdateSwitch">Канал обновлений</string>
     <string name="AutoCheckUpdateRelease">Релиз</string>
     <string name="AutoCheckUpdateBeta">Бета</string>
@@ -382,4 +377,15 @@
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">Показывает содержимое уведомлений даже при включённой блокировке паролем.</string>
     <string name="StickerSavedHint">Стикер сохранён в галерею.</string>
     <string name="StickerCopied">Стикер скопирован в буфер обмена.</string>
+    <string name="StrokeOnViews">Эффекты бликов</string>
+    <string name="HideBottomNavigationBar">Скрыть нижнюю панель навигации</string>
+    <string name="TranslatorMode">С исходным текстом</string>
+    <string name="TranslatorWithOriginalTextOff">Выкл.</string>
+    <string name="TranslatorWithOriginalTextManualOnly">Только вручную</string>
+    <string name="TranslatorWithOriginalTextOn">Вкл.</string>
+    <string name="CenterActionBarTitleOn">Вкл.</string>
+    <string name="CenterActionBarTitleOff">Выкл.</string>
+    <string name="TabletModeOn">Вкл.</string>
+    <string name="TabletModeOff">Выкл.</string>
+    <string name="HideDialogsSearchField">Скрыть поле поиска</string>
 </resources>

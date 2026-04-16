@@ -177,6 +177,7 @@ public class BookmarkManagerActivity extends BaseFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
+        actionBar.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         actionBar.setTitle(getString(R.string.BookmarksManager));
         actionBar.setAllowOverlayTitle(false);
         actionBar.setClipContent(true);
@@ -195,7 +196,7 @@ public class BookmarkManagerActivity extends BaseFragment {
         });
 
         ActionBarMenu menu = actionBar.createMenu();
-        searchItem = menu.addItem(SEARCH_BUTTON, R.drawable.ic_ab_search).setIsSearchField(true);
+        searchItem = menu.addItem(SEARCH_BUTTON, R.drawable.outline_header_search).setIsSearchField(true);
         searchItem.setSearchFieldHint(getString(R.string.Search));
         searchItem.setActionBarMenuItemSearchListener(new ActionBarMenuItem.ActionBarMenuItemSearchListener() {
             @Override
@@ -610,13 +611,16 @@ public class BookmarkManagerActivity extends BaseFragment {
     }
 
     private void updateTabsStyle() {
-        if (tabsView == null) {
-            return;
+        if (actionBar != null) {
+            actionBar.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider));
         }
         if (contentLayout != null) {
             contentLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider));
         }
         tabsBackgroundSourceColor.setColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider));
+        if (tabsView == null) {
+            return;
+        }
         tabsView.setColors(
                 Theme.key_profile_tabSelectedLine,
                 Theme.key_profile_tabSelectedText,

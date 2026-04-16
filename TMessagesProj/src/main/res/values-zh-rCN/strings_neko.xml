@@ -89,7 +89,7 @@
     <string name="hideGroupSticker">隐藏群组贴纸</string>
     <string name="customGroupVoipAudioBitrate">群组通话音频比特率</string>
     <string name="maxRecentStickerCount">最近贴纸数量上限</string>
-    <string name="disableSwipeToNextChannel">禁用滑动到下个频道</string>
+    <string name="disableSwipeToNextChannel">禁用滑动切换到下一个频道</string>
     <string name="disableChoosingSticker">在选择贴纸时发送输入状态</string>
     <string name="hideSendAsChannel">隐藏以频道身份发送</string>
     <string name="showSpoilersDirectly">直接显示剧透信息</string>

@@ -1657,7 +1657,7 @@ public class StickersAlert extends BottomSheet implements NotificationCenter.Not
                         }
                         MediaDataController.getInstance(currentAccount).loadStickers(type, false, true);
                     }));
-                }, text, Theme.key_featuredStickers_buttonText, Theme.key_featuredStickers_addButton, Theme.key_featuredStickers_addButtonPressed);
+                }, text, Theme.key_featuredStickers_buttonText, Theme.key_featuredStickers_addButton, Theme.key_featuredStickers_addButtonPressed, true);
             } else {
                 optionsButton.showSubItem(menu_archive);
                 String text;
@@ -2165,15 +2165,22 @@ public class StickersAlert extends BottomSheet implements NotificationCenter.Not
     }
 
     private void setButton(View.OnClickListener onClickListener, String title, int colorKey) {
-        setButton(onClickListener, title, colorKey, -1, -1);
+        setButton(onClickListener, title, colorKey, -1, -1, false);
     }
 
     private void setButton(View.OnClickListener onClickListener, String title, int colorKey, int backgroundColorKey, int backgroundSelectorColorKey) {
+        setButton(onClickListener, title, colorKey, backgroundColorKey, backgroundSelectorColorKey, false);
+    }
+
+    private void setButton(View.OnClickListener onClickListener, String title, int colorKey, int backgroundColorKey, int backgroundSelectorColorKey, boolean enableMonetScale) {
         if (colorKey >= 0) {
             pickerBottomLayout.setTextColor(getThemedColor(buttonTextColorKey = colorKey));
         }
         pickerBottomLayout.setText(title, false);
         pickerBottomLayout.setOnClickListener(onClickListener);
+        if (Theme.getActiveTheme() != null && Theme.getActiveTheme().isMonet() && enableMonetScale) {
+            ScaleStateListAnimator.apply(pickerBottomLayout, .02f, 1.2f);
+        }
 
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) pickerBottomLayout.getLayoutParams();
         ViewGroup.MarginLayoutParams shadowParams = (ViewGroup.MarginLayoutParams) shadow[1].getLayoutParams();

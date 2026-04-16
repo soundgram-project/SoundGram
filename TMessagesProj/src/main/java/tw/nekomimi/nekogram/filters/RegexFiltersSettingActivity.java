@@ -488,7 +488,8 @@ public class RegexFiltersSettingActivity extends BaseNekoSettingsActivity {
                     if (position == sharedFiltersPageRow) {
                         settingsCell.setTextAndValue(getString(R.string.RegexFiltersSharedHeader), String.valueOf(AyuFilter.getRegexFilters().size()), true);
                     } else if (position == userFiltersPageRow) {
-                        settingsCell.setTextAndValue(getString(R.string.ShadowBan), String.valueOf(AyuFilter.getCustomFilteredUsersList().size()), false);
+                        int count = AyuFilter.getCustomFilteredUsersList().size() + AyuFilter.getBlockedChannelsCount();
+                        settingsCell.setTextAndValue(getString(R.string.ShadowBan), String.valueOf(count), false);
                     }
                     break;
                 case TYPE_ACCOUNT:

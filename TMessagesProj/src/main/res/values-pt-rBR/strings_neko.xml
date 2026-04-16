@@ -75,7 +75,7 @@
     <string name="IgnoreBlockedAbout">Você não verá mais mensagens de usuários bloqueados em grupos.</string>
     <string name="SourceCode">Support</string>
     <string name="ResetStickerSize">Redefinir tamanho do sticker</string>
-    <string name="RestartAppToTakeEffect">Reinicie o app para aplicar as alterações.</string>
+    <string name="RestartAppToTakeEffect">Reinicie o app para aplicar.</string>
     <string name="MediaPreview">Prévia de mídia na lista de chats</string>
     <string name="AutoPauseVideo">Pausar vídeo automaticamente</string>
     <string name="AutoPauseVideoAbout">Quando bloquear a tela ou alternar para segundo plano.</string>

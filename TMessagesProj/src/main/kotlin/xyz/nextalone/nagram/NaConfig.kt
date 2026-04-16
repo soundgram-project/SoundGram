@@ -1,11 +1,13 @@
 package xyz.nextalone.nagram
 
+import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
 import androidx.core.content.edit
 import org.telegram.messenger.AndroidUtilities
 import org.telegram.messenger.ApplicationLoader
 import org.telegram.messenger.BuildVars
+import org.telegram.messenger.SharedConfig
 import tw.nekomimi.nekogram.NekoConfig
 import tw.nekomimi.nekogram.config.ConfigItem
 import tw.nekomimi.nekogram.config.ConfigItemKeyLinked
@@ -829,7 +831,13 @@ object NaConfig {
         addConfig(
             "TranslatorMode",
             ConfigItem.configTypeInt,
-            1 // 0: append; 1: replace
+            0 // 0: off; 1: manual only; 2: all
+        )
+    val translatorModeWithOriginalMigrated =
+        addConfig(
+            "TranslatorModeWithOriginalMigrated",
+            ConfigItem.configTypeBool,
+            false
         )
     val centerActionBarTitleType =
         addConfig(
@@ -1111,7 +1119,7 @@ object NaConfig {
         addConfig(
             "EventLog",
             ConfigItem.configTypeBool,
-            false
+            true
         )
     val shortcutsStatistics =
         addConfig(
@@ -1152,12 +1160,6 @@ object NaConfig {
     val preferCommonGroupsTab =
         addConfig(
             "PreferCommonGroupsTab",
-            ConfigItem.configTypeBool,
-            true
-        )
-    val sendHighQualityPhoto =
-        addConfig(
-            "SendHighQualityPhoto",
             ConfigItem.configTypeBool,
             true
         )
@@ -1359,6 +1361,24 @@ object NaConfig {
             ConfigItem.configTypeBool,
             false
         )
+    val strokeOnViews =
+        addConfig(
+            "StrokeOnViews",
+            ConfigItem.configTypeBool,
+            true
+        )
+    val hideBottomNavigationBar =
+        addConfig(
+            "HideBottomNavigationBar",
+            ConfigItem.configTypeBool,
+            false
+        )
+    val hideDialogsSearchField =
+        addConfig(
+            "HideDialogsSearchField",
+            ConfigItem.configTypeBool,
+            false
+        )
 
     val preferredTranslateTargetLangList = ArrayList<String>()
     fun updatePreferredTranslateTargetLangList() {
@@ -1395,8 +1415,20 @@ object NaConfig {
         if (ApplicationLoader.applicationContext == null) {
             return
         }
-        if (translatorMode.Int() > 1) {
-            translatorMode.setConfigInt(1)
+        if (!translatorModeWithOriginalMigrated.Bool()) {
+            if (getPreferences().contains(translatorMode.key)) {
+                translatorMode.setConfigInt(
+                    when (translatorMode.Int()) {
+                        0 -> 1
+                        1 -> 0
+                        else -> 0
+                    }
+                )
+            }
+            translatorModeWithOriginalMigrated.setConfigBool(true)
+        }
+        if (translatorMode.Int() !in 0..2) {
+            translatorMode.setConfigInt(0)
         }
         if (!getPreferences().contains(idDcType.key) && !getPreferences().getBoolean(
                 "ShowIdAndDc", true
@@ -1416,6 +1448,15 @@ object NaConfig {
                 backAnimationStyle.setConfigInt(1) // SPRING
             }
             getPreferences().edit { remove("SpringAnimation") }
+        }
+
+        val mainPreferences = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", Context.MODE_PRIVATE)
+        if (!mainPreferences.contains("photoHighQualityDefault") && getPreferences().contains("SendHighQualityPhoto")) {
+            val highQuality = getPreferences().getBoolean("SendHighQualityPhoto", true)
+            mainPreferences.edit {
+                putBoolean("photoHighQualityDefault", highQuality)
+            }
+            SharedConfig.photoHighQualityDefault = highQuality
         }
 
         val currentLlmApiUrl = llmApiUrl.String()

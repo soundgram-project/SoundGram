@@ -203,6 +203,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     // Dialogs
     private final AbstractConfigCell headerDialogs = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.DialogsSettings)));
     private final AbstractConfigCell sortByUnreadRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getSortByUnread()));
+    private final AbstractConfigCell hideDialogsSearchFieldRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideDialogsSearchField()));
     private final AbstractConfigCell disableDialogsFloatingButtonRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getDisableDialogsFloatingButton()));
     private final AbstractConfigCell disableBotOpenButtonRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getDisableBotOpenButton()));
     private final AbstractConfigCell mediaPreviewRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.mediaPreview));
@@ -216,10 +217,6 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     private final AbstractConfigCell showStickersInTopLevelRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getShowStickersRowToplevel()));
     private final AbstractConfigCell hidePremiumSectionRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHidePremiumSection()));
     private final AbstractConfigCell hideHelpSectionRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideHelpSection()));
-    private final AbstractConfigCell disableAvatarBlurRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getDisableAvatarBlur()));
-    private final AbstractConfigCell forceBlurInChatRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.forceBlurInChat));
-    private final AbstractConfigCell headerChatBlur = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.ChatBlurAlphaValue)));
-    private final AbstractConfigCell chatBlurAlphaValueRow = cellGroup.appendCell(new ConfigCellCustom("ChatBlurAlphaValue", ConfigCellCustom.CUSTOM_ITEM_CharBlurAlpha, NekoConfig.forceBlurInChat.Bool()));
     private final AbstractConfigCell iconReplacements = cellGroup.appendCell(new ConfigCellSelectBox("IconReplacements", NaConfig.INSTANCE.getIconReplacements(), new String[]{
             getString(R.string.Default),
             getString(R.string.IconReplacementSolar),
@@ -253,21 +250,31 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
     }, null));
     private final AbstractConfigCell tabletModeRow = cellGroup.appendCell(new ConfigCellSelectBox(null, NekoConfig.tabletMode, new String[]{
             getString(R.string.TabletModeDefault),
-            getString(R.string.Enable),
-            getString(R.string.Disable)
+            getString(R.string.TabletModeOn),
+            getString(R.string.TabletModeOff)
     }, null));
     private final AbstractConfigCell centerActionBarTitleRow = cellGroup.appendCell(new ConfigCellSelectBox(null, NaConfig.INSTANCE.getCenterActionBarTitleType(), new String[]{
-            getString(R.string.Disable),
-            getString(R.string.Enable),
+            getString(R.string.CenterActionBarTitleOff),
+            getString(R.string.CenterActionBarTitleOn),
             getString(R.string.SettingsOnly),
             getString(R.string.ChatsOnly)
     }, null));
     private final AbstractConfigCell dividerAppearance = cellGroup.appendCell(new ConfigCellDivider());
 
+    // Blur
+    private final AbstractConfigCell headerBlur = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.LiteOptionsBlur2)));
+    private final AbstractConfigCell strokeOnViews = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getStrokeOnViews()));
+    private final AbstractConfigCell disableAvatarBlurRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getDisableAvatarBlur()));
+    private final AbstractConfigCell forceBlurInChatRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.forceBlurInChat));
+    private final AbstractConfigCell headerChatBlur = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.ChatBlurAlphaValue)));
+    private final AbstractConfigCell chatBlurAlphaValueRow = cellGroup.appendCell(new ConfigCellCustom("ChatBlurAlphaValue", ConfigCellCustom.CUSTOM_ITEM_CharBlurAlpha, NekoConfig.forceBlurInChat.Bool()));
+    private final AbstractConfigCell dividerBlur = cellGroup.appendCell(new ConfigCellDivider());
+
     // Main Tabs
     private final AbstractConfigCell headerMainTabs = cellGroup.appendCell(new ConfigCellHeader(getString(R.string.MainTabsSettingsHeader)));
     private final AbstractConfigCell hideTitlesRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getMainTabsHideTitles()));
     private final AbstractConfigCell hideContactsRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getMainTabsHideContacts()));
+    private final AbstractConfigCell hideBottomNavigationBarRow = cellGroup.appendCell(new ConfigCellTextCheck(NaConfig.INSTANCE.getHideBottomNavigationBar()));
     private final AbstractConfigCell dividerMainTabs = cellGroup.appendCell(new ConfigCellDivider());
 
     // Privacy
@@ -312,6 +319,7 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
         checkCustomTitleRows();
         checkPushServiceTypeRows();
         checkOpenArchiveOnPullRows();
+        checkMainTabsRows();
         addRowsToMap(cellGroup);
     }
 
@@ -415,6 +423,11 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             } else if (key.equals(NaConfig.INSTANCE.getMainTabsHideTitles().getKey())) {
                 parentLayout.rebuildAllFragmentViews(false, false);
             } else if (key.equals(NaConfig.INSTANCE.getMainTabsHideContacts().getKey())) {
+                parentLayout.rebuildAllFragmentViews(false, false);
+            } else if (key.equals(NaConfig.INSTANCE.getHideBottomNavigationBar().getKey())) {
+                checkMainTabsRows();
+                parentLayout.rebuildAllFragmentViews(false, false);
+            } else if (key.equals(NaConfig.INSTANCE.getHideDialogsSearchField().getKey())) {
                 parentLayout.rebuildAllFragmentViews(false, false);
             }
         };
@@ -787,6 +800,48 @@ public class NekoGeneralSettingsActivity extends BaseNekoXSettingsActivity {
             }
         }
         addRowsToMap(cellGroup);
+    }
+
+    private void checkMainTabsRows() {
+        boolean hideBottomNavigationBar = NaConfig.INSTANCE.getHideBottomNavigationBar().Bool();
+        if (listAdapter == null) {
+            if (hideBottomNavigationBar) {
+                cellGroup.rows.remove(hideTitlesRow);
+                cellGroup.rows.remove(hideContactsRow);
+            }
+            return;
+        }
+        boolean changed = false;
+        if (!hideBottomNavigationBar) {
+            if (!cellGroup.rows.contains(hideContactsRow)) {
+                int index = cellGroup.rows.indexOf(hideBottomNavigationBarRow);
+                cellGroup.rows.add(index, hideContactsRow);
+                listAdapter.notifyItemInserted(index);
+                changed = true;
+            }
+            if (!cellGroup.rows.contains(hideTitlesRow)) {
+                int index = cellGroup.rows.indexOf(hideContactsRow);
+                cellGroup.rows.add(index, hideTitlesRow);
+                listAdapter.notifyItemInserted(index);
+                changed = true;
+            }
+        } else {
+            int rowIndex = cellGroup.rows.indexOf(hideContactsRow);
+            if (rowIndex != -1) {
+                cellGroup.rows.remove(hideContactsRow);
+                listAdapter.notifyItemRemoved(rowIndex);
+                changed = true;
+            }
+            rowIndex = cellGroup.rows.indexOf(hideTitlesRow);
+            if (rowIndex != -1) {
+                cellGroup.rows.remove(hideTitlesRow);
+                listAdapter.notifyItemRemoved(rowIndex);
+                changed = true;
+            }
+        }
+        if (changed) {
+            addRowsToMap(cellGroup);
+        }
     }
 
     private boolean shouldShowPersian() {

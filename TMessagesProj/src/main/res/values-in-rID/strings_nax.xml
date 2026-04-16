@@ -81,10 +81,6 @@
     <string name="MessageSavingSaveMediaInPublicGroups">… di Grup Publik</string>
     <string name="MessageSavingSaveMediaInPrivateGroups">… di Grup Pribadi</string>
     <string name="TelegramUIAutoTranslate">Terjemahkan Seluruh Obrolan</string>
-    <string name="TranslatorMode">Perilaku Terjemahan Manual</string>
-    <string name="TranslatorModeAppend">Tambah</string>
-    <string name="TranslatorModeInline">Ganti</string>
-    <string name="TranslatorModePopup">Pop-up</string>
     <string name="Translated">diterjemahkan</string>
     <string name="ProviderRealMicrosoftTranslator">Microsoft Terjemahan</string>
     <string name="TranslatorSettings">Penerjemah</string>
@@ -133,7 +129,7 @@
     <string name="DisableGhostMode">Nonaktifkan Hantu</string>
     <string name="GhostModeEnabled">Mode hantu diaktifkan</string>
     <string name="GhostModeDisabled">Mode hantu dinonaktifkan</string>
-    <string name="GhostModeInDrawer">Pintasan Tab Utama</string>
+    <string name="GhostModeInDrawer">Pintasan</string>
     <string name="GhostModeStatusIndicator">Indikator Mode Hantu</string>
     <string name="DontSendReadMessagePackets">Jangan Baca Pesan</string>
     <string name="DontReadStoriesPackets">Jangan Baca Cerita</string>
@@ -208,7 +204,6 @@
     <string name="NoCaptionForward">Teruskan Tanpa Teks</string>
     <string name="PreferCommonGroupsTab">Lebih suka Tab Grup</string>
     <string name="PreferCommonGroupsTabNotice">Pilih otomatis tab \"Grup\" alih-alih \"Hadiah\" bila memungkinkan.</string>
-    <string name="SendHighQualityPhoto">Kirim Foto Berkualitas Tinggi</string>
     <string name="GroupedMessageMenu">Menu Pesan Grup</string>
     <string name="GroupedMessageMenuNotice">Pengelompokan memindahkan tindakan utama ke bagian bawah menu pesan.</string>
     <string name="CopySticker">Salin Stiker</string>
@@ -323,4 +318,15 @@
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">Menampilkan isi pemberitahuan meskipun kunci sandi aktif.</string>
     <string name="StickerSavedHint">Stiker disimpan ke galeri.</string>
     <string name="StickerCopied">Stiker disalin ke papan klip.</string>
+    <string name="StrokeOnViews">Efek silau</string>
+    <string name="HideBottomNavigationBar">Sembunyikan Bilah Navigasi Bawah</string>
+    <string name="TranslatorMode">Dengan Teks Asli</string>
+    <string name="TranslatorWithOriginalTextOff">Mati</string>
+    <string name="TranslatorWithOriginalTextManualOnly">Hanya Manual</string>
+    <string name="TranslatorWithOriginalTextOn">Nyala</string>
+    <string name="CenterActionBarTitleOn">Nyala</string>
+    <string name="CenterActionBarTitleOff">Mati</string>
+    <string name="TabletModeOn">Nyala</string>
+    <string name="TabletModeOff">Mati</string>
+    <string name="HideDialogsSearchField">Sembunyikan Kotak Pencarian</string>
 </resources>

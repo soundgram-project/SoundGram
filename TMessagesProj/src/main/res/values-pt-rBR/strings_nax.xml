@@ -81,10 +81,6 @@
     <string name="MessageSavingSaveMediaInPublicGroups">... em grupos públicos</string>
     <string name="MessageSavingSaveMediaInPrivateGroups">... em grupos privados</string>
     <string name="TelegramUIAutoTranslate">Traduzir Chats Inteiros</string>
-    <string name="TranslatorMode">Comportamento da tradução manual</string>
-    <string name="TranslatorModeAppend">Anexar</string>
-    <string name="TranslatorModeInline">Substituir</string>
-    <string name="TranslatorModePopup">Pop-up</string>
     <string name="Translated">traduzido</string>
     <string name="ProviderRealMicrosoftTranslator">Microsoft Tradutor</string>
     <string name="TranslatorSettings">Tradutor</string>
@@ -133,7 +129,7 @@
     <string name="DisableGhostMode">Desativar fantasma</string>
     <string name="GhostModeEnabled">Modo fantasma ativado</string>
     <string name="GhostModeDisabled">Modo fantasma desativado</string>
-    <string name="GhostModeInDrawer">Atalho na aba principal</string>
+    <string name="GhostModeInDrawer">Atalho</string>
     <string name="GhostModeStatusIndicator">Indicador do modo fantasma</string>
     <string name="DontSendReadMessagePackets">Não ler mensagens</string>
     <string name="DontReadStoriesPackets">Não visualizar stories</string>
@@ -208,7 +204,6 @@
     <string name="NoCaptionForward">Encaminhar sem legenda</string>
     <string name="PreferCommonGroupsTab">Preferir aba Grupos</string>
     <string name="PreferCommonGroupsTabNotice">Seleciona automaticamente a aba \"Grupos\" em vez de \"Presentes\" sempre que possível.</string>
-    <string name="SendHighQualityPhoto">Enviar foto em alta qualidade</string>
     <string name="GroupedMessageMenu">Menu de mensagens agrupado</string>
     <string name="GroupedMessageMenuNotice">O agrupamento move as ações principais para a parte inferior do menu.</string>
     <string name="CopySticker">Copiar Sticker</string>
@@ -323,4 +318,15 @@
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">Mostrar o conteúdo das notificações mesmo com o bloqueio por senha ativo.</string>
     <string name="StickerSavedHint">Sticker salvo na galeria.</string>
     <string name="StickerCopied">Sticker copiado para a área de transferência.</string>
+    <string name="StrokeOnViews">Efeitos de brilho</string>
+    <string name="HideBottomNavigationBar">Ocultar barra de navegação inferior</string>
+    <string name="TranslatorMode">Com texto original</string>
+    <string name="TranslatorWithOriginalTextOff">Desativado</string>
+    <string name="TranslatorWithOriginalTextManualOnly">Apenas manual</string>
+    <string name="TranslatorWithOriginalTextOn">Ativado</string>
+    <string name="CenterActionBarTitleOn">Ativado</string>
+    <string name="CenterActionBarTitleOff">Desativado</string>
+    <string name="TabletModeOn">Ativado</string>
+    <string name="TabletModeOff">Desativado</string>
+    <string name="HideDialogsSearchField">Ocultar barra de pesquisa</string>
 </resources>
