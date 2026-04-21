@@ -10,6 +10,8 @@ package org.telegram.messenger;
 
 import static org.telegram.ui.PhotoViewer.getTempFileAbsolutePath;
 
+import java.util.Map;
+
 import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -71,6 +73,7 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.core.app.ActivityCompat;
 
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlayer;
@@ -2672,10 +2675,15 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         if (audioPlayer == null && videoPlayer == null || messageObject == null || playingMessageObject == null || !isSamePlayingMessage(messageObject)) {
             return false;
         }
+
         try {
             if (audioPlayer != null) {
                 long duration = audioPlayer.getDuration();
                 if (duration == C.TIME_UNSET) {
+                    // ИСПРАВЛЕНО: Явное приведение к (long)
+                    duration = (long) (playingMessageObject.getDuration() * 1000L);
+                }
+                if (duration <= 0) {
                     seekToProgressPending = progress;
                 } else {
                     playingMessageObject.audioProgress = progress;
@@ -2709,7 +2717,11 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         try {
             if (audioPlayer != null) {
                 duration = audioPlayer.getDuration();
-                if (duration != C.TIME_UNSET) {
+                if (duration == C.TIME_UNSET) {
+                    // ИСПРАВЛЕНО: Явное приведение к (long)
+                    duration = (long) (playingMessageObject.getDuration() * 1000L);
+                }
+                if (duration > 0) {
                     playingMessageObject.audioProgress = Utilities.clamp01((float) progressMs / duration);
                 }
                 audioPlayer.seekTo(progressMs);
@@ -2728,11 +2740,12 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             FileLog.e(e);
             return false;
         }
-        if (duration != 0) {
+        if (duration > 0) {
             NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingDidSeek, playingMessageObject.getId(), Utilities.clamp01((float) progressMs / duration));
         }
         return true;
     }
+
 
     public long getProgressMs(MessageObject messageObject) {
         final MessageObject playingMessageObject = this.playingMessageObject;

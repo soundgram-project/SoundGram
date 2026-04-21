@@ -2,6 +2,7 @@ package org.telegram.ui;
 
 import static org.telegram.messenger.LocaleController.getString;
 import static org.telegram.messenger.LocaleController.getStringResId;
+import static org.telegram.ui.MusicWebSearcher.loadArtistTracksDeezer;
 
 import android.content.Context;
 import android.content.Intent;
@@ -28,11 +29,13 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import org.telegram.messenger.FileLoader;
 import org.telegram.ui.SoundGramLyricsDialog;
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
@@ -70,6 +73,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -89,6 +93,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
     private ImageView playWaveBtn;
     private WaveAnimatedWidget waveWidget; // Добавь в начало класса
+    // Глобальные списки (вставить в начало класса рядом с audioMessages)
+    public static ArrayList<MessageObject> playlistMessagesList = new ArrayList<>();
+    public static MessageObject globalStatsMessage = null;
+
+    // Вспомогательный метод для проверки, является ли сообщение плейлистом
+    public static boolean isPlaylistMessage(MessageObject msg) {
+        if (msg == null || msg.messageOwner == null || msg.messageOwner.message == null) return false;
+        return msg.messageOwner.message.contains("\nicon=");
+    }
 
     // Добавьте или замените эти переменные в классе:
     private SavedAlbumsAdapter savedAlbumsAdapter;
@@ -194,7 +207,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         @Override
         public void run() {
             if (!isWaitingForUpload) return;
-            if (audioMessages.size() > countBeforeUpload) {
+            if (audioMessages.size() + savedAlbumMessages.size() > countBeforeUpload) {
                 isWaitingForUpload = false;
                 return;
             }
@@ -202,6 +215,19 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             AndroidUtilities.runOnUIThread(pollMessagesRunnable, 2000);
         }
     };
+
+    public void saveAlbumToChannel(String title, String url, String coverUrl) {
+        long targetId = getTargetChannelId();
+        if (targetId == 0) return;
+        String text = "SG_ALBUM|||" + title + "|||" + url + "|||" + coverUrl;
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+        Toast.makeText(getParentActivity(), "Альбом сохранен в библиотеку", Toast.LENGTH_SHORT).show();
+
+        countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
+        isWaitingForUpload = true;
+        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+    }
+
 
     @Override
     public View createView(Context context) {
@@ -244,6 +270,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         tabStrip = new LinearLayout(context);
         tabStrip.setOrientation(LinearLayout.HORIZONTAL);
+        tabStrip.setGravity(Gravity.CENTER); // ИСПРАВЛЕНИЕ: Выравнивание по центру
         tabStrip.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
 
         TextView waveTabBtn = new TextView(context);
@@ -266,10 +293,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         albumsTabBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         albumsTabBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
 
+
         tabStrip.addView(waveTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
         tabStrip.addView(libraryTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
         tabStrip.addView(albumsTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-        mainColumn.addView(tabStrip, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        mainColumn.addView(tabStrip, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
 
 
         // --- 1. VIEWPAGER С ИДЕАЛЬНЫМИ СВАЙПАМИ (ДЛЯ ГЛАВНОГО МЕНЮ ТГ) ---
@@ -333,23 +361,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         waveSettingsBtn.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(10), AndroidUtilities.dp(24), AndroidUtilities.dp(10));
 
         uiLayer.addView(waveSettingsBtn, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 40, 0, 0));
-        // --- ТУМБЛЕР ИИ ---
-        TextView aiToggleBtn = new TextView(context);
-        aiToggleBtn.setText(SmartRadioEngine.useNeuralNetwork ? "✨ Нейросеть: ВКЛ" : "✨ Нейросеть: ВЫКЛ");
-        aiToggleBtn.setTextSize(13);
-        aiToggleBtn.setTextColor(SmartRadioEngine.useNeuralNetwork ? 0xFF1DB954 : 0xFFAAAAAA);
-        aiToggleBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        aiToggleBtn.setGravity(Gravity.CENTER);
-        aiToggleBtn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), 0x33000000));
-        aiToggleBtn.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(6), AndroidUtilities.dp(16), AndroidUtilities.dp(6));
-        aiToggleBtn.setOnClickListener(v -> {
-            SmartRadioEngine.useNeuralNetwork = !SmartRadioEngine.useNeuralNetwork;
-            aiToggleBtn.setText(SmartRadioEngine.useNeuralNetwork ? "✨ Нейросеть: ВКЛ" : "✨ Нейросеть: ВЫКЛ");
-            aiToggleBtn.setTextColor(SmartRadioEngine.useNeuralNetwork ? 0xFF1DB954 : 0xFFAAAAAA);
-            Toast.makeText(context, SmartRadioEngine.useNeuralNetwork ? "Умный подбор включен" : "Обычный подбор включен", Toast.LENGTH_SHORT).show();
-        });
-        uiLayer.addView(aiToggleBtn, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 90, 0, 0));
-        // --- КОНЕЦ ТУМБЛЕРА ---
         // Кнопка Play и заголовок
         playWaveBtn = new ImageView(context);
         playWaveBtn.setScaleType(ImageView.ScaleType.CENTER);
@@ -558,7 +569,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 "Любой жанр", "Поп", "Хип-Хоп", "Рок", "Инди", "Фонк",
                 "Гиперпоп", "Пост-панк", "Эмо-рэп", "Метал", "Альтернатива",
                 "К-поп", "Джаз", "Блюз", "Классика", "Электроника", "Дабстеп",
-                "Панк-рок", "Синтвейв", "Ло-фай", "Эмбиент", "Фолк"
+                "Панк-рок", "Синтвейв", "Ло-фай", "Эмбиент"
         };
 
         TextView genreTitle = new TextView(context);
@@ -794,12 +805,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         return 0;
     }
 
-    // Хелпер создания фейкового MessageObject для стриминга (без скачивания)
+    // ОБНОВЛЕН: теперь проверяет локальный файл, и если он есть, передает его путь в MediaController, а Deezer обложка сохраняется
     public static MessageObject createWebMessageObject(int currentAccount, String title, String artist, String url, int duration, long messageId, String coverUrl) {
         TLRPC.TL_message webMsg = new TLRPC.TL_message();
         webMsg.id = (int) messageId;
         String safeCover = TextUtils.isEmpty(coverUrl) ? "" : coverUrl;
-        webMsg.message = "SG_STREAM|||" + title + "|||" + artist + "|||" + url + "|||" + duration + "|||" + messageId + "|||" + safeCover;
+
+        long trackHashId = Math.abs((long)url.hashCode());
+        webMsg.message = "SG_STREAM|||" + title + "|||" + artist + "|||" + url + "|||" + duration + "|||" + trackHashId + "|||" + safeCover;
         webMsg.date = (int) (System.currentTimeMillis() / 1000);
         webMsg.dialog_id = 0;
 
@@ -820,9 +833,95 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         webMsg.media.document.attributes.add(attr);
 
         MessageObject msgObj = new MessageObject(currentAccount, webMsg, false, false);
-        msgObj.messageOwner.attachPath = url;
+
+        // Логика подхвата скачанного файла
+        File localFile = getLocalTrackFile(trackHashId);
+        if (localFile.exists()) {
+            msgObj.messageOwner.attachPath = localFile.getAbsolutePath();
+        } else {
+            msgObj.messageOwner.attachPath = url;
+        }
 
         return msgObj;
+    }
+
+    // ОБНОВЛЕН: Скачивает в папку Music и отправляет только ссылку в канал
+    private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
+        long targetId = getTargetChannelId();
+        if (targetId == 0) return;
+
+        long trackHashId = Math.abs((long) track.downloadUrl.hashCode());
+        String text = "SG_STREAM|||" + track.title + "|||" + track.artist + "|||" + track.downloadUrl + "|||" + parseDuration(track.duration) + "|||" + trackHashId + "|||" + track.coverUrl;
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+        Toast.makeText(getParentActivity(), "Трек добавлен. Скачивание в фоне...", Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            File destFile = getLocalTrackFile(trackHashId);
+            MusicWebSearcher.downloadTrackToExactFileSync(track.downloadUrl, destFile);
+        }).start();
+
+        countBeforeUpload = audioMessages.size();
+        isWaitingForUpload = true;
+        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+    }
+
+    // ОБНОВЛЕН: Убрана кнопка "Скачать в канал" (dwch)
+    private void showWebTrackOptionsBottomSheet(BaseFragment fragment, MusicWebSearcher.WebTrack track) {
+        Context context = fragment.getParentActivity();
+        if (context == null) return;
+        BottomSheet.Builder builder = new BottomSheet.Builder(context);
+
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        gd.setColor(Theme.getColor(Theme.key_dialogBackground));
+        gd.setCornerRadii(new float[]{AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), 0, 0, 0, 0});
+        container.setBackground(gd);
+        container.setPadding(0, AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16));
+
+        LinearLayout header = new LinearLayout(context);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        BackupImageView cover = new BackupImageView(context);
+        cover.setRoundRadius(AndroidUtilities.dp(4));
+        cover.setImage(track.coverUrl, "50_50", null); // Показываем иконку из Deezer
+
+        LinearLayout textContainer = new LinearLayout(context);
+        textContainer.setOrientation(LinearLayout.VERTICAL);
+        textContainer.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
+
+        TextView title = new TextView(context);
+        title.setText(track.title);
+        title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        title.setTextSize(16);
+        title.setSingleLine(true);
+        title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+
+        TextView artist = new TextView(context);
+        artist.setText(track.artist);
+        artist.setTextColor(Theme.getColor(Theme.key_dialogTextGray2));
+        artist.setTextSize(14);
+        artist.setSingleLine(true);
+
+        textContainer.addView(title);
+        textContainer.addView(artist);
+        header.addView(cover, LayoutHelper.createLinear(48, 48));
+        header.addView(textContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        container.addView(header);
+
+        View divider = new View(context);
+        divider.setBackgroundColor(Theme.getColor(Theme.key_divider));
+        container.addView(divider, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 0, 0, 0, 8));
+
+        container.addView(createMenuOption(context, getString(R.string.addlb), R.drawable.msg_add, () -> {
+            builder.getDismissRunnable().run();
+            saveWebTrackToLibrary(track);
+        }));
+
+        builder.setCustomView(container);
+        fragment.showDialog(builder.create());
     }
 
     public static void setAudioCover(BackupImageView coverImage, MessageObject msg, String filter, int radius) {
@@ -893,19 +992,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
 
-    // 1. Метод сохранения альбома напрямую в канал
-    public void saveAlbumToChannel(String title, String url, String coverUrl) {
-        long targetId = getTargetChannelId();
-        if (targetId == 0) return;
-        String text = "SG_ALBUM|||" + title + "|||" + url + "|||" + coverUrl;
-        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
-        Toast.makeText(getParentActivity(), "Альбом сохранен в библиотеку", Toast.LENGTH_SHORT).show();
-
-        countBeforeUpload = audioMessages.size();
-        isWaitingForUpload = true;
-        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
-    }
-
     // 2. Метод загрузки кэша (парсинг SG_ALBUM)
     private void loadMessagesFromCache() {
         try {
@@ -930,7 +1016,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         if (message.message.startsWith("SG_STREAM|||")) {
                             String[] parts = message.message.split("\\|\\|\\|");
                             if (parts.length >= 5) {
-                                cachedTracks.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], parseDuration(parts[4]), Long.parseLong(parts[5]), parts.length > 6 ? parts[6] : ""));
+                                cachedTracks.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], parseDuration(parts[4]), message.id, parts.length > 6 ? parts[6] : ""));
                             }
                         } else if (message.message.startsWith("SG_ALBUM|||")) {
                             cachedAlbums.add(new MessageObject(currentAccount, message, false, false));
@@ -1202,53 +1288,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private long getTargetChannelId() {
         if (musicChannelId != 0) return musicChannelId;
         return musicChannelId = getChannelIdFromFile();
-    }
-
-    private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
-        long targetId = getTargetChannelId();
-        if (targetId == 0) return;
-        String text = "SG_STREAM|||" + track.title + "|||" + track.artist + "|||" + track.downloadUrl + "|||" + parseDuration(track.duration);
-        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
-        Toast.makeText(getParentActivity(), getString(R.string.trconl), Toast.LENGTH_SHORT).show();
-
-        countBeforeUpload = audioMessages.size();
-        isWaitingForUpload = true;
-        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
-    }
-
-    private void downloadAndUploadTrack(MusicWebSearcher.WebTrack track) {
-        long targetIdFromFile = getChannelIdFromFile();
-        if (targetIdFromFile == 0) {
-            checkOrCreateMusicChannel();
-            return;
-        }
-        musicChannelId = targetIdFromFile;
-        File cacheDir = ApplicationLoader.applicationContext.getExternalCacheDir();
-        AlertDialog progressDialog = new AlertDialog.Builder(getParentActivity()).setMessage(getString(R.string.dwld)+ "0%").create();
-        progressDialog.show();
-
-        MusicWebSearcher.downloadTrack(track.downloadUrl, cacheDir, new MusicWebSearcher.DownloadCallback() {
-            @Override public void onProgress(int percent) {
-                AndroidUtilities.runOnUIThread(() -> progressDialog.setMessage(getString(R.string.dwld) + percent + "%"));
-            }
-            @Override public void onResult(File file) {
-                progressDialog.dismiss();
-                AndroidUtilities.runOnUIThread(() -> {
-                    long rawId = getChannelIdFromFile();
-                    if (rawId == 0) return;
-                    long dialogId = -rawId;
-                    countBeforeUpload = audioMessages.size();
-                    isWaitingForUpload = true;
-                    AndroidUtilities.runOnUIThread(pollMessagesRunnable, 5000);
-                    ArrayList<String> paths = new ArrayList<>();
-                    paths.add(file.getAbsolutePath());
-                    SendMessagesHelper.prepareSendingDocuments(AccountInstance.getInstance(currentAccount), paths, new ArrayList<>(paths), null, null, "audio/mp3", dialogId, null, null, null, null, null, true, 0, null, null, 0, 0, false, 0);
-                });
-            }
-            @Override public void onFailed() {
-                AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), "Failed to download track", Toast.LENGTH_SHORT).show());
-            }
-        });
     }
 
     private void deleteTrackFromChannel(MessageObject msg) {
@@ -2266,68 +2305,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
     }
 
-    private void showWebTrackOptionsBottomSheet(BaseFragment fragment, MusicWebSearcher.WebTrack track) {
-        Context context = fragment.getParentActivity();
-        if (context == null) return;
-        BottomSheet.Builder builder = new BottomSheet.Builder(context);
-
-        LinearLayout container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
-
-        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-        gd.setColor(Theme.getColor(Theme.key_dialogBackground));
-        gd.setCornerRadii(new float[]{AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), 0, 0, 0, 0});
-        container.setBackground(gd);
-        container.setPadding(0, AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16));
-
-        LinearLayout header = new LinearLayout(context);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), AndroidUtilities.dp(16));
-
-        BackupImageView cover = new BackupImageView(context);
-        cover.setRoundRadius(AndroidUtilities.dp(4));
-        setAudioCover(cover, null, "50_50", 4);
-
-        LinearLayout textContainer = new LinearLayout(context);
-        textContainer.setOrientation(LinearLayout.VERTICAL);
-        textContainer.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
-
-        TextView title = new TextView(context);
-        title.setText(track.title);
-        title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        title.setTextSize(16);
-        title.setSingleLine(true);
-        title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-
-        TextView artist = new TextView(context);
-        artist.setText(track.artist);
-        artist.setTextColor(Theme.getColor(Theme.key_dialogTextGray2));
-        artist.setTextSize(14);
-        artist.setSingleLine(true);
-
-        textContainer.addView(title);
-        textContainer.addView(artist);
-        header.addView(cover, LayoutHelper.createLinear(48, 48));
-        header.addView(textContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        container.addView(header);
-
-        View divider = new View(context);
-        divider.setBackgroundColor(Theme.getColor(Theme.key_divider));
-        container.addView(divider, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 0, 0, 0, 8));
-
-        container.addView(createMenuOption(context, getString(R.string.addlb), R.drawable.msg_add, () -> {
-            builder.getDismissRunnable().run();
-            saveWebTrackToLibrary(track);
-        }));
-
-        container.addView(createMenuOption(context, getString(R.string.dwch), R.drawable.msg_download, () -> {
-            builder.getDismissRunnable().run();
-            downloadAndUploadTrack(track);
-        }));
-
-        builder.setCustomView(container);
-        fragment.showDialog(builder.create());
-    }
 
     private void showTrackOptionsBottomSheet(BaseFragment fragment, MessageObject msg, boolean isInsidePlaylist, Runnable onDeleteCallback) {
         Context context = fragment.getParentActivity();
@@ -2395,7 +2372,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         fragment.showDialog(builder.create());
     }
 
-    private void showSelectPlaylistBottomSheet(BaseFragment fragment, MessageObject msg) {
+    public void showSelectPlaylistBottomSheet(@NonNull BaseFragment fragment, MessageObject msg) {
         Context context = fragment.getParentActivity();
         if (context == null || playlistFiles.isEmpty()) return;
 
@@ -3083,76 +3060,119 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         private void fetchTracksFromHitmos(String targetUrl, Context context) {
-            MusicWebSearcher.loadArtistProfile(targetUrl, new MusicWebSearcher.ArtistProfileCallback() {
+            // Очищаем очередь и UI, чтобы избежать дублей
+            queue.clear();
+            tracksContainer.removeAllViews();
+
+            MusicWebSearcher.ArtistProfileCallback callback = new MusicWebSearcher.ArtistProfileCallback() {
+                int trackIndex = 1;
+
+                @Override
+                public void onTrackLoaded(MusicWebSearcher.WebTrack track) {
+                    int durSec = ChannelMusicFragment.parseDuration(track.duration);
+                    MessageObject fakeMsg = ChannelMusicFragment.createWebMessageObject(currentAccount, track.title, track.artist, track.downloadUrl, durSec, -(long)track.downloadUrl.hashCode(), "");
+                    queue.add(fakeMsg);
+
+                    LinearLayout trackRow = new LinearLayout(context);
+                    trackRow.setOrientation(LinearLayout.HORIZONTAL);
+                    trackRow.setGravity(Gravity.CENTER_VERTICAL);
+                    trackRow.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
+                    trackRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
+
+                    TextView numberTxt = new TextView(context);
+                    numberTxt.setText(String.valueOf(trackIndex++));
+                    numberTxt.setTextSize(15);
+                    numberTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                    numberTxt.setGravity(Gravity.CENTER);
+                    trackRow.addView(numberTxt, LayoutHelper.createLinear(24, LayoutHelper.WRAP_CONTENT, 0, 0, 12, 0));
+
+                    BackupImageView trackCover = new BackupImageView(context);
+                    trackCover.setRoundRadius(AndroidUtilities.dp(4));
+                    String useCover = track.coverUrl != null && !track.coverUrl.isEmpty() ? track.coverUrl : bannerUrl;
+                    trackCover.setImage(useCover, "50_50", null);
+                    trackRow.addView(trackCover, LayoutHelper.createLinear(48, 48, 0, 0, 12, 0));
+
+                    LinearLayout textContainer = new LinearLayout(context);
+                    textContainer.setOrientation(LinearLayout.VERTICAL);
+
+                    TextView titleTxt = new TextView(context);
+                    titleTxt.setText(track.title);
+                    titleTxt.setTextSize(16);
+                    titleTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                    titleTxt.setSingleLine(true);
+                    titleTxt.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+                    TextView artistTxt = new TextView(context);
+                    artistTxt.setText(track.artist);
+                    artistTxt.setTextSize(14);
+                    artistTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                    artistTxt.setSingleLine(true);
+
+                    textContainer.addView(titleTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+                    textContainer.addView(artistTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+                    trackRow.addView(textContainer, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                    ImageView optionsIcon = new ImageView(context);
+                    optionsIcon.setImageResource(org.telegram.messenger.R.drawable.ic_ab_other);
+                    optionsIcon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon));
+                    optionsIcon.setScaleType(ImageView.ScaleType.CENTER);
+                    optionsIcon.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
+                    trackRow.addView(optionsIcon, LayoutHelper.createLinear(40, 40));
+                    optionsIcon.setOnClickListener(v -> showWebTrackOptionsBottomSheet(ArtistProfileFragment.this, track));
+
+                    trackRow.setOnClickListener(v -> {
+                        MediaController.getInstance().setPlaylist(queue, fakeMsg, -(long)"artist_context".hashCode());
+                        MediaController.getInstance().seekToProgress(fakeMsg, 0);
+                        MediaController.getInstance().playMessage(fakeMsg);
+                        updatePlayingTrackColor();
+                    });
+                    tracksContainer.addView(trackRow);
+                }
+
                 @Override
                 public void onResult(ArrayList<MusicWebSearcher.WebAlbum> ignoredAlbums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
-                    queue.clear();
-                    int trackIndex = 1;
-                    for (MusicWebSearcher.WebTrack track : tracks) {
-                        int durSec = ChannelMusicFragment.parseDuration(track.duration);
-                        MessageObject fakeMsg = ChannelMusicFragment.createWebMessageObject(currentAccount, track.title, track.artist, track.downloadUrl, durSec, -(long)track.downloadUrl.hashCode(), "");
-                        queue.add(fakeMsg);
-
-                        LinearLayout trackRow = new LinearLayout(context);
-                        trackRow.setOrientation(LinearLayout.HORIZONTAL);
-                        trackRow.setGravity(Gravity.CENTER_VERTICAL);
-                        trackRow.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
-                        trackRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
-
-                        TextView numberTxt = new TextView(context);
-                        numberTxt.setText(String.valueOf(trackIndex++));
-                        numberTxt.setTextSize(15);
-                        numberTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-                        numberTxt.setGravity(Gravity.CENTER);
-                        trackRow.addView(numberTxt, LayoutHelper.createLinear(24, LayoutHelper.WRAP_CONTENT, 0, 0, 12, 0));
-
-                        BackupImageView trackCover = new BackupImageView(context);
-                        trackCover.setRoundRadius(AndroidUtilities.dp(4));
-                        String useCover = track.coverUrl != null && !track.coverUrl.isEmpty() ? track.coverUrl : bannerUrl;
-                        trackCover.setImage(useCover, "50_50", null);
-                        trackRow.addView(trackCover, LayoutHelper.createLinear(48, 48, 0, 0, 12, 0));
-
-                        LinearLayout textContainer = new LinearLayout(context);
-                        textContainer.setOrientation(LinearLayout.VERTICAL);
-
-                        TextView titleTxt = new TextView(context);
-                        titleTxt.setText(track.title);
-                        titleTxt.setTextSize(16);
-                        titleTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-                        titleTxt.setSingleLine(true);
-                        titleTxt.setEllipsize(android.text.TextUtils.TruncateAt.END);
-
-                        TextView artistTxt = new TextView(context);
-                        artistTxt.setText(track.artist);
-                        artistTxt.setTextSize(14);
-                        artistTxt.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-                        artistTxt.setSingleLine(true);
-
-                        textContainer.addView(titleTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-                        textContainer.addView(artistTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-                        trackRow.addView(textContainer, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
-
-                        ImageView optionsIcon = new ImageView(context);
-                        optionsIcon.setImageResource(org.telegram.messenger.R.drawable.ic_ab_other);
-                        optionsIcon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon));
-                        optionsIcon.setScaleType(ImageView.ScaleType.CENTER);
-                        optionsIcon.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
-                        trackRow.addView(optionsIcon, LayoutHelper.createLinear(40, 40));
-                        optionsIcon.setOnClickListener(v -> showWebTrackOptionsBottomSheet(ArtistProfileFragment.this, track));
-
-                        trackRow.setOnClickListener(v -> {
-                            MediaController.getInstance().setPlaylist(queue, fakeMsg, -(long)"artist_context".hashCode());
-                            MediaController.getInstance().seekToProgress(fakeMsg, 0);
-                            MediaController.getInstance().playMessage(fakeMsg);
-                            updatePlayingTrackColor();
-                        });
-                        tracksContainer.addView(trackRow);
-                    }
                     updatePlayingTrackColor();
                 }
+
                 @Override public void onFailed() {}
-            });
+            };
+
+            if (targetUrl == null || targetUrl.startsWith("DEEZER_ARTIST:")) {
+                // Ищем реальный профиль артиста на Хитмо, чтобы стянуть абсолютно все его треки
+                new Thread(() -> {
+                    try {
+                        String searchUrl = "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(artistName, "UTF-8");
+                        String html = MusicWebSearcher.fetchHtml(searchUrl);
+                        ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
+                        MusicWebSearcher.parseHtmlToResults(html, new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
+
+                        String hitmoUrl = null;
+                        for (MusicWebSearcher.WebArtist wa : foundArtists) {
+                            if (wa.name.equalsIgnoreCase(artistName)) {
+                                hitmoUrl = wa.artistUrl;
+                                break;
+                            }
+                        }
+                        if (hitmoUrl == null && !foundArtists.isEmpty()) {
+                            hitmoUrl = foundArtists.get(0).artistUrl;
+                        }
+
+                        if (hitmoUrl != null) {
+                            MusicWebSearcher.loadArtistProfile(hitmoUrl, callback);
+                        } else {
+                            // Если профиля нет, парсим обычный поиск по имени артиста
+                            MusicWebSearcher.loadArtistProfile("/search?q=" + URLEncoder.encode(artistName, "UTF-8"), callback);
+                        }
+                    } catch (Exception e) {
+                        AndroidUtilities.runOnUIThread(callback::onFailed);
+                    }
+                }).start();
+            } else {
+                MusicWebSearcher.loadArtistProfile(targetUrl, callback);
+            }
         }
+
+
 
     }
 
@@ -3173,6 +3193,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         private MessageObject getSavedAlbumMessage() {
+            if (albumUrl == null) return null; // ИСПРАВЛЕНИЕ: Защита от NPE
             for (MessageObject msg : savedAlbumMessages) {
                 if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.contains(albumUrl)) {
                     return msg;
@@ -3180,6 +3201,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
             return null;
         }
+
 
         @Override
         public boolean onFragmentCreate() {
@@ -3232,39 +3254,23 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             menu.getItem(1).setIcon(R.drawable.msg_delete);
                         }
                     } else if (id == 5) {
-                        Toast.makeText(getParentActivity(), "Скачивание альбома в фоне началось...", Toast.LENGTH_LONG).show();
-                        File cacheDir = ApplicationLoader.applicationContext.getExternalCacheDir();
-                        long rawId = getChannelIdFromFile();
-                        if (rawId == 0) return;
-
-                        new Thread(() -> {
-                            for (MessageObject m : playlistMessages) {
-                                if (m.messageOwner.message != null && m.messageOwner.message.startsWith("SG_STREAM|||")) {
-                                    String[] parts = m.messageOwner.message.split("\\|\\|\\|");
-                                    if (parts.length >= 4) {
-                                        File downloadedFile = MusicWebSearcher.downloadTrackSync(parts[3], cacheDir);
-                                        if (downloadedFile != null) {
-                                            ArrayList<String> paths = new ArrayList<>();
-                                            paths.add(downloadedFile.getAbsolutePath());
-                                            AndroidUtilities.runOnUIThread(() -> {
-                                                countBeforeUpload = audioMessages.size();
-                                                isWaitingForUpload = true;
-                                                AndroidUtilities.runOnUIThread(pollMessagesRunnable, 5000);
-                                                SendMessagesHelper.prepareSendingDocuments(AccountInstance.getInstance(currentAccount), paths, new ArrayList<>(paths), null, null, "audio/mp3", -rawId, null, null, null, null, null, true, 0, null, null, 0, 0, false, 0);
-                                            });
-                                        }
-                                        try { Thread.sleep(2000); } catch (Exception e){}
-                                    }
-                                }
-                            }
-
-                            AndroidUtilities.runOnUIThread(() -> {
-                                SendMessagesHelper.getInstance(currentAccount).sendMessage("Ссылка на альбом: " + albumUrl, -rawId, null, null, null, true, null, null, null, true, 0, 0, null, false);
-                                Toast.makeText(getParentActivity(), "Все треки альбома отправлены на загрузку", Toast.LENGTH_SHORT).show();
+                        // Внутри обработчика клика (id == 5)
+                        long messageIdToEdit = findMessageIdByAlbum(title); // Метод поиска ID сообщения в канале
+                        if (messageIdToEdit != 0) {
+                            String newText = "SG_ALBUM|||" + title + "|||" + albumUrl + "|||" + coverUrl + "\nDownload"; // \n для новой строки
+                            TLRPC.TL_messages_editMessage req = new TLRPC.TL_messages_editMessage();
+                            req.peer = MessagesController.getInstance(currentAccount).getInputPeer(-getTargetChannelId());
+                            req.id = (int) messageIdToEdit;
+                            req.message = newText;
+                            req.flags |= 2048; // Флаг для замены текста
+                            ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
+                                // Запуск скачивания файлов после успешного редактирования
+                                startAlbumFilesDownload(title, playlistMessages);
                             });
-                        }).start();
+                        }
                     }
-                }
+
+                    }
             });
 
             FrameLayout content = new FrameLayout(context) {
@@ -3296,7 +3302,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private void loadAlbumData() {
             if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
-                String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("\\|\\|\\|", 2);
+                String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
                 String aTitle = parts[0];
                 String aArtist = parts.length > 1 ? parts[1] : "";
 
@@ -3308,9 +3314,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
                     @Override
                     public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
-                        playlistMessages.add(createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl));
+                        int currentTrackIndex = playlistMessages.size() + 1;
+                        MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl);
+
+                        File localAlbumFile = getLocalAlbumTrackFile(title, currentTrackIndex);
+                        if (localAlbumFile.exists()) {
+                            msgObj.messageOwner.attachPath = localAlbumFile.getAbsolutePath();
+                        }
+
+                        playlistMessages.add(msgObj);
                         safeNotifyAdapter(adapter, listView);
                     }
+
                     @Override
                     public void onFailed() {
                         Toast.makeText(getParentActivity(), "Альбом не найден", Toast.LENGTH_SHORT).show();
@@ -3321,6 +3336,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         }
 
+
         private void fetchRealAlbum(String realUrl) {
             playlistMessages.clear();
             MusicWebSearcher.loadArtistProfile(realUrl, new MusicWebSearcher.ArtistProfileCallback() {
@@ -3329,9 +3345,19 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
                 @Override
                 public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
-                    playlistMessages.add(createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl));
+                    int currentTrackIndex = playlistMessages.size() + 1;
+                    MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl);
+
+                    // Проверка на принадлежность альбому
+                    File localAlbumFile = getLocalAlbumTrackFile(title, currentTrackIndex);
+                    if (localAlbumFile.exists()) {
+                        msgObj.messageOwner.attachPath = localAlbumFile.getAbsolutePath();
+                    }
+
+                    playlistMessages.add(msgObj);
                     safeNotifyAdapter(adapter, listView);
                 }
+
                 @Override public void onFailed() { Toast.makeText(getParentActivity(), "Ошибка загрузки", Toast.LENGTH_SHORT).show(); }
             });
         }
@@ -3445,7 +3471,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         Toast.makeText(mContext, "Генерация волны...", Toast.LENGTH_SHORT).show();
                         String aArtist = "";
                         if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
-                            String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("\\|\\|\\|", 2);
+                            String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
                             aArtist = parts.length > 1 ? parts[1] : "";
                         }
                         SmartRadioEngine.generateWaveByAlbum(aArtist, title, currentAccount, new SmartRadioEngine.WaveCallback() {
@@ -3458,6 +3484,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             @Override public void onError() { Toast.makeText(mContext, "Ошибка", Toast.LENGTH_SHORT).show(); }
                         });
                     });
+
                     content.addView(waveBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 24, 20, 24, 0));
                     // --- КОНЕЦ КНОПКИ ---
 
@@ -3713,6 +3740,75 @@ public static class ChipCell extends FrameLayout {
 
         }
     }
+    private int findMessageIdByAlbum(String title) {
+        if (savedAlbumMessages == null || title == null) return 0; // ИСПРАВЛЕНИЕ: Защита
+        for (int a = 0; a < savedAlbumMessages.size(); a++) {
+            MessageObject obj = savedAlbumMessages.get(a);
+            if (obj.messageOwner != null && obj.messageOwner.message != null && obj.messageOwner.message.contains(title)) {
+                return obj.getId();
+            }
+        }
+        return 0;
+    }
+
+
+    private void startAlbumFilesDownload(String albumTitle, ArrayList<MessageObject> tracks) {
+        if (tracks == null || tracks.isEmpty()) return;
+        Toast.makeText(getParentActivity(), "Загрузка альбома: " + albumTitle, Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            int trackNumber = 1;
+            for (MessageObject mo : tracks) {
+                if (mo.messageOwner != null && mo.messageOwner.message != null && mo.messageOwner.message.startsWith("SG_STREAM|||")) {
+                    String[] parts = mo.messageOwner.message.split("\\|\\|\\|");
+                    if (parts.length >= 4) {
+                        String downloadUrl = parts[3];
+                        File destFile = getLocalAlbumTrackFile(albumTitle, trackNumber);
+                        if (!destFile.exists()) {
+                            MusicWebSearcher.downloadTrackToExactFileSync(downloadUrl, destFile);
+                        }
+                    }
+                } else if (mo.isMusic()) {
+                    FileLoader.getInstance(currentAccount).loadFile(mo.getDocument(), mo, 1, 0);
+                }
+                trackNumber++;
+            }
+            AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), "Альбом " + albumTitle + " загружен!", Toast.LENGTH_SHORT).show());
+        }).start();
+    }
+
+    public static File getMusicStorageDir() {
+        File dir = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null), "Music");
+        if (!dir.exists()) dir.mkdirs();
+        return dir;
+    }
+
+    public static File getLocalTrackFile(long trackHashId) {
+        return new File(getMusicStorageDir(), trackHashId + ".mp3");
+    }
+
+    public static File getLocalAlbumTrackFile(String albumTitle, int trackNumber) {
+        return new File(getMusicStorageDir(), albumTitle + "-" + trackNumber + ".mp3");
+    }
+
+    // Автоматическое скачивание недостающих треков (запускается в фоне)
+    private void syncLocalLibraryDownloads() {
+        new Thread(() -> {
+            for (MessageObject msg : audioMessages) {
+                if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                    String[] parts = msg.messageOwner.message.split("\\|\\|\\|");
+                    if (parts.length >= 4) {
+                        long trackHashId = Math.abs((long)parts[3].hashCode());
+                        File localFile = getLocalTrackFile(trackHashId);
+                        if (!localFile.exists()) {
+                            MusicWebSearcher.downloadTrackToExactFileSync(parts[3], localFile);
+                        }
+                    }
+                }
+            }
+        }).start();
+    }
+
     public static TextView createYandexWaveButton(Context context, String text, View.OnClickListener onClickListener) {
         TextView waveBtn = new TextView(context);
         waveBtn.setText(text);
