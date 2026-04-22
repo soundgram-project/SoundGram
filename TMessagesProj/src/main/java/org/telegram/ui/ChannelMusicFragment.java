@@ -805,17 +805,16 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         return 0;
     }
 
-    // ОБНОВЛЕН: теперь проверяет локальный файл, и если он есть, передает его путь в MediaController, а Deezer обложка сохраняется
     public static MessageObject createWebMessageObject(int currentAccount, String title, String artist, String url, int duration, long messageId, String coverUrl) {
         TLRPC.TL_message webMsg = new TLRPC.TL_message();
         webMsg.id = (int) messageId;
         String safeCover = TextUtils.isEmpty(coverUrl) ? "" : coverUrl;
 
-        long trackHashId = Math.abs((long)url.hashCode());
-        webMsg.message = "SG_STREAM|||" + title + "|||" + artist + "|||" + url + "|||" + duration + "|||" + trackHashId + "|||" + safeCover;
+        long trackHashId = Math.abs((long) url.hashCode());
+        webMsg.message = "SG_STREAM|||" + title + "|||" + artist + "|||" + url + "|||"
+                + duration + "|||" + trackHashId + "|||" + safeCover;
         webMsg.date = (int) (System.currentTimeMillis() / 1000);
         webMsg.dialog_id = 0;
-
         webMsg.peer_id = new TLRPC.TL_peerChannel();
         webMsg.peer_id.channel_id = 0;
 
@@ -834,18 +833,89 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         MessageObject msgObj = new MessageObject(currentAccount, webMsg, false, false);
 
-        // Логика подхвата скачанного файла
-        File localFile = getLocalTrackFile(trackHashId);
-        if (localFile.exists()) {
-            msgObj.messageOwner.attachPath = localFile.getAbsolutePath();
+        // Ищем скачанный файл: сначала по messageId (новый формат), потом по hashCode (старый)
+        File localFileById = new File(getMusicStorageDir(), messageId + ".mp3");
+        if (messageId > 0 && localFileById.exists() && localFileById.length() > 0) {
+            msgObj.messageOwner.attachPath = localFileById.getAbsolutePath();
         } else {
-            msgObj.messageOwner.attachPath = url;
+            File localFileByHash = new File(getMusicStorageDir(), trackHashId + ".mp3");
+            if (localFileByHash.exists() && localFileByHash.length() > 0) {
+                // Переименовываем в messageId формат для единообразия (если msgId известен)
+                if (messageId > 0) {
+                    localFileByHash.renameTo(localFileById);
+                    msgObj.messageOwner.attachPath = localFileById.getAbsolutePath();
+                } else {
+                    msgObj.messageOwner.attachPath = localFileByHash.getAbsolutePath();
+                }
+            } else {
+                // Файла нет — ставим URL для стриминга
+                msgObj.messageOwner.attachPath = url;
+            }
         }
 
         return msgObj;
     }
 
-    // ОБНОВЛЕН: Скачивает в папку Music и отправляет только ссылку в канал
+    private void syncLocalLibraryDownloads() {
+        // Делаем копию списка, чтобы не было ConcurrentModificationException
+        ArrayList<MessageObject> snapshot = new ArrayList<>(audioMessages);
+        new Thread(() -> {
+            for (MessageObject msg : snapshot) {
+                if (msg == null || msg.messageOwner == null || msg.messageOwner.message == null)
+                    continue;
+                if (!msg.messageOwner.message.startsWith("SG_STREAM|||")) continue;
+
+                String[] parts = msg.messageOwner.message.split("\\|\\|\\|");
+                if (parts.length < 4) continue;
+
+                String downloadUrl = parts[3];
+                long msgId = msg.getId();
+
+                // Целевой файл — по messageId (основной формат)
+                File targetFile = new File(getMusicStorageDir(), msgId + ".mp3");
+
+                if (targetFile.exists() && targetFile.length() > 0) {
+                    // Файл уже есть — просто обновляем attachPath если нужно
+                    if (!targetFile.getAbsolutePath().equals(msg.messageOwner.attachPath)) {
+                        msg.messageOwner.attachPath = targetFile.getAbsolutePath();
+                    }
+                    continue;
+                }
+
+                // Фолбэк: может быть файл с именем hashCode
+                long hashId = Math.abs((long) downloadUrl.hashCode());
+                File hashFile = new File(getMusicStorageDir(), hashId + ".mp3");
+                if (hashFile.exists() && hashFile.length() > 0) {
+                    // Переименовываем в msgId
+                    if (msgId > 0) {
+                        hashFile.renameTo(targetFile);
+                        msg.messageOwner.attachPath = targetFile.getAbsolutePath();
+                    } else {
+                        msg.messageOwner.attachPath = hashFile.getAbsolutePath();
+                    }
+                    continue;
+                }
+
+                // Скачиваем
+                FileLog.d("SoundGram: downloading track " + msgId + " from " + downloadUrl);
+                boolean ok = MusicWebSearcher.downloadTrackToExactFileSync(downloadUrl, targetFile);
+                if (ok) {
+                    msg.messageOwner.attachPath = targetFile.getAbsolutePath();
+                    FileLog.d("SoundGram: track " + msgId + " downloaded OK");
+                } else {
+                    // Не удалось скачать — оставляем URL для стриминга
+                    msg.messageOwner.attachPath = downloadUrl;
+                }
+
+                // Небольшая пауза между скачиваниями чтобы не перегружать сервер
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException ignored) {
+                }
+            }
+        }).start();
+    }
+        // ОБНОВЛЕН: Скачивает в папку Music и отправляет только ссылку в канал
     private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
         long targetId = getTargetChannelId();
         if (targetId == 0) return;
@@ -992,118 +1062,158 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
 
-    // 2. Метод загрузки кэша (парсинг SG_ALBUM)
     private void loadMessagesFromCache() {
         try {
             File dir = ApplicationLoader.applicationContext.getExternalFilesDir(null);
+            if (dir == null) return;
             File file = new File(dir, "music_cache_v3.dat");
             if (!file.exists()) return;
 
             byte[] fileData = new byte[(int) file.length()];
-            try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) { fis.read(fileData); }
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                fis.read(fileData);
+            }
 
             SerializedData data = new SerializedData(fileData);
             int count = data.readInt32(false);
+
             ArrayList<MessageObject> cachedTracks = new ArrayList<>();
             ArrayList<MessageObject> cachedAlbums = new ArrayList<>();
+            ArrayList<MessageObject> cachedPlaylists = new ArrayList<>();
             long selfUserId = UserConfig.getInstance(currentAccount).getClientUserId();
+
             for (int i = 0; i < count; i++) {
                 int constructor = data.readInt32(false);
                 TLRPC.Message message = TLRPC.Message.TLdeserialize(data, constructor, false);
-                if (message != null) {
-                    message.readAttachPath(data, selfUserId);
-                    if (message.message != null) {
-                        if (message.message.startsWith("SG_STREAM|||")) {
-                            String[] parts = message.message.split("\\|\\|\\|");
-                            if (parts.length >= 5) {
-                                cachedTracks.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], parseDuration(parts[4]), message.id, parts.length > 6 ? parts[6] : ""));
-                            }
-                        } else if (message.message.startsWith("SG_ALBUM|||")) {
-                            cachedAlbums.add(new MessageObject(currentAccount, message, false, false));
-                        } else {
-                            // Обычный трек (даже с припиской) добавляется!
-                            MessageObject obj = new MessageObject(currentAccount, message, false, false);
-                            if (obj.isMusic()) cachedTracks.add(obj);
+                if (message == null) continue;
+                message.readAttachPath(data, selfUserId);
+
+                if (message.message != null) {
+                    if (message.message.startsWith("SG_STREAM|||")) {
+                        String[] parts = message.message.split("\\|\\|\\|");
+                        if (parts.length >= 5) {
+                            String cover = parts.length > 6 ? parts[6] : "";
+                            cachedTracks.add(createWebMessageObject(
+                                    currentAccount, parts[1], parts[2], parts[3],
+                                    parseDuration(parts[4]), message.id, cover));
                         }
+                    } else if (message.message.startsWith("SG_ALBUM|||")) {
+                        cachedAlbums.add(new MessageObject(currentAccount, message, false, false));
+                    } else if (message.message.startsWith("SG_STATS|||")) {
+                        globalStatsMessage = new MessageObject(currentAccount, message, false, false);
+                    } else if (message.message.contains("\nicon=")) {
+                        // FIX: восстанавливаем плейлисты из кэша
+                        cachedPlaylists.add(new MessageObject(currentAccount, message, false, false));
                     } else {
                         MessageObject obj = new MessageObject(currentAccount, message, false, false);
                         if (obj.isMusic()) cachedTracks.add(obj);
                     }
+                } else {
+                    MessageObject obj = new MessageObject(currentAccount, message, false, false);
+                    if (obj.isMusic()) cachedTracks.add(obj);
                 }
-
-
             }
             data.cleanup();
+
             AndroidUtilities.runOnUIThread(() -> {
                 audioMessages.clear();
                 audioMessages.addAll(cachedTracks);
                 savedAlbumMessages.clear();
                 savedAlbumMessages.addAll(cachedAlbums);
+                playlistMessagesList.clear();
+                playlistMessagesList.addAll(cachedPlaylists);
+
                 safeNotifyAdapter(adapter, listView);
                 safeNotifyAdapter(playlistsAdapter, playlistsListView);
                 safeNotifyAdapter(savedAlbumsAdapter, null);
-                if (audioMessages.isEmpty() && ApplicationLoader.isNetworkOnline()) loadMusicFromChannel();
-            });
-        } catch (Exception e) { FileLog.e(e); }
-    }
 
-    // 3. Метод загрузки из канала онлайн (парсинг SG_ALBUM)
+                // Запускаем скачивание недостающих файлов (для оффлайн работы)
+                syncLocalLibraryDownloads();
+
+                // FIX: убран рекурсивный вызов loadMusicFromChannel()
+                // Теперь checkOrCreateMusicChannel() вызывает обе функции последовательно
+            });
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
     private void loadMusicFromChannel() {
         long targetId = getTargetChannelId();
         if (targetId == 0) return;
-        loadMessagesFromCache();
+
+        // Не вызываем loadMessagesFromCache отсюда — её вызывают отдельно
         if (!org.telegram.messenger.ApplicationLoader.isNetworkOnline()) return;
 
         TLRPC.TL_messages_search searchReq = new TLRPC.TL_messages_search();
         TLRPC.TL_inputPeerChannel inputPeer = new TLRPC.TL_inputPeerChannel();
-        inputPeer.channel_id = targetId; inputPeer.access_hash = musicChannelHash;
+        inputPeer.channel_id = targetId;
+        inputPeer.access_hash = musicChannelHash;
         searchReq.peer = inputPeer;
         searchReq.filter = new TLRPC.TL_inputMessagesFilterEmpty();
-        searchReq.q = ""; searchReq.limit = 3000;
+        searchReq.q = "";
+        searchReq.limit = 3000;
 
         org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount).sendRequest(searchReq, (response, error) -> {
-            if (response instanceof TLRPC.messages_Messages) {
-                TLRPC.messages_Messages messages = (TLRPC.messages_Messages) response;
-                ArrayList<MessageObject> loadedTracks = new ArrayList<>();
-                ArrayList<MessageObject> loadedAlbums = new ArrayList<>();
-                for (TLRPC.Message msg : messages.messages) {
-                    if (msg.message != null) {
-                        if (msg.message.startsWith("SG_STREAM|||")) {
-                            String[] parts = msg.message.split("\\|\\|\\|");
-                            if (parts.length >= 5) loadedTracks.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], parseDuration(parts[4]), msg.id, ""));
-                        } else if (msg.message.startsWith("SG_ALBUM|||")) {
-                            loadedAlbums.add(new MessageObject(currentAccount, msg, false, false));
-                        } else {
-                            MessageObject messageObject = new MessageObject(currentAccount, msg, false, false);
-                            if (messageObject.isMusic()) loadedTracks.add(messageObject);
+            if (!(response instanceof TLRPC.messages_Messages)) return;
+
+            TLRPC.messages_Messages messages = (TLRPC.messages_Messages) response;
+            ArrayList<MessageObject> loadedTracks = new ArrayList<>();
+            ArrayList<MessageObject> loadedAlbums = new ArrayList<>();
+            ArrayList<MessageObject> loadedPlaylists = new ArrayList<>();
+
+            for (TLRPC.Message msg : messages.messages) {
+                if (msg.message != null) {
+                    if (msg.message.startsWith("SG_STREAM|||")) {
+                        String[] parts = msg.message.split("\\|\\|\\|");
+                        if (parts.length >= 5) {
+                            // FIX: передаём coverUrl (parts[6]) если есть
+                            String cover = parts.length > 6 ? parts[6] : "";
+                            loadedTracks.add(createWebMessageObject(
+                                    currentAccount, parts[1], parts[2], parts[3],
+                                    parseDuration(parts[4]), msg.id, cover));
                         }
+                    } else if (msg.message.startsWith("SG_ALBUM|||")) {
+                        loadedAlbums.add(new MessageObject(currentAccount, msg, false, false));
+                    } else if (msg.message.startsWith("SG_STATS|||")) {
+                        globalStatsMessage = new MessageObject(currentAccount, msg, false, false);
+                    } else if (msg.message.contains("\nicon=")) {
+                        loadedPlaylists.add(new MessageObject(currentAccount, msg, false, false));
                     } else {
-                        MessageObject messageObject = new MessageObject(currentAccount, msg, false, false);
-                        if (messageObject.isMusic()) loadedTracks.add(messageObject);
+                        MessageObject mo = new MessageObject(currentAccount, msg, false, false);
+                        if (mo.isMusic()) loadedTracks.add(mo);
                     }
+                } else {
+                    MessageObject mo = new MessageObject(currentAccount, msg, false, false);
+                    if (mo.isMusic()) loadedTracks.add(mo);
                 }
-
-
-
-                // Сохраняем в кэш ОБА списка, слив их вместе
-                ArrayList<MessageObject> combinedToCache = new ArrayList<>(loadedTracks);
-                combinedToCache.addAll(loadedAlbums);
-                saveMessagesToCache(combinedToCache);
-
-                AndroidUtilities.runOnUIThread(() -> {
-                    audioMessages.clear();
-                    audioMessages.addAll(loadedTracks);
-                    savedAlbumMessages.clear();
-                    savedAlbumMessages.addAll(loadedAlbums);
-                    safeNotifyAdapter(adapter, listView);
-                    safeNotifyAdapter(playlistsAdapter, playlistsListView);
-                    safeNotifyAdapter(savedAlbumsAdapter, null);
-                });
             }
+
+            // Сохраняем в кэш
+            ArrayList<MessageObject> combined = new ArrayList<>(loadedTracks);
+            combined.addAll(loadedAlbums);
+            combined.addAll(loadedPlaylists);
+            if (globalStatsMessage != null) combined.add(globalStatsMessage);
+            saveMessagesToCache(combined);
+
+            AndroidUtilities.runOnUIThread(() -> {
+                audioMessages.clear();
+                audioMessages.addAll(loadedTracks);
+                savedAlbumMessages.clear();
+                savedAlbumMessages.addAll(loadedAlbums);
+                playlistMessagesList.clear();
+                playlistMessagesList.addAll(loadedPlaylists);
+
+                safeNotifyAdapter(adapter, listView);
+                safeNotifyAdapter(playlistsAdapter, playlistsListView);
+                safeNotifyAdapter(savedAlbumsAdapter, null);
+
+                // Скачиваем недостающие файлы в фоне
+                syncLocalLibraryDownloads();
+            });
         });
     }
 
-    // 4. Адаптер для 3-й вкладки (Альбомы из канала)
+        // 4. Адаптер для 3-й вкладки (Альбомы из канала)
     private class SavedAlbumsAdapter extends RecyclerListView.SelectionAdapter {
         private Context mContext;
         public SavedAlbumsAdapter(Context context) { this.mContext = context; }
@@ -1344,7 +1454,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         builder.show();
     }
 
-    private static File getPlaylistsDir() {
+    public static File getPlaylistsDir() {
         File dir = ApplicationLoader.applicationContext.getExternalFilesDir("Playlists");
         if (!dir.exists()) dir.mkdirs();
         return dir;
@@ -1366,6 +1476,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 musicChannelId = chat.id;
                 musicChannelHash = chat.access_hash;
                 saveChannelIdToFile(musicChannelId);
+                // ИСПРАВЛЕНИЕ: всегда сохраняем в SharedPreferences
+                MessagesController.getNotificationsSettings(currentAccount).edit()
+                        .putLong("music_channel_id", chat.id).apply();
                 loadMusicFromChannel();
                 return;
             }
@@ -1373,6 +1486,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         long savedId = getChannelIdFromFile();
         if (savedId != 0) {
             musicChannelId = savedId;
+            // ИСПРАВЛЕНИЕ: также сохраняем в SharedPreferences из файла
+            MessagesController.getNotificationsSettings(currentAccount).edit()
+                    .putLong("music_channel_id", savedId).apply();
             loadMusicFromChannel();
             return;
         }
@@ -3060,7 +3176,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         private void fetchTracksFromHitmos(String targetUrl, Context context) {
-            // Очищаем очередь и UI, чтобы избежать дублей
             queue.clear();
             tracksContainer.removeAllViews();
 
@@ -3070,7 +3185,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 @Override
                 public void onTrackLoaded(MusicWebSearcher.WebTrack track) {
                     int durSec = ChannelMusicFragment.parseDuration(track.duration);
-                    MessageObject fakeMsg = ChannelMusicFragment.createWebMessageObject(currentAccount, track.title, track.artist, track.downloadUrl, durSec, -(long)track.downloadUrl.hashCode(), "");
+                    MessageObject fakeMsg = ChannelMusicFragment.createWebMessageObject(
+                            currentAccount, track.title, track.artist, track.downloadUrl,
+                            durSec, -(long) track.downloadUrl.hashCode(), track.coverUrl);
                     queue.add(fakeMsg);
 
                     LinearLayout trackRow = new LinearLayout(context);
@@ -3121,7 +3238,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     optionsIcon.setOnClickListener(v -> showWebTrackOptionsBottomSheet(ArtistProfileFragment.this, track));
 
                     trackRow.setOnClickListener(v -> {
-                        MediaController.getInstance().setPlaylist(queue, fakeMsg, -(long)"artist_context".hashCode());
+                        MediaController.getInstance().setPlaylist(new ArrayList<>(queue), fakeMsg, -(long) "artist_context".hashCode());
                         MediaController.getInstance().seekToProgress(fakeMsg, 0);
                         MediaController.getInstance().playMessage(fakeMsg);
                         updatePlayingTrackColor();
@@ -3134,46 +3251,84 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     updatePlayingTrackColor();
                 }
 
-                @Override public void onFailed() {}
+                @Override
+                public void onFailed() {
+                    AndroidUtilities.runOnUIThread(() ->
+                            Toast.makeText(context, "Не удалось загрузить треки", Toast.LENGTH_SHORT).show());
+                }
             };
 
-            if (targetUrl == null || targetUrl.startsWith("DEEZER_ARTIST:")) {
-                // Ищем реальный профиль артиста на Хитмо, чтобы стянуть абсолютно все его треки
+            if (targetUrl == null || targetUrl.isEmpty() || targetUrl.startsWith("DEEZER_ARTIST:")) {
+                // Пытаемся найти страницу артиста на Hitmos
                 new Thread(() -> {
                     try {
-                        String searchUrl = "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(artistName, "UTF-8");
-                        String html = MusicWebSearcher.fetchHtml(searchUrl);
-                        ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
-                        MusicWebSearcher.parseHtmlToResults(html, new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
-
                         String hitmoUrl = null;
-                        for (MusicWebSearcher.WebArtist wa : foundArtists) {
-                            if (wa.name.equalsIgnoreCase(artistName)) {
-                                hitmoUrl = wa.artistUrl;
-                                break;
+
+                        // Попытка 1: поиск по оригинальному имени
+                        String[] queriesToTry = {
+                                artistName,
+                                MusicWebSearcher.transliteratePublic(artistName), // транслит
+                                artistName.replaceAll("[^a-zA-Zа-яёА-ЯЁ0-9 ]", "").trim()
+                        };
+
+                        for (String q : queriesToTry) {
+                            if (q == null || q.isEmpty()) continue;
+                            try {
+                                String html = MusicWebSearcher.fetchHtml("https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q, "UTF-8"));
+                                ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
+                                MusicWebSearcher.parseHtmlToResults(html, new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
+
+                                // Точное совпадение имени
+                                for (MusicWebSearcher.WebArtist wa : foundArtists) {
+                                    if (wa.name.equalsIgnoreCase(artistName) || wa.name.equalsIgnoreCase(q)) {
+                                        hitmoUrl = wa.artistUrl;
+                                        break;
+                                    }
+                                }
+                                // Частичное совпадение
+                                if (hitmoUrl == null && !foundArtists.isEmpty()) {
+                                    String lowerName = artistName.toLowerCase();
+                                    for (MusicWebSearcher.WebArtist wa : foundArtists) {
+                                        if (wa.name.toLowerCase().contains(lowerName) || lowerName.contains(wa.name.toLowerCase())) {
+                                            hitmoUrl = wa.artistUrl;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (hitmoUrl != null) break;
+                            } catch (Exception e) {
+                                FileLog.e(e);
                             }
-                        }
-                        if (hitmoUrl == null && !foundArtists.isEmpty()) {
-                            hitmoUrl = foundArtists.get(0).artistUrl;
                         }
 
                         if (hitmoUrl != null) {
+                            // Нашли страницу артиста — грузим с неё
                             MusicWebSearcher.loadArtistProfile(hitmoUrl, callback);
                         } else {
-                            // Если профиля нет, парсим обычный поиск по имени артиста
-                            MusicWebSearcher.loadArtistProfile("/search?q=" + URLEncoder.encode(artistName, "UTF-8"), callback);
+                            // Не нашли страницу — грузим с поиска (первая страница с треками)
+                            String searchFallback = "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(artistName, "UTF-8");
+                            MusicWebSearcher.loadArtistProfile(searchFallback, callback);
                         }
                     } catch (Exception e) {
-                        AndroidUtilities.runOnUIThread(callback::onFailed);
+                        FileLog.e(e);
+                        // Финальный фолбэк: Deezer top tracks
+                        if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
+                            try {
+                                long deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
+                                MusicWebSearcher.loadArtistTracksDeezer(deezerArtistId, artistName, callback);
+                            } catch (Exception e2) {
+                                AndroidUtilities.runOnUIThread(callback::onFailed);
+                            }
+                        } else {
+                            AndroidUtilities.runOnUIThread(callback::onFailed);
+                        }
                     }
                 }).start();
             } else {
+                // Обычный Hitmos URL
                 MusicWebSearcher.loadArtistProfile(targetUrl, callback);
             }
         }
-
-
-
     }
 
     public class AlbumProfileFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
@@ -3790,25 +3945,6 @@ public static class ChipCell extends FrameLayout {
     public static File getLocalAlbumTrackFile(String albumTitle, int trackNumber) {
         return new File(getMusicStorageDir(), albumTitle + "-" + trackNumber + ".mp3");
     }
-
-    // Автоматическое скачивание недостающих треков (запускается в фоне)
-    private void syncLocalLibraryDownloads() {
-        new Thread(() -> {
-            for (MessageObject msg : audioMessages) {
-                if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
-                    String[] parts = msg.messageOwner.message.split("\\|\\|\\|");
-                    if (parts.length >= 4) {
-                        long trackHashId = Math.abs((long)parts[3].hashCode());
-                        File localFile = getLocalTrackFile(trackHashId);
-                        if (!localFile.exists()) {
-                            MusicWebSearcher.downloadTrackToExactFileSync(parts[3], localFile);
-                        }
-                    }
-                }
-            }
-        }).start();
-    }
-
     public static TextView createYandexWaveButton(Context context, String text, View.OnClickListener onClickListener) {
         TextView waveBtn = new TextView(context);
         waveBtn.setText(text);

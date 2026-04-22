@@ -329,52 +329,125 @@ public class MusicWebSearcher {
             AndroidUtilities.runOnUIThread(() -> callback.onResult(tracks, artists, albums));
         }).start();
     }
-
+    public static String transliteratePublic(String input) {
+        return transliterate(input);
+    }
     public static void loadArtistTracksDeezer(long artistId, String artistName, ArtistProfileCallback callback) {
         new Thread(() -> {
             try {
-                String url = "https://api.deezer.com/artist/" + artistId + "/top?limit=600";
-                JSONObject json = new JSONObject(fetchHtml(url));
+                String url = "https://api.deezer.com/artist/" + artistId + "/top?limit=100";
+                String html = fetchHtml(url);
+                if (html.isEmpty()) {
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                    return;
+                }
+                JSONObject json = new JSONObject(html);
+                if (!json.has("data")) {
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                    return;
+                }
                 JSONArray data = json.getJSONArray("data");
+                String translitName = transliterate(artistName);
 
                 for (int i = 0; i < data.length(); i++) {
                     JSONObject obj = data.getJSONObject(i);
-                    String title = obj.getString("title");
-                    int duration = obj.getInt("duration");
-                    String cover = obj.getJSONObject("album").getString("cover_xl");
+                    String title = obj.optString("title", "");
+                    if (title.isEmpty()) continue;
+                    int duration = obj.optInt("duration", 0);
+                    // Безопасное извлечение обложки
+                    String cover = "";
+                    if (obj.has("album")) {
+                        cover = obj.getJSONObject("album").optString("cover_xl", "");
+                    }
 
-                    String searchUrl = "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(artistName + " " + title, "UTF-8");
+                    String cleanTitle = title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+
+                    // Стратегия 1: "Имя артиста + название"
                     ArrayList<WebTrack> results = new ArrayList<>();
-                    parseHtmlToResults(fetchHtml(searchUrl), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                    try {
+                        String q1 = artistName + " " + cleanTitle;
+                        parseHtmlToResults(fetchHtml("https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q1, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                    } catch (Exception e) { FileLog.e(e); }
+
+                    // Стратегия 2: транслитерация имени + название
+                    if (results.isEmpty() && !translitName.equals(artistName)) {
+                        try {
+                            String q2 = translitName + " " + cleanTitle;
+                            parseHtmlToResults(fetchHtml("https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q2, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                        } catch (Exception e) { FileLog.e(e); }
+                    }
+
+                    // Стратегия 3: только название
+                    if (results.isEmpty()) {
+                        try {
+                            parseHtmlToResults(fetchHtml("https://eu.hitmoz.com/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                        } catch (Exception e) { FileLog.e(e); }
+                    }
 
                     if (!results.isEmpty()) {
-                        WebTrack wt = results.get(0);
-                        wt.title = title;
-                        wt.coverUrl = cover;
-                        wt.artist = artistName;
-                        final WebTrack finalTrack = wt;
+                        // Ищем лучший трек по длительности
+                        WebTrack best = null;
+                        for (WebTrack wt : results) {
+                            int hitDur = org.telegram.ui.ChannelMusicFragment.parseDuration(wt.duration);
+                            if (duration > 0 && Math.abs(hitDur - duration) <= 8) {
+                                best = wt;
+                                break;
+                            }
+                        }
+                        if (best == null) best = results.get(0);
+
+                        best.title = title;
+                        best.artist = artistName;
+                        best.coverUrl = cover;
+                        final WebTrack finalTrack = best;
                         AndroidUtilities.runOnUIThread(() -> callback.onTrackLoaded(finalTrack));
                     }
+
+                    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                 }
-            } catch (Exception e) { FileLog.e(e); }
+                AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(), new ArrayList<>()));
+            } catch (Exception e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(callback::onFailed);
+            }
         }).start();
     }
-
     public static String fetchHtml(String urlString) throws Exception {
+        try {
+            return fetchHtmlInternal(urlString, false);
+        } catch (javax.net.ssl.SSLException e) {
+            // VPN может перехватывать SSL — пробуем с trust-all только для этого соединения
+            return fetchHtmlInternal(urlString, true);
+        }
+    }
+
+
+    private static String fetchHtmlInternal(String urlString, boolean trustAll) throws Exception {
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+        // Trust-all только per-connection, НЕ через SSLContext.setDefault() чтобы не сломать ExoPlayer
+        if (trustAll && conn instanceof javax.net.ssl.HttpsURLConnection) {
+            try {
+                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+                sc.init(null, new javax.net.ssl.TrustManager[]{
+                        new javax.net.ssl.X509TrustManager() {
+                            public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                        }
+                }, new java.security.SecureRandom());
+                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((hostname, session) -> true);
+            } catch (Exception ignored) {}
+        }
+
         conn.setRequestMethod("GET");
-        // Жесткая имитация браузера для обхода блокировок VPN
         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+        conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
         conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
         conn.setRequestProperty("Connection", "keep-alive");
         conn.setRequestProperty("Upgrade-Insecure-Requests", "1");
-        conn.setRequestProperty("Sec-Fetch-Dest", "document");
-        conn.setRequestProperty("Sec-Fetch-Mode", "navigate");
-        conn.setRequestProperty("Sec-Fetch-Site", "none");
-        conn.setRequestProperty("Sec-Fetch-User", "?1");
-
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
         conn.setInstanceFollowRedirects(true);
@@ -386,11 +459,11 @@ public class MusicWebSearcher {
             byte[] b = new byte[8192];
             int len;
             while ((len = is.read(b)) != -1) bos.write(b, 0, len);
+            is.close();
             return bos.toString("UTF-8");
         }
         return "";
     }
-
 
     public static void parseHtmlToResults(String html, ArrayList<WebTrack> tracks, ArrayList<WebArtist> artists, ArrayList<WebAlbum> albums, HashSet<String> seen) {
         if (html == null || html.isEmpty()) return;
