@@ -1471,12 +1471,11 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         }
     }
     private void showPlaylistSelectorFromDialog(MessageObject msg) {
-        // ИСПРАВЛЕНИЕ: читаем из статического списка (который заполняется при загрузке)
-        ArrayList<MessageObject> playlists = org.telegram.ui.ChannelMusicFragment.playlistMessagesList;
+        File dir = org.telegram.ui.ChannelMusicFragment.getPlaylistsDir();
+        File[] files = dir.listFiles((d, name) -> name.endsWith(".txt"));
 
-        if (playlists == null || playlists.isEmpty()) {
-            Toast.makeText(getContext(),
-                    "Плейлисты не найдены. Откройте раздел Музыка.", Toast.LENGTH_LONG).show();
+        if (files == null || files.length == 0) {
+            Toast.makeText(getContext(), "Плейлисты не найдены. Сначала создайте их в разделе Музыка.", Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -1485,9 +1484,9 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         container.setOrientation(LinearLayout.VERTICAL);
         android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
         gd.setColor(Theme.getColor(Theme.key_dialogBackground));
-        gd.setCornerRadii(new float[]{dp(16), dp(16), dp(16), dp(16), 0, 0, 0, 0});
+        gd.setCornerRadii(new float[]{AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), 0, 0, 0, 0});
         container.setBackground(gd);
-        container.setPadding(0, dp(8), 0, dp(16));
+        container.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(16));
 
         TextView titleView = new TextView(getContext());
         titleView.setText("Добавить в плейлист");
@@ -1495,90 +1494,56 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         titleView.setTypeface(AndroidUtilities.bold());
         titleView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         titleView.setGravity(Gravity.CENTER);
-        titleView.setPadding(0, dp(16), 0, dp(16));
+        titleView.setPadding(0, AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16));
         container.addView(titleView);
 
-        // Разделитель
         View div = new View(getContext());
         div.setBackgroundColor(Theme.getColor(Theme.key_divider));
         container.addView(div, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 0, 0, 0, 8));
 
-        final String trackId = String.valueOf(msg.getId());
-
-        for (MessageObject pMsg : playlists) {
-            if (pMsg.messageOwner == null || pMsg.messageOwner.message == null) continue;
-
-            String[] lines = pMsg.messageOwner.message.split("\n");
-            String pName = lines.length > 0 ? lines[0] : "Плейлист";
-            final String[] capturedLines = lines;
-            final String capturedName = pName;
+        for (File pFile : files) {
+            String pName = pFile.getName().replace(".txt", "");
 
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(20), dp(14), dp(20), dp(14));
+            row.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(14), AndroidUtilities.dp(20), AndroidUtilities.dp(14));
             row.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
 
             ImageView icon = new ImageView(getContext());
             icon.setImageResource(R.drawable.msg_add);
-            icon.setColorFilter(Theme.getColor(Theme.key_dialogIcon), PorterDuff.Mode.SRC_IN);
+            icon.setColorFilter(Theme.getColor(Theme.key_dialogIcon), android.graphics.PorterDuff.Mode.SRC_IN);
             row.addView(icon, LayoutHelper.createLinear(24, 24, Gravity.CENTER_VERTICAL));
 
             TextView nameView = new TextView(getContext());
-            nameView.setText(capturedName);
+            nameView.setText(pName);
             nameView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
             nameView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 16);
-            nameView.setPadding(dp(16), 0, 0, 0);
-            row.addView(nameView, LayoutHelper.createLinear(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+            nameView.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
+            row.addView(nameView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
 
             row.setOnClickListener(v -> {
-                String existingTracks = capturedLines.length > 2 ? capturedLines[2].trim() : "";
-                // Проверка дубликата
-                if (!existingTracks.isEmpty()) {
-                    for (String eid : existingTracks.split(",")) {
-                        if (eid.trim().equals(trackId)) {
-                            Toast.makeText(getContext(), "Трек уже в \"" + capturedName + "\"",
-                                    Toast.LENGTH_SHORT).show();
-                            builder.getDismissRunnable().run();
-                            return;
-                        }
-                    }
-                    existingTracks = trackId + "," + existingTracks;
-                } else {
-                    existingTracks = trackId;
+                ArrayList<String> existingLines = new ArrayList<>();
+                if (pFile.exists()) {
+                    try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(pFile))) {
+                        String line;
+                        while ((line = br.readLine()) != null) existingLines.add(line);
+                    } catch (Exception e) { e.printStackTrace(); }
                 }
-                String iconLine = capturedLines.length > 1 ? capturedLines[1] : "icon=none";
-                String newText = capturedName + "\n" + iconLine + "\n" + existingTracks;
-                pMsg.messageOwner.message = newText;
 
-                if (org.telegram.messenger.ApplicationLoader.isNetworkOnline()) {
-                    long chId = MessagesController.getNotificationsSettings(currentAccount)
-                            .getLong("music_channel_id", 0);
-                    if (chId == 0) {
-                        // fallback из файла
-                        try {
-                            File f = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null),
-                                    "music_channel_id.txt");
-                            if (f.exists()) {
-                                java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(f));
-                                String l = r.readLine(); r.close();
-                                if (l != null) chId = Long.parseLong(l.trim());
-                            }
-                        } catch (Exception ignored) {}
+                try (java.io.BufferedWriter bw = new java.io.BufferedWriter(new java.io.FileWriter(pFile, false))) {
+                    if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                        bw.write(msg.messageOwner.message);
+                    } else {
+                        bw.write(String.valueOf(msg.getId()));
                     }
-                    if (chId != 0) {
-                        TLRPC.TL_messages_editMessage req = new TLRPC.TL_messages_editMessage();
-                        req.peer = MessagesController.getInstance(currentAccount).getInputPeer(-chId);
-                        req.id = pMsg.getId();
-                        req.message = newText;
-                        req.flags |= 2048;
-                        org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount)
-                                .sendRequest(req, (r, e) -> {});
+                    bw.newLine();
+                    for (String oldLine : existingLines) {
+                        bw.write(oldLine);
+                        bw.newLine();
                     }
-                }
-                Toast.makeText(getContext(), "Добавлено в \"" + capturedName + "\"",
-                        Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Добавлено в \"" + pName + "\"", Toast.LENGTH_SHORT).show();
+                } catch (Exception e) { e.printStackTrace(); }
                 builder.getDismissRunnable().run();
             });
             container.addView(row);
@@ -1587,6 +1552,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         builder.setCustomView(container);
         builder.create().show();
     }
+
     private void showAlbumCover(boolean show, boolean animated) {
         if (show) {
             if (blurredView.getVisibility() == View.VISIBLE || blurredAnimationInProgress) {

@@ -304,8 +304,8 @@ public class MusicWebSearcher {
                 String hitmoHtml = fetchHtml("https://eu.hitmoz.com/search?q=" + URLEncoder.encode(query, "UTF-8"));
                 parseHtmlToResults(hitmoHtml, tracks, new ArrayList<>(), new ArrayList<>(), seenIds);
 
-                // ИСПРАВЛЕНИЕ: Точный и независимый поиск артистов через Deezer
-                String artistSearch = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(finalQuery, "UTF-8");
+                // ИСПРАВЛЕНИЕ: Ищем артистов без подклеивания транслита (Deezer это ненавидит)
+                String artistSearch = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(query, "UTF-8");
                 JSONObject aJson = new JSONObject(fetchHtml(artistSearch));
                 if (aJson.has("data")) {
                     JSONArray data = aJson.getJSONArray("data");
@@ -315,8 +315,8 @@ public class MusicWebSearcher {
                     }
                 }
 
-                // ИСПРАВЛЕНИЕ: Точный и независимый поиск альбомов через Deezer
-                String albumSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(finalQuery, "UTF-8");
+                // ИСПРАВЛЕНИЕ: Ищем альбомы также без транслита
+                String albumSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(query, "UTF-8");
                 JSONObject alJson = new JSONObject(fetchHtml(albumSearch));
                 if (alJson.has("data")) {
                     JSONArray data = alJson.getJSONArray("data");
@@ -329,6 +329,57 @@ public class MusicWebSearcher {
             AndroidUtilities.runOnUIThread(() -> callback.onResult(tracks, artists, albums));
         }).start();
     }
+
+    public static void loadArtistProfile(String artistUrl, ArtistProfileCallback callback) {
+        new Thread(() -> {
+            try {
+                String baseUrl = artistUrl.startsWith("http") ? artistUrl : "https://eu.hitmoz.com" + artistUrl;
+                ArrayList<WebAlbum> albums = new ArrayList<>();
+                ArrayList<WebTrack> tracks = new ArrayList<>();
+                HashSet<String> seen = new HashSet<>();
+
+                for (int page = 1; page <= 15; page++) {
+                    String pageUrl;
+                    if (page == 1) {
+                        pageUrl = baseUrl;
+                    } else {
+                        if (baseUrl.contains("/search")) {
+                            String[] parts = baseUrl.split("\\?", 2);
+                            pageUrl = parts[0] + (parts[0].endsWith("/") ? "" : "/") + "page/" + page + "/?" + (parts.length > 1 ? parts[1] : "");
+                        } else {
+                            pageUrl = baseUrl + (baseUrl.endsWith("/") ? "" : "/") + "page/" + page + "/";
+                        }
+                    }
+
+                    String html = fetchHtml(pageUrl);
+                    if (html == null || html.isEmpty()) break;
+
+                    int tracksBefore = tracks.size();
+                    parseHtmlToResults(html, tracks, new ArrayList<>(), albums, seen);
+
+                    if (tracks.size() > tracksBefore) {
+                        ArrayList<WebTrack> newTracks = new ArrayList<>(tracks.subList(tracksBefore, tracks.size()));
+                        AndroidUtilities.runOnUIThread(() -> {
+                            for (WebTrack t : newTracks) callback.onTrackLoaded(t);
+                        });
+                    } else {
+                        break;
+                    }
+                }
+
+                // ИСПРАВЛЕНИЕ: Если треков нет, явно вызываем onFailed, чтобы триггернуть fallback
+                if (tracks.isEmpty()) {
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                } else {
+                    AndroidUtilities.runOnUIThread(() -> callback.onResult(albums, tracks));
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(callback::onFailed);
+            }
+        }).start();
+    }
+
     public static String transliteratePublic(String input) {
         return transliterate(input);
     }
@@ -550,54 +601,6 @@ public class MusicWebSearcher {
                     finalAlbums.add(new WebAlbum(title, artistName, "SEARCH_ALBUM:" + title + "::::" + artistName, cover));
                 }
                 AndroidUtilities.runOnUIThread(() -> callback.onResult(finalAlbums, new ArrayList<>()));
-            } catch (Exception e) {
-                FileLog.e(e);
-                AndroidUtilities.runOnUIThread(callback::onFailed);
-            }
-        }).start();
-    }
-
-    public static void loadArtistProfile(String artistUrl, ArtistProfileCallback callback) {
-        new Thread(() -> {
-            try {
-                String baseUrl = artistUrl.startsWith("http") ? artistUrl : "https://eu.hitmoz.com" + artistUrl;
-                ArrayList<WebAlbum> albums = new ArrayList<>();
-                ArrayList<WebTrack> tracks = new ArrayList<>();
-                HashSet<String> seen = new HashSet<>();
-
-                // Скрейпим до 15 страниц артиста (обычно этого хватает для дискографии)
-                for (int page = 1; page <= 15; page++) {
-                    String pageUrl;
-                    if (page == 1) {
-                        pageUrl = baseUrl;
-                    } else {
-                        if (baseUrl.contains("/search")) {
-                            // Формат для поиска: https://eu.hitmoz.com/search/page/2/?q=...
-                            String[] parts = baseUrl.split("\\?", 2);
-                            pageUrl = parts[0] + (parts[0].endsWith("/") ? "" : "/") + "page/" + page + "/?" + (parts.length > 1 ? parts[1] : "");
-                        } else {
-                            // Формат для профиля: https://eu.hitmoz.com/artist/123/page/2/
-                            pageUrl = baseUrl + (baseUrl.endsWith("/") ? "" : "/") + "page/" + page + "/";
-                        }
-                    }
-
-                    String html = fetchHtml(pageUrl);
-                    if (html == null || html.isEmpty()) break;
-
-                    int tracksBefore = tracks.size();
-                    parseHtmlToResults(html, tracks, new ArrayList<>(), albums, seen);
-
-                    if (tracks.size() > tracksBefore) {
-                        ArrayList<WebTrack> newTracks = new ArrayList<>(tracks.subList(tracksBefore, tracks.size()));
-                        AndroidUtilities.runOnUIThread(() -> {
-                            for (WebTrack t : newTracks) callback.onTrackLoaded(t);
-                        });
-                    } else {
-                        // Если новых треков не добавилось — значит, страницы закончились
-                        break;
-                    }
-                }
-                AndroidUtilities.runOnUIThread(() -> callback.onResult(albums, tracks));
             } catch (Exception e) {
                 FileLog.e(e);
                 AndroidUtilities.runOnUIThread(callback::onFailed);

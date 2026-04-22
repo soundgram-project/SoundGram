@@ -2849,10 +2849,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchResultMessages.clear();
         webResultTracks.clear();
 
-        // Отрезаем пробелы в начале и в конце (" track " -> "track")
         String trimmedQuery = query.trim();
 
-        // Ищем только если введено хотя бы 2 символа (иначе Hitmos выдает популярный мусор)
         if (!TextUtils.isEmpty(trimmedQuery) && trimmedQuery.length() >= 2) {
             if (tabStrip != null) tabStrip.setVisibility(View.GONE);
             if (libraryListHeader != null) libraryListHeader.setVisibility(View.GONE);
@@ -2872,8 +2870,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 ArrayList<MusicWebSearcher.WebArtist> validArtists = new ArrayList<>();
                 if (artists != null) {
                     for (MusicWebSearcher.WebArtist a : artists) {
-                        // Жесткий фильтр: имя не пустое, не Unknown и длиннее 1 символа
-                        if (a.name != null && !a.name.trim().isEmpty() && !a.name.equalsIgnoreCase("Unknown") && a.name.length() > 1) {
+                        // ИСПРАВЛЕНИЕ: Мягкий фильтр (позволяем даже короткие имена вроде "L")
+                        if (a.name != null && !a.name.trim().isEmpty() && !a.name.equalsIgnoreCase("Unknown")) {
                             validArtists.add(a);
                         }
                     }
@@ -2882,8 +2880,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 ArrayList<MusicWebSearcher.WebAlbum> validAlbums = new ArrayList<>();
                 if (albums != null) {
                     for (MusicWebSearcher.WebAlbum a : albums) {
-                        // Жесткий фильтр для альбомов
-                        if (a.title != null && !a.title.trim().isEmpty() && !a.title.equalsIgnoreCase("Unknown") && a.title.length() > 1) {
+                        if (a.title != null && !a.title.trim().isEmpty() && !a.title.equalsIgnoreCase("Unknown")) {
                             validAlbums.add(a);
                         }
                     }
@@ -2893,11 +2890,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (albumsAdapter != null) albumsAdapter.setAlbums(validAlbums);
 
                 LinearLayout.LayoutParams artistLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validArtists.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
-                artistLP.setMargins(0, 0, 0, 0); // Обнуляем маргины
+                artistLP.setMargins(0, 0, 0, 0);
                 artistRecyclerView.setLayoutParams(artistLP);
 
                 LinearLayout.LayoutParams albumsLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validAlbums.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
-                albumsLP.setMargins(0, 0, 0, 0); // Обнуляем маргины
+                albumsLP.setMargins(0, 0, 0, 0);
                 albumsRecyclerView.setLayoutParams(albumsLP);
 
                 artistRecyclerView.setVisibility(validArtists.isEmpty() ? View.GONE : View.VISIBLE);
@@ -2907,7 +2904,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             });
 
         } else {
-            // Если запрос пустой или 1 символ — скрываем всю выдачу и возвращаем табы
             if (tabStrip != null) tabStrip.setVisibility(View.VISIBLE);
             if (libraryListHeader != null) libraryListHeader.setVisibility(View.VISIBLE);
 
@@ -3175,6 +3171,27 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         }
 
+        private MusicWebSearcher.ArtistProfileCallback createFallbackCallback(MusicWebSearcher.ArtistProfileCallback original, String targetUrl, String artistName) {
+            return new MusicWebSearcher.ArtistProfileCallback() {
+                @Override
+                public void onTrackLoaded(MusicWebSearcher.WebTrack track) { original.onTrackLoaded(track); }
+                @Override
+                public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
+                    if (tracks.isEmpty()) onFailed();
+                    else original.onResult(albums, tracks);
+                }
+                @Override
+                public void onFailed() {
+                    if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
+                        long deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
+                        MusicWebSearcher.loadArtistTracksDeezer(deezerArtistId, artistName, original);
+                    } else {
+                        original.onFailed();
+                    }
+                }
+            };
+        }
+
         private void fetchTracksFromHitmos(String targetUrl, Context context) {
             queue.clear();
             tracksContainer.removeAllViews();
@@ -3259,15 +3276,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             };
 
             if (targetUrl == null || targetUrl.isEmpty() || targetUrl.startsWith("DEEZER_ARTIST:")) {
-                // Пытаемся найти страницу артиста на Hitmos
                 new Thread(() -> {
                     try {
                         String hitmoUrl = null;
 
-                        // Попытка 1: поиск по оригинальному имени
                         String[] queriesToTry = {
                                 artistName,
-                                MusicWebSearcher.transliteratePublic(artistName), // транслит
+                                MusicWebSearcher.transliteratePublic(artistName),
                                 artistName.replaceAll("[^a-zA-Zа-яёА-ЯЁ0-9 ]", "").trim()
                         };
 
@@ -3278,14 +3293,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                 ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
                                 MusicWebSearcher.parseHtmlToResults(html, new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
 
-                                // Точное совпадение имени
                                 for (MusicWebSearcher.WebArtist wa : foundArtists) {
                                     if (wa.name.equalsIgnoreCase(artistName) || wa.name.equalsIgnoreCase(q)) {
                                         hitmoUrl = wa.artistUrl;
                                         break;
                                     }
                                 }
-                                // Частичное совпадение
                                 if (hitmoUrl == null && !foundArtists.isEmpty()) {
                                     String lowerName = artistName.toLowerCase();
                                     for (MusicWebSearcher.WebArtist wa : foundArtists) {
@@ -3301,34 +3314,23 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             }
                         }
 
+                        // ИСПРАВЛЕНИЕ: Оборачиваем callback в наш fallback
                         if (hitmoUrl != null) {
-                            // Нашли страницу артиста — грузим с неё
-                            MusicWebSearcher.loadArtistProfile(hitmoUrl, callback);
+                            MusicWebSearcher.loadArtistProfile(hitmoUrl, createFallbackCallback(callback, targetUrl, artistName));
                         } else {
-                            // Не нашли страницу — грузим с поиска (первая страница с треками)
                             String searchFallback = "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(artistName, "UTF-8");
-                            MusicWebSearcher.loadArtistProfile(searchFallback, callback);
+                            MusicWebSearcher.loadArtistProfile(searchFallback, createFallbackCallback(callback, targetUrl, artistName));
                         }
                     } catch (Exception e) {
                         FileLog.e(e);
-                        // Финальный фолбэк: Deezer top tracks
-                        if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
-                            try {
-                                long deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
-                                MusicWebSearcher.loadArtistTracksDeezer(deezerArtistId, artistName, callback);
-                            } catch (Exception e2) {
-                                AndroidUtilities.runOnUIThread(callback::onFailed);
-                            }
-                        } else {
-                            AndroidUtilities.runOnUIThread(callback::onFailed);
-                        }
+                        createFallbackCallback(callback, targetUrl, artistName).onFailed();
                     }
                 }).start();
             } else {
-                // Обычный Hitmos URL
                 MusicWebSearcher.loadArtistProfile(targetUrl, callback);
             }
         }
+
     }
 
     public class AlbumProfileFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
