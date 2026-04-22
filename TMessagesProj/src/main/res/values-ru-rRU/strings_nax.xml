@@ -130,6 +130,8 @@
     <string name="UnshadowBan">Снять теневой бан</string>
     <string name="ShadowBanAdded">Добавлено в **пользовательские фильтры**.</string>
     <string name="ShadowBanRemoved">Удалено из **пользовательских фильтров**.</string>
+    <string name="ShadowBanChannelAdded">Добавлено в **фильтры каналов**.</string>
+    <string name="ShadowBanChannelRemoved">Удалено из **фильтров каналов**.</string>
     <string name="botCommandConfirmTitle">Отправить команду</string>
     <string name="botCommandConfirmText">Вы хотите отправить эту команду?\n\n%s</string>
     <string name="MessageSavingSaveMedia">Сохранять медиа</string>
@@ -373,8 +375,8 @@
     <string name="MainTabsSettingsHeader">Основные вкладки</string>
     <string name="MainTabsHideTitles">Скрыть заголовки</string>
     <string name="MainTabsHideContacts">Скрыть вкладку «Контакты»</string>
-    <string name="PasscodeShowMessagePreviewWhenLocked">Показывать предпросмотр сообщений</string>
-    <string name="PasscodeShowMessagePreviewWhenLockedAbout">Показывает содержимое уведомлений даже при включённой блокировке паролем.</string>
+    <string name="PasscodeShowMessagePreviewWhenLocked">Предпросмотр сообщений</string>
+    <string name="PasscodeShowMessagePreviewWhenLockedAbout">Отображает содержимое уведомлений даже при включённой блокировке паролем.</string>
     <string name="StickerSavedHint">Стикер сохранён в галерею.</string>
     <string name="StickerCopied">Стикер скопирован в буфер обмена.</string>
     <string name="StrokeOnViews">Эффекты бликов</string>

@@ -41,11 +41,11 @@ import org.telegram.tgnet.Vector;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenu;
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
+import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.ManageChatUserCell;
-import org.telegram.ui.Cells.TextCell;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.EmptyTextProgressView;
@@ -60,7 +60,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 
-import tw.nekomimi.nekogram.ui.cells.HeaderCell;
 import tw.nekomimi.nekogram.utils.AndroidUtil;
 
 public class ShadowBanListActivity extends BaseFragment {
@@ -69,18 +68,14 @@ public class ShadowBanListActivity extends BaseFragment {
     private static final int TAB_CHANNELS = 1;
 
     private static final int MENU_UNBLOCK_ALL = 1;
+    private static final int MENU_ADD_FILTER = 2;
 
     private static final int VIEW_TYPE_USER_FILTER = 0;
-    private static final int VIEW_TYPE_ACTION = 1;
-    private static final int VIEW_TYPE_HEADER = 2;
-    private static final int VIEW_TYPE_CHANNEL = 3;
+    private static final int VIEW_TYPE_CHANNEL = 1;
 
-    private static final int USERS_HEADER_ROW = 0;
-    private static final int USERS_ADD_ROW = 1;
-    private static final int USERS_START_ROW = 2;
+    private static final int USERS_START_ROW = 0;
 
-    private static final int CHANNELS_HEADER_ROW = 0;
-    private static final int CHANNELS_START_ROW = 1;
+    private static final int CHANNELS_START_ROW = 0;
 
     private static final Interpolator INTERPOLATOR = t -> {
         --t;
@@ -138,6 +133,8 @@ public class ShadowBanListActivity extends BaseFragment {
             public void onItemClick(int id) {
                 if (id == -1) {
                     finishFragment();
+                } else if (id == MENU_ADD_FILTER) {
+                    showAddCustomFilteredUserDialog();
                 } else if (id == MENU_UNBLOCK_ALL) {
                     onUnblockAllMenuClick();
                 }
@@ -148,8 +145,7 @@ public class ShadowBanListActivity extends BaseFragment {
         ActionBarMenu menu = actionBar.createMenu();
         optionsItem = menu.addItem(0, R.drawable.ic_ab_other);
         optionsItem.setContentDescription(getString(R.string.AccDescrMoreOptions));
-        optionsItem.addSubItem(MENU_UNBLOCK_ALL, 0, getString(R.string.UnblockAll), getResourceProvider());
-        optionsItem.setBackgroundDrawable(Theme.createSelectorDrawable(Theme.getColor(Theme.key_avatar_actionBarSelectorBlue, getResourceProvider())));
+        optionsItem.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_avatar_actionBarSelectorBlue, getResourceProvider())));
         optionsItem.setPopupItemsSelectorColor(Theme.getColor(Theme.key_dialogButtonSelector, getResourceProvider()));
 
         scrollSlidingTextTabStrip = new ScrollSlidingTextTabStrip(context);
@@ -513,9 +509,7 @@ public class ShadowBanListActivity extends BaseFragment {
 
     private void onPageItemClick(ViewPage page, int position) {
         if (page.selectedType == TAB_USERS) {
-            if (position == USERS_ADD_ROW) {
-                showAddCustomFilteredUserDialog();
-            } else if (position >= USERS_START_ROW) {
+            if (position >= USERS_START_ROW) {
                 ArrayList<Long> userIds = AyuFilter.getCustomFilteredUsersList();
                 int userIndex = position - USERS_START_ROW;
                 if (userIndex >= userIds.size()) {
@@ -553,7 +547,7 @@ public class ShadowBanListActivity extends BaseFragment {
     }
 
     private void updateTabs() {
-        scrollSlidingTextTabStrip.addTextTab(TAB_USERS, getString(R.string.BookmarksFilterUsers));
+        scrollSlidingTextTabStrip.addTextTab(TAB_USERS, getString(R.string.BookmarksFilterUsers) + "・" + getString(R.string.FilterBots));
         scrollSlidingTextTabStrip.addTextTab(TAB_CHANNELS, getString(R.string.FilterChannels));
         scrollSlidingTextTabStrip.setVisibility(View.VISIBLE);
         int id = scrollSlidingTextTabStrip.getCurrentTabId();
@@ -958,14 +952,42 @@ public class ShadowBanListActivity extends BaseFragment {
     }
 
     private void updateSelectedTabUi(int selectedType) {
-        if (optionsItem != null) {
-            boolean visible = selectedType == TAB_USERS ? hasCustomFilteredUsers() : hasBlockedChannels();
-            optionsItem.setVisibility(visible ? View.VISIBLE : View.GONE);
-        }
+        updateOptionsMenu(selectedType);
         if (viewPages[0] != null && viewPages[0].listView != null) {
             actionBar.setAdaptiveBackground(viewPages[0].listView);
         }
         maybeShowBlockedChannelsUnavailableBulletin();
+    }
+
+    private void updateOptionsMenu(int selectedType) {
+        if (optionsItem == null) {
+            return;
+        }
+
+        optionsItem.removeAllSubItems();
+        if (selectedType == TAB_USERS) {
+            optionsItem.addSubItem(MENU_ADD_FILTER, R.drawable.msg_add, getString(R.string.RegexFiltersAdd), getResourceProvider());
+            if (hasCustomFilteredUsers()) {
+                optionsItem.addColoredGap();
+                addUnblockAllMenuItem();
+            }
+            optionsItem.setVisibility(true);
+            return;
+        }
+
+        if (hasBlockedChannels()) {
+            addUnblockAllMenuItem();
+            optionsItem.setVisibility(true);
+        } else {
+            optionsItem.setVisibility(false);
+        }
+    }
+
+    private void addUnblockAllMenuItem() {
+        int redColor = Theme.getColor(Theme.key_text_RedRegular, getResourceProvider());
+        ActionBarMenuSubItem subItem = optionsItem.addSubItem(MENU_UNBLOCK_ALL, R.drawable.menu_clear_cache, getString(R.string.UnblockAll), getResourceProvider());
+        subItem.setColors(redColor, redColor);
+        subItem.setSelectorColor(Theme.multAlpha(redColor, .12f));
     }
 
     private void onUnblockAllMenuClick() {
@@ -992,7 +1014,7 @@ public class ShadowBanListActivity extends BaseFragment {
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity(), getResourceProvider());
         builder.setTitle(getString(R.string.UnblockAll));
         builder.setMessage(getString(R.string.UnblockAllWarn));
-        builder.setPositiveButton(getString(R.string.UnblockAll), (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.OK), (dialog, which) -> {
             AyuFilter.setCustomFilteredUsers(new ArrayList<>());
             refreshUsers();
         });
@@ -1049,16 +1071,15 @@ public class ShadowBanListActivity extends BaseFragment {
     }
 
     private boolean isBlockedChannelRow(int position) {
-        return position >= CHANNELS_START_ROW && position < CHANNELS_START_ROW + AyuFilter.getBlockedChannelsList().size();
+        return position >= CHANNELS_START_ROW && position < AyuFilter.getBlockedChannelsList().size();
     }
 
     private int getUsersRowCount() {
-        return USERS_START_ROW + AyuFilter.getCustomFilteredUsersList().size();
+        return AyuFilter.getCustomFilteredUsersList().size();
     }
 
     private int getBlockedChannelsRowCount() {
-        int count = AyuFilter.getBlockedChannelsList().size();
-        return count == 0 ? 0 : count + 1;
+        return AyuFilter.getBlockedChannelsList().size();
     }
 
     private static class ParsedSingleIdResult {
@@ -1095,7 +1116,7 @@ public class ShadowBanListActivity extends BaseFragment {
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int viewType = holder.getItemViewType();
-            return viewType == VIEW_TYPE_USER_FILTER || viewType == VIEW_TYPE_ACTION || viewType == VIEW_TYPE_CHANNEL;
+            return viewType == VIEW_TYPE_USER_FILTER || viewType == VIEW_TYPE_CHANNEL;
         }
 
         @NonNull
@@ -1113,11 +1134,6 @@ public class ShadowBanListActivity extends BaseFragment {
                     });
                     view = userFilterCell;
                     break;
-                case VIEW_TYPE_ACTION:
-                    TextCell textCell = new TextCell(context, getResourceProvider());
-                    textCell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, getResourceProvider()));
-                    view = textCell;
-                    break;
                 case VIEW_TYPE_CHANNEL:
                     ManageChatUserCell channelCell = new ManageChatUserCell(context, 7, 6, true);
                     channelCell.setDelegate((cell, click) -> {
@@ -1128,11 +1144,10 @@ public class ShadowBanListActivity extends BaseFragment {
                     });
                     view = channelCell;
                     break;
-                case VIEW_TYPE_HEADER:
                 default:
-                    HeaderCell headerCell = new HeaderCell(context, getResourceProvider());
-                    headerCell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, getResourceProvider()));
-                    view = headerCell;
+                    ManageChatUserCell defaultCell = new ManageChatUserCell(context, 7, 6, true);
+                    defaultCell.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, getResourceProvider()));
+                    view = defaultCell;
                     break;
             }
             view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -1149,81 +1164,59 @@ public class ShadowBanListActivity extends BaseFragment {
         }
 
         private void bindUsersView(RecyclerView.ViewHolder holder, int position) {
-            switch (holder.getItemViewType()) {
-                case VIEW_TYPE_HEADER:
-                    ((HeaderCell) holder.itemView).setText(formatPluralString("BlockedUsersCount", AyuFilter.getCustomFilteredUsersList().size()));
-                    break;
-                case VIEW_TYPE_ACTION:
-                    TextCell textCell = (TextCell) holder.itemView;
-                    textCell.setColors(Theme.key_windowBackgroundWhiteBlueIcon, Theme.key_windowBackgroundWhiteBlueButton);
-                    textCell.setTextAndIcon(getString(R.string.RegexFiltersAdd), R.drawable.msg_add, getUsersRowCount() > USERS_START_ROW);
-                    break;
-                case VIEW_TYPE_USER_FILTER:
-                    ArrayList<Long> userIds = AyuFilter.getCustomFilteredUsersList();
-                    int userIndex = position - USERS_START_ROW;
-                    if (userIndex >= 0 && userIndex < userIds.size()) {
-                        long userId = userIds.get(userIndex);
-                        boolean needDivider = position + 1 < getUsersRowCount();
-                        ManageChatUserCell userCell = (ManageChatUserCell) holder.itemView;
-                        userCell.setTag(userId);
-                        TLRPC.User user = getMessagesController().getUser(userId);
-                        if (user == null) {
-                            user = new TLRPC.TL_user();
-                            user.id = userId;
-                        }
-                        userCell.setData(user, getCustomFilteredUserRowTitle(userId), getCustomFilteredUserRowSubtitle(userId), needDivider);
-                        ensureCustomFilteredUserResolved(userId);
-                    }
-                    break;
+            if (holder.getItemViewType() != VIEW_TYPE_USER_FILTER) {
+                return;
+            }
+
+            ArrayList<Long> userIds = AyuFilter.getCustomFilteredUsersList();
+            int userIndex = position - USERS_START_ROW;
+            if (userIndex >= 0 && userIndex < userIds.size()) {
+                long userId = userIds.get(userIndex);
+                boolean needDivider = position + 1 < getUsersRowCount();
+                ManageChatUserCell userCell = (ManageChatUserCell) holder.itemView;
+                userCell.setTag(userId);
+                TLRPC.User user = getMessagesController().getUser(userId);
+                if (user == null) {
+                    user = new TLRPC.TL_user();
+                    user.id = userId;
+                }
+                userCell.setData(user, getCustomFilteredUserRowTitle(userId), getCustomFilteredUserRowSubtitle(userId), needDivider);
+                ensureCustomFilteredUserResolved(userId);
             }
         }
 
         private void bindChannelsView(RecyclerView.ViewHolder holder, int position) {
             ArrayList<Long> blockedChannels = AyuFilter.getBlockedChannelsList();
-            switch (holder.getItemViewType()) {
-                case VIEW_TYPE_HEADER:
-                    ((HeaderCell) holder.itemView).setText(formatPluralString("BlockedChannelsCount", blockedChannels.size()));
-                    break;
-                case VIEW_TYPE_CHANNEL:
-                    int channelIndex = position - CHANNELS_START_ROW;
-                    if (channelIndex < 0 || channelIndex >= blockedChannels.size()) {
-                        return;
-                    }
-                    long dialogId = blockedChannels.get(channelIndex);
-                    ManageChatUserCell userCell = (ManageChatUserCell) holder.itemView;
-                    userCell.setTag(dialogId);
-                    TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
-                    if (chat == null) {
-                        return;
-                    }
-                    String subtitle;
-                    if (chat.participants_count != 0) {
-                        subtitle = formatPluralString("Members", chat.participants_count);
-                    } else if (chat.has_geo) {
-                        subtitle = getString(R.string.MegaLocation);
-                    } else if (!ChatObject.isPublic(chat)) {
-                        subtitle = ChatObject.isChannelAndNotMegaGroup(chat) ? getString(R.string.ChannelPrivate) : getString(R.string.MegaPrivate);
-                    } else {
-                        subtitle = ChatObject.isChannelAndNotMegaGroup(chat) ? getString(R.string.ChannelPublic) : getString(R.string.MegaPublic);
-                    }
-                    userCell.setData(chat, null, subtitle, position != getBlockedChannelsRowCount() - 1);
-                    break;
+            if (holder.getItemViewType() == VIEW_TYPE_CHANNEL) {
+                int channelIndex = position - CHANNELS_START_ROW;
+                if (channelIndex < 0 || channelIndex >= blockedChannels.size()) {
+                    return;
+                }
+                long dialogId = blockedChannels.get(channelIndex);
+                ManageChatUserCell userCell = (ManageChatUserCell) holder.itemView;
+                userCell.setTag(dialogId);
+                TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
+                if (chat == null) {
+                    return;
+                }
+                String subtitle;
+                if (chat.participants_count != 0) {
+                    subtitle = formatPluralString("Members", chat.participants_count);
+                } else if (chat.has_geo) {
+                    subtitle = getString(R.string.MegaLocation);
+                } else if (!ChatObject.isPublic(chat)) {
+                    subtitle = ChatObject.isChannelAndNotMegaGroup(chat) ? getString(R.string.ChannelPrivate) : getString(R.string.MegaPrivate);
+                } else {
+                    subtitle = ChatObject.isChannelAndNotMegaGroup(chat) ? getString(R.string.ChannelPublic) : getString(R.string.MegaPublic);
+                }
+                userCell.setData(chat, null, subtitle, position != getBlockedChannelsRowCount() - 1);
             }
         }
 
         @Override
         public int getItemViewType(int position) {
             if (page.selectedType == TAB_USERS) {
-                if (position == USERS_HEADER_ROW) {
-                    return VIEW_TYPE_HEADER;
-                } else if (position == USERS_ADD_ROW) {
-                    return VIEW_TYPE_ACTION;
-                }
                 return VIEW_TYPE_USER_FILTER;
-            }
-
-            if (position == CHANNELS_HEADER_ROW) {
-                return VIEW_TYPE_HEADER;
             }
             return VIEW_TYPE_CHANNEL;
         }

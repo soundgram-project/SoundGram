@@ -53,6 +53,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.BasePermissionsActivity;
+import org.telegram.ui.ChatEditActivity;
 import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.PhotoAlbumPickerActivity;
 import org.telegram.ui.PhotoCropActivity;
@@ -268,7 +269,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
             builder.setTitle(LocaleController.formatString("SetPhotoFor", R.string.SetPhotoFor, user.first_name), true);
         } else if (type == TYPE_SUGGEST_PHOTO_FOR_USER) {
             builder.setTitle(LocaleController.formatString("SuggestPhotoFor", R.string.SuggestPhotoFor, user.first_name), true);
-        } else if (parentFragment instanceof ProfileActivity) {
+        } else if (parentFragment instanceof ProfileActivity || parentFragment instanceof ChatEditActivity) {
             builder.setTitle(LocaleController.getString(R.string.ProfileActionsEditPhoto2), true);
         } else {
             builder.setTitle(LocaleController.getString(R.string.ChoosePhoto), true);
@@ -298,7 +299,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
             ids.add(ID_RECORD_VIDEO);
         }
 
-        if (!(parentFragment instanceof ProfileActivity)) {
+        if (!(parentFragment instanceof ProfileActivity || parentFragment instanceof ChatEditActivity)) {
             items.add(LocaleController.getString(R.string.ChooseFromGallery));
             icons.add(R.drawable.msg_photos);
             ids.add(ID_UPLOAD_FROM_GALLERY);

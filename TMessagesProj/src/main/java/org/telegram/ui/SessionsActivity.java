@@ -1040,7 +1040,7 @@ public class SessionsActivity extends BaseFragment implements NotificationCenter
 
             buttonTextView.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
             buttonTextView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(24), Theme.getColor(Theme.key_featuredStickers_addButton), Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
-            if (Theme.getActiveTheme().isMonet()) ScaleStateListAnimator.apply(buttonTextView, .02f, 1.2f);
+            ScaleStateListAnimator.apply(buttonTextView, .02f, 1.2f);
 
             buttonTextView.setOnClickListener(view -> {
                 if (getParentActivity() == null) {

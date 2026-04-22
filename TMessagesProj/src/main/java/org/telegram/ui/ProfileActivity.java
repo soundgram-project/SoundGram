@@ -12342,6 +12342,10 @@ if (userId != 0 && org.telegram.messenger.SoundGramConfig.customUserBadges.conta
                             } else {
                                 otherItem.hideSubItem(bot_privacy);
                             }
+                            if (NekoConfig.ignoreBlocked.Bool()) {
+                                boolean customFiltered = AyuFilter.getCustomFilteredUsersList().contains(userId);
+                                otherItem.addSubItem(shadow_ban, R.drawable.hide_title, getString(customFiltered ? R.string.UnshadowBan : R.string.ShadowBan));
+                            }
                             otherItem.addSubItem(report, R.drawable.msg_report, LocaleController.getString(R.string.ReportBot)).setColors(getThemedColor(Theme.key_text_RedRegular), getThemedColor(Theme.key_text_RedRegular));
                             if (!userBlocked) {
                                 otherItem.addSubItem(block_contact, R.drawable.msg_block2, LocaleController.getString(R.string.DeleteAndBlock)).setColors(getThemedColor(Theme.key_text_RedRegular), getThemedColor(Theme.key_text_RedRegular));

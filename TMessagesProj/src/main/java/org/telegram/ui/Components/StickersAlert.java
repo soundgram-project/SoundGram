@@ -1678,7 +1678,7 @@ public class StickersAlert extends BottomSheet implements NotificationCenter.Not
                         } else {
                             enableEditMode();
                         }
-                    }, text, Theme.key_featuredStickers_buttonText, Theme.key_featuredStickers_addButton, Theme.key_featuredStickers_addButtonPressed);
+                    }, text, Theme.key_featuredStickers_buttonText, Theme.key_featuredStickers_addButton, Theme.key_featuredStickers_addButtonPressed, true);
                 } else if (stickerSet.set.official) {
                     setButton(v -> {
                         if (installDelegate != null) {
@@ -2178,7 +2178,7 @@ public class StickersAlert extends BottomSheet implements NotificationCenter.Not
         }
         pickerBottomLayout.setText(title, false);
         pickerBottomLayout.setOnClickListener(onClickListener);
-        if (Theme.getActiveTheme() != null && Theme.getActiveTheme().isMonet() && enableMonetScale) {
+        if (enableMonetScale) {
             ScaleStateListAnimator.apply(pickerBottomLayout, .02f, 1.2f);
         }
 

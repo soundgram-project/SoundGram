@@ -245,7 +245,7 @@
     <string name="nekoXPaymentRemovedToast">Os recursos de pagamento foram removidos.</string>
     <string name="unreadBadgeOnBackButton">Ícone de não lido no botão de voltar</string>
     <string name="DeleteDownloadedFileConfirm">Excluir este arquivo do cache local?</string>
-    <string name="DeleteDownloadedFileSucceed">Excluído</string>
+    <string name="DeleteDownloadedFileSucceed">Apagado</string>
     <string name="DeleteDownloadedFileExternal">O arquivo externo foi ignorado.</string>
     <string name="useCustomEmoji">Usar emoji personalizado</string>
     <string name="useCustomEmojiInvalid">Não é um pacote de emojis válido.</string>

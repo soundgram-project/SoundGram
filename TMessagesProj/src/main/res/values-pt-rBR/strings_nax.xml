@@ -39,7 +39,7 @@
     <string name="LlmTestResultDuration">Duração</string>
     <string name="LlmTestResultResponse">Resposta</string>
     <string name="AITranslatorSettings">Tradutor por IA</string>
-    <string name="TranslucentDeletedMessages">Mensagens excluídas translúcidas</string>
+    <string name="TranslucentDeletedMessages">Mensagens apagadas translúcidas</string>
     <string name="ArticleTranslationProvider">Provedor de tradução de artigos</string>
     <string name="EnableSeparateArticleTranslator">Usar um provedor diferente para artigos</string>
     <string name="DisableCrashlyticsCollection">Desativar Firebase Crashlytics</string>
@@ -54,8 +54,8 @@
     <string name="PreferredTranslateTargetLang">Lista de idiomas preferidos personalizados</string>
     <string name="PreferredTranslateTargetLangExample">ex: ja, zh_cn, zh_tw</string>
     <string name="PreferredTranslateTargetLangName">Idiomas preferidos</string>
-    <string name="ClearDeleted">Limpar excluídos</string>
-    <string name="ClearDeletedAlertMessage">Tem certeza de que deseja limpar todas as mensagens excluídas neste chat?</string>
+    <string name="ClearDeleted">Limpar apagadas</string>
+    <string name="ClearDeletedAlertMessage">Tem certeza de que deseja limpar todas as mensagens apagadas deste chat?</string>
     <string name="ForwardsRestrictedInfoAyuDeleted">O encaminhamento não é permitido.</string>
     <string name="RegexFiltersNotice">Toque para editar.</string>
     <string name="RegexFiltersImport">Importar</string>
@@ -71,6 +71,8 @@
     <string name="UnshadowBan">Remover bloqueio oculto</string>
     <string name="ShadowBanAdded">Adicionado aos **filtros de usuário**.</string>
     <string name="ShadowBanRemoved">Removido dos **filtros de usuário**.</string>
+    <string name="ShadowBanChannelAdded">Adicionado aos **filtros de canal**.</string>
+    <string name="ShadowBanChannelRemoved">Removido dos **filtros de canal**.</string>
     <string name="botCommandConfirmTitle">Enviar comando</string>
     <string name="botCommandConfirmText">Você quer enviar este comando?\n\n%s</string>
     <string name="MessageSavingSaveMedia">Salvar mídia</string>
@@ -94,7 +96,7 @@
     <string name="TranslatorMinimizedChannel">A barra de tradução foi minimizada para este canal.</string>
     <string name="TranslatorMinimizedGroup">A barra de tradução foi minimizada para este grupo.</string>
     <string name="TranslatorMinimized">A barra de tradução foi minimizada para este chat.</string>
-    <string name="UseDeletedIcon">Mostrar ícone em vez de \"excluído\"</string>
+    <string name="UseDeletedIcon">Mostrar ícone em vez de \"apagada\"</string>
     <string name="UseEditedIcon">Mostrar ícone em vez de \"editado\"</string>
     <string name="SilentMessageByDefault">Enviar sem som</string>
     <string name="FolderNameAsTitle">Usar nome da pasta como título</string>
@@ -226,7 +228,7 @@
     <string name="SwitchStyle">Estilo de interruptor</string>
     <string name="SliderStyle">Estilo de controle deslizante</string>
     <string name="StyleModern">Moderno</string>
-    <string name="SaveDeletedExclusionMenu">Salvar excluídos</string>
+    <string name="SaveDeletedExclusionMenu">Salvar apagadas</string>
     <string name="SaveDeletedExcluded">Excluir</string>
     <string name="MarkdownParser">Analisador de Markdown</string>
     <string name="KeepTranslatorPreferences">Manter preferências do tradutor</string>
@@ -267,7 +269,7 @@
     <string name="BlockChannelsUnavailable">Alguns canais estão indisponíveis temporariamente.</string>
     <string name="FixLinkPreview">Corrigir prévia de link</string>
     <string name="NoQuoteForwardShort">Sem autor</string>
-    <string name="ViewDeleted">Ver excluídos</string>
+    <string name="ViewDeleted">Ver apagadas</string>
     <string name="PasskeyLogin">Chave de acesso</string>
     <string name="PasskeyInfo2">Funciona apenas com gerenciadores de senhas que permitem gerenciar apps privilegiados, como o **Bitwarden** e o **KeePassDX**.</string>
     <string name="PasskeyUnsupportedTitle">Gerenciador de senhas não suportado</string>

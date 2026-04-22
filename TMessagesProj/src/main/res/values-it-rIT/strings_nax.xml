@@ -71,6 +71,8 @@
     <string name="UnshadowBan">Unshadow Ban</string>
     <string name="ShadowBanAdded">Aggiunto a **filtri utente**.</string>
     <string name="ShadowBanRemoved">Rimosso da **filtri utente**.</string>
+    <string name="ShadowBanChannelAdded">Aggiunto ai **filtri del canale**.</string>
+    <string name="ShadowBanChannelRemoved">Rimosso dai **filtri canale**.</string>
     <string name="botCommandConfirmTitle">Invia comando</string>
     <string name="botCommandConfirmText">Vuoi inviare questo comando?\n\n%s</string>
     <string name="MessageSavingSaveMedia">Salva media</string>

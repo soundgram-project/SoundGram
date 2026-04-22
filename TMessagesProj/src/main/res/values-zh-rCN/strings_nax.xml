@@ -71,8 +71,8 @@
     <string name="UnshadowBan">解除静默屏蔽</string>
     <string name="ShadowBanAdded">已添加到**用户过滤器**。</string>
     <string name="ShadowBanRemoved">已从**用户过滤器**中移除。</string>
-    <string name="ShadowBanChannelAdded">已添加到**频道过滤器**</string>
-    <string name="ShadowBanChannelRemoved">已从**频道过滤器**中移除</string>
+    <string name="ShadowBanChannelAdded">已添加到**频道过滤器**。</string>
+    <string name="ShadowBanChannelRemoved">已从**频道过滤器**中移除。</string>
     <string name="botCommandConfirmTitle">确认发送</string>
     <string name="botCommandConfirmText">您确定要发送此指令吗？\n\n%s</string>
     <string name="MessageSavingSaveMedia">保存媒体</string>

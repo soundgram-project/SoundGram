@@ -71,6 +71,8 @@
     <string name="UnshadowBan">Gölge Engellemeyi Kaldır</string>
     <string name="ShadowBanAdded">**Kullanıcı filtrelerine** eklendi.</string>
     <string name="ShadowBanRemoved">**Kullanıcı filtrelerinden** kaldırıldı.</string>
+    <string name="ShadowBanChannelAdded">**Kullanıcı filtrelerine** eklendi.</string>
+    <string name="ShadowBanChannelRemoved">**Kullanıcı filtrelerinden** kaldırıldı.</string>
     <string name="botCommandConfirmTitle">Komutu Gönder</string>
     <string name="botCommandConfirmText">Bu komutu göndermek istiyor musunuz?\n\n%s</string>
     <string name="MessageSavingSaveMedia">Medyayı Kaydet</string>
@@ -320,4 +322,13 @@
     <string name="StickerCopied">Çıkartma panoya kopyalandı.</string>
     <string name="StrokeOnViews">Parlama efektleri</string>
     <string name="HideBottomNavigationBar">Alt Gezinme Çubuğunu Gizle</string>
+    <string name="TranslatorMode">Orijinal Metin ile</string>
+    <string name="TranslatorWithOriginalTextOff">Kapalı</string>
+    <string name="TranslatorWithOriginalTextManualOnly">Sadece Manuel</string>
+    <string name="TranslatorWithOriginalTextOn">Açık</string>
+    <string name="CenterActionBarTitleOn">Açık</string>
+    <string name="CenterActionBarTitleOff">Kapalı</string>
+    <string name="TabletModeOn">Açık</string>
+    <string name="TabletModeOff">Kapalı</string>
+    <string name="HideDialogsSearchField">Arama Kutusunu Gizle</string>
 </resources>

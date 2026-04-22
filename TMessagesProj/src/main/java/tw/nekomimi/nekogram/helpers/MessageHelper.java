@@ -131,7 +131,7 @@ public class MessageHelper extends BaseController {
             if (!f.exists() || f.getAbsolutePath().endsWith("/cache")) {
                 path = null;
             }
-            if (TextUtils.isEmpty(path)) {
+            if (TextUtils.isEmpty(path) && (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() || NaConfig.INSTANCE.getEnableSaveEditsHistory().Bool())) {
                 String fileName = f.getName();
                 if (!TextUtils.isEmpty(fileName)) {
                     File found = AyuMessageUtils.findExistingFileByBaseNameFast(fileName);
