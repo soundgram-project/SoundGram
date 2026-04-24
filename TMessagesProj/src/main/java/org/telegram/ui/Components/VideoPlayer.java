@@ -227,7 +227,17 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public void setLooper(Looper looper) {
         this.looper = looper;
     }
-
+    public void preparePlayerWithMediaItem(com.google.android.exoplayer2.MediaItem mediaItem, String type) {
+        try {
+            if (player != null) {
+                player.setMediaItem(mediaItem);
+                player.prepare();
+                player.setPlayWhenReady(true);
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
     private EGLContext eglParentContext;
     public void setEGLContext(EGLContext ctx) {
         eglParentContext = ctx;

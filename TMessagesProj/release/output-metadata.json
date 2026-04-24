@@ -25,19 +25,6 @@
       "filters": [
         {
           "filterType": "ABI",
-          "value": "x86_64"
-        }
-      ],
-      "attributes": [],
-      "versionCode": 1245,
-      "versionName": "12.6.4",
-      "outputFile": "SoundGram-v12.6.4(1245)-x86_64.apk"
-    },
-    {
-      "type": "ONE_OF_MANY",
-      "filters": [
-        {
-          "filterType": "ABI",
           "value": "arm64-v8a"
         }
       ],
@@ -45,6 +32,19 @@
       "versionCode": 1245,
       "versionName": "12.6.4",
       "outputFile": "SoundGram-v12.6.4(1245)-arm64-v8a.apk"
+    },
+    {
+      "type": "ONE_OF_MANY",
+      "filters": [
+        {
+          "filterType": "ABI",
+          "value": "x86_64"
+        }
+      ],
+      "attributes": [],
+      "versionCode": 1245,
+      "versionName": "12.6.4",
+      "outputFile": "SoundGram-v12.6.4(1245)-x86_64.apk"
     }
   ],
   "elementType": "File",
@@ -54,8 +54,8 @@
       "maxApi": 30,
       "baselineProfiles": [
         "baselineProfiles/1/SoundGram-v12.6.4(1245)-armeabi-v7a.dm",
-        "baselineProfiles/1/SoundGram-v12.6.4(1245)-x86_64.dm",
-        "baselineProfiles/1/SoundGram-v12.6.4(1245)-arm64-v8a.dm"
+        "baselineProfiles/1/SoundGram-v12.6.4(1245)-arm64-v8a.dm",
+        "baselineProfiles/1/SoundGram-v12.6.4(1245)-x86_64.dm"
       ]
     },
     {
@@ -63,8 +63,8 @@
       "maxApi": 2147483647,
       "baselineProfiles": [
         "baselineProfiles/0/SoundGram-v12.6.4(1245)-armeabi-v7a.dm",
-        "baselineProfiles/0/SoundGram-v12.6.4(1245)-x86_64.dm",
-        "baselineProfiles/0/SoundGram-v12.6.4(1245)-arm64-v8a.dm"
+        "baselineProfiles/0/SoundGram-v12.6.4(1245)-arm64-v8a.dm",
+        "baselineProfiles/0/SoundGram-v12.6.4(1245)-x86_64.dm"
       ]
     }
   ],

@@ -1,156 +1,131 @@
 package org.telegram.ui;
 
-import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.text.Editable;
-import android.text.InputType;
 import android.text.TextWatcher;
-import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
-import android.view.Window;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MediaController;
+import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 
-public class SoundGramEQAlert extends Dialog {
-
-    private boolean isUpdatingTimer = false;
+public class SoundGramEQAlert extends BottomSheet {
 
     public SoundGramEQAlert(Context context) {
-        super(context);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-
+        super(context, false);
         SoundGramAudioFX.initFX(0);
 
-        ScrollView scroll = new ScrollView(context);
-        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-
+        // ── Корневой контейнер — жидкое стекло ────────────────────────────────
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
-        container.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(24), Theme.getColor(Theme.key_dialogBackground)));
-        container.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(20), AndroidUtilities.dp(20), AndroidUtilities.dp(28));
-        scroll.addView(container);
 
-        // --- ШАПКА ---
+        // Полупрозрачный тёмный фон + скруглённые верхние углы + белая граница
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        int dialogBg = Theme.getColor(Theme.key_dialogBackground);
+        gd.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(dialogBg, 230));
+        float rad = AndroidUtilities.dp(24);
+        gd.setCornerRadii(new float[]{rad, rad, rad, rad, 0, 0, 0, 0});
+        gd.setStroke(AndroidUtilities.dp(1),
+                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 40));
+        container.setBackground(gd);
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            container.setElevation(AndroidUtilities.dp(8));
+        }
+        container.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(16),
+                AndroidUtilities.dp(20), AndroidUtilities.dp(28));
+
+        // ── Drag handle ────────────────────────────────────────────────────────
+        View dragIndicator = new View(context);
+        android.graphics.drawable.GradientDrawable handleBg = new android.graphics.drawable.GradientDrawable();
+        handleBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 70));
+        handleBg.setCornerRadius(AndroidUtilities.dp(2));
+        dragIndicator.setBackground(handleBg);
+        container.addView(dragIndicator,
+                LayoutHelper.createLinear(36, 4, Gravity.CENTER_HORIZONTAL, 0, 0, 0, 20));
+
+        // ── Шапка ─────────────────────────────────────────────────────────────
         LinearLayout headerRow = new LinearLayout(context);
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView title = new TextView(context);
-        title.setText("AudioFX & Таймер");
+        title.setText("AudioFX & Pitch");
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        title.setTextSize(22);
+        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        headerRow.addView(title, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+        headerRow.addView(title,
+                LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
 
+        // Кнопка СБРОС — жидкое стекло с красным оттенком
         TextView resetBtn = new TextView(context);
         resetBtn.setText("СБРОС");
-        resetBtn.setTextColor(0xFFE53935);
-        resetBtn.setTextSize(14);
+        resetBtn.setTextColor(0xFFFF5252);
+        resetBtn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 13);
         resetBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        android.graphics.drawable.GradientDrawable resetBg = new android.graphics.drawable.GradientDrawable();
+        resetBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFF5252, 30));
+        resetBg.setCornerRadius(AndroidUtilities.dp(12));
+        resetBg.setStroke(AndroidUtilities.dp(1),
+                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFF5252, 80));
+        resetBtn.setBackground(resetBg);
+        resetBtn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(7),
+                AndroidUtilities.dp(14), AndroidUtilities.dp(7));
         resetBtn.setOnClickListener(v -> {
             SoundGramAudioFX.resetFX();
             dismiss();
             new SoundGramEQAlert(context).show();
         });
-        headerRow.addView(resetBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-        container.addView(headerRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 28));
+        headerRow.addView(resetBtn,
+                LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        container.addView(headerRow,
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                        0, 0, 0, 24));
 
-        // --- 1. ТАЙМЕР СНА ---
-        TextView timerTitle = new TextView(context);
-        timerTitle.setText("Таймер сна (минуты):");
-        timerTitle.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        container.addView(timerTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
+        // ── Секция-разделитель helper ─────────────────────────────────────────
+        // (используем вложенный метод ниже)
 
-        LinearLayout timerRow = new LinearLayout(context);
-        timerRow.setOrientation(LinearLayout.HORIZONTAL);
-        timerRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        EditText timerInput = new EditText(context);
-        timerInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-        timerInput.setText("30");
-        timerInput.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        timerRow.addView(timerInput, LayoutHelper.createLinear(60, LayoutHelper.WRAP_CONTENT));
-
-        SeekBar timerBar = new SeekBar(context);
-        timerBar.setMax(120);
-        timerBar.setProgress(30);
-        timerRow.addView(timerBar, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
-        container.addView(timerRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
-
-        timerBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser) {
-                    isUpdatingTimer = true;
-                    timerInput.setText(String.valueOf(progress));
-                    isUpdatingTimer = false;
-                }
-            }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {} @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-
-        timerInput.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {
-                if (!isUpdatingTimer && s.length() > 0) {
-                    try { timerBar.setProgress(Integer.parseInt(s.toString())); } catch (Exception ignored) {}
-                }
-            }
-        });
-
-        TextView startTimerBtn = new TextView(context);
-        startTimerBtn.setText(SoundGramAudioFX.sleepTimerEndTime > 0 ? "Остановить таймер" : "Запустить таймер");
-        startTimerBtn.setGravity(Gravity.CENTER);
-        startTimerBtn.setTextColor(Color.WHITE);
-        startTimerBtn.setTextSize(16);
-        startTimerBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        startTimerBtn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(12), SoundGramAudioFX.sleepTimerEndTime > 0 ? 0xFFE53935 : 0xFF1DB954));
-        startTimerBtn.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
-        startTimerBtn.setOnClickListener(v -> {
-            if (SoundGramAudioFX.sleepTimerEndTime > 0) {
-                SoundGramAudioFX.cancelSleepTimer();
-                startTimerBtn.setText("Запустить таймер");
-                startTimerBtn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(12), 0xFF1DB954));
-            } else {
-                int mins = timerBar.getProgress();
-                if (mins > 0) {
-                    SoundGramAudioFX.startSleepTimer(mins);
-                    startTimerBtn.setText("Остановить таймер");
-                    startTimerBtn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(12), 0xFFE53935));
-                    Toast.makeText(context, "Таймер на " + mins + " мин.", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-        container.addView(startTimerBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 32));
-
-        // --- 2. ПРОФЕССИОНАЛЬНЫЙ ЭКВАЛАЙЗЕР ---
-        TextView eqTitle = new TextView(context);
-        eqTitle.setText("Эквалайзер");
-        eqTitle.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        eqTitle.setTextSize(16);
-        eqTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        container.addView(eqTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
-
+        // ── Эквалайзер в стеклянной карточке ─────────────────────────────────
         short bands = SoundGramAudioFX.getBandsCount();
         if (bands > 0) {
-            // Исключаем HorizontalScrollView, используем веса (weightSum) для равномерного распределения
+            // Стеклянная карточка EQ
+            LinearLayout eqCard = new LinearLayout(context);
+            eqCard.setOrientation(LinearLayout.VERTICAL);
+            android.graphics.drawable.GradientDrawable eqBg = new android.graphics.drawable.GradientDrawable();
+            eqBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
+                    Theme.getColor(Theme.key_windowBackgroundGray), 120));
+            eqBg.setCornerRadius(AndroidUtilities.dp(18));
+            eqBg.setStroke(AndroidUtilities.dp(1),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 25));
+            eqCard.setBackground(eqBg);
+            eqCard.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(12),
+                    AndroidUtilities.dp(12), AndroidUtilities.dp(12));
+
+            TextView eqLabel = new TextView(context);
+            eqLabel.setText("Эквалайзер");
+            eqLabel.setTextColor(
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(
+                            Theme.getColor(Theme.key_dialogTextBlack), 160));
+            eqLabel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 12);
+            eqLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            eqCard.addView(eqLabel,
+                    LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
+                            0, 0, 0, 12));
+
             LinearLayout eqContainer = new LinearLayout(context);
             eqContainer.setOrientation(LinearLayout.HORIZONTAL);
             eqContainer.setGravity(Gravity.CENTER);
             eqContainer.setWeightSum(bands);
+
+            int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
 
             for (short i = 0; i < bands; i++) {
                 final short bandIndex = i;
@@ -162,120 +137,165 @@ public class SoundGramEQAlert extends Dialog {
                 int freq = SoundGramAudioFX.getCenterFreq(bandIndex);
                 String freqStr = freq >= 1000 ? (freq / 1000) + "k" : freq + "Hz";
                 freqText.setText(freqStr);
-                freqText.setTextColor(Theme.getColor(Theme.key_dialogTextGray2));
-                freqText.setTextSize(11);
-                bandCol.addView(freqText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 4));
+                freqText.setTextColor(
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(
+                                Theme.getColor(Theme.key_dialogTextGray2), 180));
+                freqText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 10);
+                freqText.setGravity(Gravity.CENTER_HORIZONTAL);
+                bandCol.addView(freqText,
+                        LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
+                                Gravity.CENTER_HORIZONTAL, 0, 0, 0, 6));
 
                 FrameLayout barFrame = new FrameLayout(context);
-                SeekBar bar = new SeekBar(context);
+                // Дорожка ползунка — жидкое стекло
+                View trackView = new View(context);
+                android.graphics.drawable.GradientDrawable trackBg = new android.graphics.drawable.GradientDrawable();
+                trackBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 35));
+                trackBg.setCornerRadius(AndroidUtilities.dp(4));
+                trackView.setBackground(trackBg);
+                barFrame.addView(trackView, new FrameLayout.LayoutParams(
+                        AndroidUtilities.dp(8), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER_HORIZONTAL));
+
+                android.widget.SeekBar bar = new android.widget.SeekBar(context);
                 bar.setMax(3000);
                 bar.setProgress(SoundGramAudioFX.getBandLevel(bandIndex) + 1500);
                 bar.setRotation(-90);
-
+                // Акцентный thumb
+                if (android.os.Build.VERSION.SDK_INT >= 21) {
+                    android.graphics.drawable.GradientDrawable thumbBg = new android.graphics.drawable.GradientDrawable();
+                    thumbBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                    thumbBg.setColor(accentColor);
+                    thumbBg.setSize(AndroidUtilities.dp(20), AndroidUtilities.dp(20));
+                    thumbBg.setStroke(AndroidUtilities.dp(3), 0xCCFFFFFF);
+                    bar.setThumb(thumbBg);
+                    bar.setThumbOffset(AndroidUtilities.dp(10));
+                }
+                bar.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));
                 bar.setOnTouchListener((v, event) -> {
                     v.getParent().requestDisallowInterceptTouchEvent(true);
                     return false;
                 });
-
-                bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                    @Override public void onProgressChanged(SeekBar seekBar, int p, boolean fromUser) {
+                bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                    @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
                         if (fromUser) SoundGramAudioFX.setBandLevel(bandIndex, (short) (p - 1500));
                     }
-                    @Override public void onStartTrackingTouch(SeekBar seekBar) {} @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+                    @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+                    @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
                 });
+                barFrame.addView(bar,
+                        LayoutHelper.createFrame(140, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+                bandCol.addView(barFrame,
+                        LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 140));
 
-                barFrame.addView(bar, LayoutHelper.createFrame(150, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
-                bandCol.addView(barFrame, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 150));
-
-                // Размещаем каждый столбец с весом 1.0f, чтобы они делили ширину экрана поровну без скролла
-                eqContainer.addView(bandCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+                eqContainer.addView(bandCol,
+                        LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
             }
-            container.addView(eqContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
+            eqCard.addView(eqContainer,
+                    LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            container.addView(eqCard,
+                    LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                            0, 0, 0, 16));
         }
 
-        // --- 3. ОСТАЛЬНЫЕ ЭФФЕКТЫ ---
-        container.addView(createSliderRow(context, "BassBoost", 1000, SoundGramAudioFX.getBassLevel(), progress -> SoundGramAudioFX.setBassLevel((short) progress)));
+        // ── Bass Boost в стеклянной карточке ─────────────────────────────────
+        container.addView(
+                makeGlassSliderCard(context, "BassBoost",
+                        1000, SoundGramAudioFX.getBassLevel(),
+                        (label, p) -> SoundGramAudioFX.setBassLevel((short) p)),
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                        0, 0, 0, 12));
 
-        TextView speedTitle = new TextView(context);
-        speedTitle.setText(String.format("Скорость: %.1fx", SoundGramAudioFX.getCurrentSpeed()));
-        speedTitle.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        container.addView(speedTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
+        // ── Скорость ──────────────────────────────────────────────────────────
+        final float[] speedHolder = {SoundGramAudioFX.getCurrentSpeed()};
+        container.addView(
+                makeGlassSliderCard(context,
+                        String.format("Скорость: %.1fx", speedHolder[0]),
+                        19,
+                        Math.round((speedHolder[0] - 0.1f) / 0.1f),
+                        (label, p) -> {
+                            speedHolder[0] = 0.1f + (p * 0.1f);
+                            label.setText(String.format("Скорость: %.1fx", speedHolder[0]));
+                            SoundGramAudioFX.setCurrentSpeed(speedHolder[0]);
+                            try { org.telegram.messenger.MediaController.getInstance()
+                                    .setPlaybackSpeed(false, speedHolder[0]); }
+                            catch (Exception ignored) {}
+                        }),
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                        0, 0, 0, 12));
 
-        SeekBar speedBar = new SeekBar(context);
-        speedBar.setMax(19);
-        speedBar.setProgress(Math.round((SoundGramAudioFX.getCurrentSpeed() - 0.1f) / 0.1f));
-        speedBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float speed = 0.1f + (progress * 0.1f);
-                speedTitle.setText(String.format("Скорость: %.1fx", speed));
-                if (fromUser) {
-                    SoundGramAudioFX.setCurrentSpeed(speed);
-                    try { MediaController.getInstance().setPlaybackSpeed(false, speed); } catch (Exception ignored) {}
-                }
-            }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {} @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        container.addView(speedBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 24));
+        // ── Тон ───────────────────────────────────────────────────────────────
+        final float[] pitchHolder = {SoundGramAudioFX.getCurrentPitch()};
+        container.addView(
+                makeGlassSliderCard(context,
+                        String.format("Тон: %.1fx", pitchHolder[0]),
+                        19,
+                        Math.round((pitchHolder[0] - 0.1f) / 0.1f),
+                        (label, p) -> {
+                            pitchHolder[0] = 0.1f + (p * 0.1f);
+                            label.setText(String.format("Тон: %.1fx", pitchHolder[0]));
+                            SoundGramAudioFX.setCurrentPitch(pitchHolder[0]);
+                            try { org.telegram.messenger.MediaController.getInstance()
+                                    .setPlaybackSpeed(false, SoundGramAudioFX.getCurrentSpeed()); }
+                            catch (Exception ignored) {}
+                        }),
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                        0, 0, 0, 4));
 
-        TextView pitchTitle = new TextView(context);
-        pitchTitle.setText(String.format("Тон: %.1fx", SoundGramAudioFX.getCurrentPitch()));
-        pitchTitle.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        container.addView(pitchTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
-
-        SeekBar pitchBar = new SeekBar(context);
-        pitchBar.setMax(19);
-        pitchBar.setProgress(Math.round((SoundGramAudioFX.getCurrentPitch() - 0.1f) / 0.1f));
-        pitchBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float pitch = 0.1f + (progress * 0.1f);
-                pitchTitle.setText(String.format("Тон: %.1fx", pitch));
-                if (fromUser) {
-                    SoundGramAudioFX.setCurrentPitch(pitch);
-                    try { MediaController.getInstance().setPlaybackSpeed(false, SoundGramAudioFX.getCurrentSpeed()); } catch (Exception ignored) {}
-                }
-            }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {} @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        container.addView(pitchBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
-
-        setContentView(scroll);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(context);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.addView(container);
+        setCustomView(scroll);
     }
 
-    private View createSliderRow(Context context, String title, int max, int progress, SliderCallback callback) {
-        LinearLayout row = new LinearLayout(context);
-        row.setOrientation(LinearLayout.VERTICAL);
+    // ── helper: стеклянная карточка со слайдером ─────────────────────────────
+    private View makeGlassSliderCard(Context context, String labelText, int max, int progress,
+                                     SliderCallback callback) {
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
+                Theme.getColor(Theme.key_windowBackgroundGray), 110));
+        bg.setCornerRadius(AndroidUtilities.dp(16));
+        bg.setStroke(AndroidUtilities.dp(1),
+                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 22));
+        card.setBackground(bg);
+        card.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12),
+                AndroidUtilities.dp(14), AndroidUtilities.dp(12));
 
-        TextView t = new TextView(context);
-        t.setText(title);
-        t.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        t.setTextSize(16);
-        t.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        row.addView(t, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
+        TextView label = new TextView(context);
+        label.setText(labelText);
+        label.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14);
+        label.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        card.addView(label,
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                        0, 0, 0, 10));
 
-        SeekBar bar = new SeekBar(context);
+        android.widget.SeekBar bar = new android.widget.SeekBar(context);
         bar.setMax(max);
         bar.setProgress(progress);
-        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar seekBar, int p, boolean fromUser) { if (fromUser) callback.onChange(p); }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {} @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        row.addView(bar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 24));
-        return row;
-    }
-
-    interface SliderCallback { void onChange(int progress); }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        Window window = getWindow();
-        if (window != null) {
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
-            int width = (int) (metrics.widthPixels * 0.90);
-            int height = (int) (metrics.heightPixels * 0.75);
-            window.setLayout(width, height);
-            window.setGravity(Gravity.CENTER);
+        int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            android.graphics.drawable.GradientDrawable thumbBg = new android.graphics.drawable.GradientDrawable();
+            thumbBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            thumbBg.setColor(accentColor);
+            thumbBg.setStroke(AndroidUtilities.dp(2), 0xCCFFFFFF);
+            bar.setThumb(thumbBg);
         }
+        bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
+                if (fromUser) {
+                    callback.onChange(label, p);
+                }
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
+        });
+        card.addView(bar,
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        return card;
     }
+    interface SliderCallback { void onChange(TextView label, int progress); }
 }

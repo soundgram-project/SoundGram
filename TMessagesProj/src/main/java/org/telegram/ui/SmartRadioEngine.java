@@ -190,7 +190,6 @@ public class SmartRadioEngine {
 
     private static void processAndReturnTracksOneByOne(ArrayList<String> queries, int account, boolean isInitial, WaveCallback callback) {
         if (queries.isEmpty()) {
-            handleError(callback, new Exception("No queries"));
             return;
         }
         final boolean[] initialFired = {false};
@@ -323,47 +322,89 @@ public class SmartRadioEngine {
     public static void generateWaveByArtist(String artistName, int currentAccount, WaveCallback callback) {
         startNewWaveSession(2);
         currentConfig.query = artistName;
+        initNeuroRankerIfNeeded(); // ← был пропущен!
+
         backgroundExecutor.execute(() -> {
             try {
-                ArrayList<String> initialCandidates = getDeepSimilarTracks(artistName, 5);
-                if (initialCandidates.isEmpty()) initialCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(artistName), 5, 0);
-                if (initialCandidates.isEmpty()) initialCandidates = getTracksFromDynamicPlaylists("Top Hits", 5, 0);
+                // 1. Быстрый старт — радио и похожие
+                ArrayList<String> initialCandidates = getDeepSimilarTracks(artistName, 8);
+                if (initialCandidates.isEmpty())
+                    initialCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(artistName), 8, 0);
+                if (initialCandidates.isEmpty())
+                    initialCandidates = getTracksFromDynamicPlaylists("Top Hits", 8, 0);
+
                 processAndReturnTracksOneByOne(initialCandidates, currentAccount, true, callback);
 
+                // 2. Нейросеть-порция
                 float[] seedVector = neuroRanker.getVectorForRemoteTrack(artistName, "");
                 if (seedVector == null) seedVector = neuroRanker.getGenreVector("Инди");
 
-                ArrayList<String> nextCandidates = getDeepSimilarTracks(artistName, 30);
-                if (nextCandidates.isEmpty()) nextCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(artistName), 30, 0);
-                if (nextCandidates.isEmpty()) nextCandidates = getTracksFromDynamicPlaylists("Top Hits", 30, 0);
+                ArrayList<String> nextCandidates = getDeepSimilarTracks(artistName, 40);
+                if (nextCandidates.isEmpty())
+                    nextCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(artistName), 40, 0);
+                if (nextCandidates.isEmpty())
+                    nextCandidates = getTracksFromDynamicPlaylists("Top Hits", 40, random.nextInt(200));
 
-                ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(nextCandidates, seedVector, 20);
+                ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(nextCandidates, seedVector, 25);
                 processAndReturnTracksOneByOne(verified, currentAccount, false, callback);
+
+                // 3. Пополнение — чтобы волна не умирала (запускаем ещё порцию через паузу)
+                Thread.sleep(3000);
+                if (isWaveActive) {
+                    ArrayList<String> moreCandidates = getDeepSimilarTracks(artistName, 30);
+                    if (moreCandidates.isEmpty())
+                        moreCandidates = getTracksFromDynamicPlaylists("Top Hits", 30, random.nextInt(500));
+                    ArrayList<String> moreVerified = verifyCandidatesWithNeuralNetwork(
+                            moreCandidates, seedVector, 20);
+                    processAndReturnTracksOneByOne(moreVerified, currentAccount, false, callback);
+                }
             } catch (Exception e) { handleError(callback, e); }
         });
     }
 
-    public static void generateWaveByAlbum(String artistName, String albumName, int currentAccount, WaveCallback callback) {
+    public static void generateWaveByAlbum(String artistName, String albumName,
+                                           int currentAccount, WaveCallback callback) {
         startNewWaveSession(3);
+        initNeuroRankerIfNeeded(); // ← был пропущен!
+
         backgroundExecutor.execute(() -> {
             try {
-                String safeArtist = (artistName == null || artistName.isEmpty()) ? "Unknown Artist" : artistName;
+                String safeArtist = (artistName == null || artistName.isEmpty())
+                        ? "Unknown Artist" : artistName;
                 currentConfig.query = safeArtist;
 
-                ArrayList<String> initialCandidates = getDeepSimilarTracks(safeArtist, 5);
-                if (initialCandidates.isEmpty()) initialCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 5, 0);
-                if (initialCandidates.isEmpty()) initialCandidates = getTracksFromDynamicPlaylists("Top Hits", 5, 0);
+                // 1. Быстрый старт
+                ArrayList<String> initialCandidates = getDeepSimilarTracks(safeArtist, 8);
+                if (initialCandidates.isEmpty())
+                    initialCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 8, 0);
+                if (initialCandidates.isEmpty())
+                    initialCandidates = getTracksFromDynamicPlaylists("Top Hits", 8, 0);
+
                 processAndReturnTracksOneByOne(initialCandidates, currentAccount, true, callback);
 
+                // 2. Нейросеть
                 float[] seedVector = neuroRanker.getVectorForRemoteTrack(safeArtist, albumName);
                 if (seedVector == null) seedVector = neuroRanker.getGenreVector("Рок");
 
-                ArrayList<String> nextCandidates = getDeepSimilarTracks(safeArtist, 30);
-                if (nextCandidates.isEmpty()) nextCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 30, 0);
-                if (nextCandidates.isEmpty()) nextCandidates = getTracksFromDynamicPlaylists("Top Hits", 30, 0);
+                ArrayList<String> nextCandidates = getDeepSimilarTracks(safeArtist, 40);
+                if (nextCandidates.isEmpty())
+                    nextCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 40, 0);
+                if (nextCandidates.isEmpty())
+                    nextCandidates = getTracksFromDynamicPlaylists("Top Hits", 40, random.nextInt(200));
 
-                ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(nextCandidates, seedVector, 20);
+                ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(nextCandidates, seedVector, 25);
                 processAndReturnTracksOneByOne(verified, currentAccount, false, callback);
+
+                // 3. Дополнение — не даём волне умереть
+                Thread.sleep(3000);
+                if (isWaveActive) {
+                    ArrayList<String> extra = getDeepSimilarTracks(safeArtist, 30);
+                    if (extra.isEmpty())
+                        extra = getTracksFromDynamicPlaylists("Top Hits", 30, random.nextInt(500));
+                    ArrayList<String> extraVer = verifyCandidatesWithNeuralNetwork(
+                            extra, seedVector, 20);
+                    processAndReturnTracksOneByOne(extraVer, currentAccount, false, callback);
+                }
             } catch (Exception e) { handleError(callback, e); }
         });
     }

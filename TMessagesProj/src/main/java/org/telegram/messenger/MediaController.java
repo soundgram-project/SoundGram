@@ -2960,78 +2960,80 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     // [В файле MediaController.java]
 
-public boolean setPlaylist(ArrayList<MessageObject> messageObjects, MessageObject current, long mergeDialogId, boolean loadMusic, PlaylistGlobalSearchParams params) {
-    if (playingMessageObject == current) {
-        int newIdx = playlist.indexOf(current);
-        if (newIdx >= 0) {
-            currentPlaylistNum = newIdx;
+    public boolean setPlaylist(ArrayList<MessageObject> messageObjects, MessageObject current, long mergeDialogId, boolean loadMusic, PlaylistGlobalSearchParams params) {
+        if (playingMessageObject == current) {
+            int newIdx = playlist.indexOf(current);
+            if (newIdx >= 0) {
+                currentPlaylistNum = newIdx;
+            }
+            return playMessage(current);
+        }
+
+        // ИСПРАВЛЕНИЕ: Умное переключение обратного порядка
+        // Если mergeDialogId > 0, это Библиотека (стандартный канал), выключаем реверс.
+        // Если mergeDialogId <= 0 (Альбомы, Профили, Плейлисты, Волна), включаем реверс.
+        boolean shouldBeReversed = mergeDialogId <= 0;
+        if (SharedConfig.playOrderReversed != shouldBeReversed) {
+            SharedConfig.playOrderReversed = shouldBeReversed;
+            SharedConfig.saveConfig();
+        }
+
+        forceLoopCurrentPlaylist = !loadMusic;
+        playlistMergeDialogId = mergeDialogId;
+        playMusicAgain = !playlist.isEmpty();
+        clearPlaylist();
+        playlistGlobalSearchParams = params;
+        boolean isSecretChat = !messageObjects.isEmpty() && DialogObject.isEncryptedDialog(messageObjects.get(0).getDialogId());
+        int minId = Integer.MAX_VALUE;
+        int maxId = Integer.MIN_VALUE;
+
+        for (int a = messageObjects.size() - 1; a >= 0; a--) {
+            MessageObject messageObject = messageObjects.get(a);
+            if (messageObject.isMusic()) {
+                int id = messageObject.getId();
+                if (id > 0 || isSecretChat) {
+                    minId = Math.min(minId, id);
+                    maxId = Math.max(maxId, id);
+                }
+                playlist.add(messageObject);
+                playlistMap.put(id, messageObject);
+            }
+        }
+
+        if (mergeDialogId > 0) {
+            sortPlaylist();
+        } else {
+            Collections.reverse(playlist);
+        }
+
+        if (mergeDialogId == WAVE_CONTEXT_ID) {
+            isMyWave = true;
+        } else {
+            isMyWave = false;
+            myWaveBasePlaylist.clear();
+        }
+
+        currentPlaylistNum = playlist.indexOf(current);
+        if (currentPlaylistNum == -1) {
+            clearPlaylist();
+            currentPlaylistNum = playlist.size();
+            playlist.add(current);
+            playlistMap.put(current.getId(), current);
+        }
+        if (current.isMusic() && !current.scheduled) {
+            if (SharedConfig.shuffleMusic) {
+                buildShuffledPlayList();
+            }
+            if (loadMusic && mergeDialogId >= 0) {
+                if (playlistGlobalSearchParams == null) {
+                    MediaDataController.getInstance(current.currentAccount).loadMusic(current.getDialogId(), minId, maxId);
+                } else {
+                    playlistClassGuid = ConnectionsManager.generateClassGuid();
+                }
+            }
         }
         return playMessage(current);
     }
-if (!SharedConfig.playOrderReversed) {
-    SharedConfig.playOrderReversed = true;
-    SharedConfig.saveConfig();
-}
-    forceLoopCurrentPlaylist = !loadMusic;
-    playlistMergeDialogId = mergeDialogId;
-    playMusicAgain = !playlist.isEmpty();
-    clearPlaylist();
-    playlistGlobalSearchParams = params;
-    boolean isSecretChat = !messageObjects.isEmpty() && DialogObject.isEncryptedDialog(messageObjects.get(0).getDialogId());
-    int minId = Integer.MAX_VALUE;
-    int maxId = Integer.MIN_VALUE;
-    for (int a = messageObjects.size() - 1; a >= 0; a--) {
-        MessageObject messageObject = messageObjects.get(a);
-        if (messageObject.isMusic()) {
-            int id = messageObject.getId();
-            if (id > 0 || isSecretChat) {
-                minId = Math.min(minId, id);
-                maxId = Math.max(maxId, id);
-            }
-            playlist.add(messageObject);
-            playlistMap.put(id, messageObject);
-        }
-    }
-
-    // --- ИЗМЕНЕНИЕ: Сортируем ТОЛЬКО если это стандартный чат (ID > 0) ---
-    // Если mergeDialogId < 0 (ваш кастомный плейлист), мы сохраняем порядок добавления (из вашего ArrayList)
-    if (mergeDialogId >= 0) {
-        sortPlaylist();
-    } else {
-        // Для кастомных плейлистов нам нужно развернуть список, так как цикл выше добавляет с конца (a--)
-        Collections.reverse(playlist);
-    }
-    // ---------------------------------------------------------------------
-    if (mergeDialogId == WAVE_CONTEXT_ID) {
-        isMyWave = true;
-        // myWaveBasePlaylist не очищаем, он задается извне!
-    } else {
-        isMyWave = false;
-        myWaveBasePlaylist.clear();
-    }
-
-    currentPlaylistNum = playlist.indexOf(current);
-    if (currentPlaylistNum == -1) {
-        clearPlaylist();
-        currentPlaylistNum = playlist.size();
-        playlist.add(current);
-        playlistMap.put(current.getId(), current);
-    }
-    if (current.isMusic() && !current.scheduled) {
-        if (SharedConfig.shuffleMusic) {
-            buildShuffledPlayList();
-        }
-        // Ваша существующая проверка telegram
-        if (loadMusic && mergeDialogId >= 0) {
-            if (playlistGlobalSearchParams == null) {
-                MediaDataController.getInstance(current.currentAccount).loadMusic(current.getDialogId(), minId, maxId);
-            } else {
-                playlistClassGuid = ConnectionsManager.generateClassGuid();
-            }
-        }
-    }
-    return playMessage(current);
-}
 
     private void sortPlaylist() {
         Collections.sort(playlist, (o1, o2) -> {
@@ -3783,7 +3785,14 @@ if (!SharedConfig.playOrderReversed) {
     public boolean playMessage(final MessageObject messageObject) {
         return playMessage(messageObject, false);
     }
-
+    private android.os.Bundle buildStreamHeaders() {
+        android.os.Bundle headers = new android.os.Bundle();
+        headers.putString("User-Agent",
+                "Mozilla/5.0 (Android 14; Mobile; rv:115.0) Gecko/115.0 Firefox/115.0");
+        headers.putString("Referer", "https://eu.hitmoz.com/");
+        headers.putString("Accept", "*/*");
+        return headers;
+    }
     public boolean playMessage(final MessageObject messageObject, boolean silent) {
         if (messageObject == null) {
             return false;
@@ -4001,8 +4010,24 @@ if (!SharedConfig.playOrderReversed) {
             }
 
             if (isDirectStream) {
-                videoPlayer.preparePlayer(Uri.parse(messageObject.messageOwner.attachPath), "other");
-            } else if (exists) {
+                try {
+                    // Жестко игнорируем SSL ошибки для ExoPlayer при включенном VPN
+                    javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+
+                    com.google.android.exoplayer2.MediaItem mediaItem = new com.google.android.exoplayer2.MediaItem.Builder()
+                            .setUri(android.net.Uri.parse(messageObject.messageOwner.attachPath))
+                            .setRequestMetadata(new com.google.android.exoplayer2.MediaItem.RequestMetadata.Builder()
+                                    .setExtras(buildStreamHeaders())
+                                    .build())
+                            .build();
+                    audioPlayer.preparePlayerWithMediaItem(mediaItem, "other");
+                } catch (Exception e) {
+                    FileLog.e("ExoPlayer VPN Stream fallback: " + e);
+                    audioPlayer.preparePlayer(Uri.parse(messageObject.messageOwner.attachPath), "other");
+                }
+                isStreamingCurrentAudio = true;
+            }
+            else if (exists) {
                 if (!messageObject.mediaExists && cacheFile != file) {
                     AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.fileLoaded, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
                     if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && messageObject.isAyuDeleted()) {

@@ -10,11 +10,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -169,33 +171,6 @@ public class MusicWebSearcher {
         return img;
     }
 
-    public static boolean downloadTrackToExactFileSync(String fileUrl, File destFile) {
-        try {
-            HttpURLConnection conn = (HttpURLConnection) new URL(fileUrl).openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:115.0) Gecko/115.0 Firefox/115.0");
-            conn.setRequestProperty("Accept", "*/*");
-            conn.setRequestProperty("Referer", "https://eu.hitmoz.com/");
-            conn.setInstanceFollowRedirects(true);
-            conn.connect();
-
-            if (destFile.exists()) destFile.delete();
-            destFile.getParentFile().mkdirs();
-
-            InputStream is = new BufferedInputStream(conn.getInputStream());
-            FileOutputStream os = new FileOutputStream(destFile);
-
-            byte[] data = new byte[8192];
-            int count;
-            while ((count = is.read(data)) != -1) os.write(data, 0, count);
-            os.flush(); os.close(); is.close();
-            return true;
-        } catch (Exception e) {
-            FileLog.e(e);
-            if(destFile.exists()) destFile.delete();
-            return false;
-        }
-    }
 
     public static void loadAlbumWithDeezerFallback(String albumTitle, String artistName, ArtistProfileCallback callback) {
         new Thread(() -> {
@@ -466,46 +441,42 @@ public class MusicWebSearcher {
     public static String fetchHtml(String urlString) throws Exception {
         try {
             return fetchHtmlInternal(urlString, false);
-        } catch (javax.net.ssl.SSLException e) {
-            // VPN может перехватывать SSL — пробуем с trust-all только для этого соединения
-            return fetchHtmlInternal(urlString, true);
+        } catch (javax.net.ssl.SSLException | java.net.SocketException e) {
+            // VPN может перехватывать SSL или обрывать соединение — пробуем trust-all
+            try {
+                return fetchHtmlInternal(urlString, true);
+            } catch (Exception e2) {
+                FileLog.e("fetchHtml trust-all also failed: " + e2);
+                throw e2;
+            }
+        } catch (java.net.UnknownHostException e) {
+            // DNS-блокировка при VPN — пробуем через прокси системы
+            try {
+                return fetchHtmlViaSystemProxy(urlString);
+            } catch (Exception e2) {
+                throw e;
+            }
         }
     }
 
+    /**
+     * Фоллбек: запрос через системный прокси (работает при некоторых VPN-конфигурациях).
+     */
+    private static String fetchHtmlViaSystemProxy(String urlString) throws Exception {
+        java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
+        java.util.List<java.net.Proxy> proxies = selector.select(new java.net.URI(urlString));
+        java.net.Proxy proxy = (proxies != null && !proxies.isEmpty()) ? proxies.get(0) : java.net.Proxy.NO_PROXY;
 
-    private static String fetchHtmlInternal(String urlString, boolean trustAll) throws Exception {
         URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-        // Trust-all только per-connection, НЕ через SSLContext.setDefault() чтобы не сломать ExoPlayer
-        if (trustAll && conn instanceof javax.net.ssl.HttpsURLConnection) {
-            try {
-                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
-                sc.init(null, new javax.net.ssl.TrustManager[]{
-                        new javax.net.ssl.X509TrustManager() {
-                            public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
-                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                        }
-                }, new java.security.SecureRandom());
-                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
-                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((hostname, session) -> true);
-            } catch (Exception ignored) {}
-        }
-
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
-        conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
-        conn.setRequestProperty("Connection", "keep-alive");
-        conn.setRequestProperty("Upgrade-Insecure-Requests", "1");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
+        applyStandardHeaders(conn);
+        conn.setConnectTimeout(12000);
+        conn.setReadTimeout(12000);
         conn.setInstanceFollowRedirects(true);
 
-        int responseCode = conn.getResponseCode();
-        if (responseCode == 200 || responseCode == 201 || responseCode == 202) {
-            InputStream is = conn.getInputStream();
+        int code = conn.getResponseCode();
+        if (code == 200 || code == 201) {
+            java.io.InputStream is = conn.getInputStream();
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             byte[] b = new byte[8192];
             int len;
@@ -516,6 +487,182 @@ public class MusicWebSearcher {
         return "";
     }
 
+    private static void applyStandardHeaders(HttpURLConnection conn) {
+        try {
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                            + "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            conn.setRequestProperty("Accept",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+            conn.setRequestProperty("Connection", "keep-alive");
+            conn.setRequestProperty("Upgrade-Insecure-Requests", "1");
+            conn.setRequestProperty("Cache-Control", "no-cache");
+        } catch (ProtocolException e) {
+            // Handle the case where the protocol is invalid (unlikely for "GET")
+            e.printStackTrace();
+        } catch (Exception e) {
+            // Catch-all for other potential connection issues
+            e.printStackTrace();
+        }
+    }
+
+
+    private static String fetchHtmlInternal(String urlString, boolean trustAll) throws Exception {
+        URL url = new URL(urlString);
+
+        // Используем системный прокси если есть (помогает при VPN)
+        java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
+        java.util.List<java.net.Proxy> proxies = selector != null
+                ? selector.select(url.toURI()) : null;
+        java.net.Proxy proxy = (proxies != null && !proxies.isEmpty() && proxies.get(0) != java.net.Proxy.NO_PROXY)
+                ? proxies.get(0) : java.net.Proxy.NO_PROXY;
+
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
+
+        if (trustAll && conn instanceof javax.net.ssl.HttpsURLConnection) {
+            try {
+                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+                sc.init(null, new javax.net.ssl.TrustManager[]{
+                        new javax.net.ssl.X509TrustManager() {
+                            public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                                return new java.security.cert.X509Certificate[0];
+                            }
+                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                        }
+                }, new java.security.SecureRandom());
+                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((hostname, session) -> true);
+            } catch (Exception ignored) {}
+        }
+
+        applyStandardHeaders(conn);
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(15000);
+        conn.setInstanceFollowRedirects(true);
+
+        int responseCode = conn.getResponseCode();
+        if (responseCode == 200 || responseCode == 201 || responseCode == 202) {
+            // Автоматическая распаковка gzip если сервер вернул его
+            java.io.InputStream raw = conn.getInputStream();
+            String encoding = conn.getContentEncoding();
+            java.io.InputStream is = "gzip".equalsIgnoreCase(encoding)
+                    ? new java.util.zip.GZIPInputStream(raw) : new BufferedInputStream(raw);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] b = new byte[8192];
+            int len;
+            while ((len = is.read(b)) != -1) bos.write(b, 0, len);
+            is.close();
+            return bos.toString("UTF-8");
+        }
+        return "";
+    }
+    public static boolean downloadTrackToExactFileSync(String fileUrl, File destFile) {
+        return downloadTrackInternal(fileUrl, destFile, false);
+    }
+
+    private static boolean downloadTrackInternal(String fileUrl, File destFile, boolean trustAll) {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(fileUrl);
+
+            // Используем системный прокси — ключевой фикс для VPN
+            java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
+            java.util.List<java.net.Proxy> proxies = selector != null
+                    ? selector.select(url.toURI()) : null;
+            java.net.Proxy proxy = (proxies != null && !proxies.isEmpty())
+                    ? proxies.get(0) : java.net.Proxy.NO_PROXY;
+
+            conn = (HttpURLConnection) url.openConnection(proxy);
+
+            if (trustAll && conn instanceof javax.net.ssl.HttpsURLConnection) {
+                try {
+                    javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+                    sc.init(null, new javax.net.ssl.TrustManager[]{
+                            new javax.net.ssl.X509TrustManager() {
+                                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                                    return new java.security.cert.X509Certificate[0];
+                                }
+                                public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                                public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                            }
+                    }, new java.security.SecureRandom());
+                    ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                    ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
+                } catch (Exception ignored) {}
+            }
+
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent",
+                    "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
+            conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+            conn.setRequestProperty("Accept-Encoding", "identity"); // без gzip для бинарных данных
+            conn.setRequestProperty("Referer", "https://eu.hitmoz.com/");
+            conn.setConnectTimeout(20000);
+            conn.setReadTimeout(60000);
+            conn.setInstanceFollowRedirects(true);
+            conn.connect();
+
+            int code = conn.getResponseCode();
+            // Обрабатываем редиректы вручную если нужно (301/302/307/308)
+            if (code == 301 || code == 302 || code == 307 || code == 308) {
+                String location = conn.getHeaderField("Location");
+                conn.disconnect();
+                if (location != null && !location.isEmpty()) {
+                    return downloadTrackInternal(location, destFile, trustAll);
+                }
+                return false;
+            }
+
+            if (code != 200 && code != 206) {
+                conn.disconnect();
+                // Пробуем с trust-all если не пробовали
+                if (!trustAll) return downloadTrackInternal(fileUrl, destFile, true);
+                return false;
+            }
+
+            destFile.getParentFile().mkdirs();
+            if (destFile.exists()) destFile.delete();
+
+            java.io.InputStream is = new BufferedInputStream(conn.getInputStream());
+            FileOutputStream os = new FileOutputStream(destFile);
+            byte[] buffer = new byte[16384];
+            int count;
+            while ((count = is.read(buffer)) != -1) os.write(buffer, 0, count);
+            os.flush();
+            os.close();
+            is.close();
+            conn.disconnect();
+
+            // Проверяем что файл не пустой и похож на MP3
+            if (destFile.length() < 1024) {
+                destFile.delete();
+                return false;
+            }
+            return true;
+
+        } catch (javax.net.ssl.SSLException e) {
+            if (conn != null) conn.disconnect();
+            if (!trustAll) return downloadTrackInternal(fileUrl, destFile, true);
+            FileLog.e("downloadTrack SSL failed: " + e);
+            return false;
+        } catch (Exception e) {
+            if (conn != null) conn.disconnect();
+            FileLog.e("downloadTrack failed: " + e);
+            if (destFile.exists()) destFile.delete();
+            return false;
+        }
+    }
+    public static String getSafeFileName(String artist, String title) {
+        String safe = (artist + " - " + title)
+                .replaceAll("[\\\\/:*?\"<>|\\x00-\\x1F]", "_")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (safe.length() > 200) safe = safe.substring(0, 200).trim();
+        return safe + ".mp3";
+    }
     public static void parseHtmlToResults(String html, ArrayList<WebTrack> tracks, ArrayList<WebArtist> artists, ArrayList<WebAlbum> albums, HashSet<String> seen) {
         if (html == null || html.isEmpty()) return;
 
@@ -608,7 +755,78 @@ public class MusicWebSearcher {
         }).start();
     }
 
+    public static ArrayList<String> getArtistGenresSync(String artistName) {
+        ArrayList<String> genres = new ArrayList<>();
+        try {
+            // Ищем артиста
+            String searchResp = fetchHtml("https://api.deezer.com/search/artist?q="
+                    + URLEncoder.encode(artistName, "UTF-8") + "&limit=1");
+            JSONObject json = new JSONObject(searchResp);
+            if (!json.has("data") || json.getJSONArray("data").length() == 0) return genres;
 
+            long artistId = json.getJSONArray("data").getJSONObject(0).getLong("id");
+
+            // Получаем топ-треки артиста и собираем жанры из их альбомов
+            String topResp = fetchHtml("https://api.deezer.com/artist/" + artistId + "/top?limit=10");
+            JSONObject topJson = new JSONObject(topResp);
+            if (!topJson.has("data")) return genres;
+
+            JSONArray tracks = topJson.getJSONArray("data");
+            java.util.LinkedHashMap<String, Integer> genreCount = new java.util.LinkedHashMap<>();
+
+            for (int i = 0; i < Math.min(tracks.length(), 5); i++) {
+                JSONObject track = tracks.getJSONObject(i);
+                if (!track.has("album")) continue;
+                long albumId = track.getJSONObject("album").getLong("id");
+
+                try {
+                    String albumResp = fetchHtml("https://api.deezer.com/album/" + albumId);
+                    JSONObject albumJson = new JSONObject(albumResp);
+                    if (albumJson.has("genres")) {
+                        JSONArray genresArr = albumJson.getJSONObject("genres").getJSONArray("data");
+                        for (int j = 0; j < genresArr.length(); j++) {
+                            String genre = genresArr.getJSONObject(j).getString("name");
+                            genreCount.merge(genre, 1, Integer::sum);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // Сортируем по частоте
+            genres.addAll(genreCount.entrySet().stream()
+                    .sorted((a, b) -> b.getValue() - a.getValue())
+                    .map(Map.Entry::getKey)
+                    .collect(java.util.stream.Collectors.toList()));
+
+        } catch (Exception e) { FileLog.e(e); }
+        return genres;
+    }
+
+    /**
+     * Возвращает список жанров альбома через Deezer API.
+     */
+    public static ArrayList<String> getAlbumGenresSync(String albumTitle, String artistName) {
+        ArrayList<String> genres = new ArrayList<>();
+        try {
+            String query = (artistName.isEmpty() ? albumTitle : artistName + " " + albumTitle);
+            String searchResp = fetchHtml("https://api.deezer.com/search/album?q="
+                    + URLEncoder.encode(query, "UTF-8") + "&limit=1");
+            JSONObject json = new JSONObject(searchResp);
+            if (!json.has("data") || json.getJSONArray("data").length() == 0) return genres;
+
+            long albumId = json.getJSONArray("data").getJSONObject(0).getLong("id");
+            String albumResp = fetchHtml("https://api.deezer.com/album/" + albumId);
+            JSONObject albumJson = new JSONObject(albumResp);
+
+            if (albumJson.has("genres")) {
+                JSONArray genresArr = albumJson.getJSONObject("genres").getJSONArray("data");
+                for (int i = 0; i < genresArr.length(); i++) {
+                    genres.add(genresArr.getJSONObject(i).getString("name"));
+                }
+            }
+        } catch (Exception e) { FileLog.e(e); }
+        return genres;
+    }
     public static void fetchArtistPictureFromDeezer(String artistName, StringCallback callback) {
         new Thread(() -> {
             try {
