@@ -305,6 +305,7 @@ public class MusicWebSearcher {
         }).start();
     }
 
+
     public static void loadArtistProfile(String artistUrl, ArtistProfileCallback callback) {
         new Thread(() -> {
             try {
@@ -355,9 +356,6 @@ public class MusicWebSearcher {
         }).start();
     }
 
-    public static String transliteratePublic(String input) {
-        return transliterate(input);
-    }
     public static void loadArtistTracksDeezer(long artistId, String artistName, ArtistProfileCallback callback) {
         new Thread(() -> {
             try {
@@ -559,6 +557,10 @@ public class MusicWebSearcher {
         }
         return "";
     }
+    public static String transliteratePublic(String input) {
+        return transliterate(input);
+    }
+
     public static boolean downloadTrackToExactFileSync(String fileUrl, File destFile) {
         return downloadTrackInternal(fileUrl, destFile, false);
     }
@@ -827,6 +829,164 @@ public class MusicWebSearcher {
         } catch (Exception e) { FileLog.e(e); }
         return genres;
     }
+    /**
+     * Полная загрузка треков артиста через дискографию Deezer.
+     *
+     * Стратегия:
+     *  1. Ищем артиста в Deezer → получаем artistId
+     *  2. Получаем все альбомы (/albums?limit=100, с пагинацией через next)
+     *  3. Для каждого альбома: /album/{id}/tracks → список треков с duration
+     *  4. Для каждого трека ищем скачиваемую версию на hitmoz (3 стратегии)
+     *  5. Найденные треки отдаём через onTrackLoaded в реальном времени
+     *
+     * Лимит: до 500 треков (настраивается через MAX_TRACKS).
+     * Дедупликация по «артист + title» чтобы одни и те же треки из разных
+     * изданий альбома не дублировались.
+     */
+    public static void loadAllArtistTracksDeezer(long artistId, String artistName,
+                                                 ArtistProfileCallback callback) {
+        new Thread(() -> {
+            final int MAX_TRACKS = 500;
+            final int SLEEP_BETWEEN_TRACKS_MS = 80;
+
+            try {
+                String translitName = transliterate(artistName);
+                HashSet<String> seenTitles = new HashSet<>(); // дедупликация
+                int totalLoaded = 0;
+
+                // ── Шаг 1: получаем все альбомы артиста (пагинация) ──────────
+                ArrayList<long[]> albumEntries = new ArrayList<>(); // [albumId, ...]
+                ArrayList<String> albumCovers  = new ArrayList<>();
+
+                String albumsUrl = "https://api.deezer.com/artist/" + artistId
+                        + "/albums?limit=100&index=0";
+                while (albumsUrl != null && totalLoaded < MAX_TRACKS) {
+                    String resp = fetchHtml(albumsUrl);
+                    if (resp == null || resp.isEmpty()) break;
+                    JSONObject albumsJson = new JSONObject(resp);
+                    if (!albumsJson.has("data")) break;
+
+                    JSONArray albumsArr = albumsJson.getJSONArray("data");
+                    for (int ai = 0; ai < albumsArr.length(); ai++) {
+                        JSONObject albObj = albumsArr.getJSONObject(ai);
+                        long albId = albObj.getLong("id");
+                        String cover = albObj.optString("cover_xl", "");
+                        albumEntries.add(new long[]{albId});
+                        albumCovers.add(cover);
+                    }
+
+                    // Проверяем next-страницу
+                    if (albumsJson.has("next")) {
+                        albumsUrl = albumsJson.getString("next");
+                    } else {
+                        albumsUrl = null;
+                    }
+                }
+
+                // ── Шаг 2: проходим по каждому альбому, грузим его треки ────
+                for (int ai = 0; ai < albumEntries.size() && totalLoaded < MAX_TRACKS; ai++) {
+                    long albId  = albumEntries.get(ai)[0];
+                    String cover = albumCovers.get(ai);
+
+                    String tracksUrl = "https://api.deezer.com/album/" + albId + "/tracks";
+                    String tracksResp = fetchHtml(tracksUrl);
+                    if (tracksResp == null || tracksResp.isEmpty()) continue;
+
+                    JSONObject tracksJson = new JSONObject(tracksResp);
+                    if (!tracksJson.has("data")) continue;
+                    JSONArray tracksArr = tracksJson.getJSONArray("data");
+
+                    for (int ti = 0; ti < tracksArr.length() && totalLoaded < MAX_TRACKS; ti++) {
+                        JSONObject tObj = tracksArr.getJSONObject(ti);
+                        String trackTitle = tObj.optString("title", "");
+                        if (trackTitle.isEmpty()) continue;
+
+                        int duration = tObj.optInt("duration", 0);
+
+                        // Дедупликация по нижнему регистру
+                        String dedupeKey = (artistName + "|" + trackTitle).toLowerCase();
+                        if (seenTitles.contains(dedupeKey)) continue;
+                        seenTitles.add(dedupeKey);
+
+                        String cleanTitle = trackTitle
+                                .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+
+                        // ── Поиск на hitmoz (3 стратегии) ──────────────────
+                        ArrayList<WebTrack> results = new ArrayList<>();
+
+                        // Стратегия 1: «Имя артиста + название»
+                        try {
+                            String q = artistName + " " + cleanTitle;
+                            parseHtmlToResults(
+                                    fetchHtml("https://eu.hitmoz.com/search?q="
+                                            + URLEncoder.encode(q, "UTF-8")),
+                                    results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                        } catch (Exception e) { FileLog.e(e); }
+
+                        // Стратегия 2: транслит + название
+                        if (results.isEmpty() && !translitName.equals(artistName)) {
+                            try {
+                                String q = translitName + " " + cleanTitle;
+                                parseHtmlToResults(
+                                        fetchHtml("https://eu.hitmoz.com/search?q="
+                                                + URLEncoder.encode(q, "UTF-8")),
+                                        results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                            } catch (Exception e) { FileLog.e(e); }
+                        }
+
+                        // Стратегия 3: только название
+                        if (results.isEmpty()) {
+                            try {
+                                parseHtmlToResults(
+                                        fetchHtml("https://eu.hitmoz.com/search?q="
+                                                + URLEncoder.encode(cleanTitle, "UTF-8")),
+                                        results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                            } catch (Exception e) { FileLog.e(e); }
+                        }
+
+                        if (!results.isEmpty()) {
+                            // Выбираем лучший трек по длительности
+                            WebTrack best = null;
+                            for (WebTrack wt : results) {
+                                int hitDur = org.telegram.ui.ChannelMusicFragment
+                                        .parseDuration(wt.duration);
+                                if (duration > 0 && Math.abs(hitDur - duration) <= 10) {
+                                    best = wt;
+                                    break;
+                                }
+                            }
+                            if (best == null) best = results.get(0);
+
+                            best.title  = trackTitle;
+                            best.artist = artistName;
+                            if (!cover.isEmpty()) best.coverUrl = cover;
+
+                            final WebTrack finalTrack = best;
+                            AndroidUtilities.runOnUIThread(
+                                    () -> callback.onTrackLoaded(finalTrack));
+                            totalLoaded++;
+                        }
+
+                        try { Thread.sleep(SLEEP_BETWEEN_TRACKS_MS); }
+                        catch (InterruptedException ignored) {}
+                    }
+                }
+
+                // Если вообще ничего не нашли — фоллбек через /top
+                if (totalLoaded == 0) {
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                } else {
+                    AndroidUtilities.runOnUIThread(
+                            () -> callback.onResult(new ArrayList<>(), new ArrayList<>()));
+                }
+
+            } catch (Exception e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(callback::onFailed);
+            }
+        }).start();
+    }
+
     public static void fetchArtistPictureFromDeezer(String artistName, StringCallback callback) {
         new Thread(() -> {
             try {

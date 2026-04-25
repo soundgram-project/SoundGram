@@ -11,7 +11,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
-
+import org.telegram.ui.SoundGramStyleManager;
+import org.telegram.ui.SoundGramStyleSettingsFragment;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MediaController;
 import org.telegram.ui.ActionBar.BottomSheet;
@@ -36,7 +37,10 @@ public class SoundGramEQAlert extends BottomSheet {
         gd.setCornerRadii(new float[]{rad, rad, rad, rad, 0, 0, 0, 0});
         gd.setStroke(AndroidUtilities.dp(1),
                 androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 40));
-        container.setBackground(gd);
+        container.setBackground(SoundGramStyleManager.buildGlassDrawable(
+                SoundGramStyleSettingsFragment.KEY_GLASS_EQ,
+                SoundGramStyleSettingsFragment.KEY_ALPHA_EQ,
+                Theme.getColor(Theme.key_featuredStickers_addButton), 24));
         if (android.os.Build.VERSION.SDK_INT >= 21) {
             container.setElevation(AndroidUtilities.dp(8));
         }
@@ -99,13 +103,10 @@ public class SoundGramEQAlert extends BottomSheet {
             // Стеклянная карточка EQ
             LinearLayout eqCard = new LinearLayout(context);
             eqCard.setOrientation(LinearLayout.VERTICAL);
-            android.graphics.drawable.GradientDrawable eqBg = new android.graphics.drawable.GradientDrawable();
-            eqBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
-                    Theme.getColor(Theme.key_windowBackgroundGray), 120));
-            eqBg.setCornerRadius(AndroidUtilities.dp(18));
-            eqBg.setStroke(AndroidUtilities.dp(1),
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 25));
-            eqCard.setBackground(eqBg);
+            eqCard.setBackground(SoundGramStyleManager.buildGlassDrawable(
+                    SoundGramStyleSettingsFragment.KEY_GLASS_EQ,
+                    SoundGramStyleSettingsFragment.KEY_ALPHA_EQ,
+                    Theme.getColor(Theme.key_featuredStickers_addButton), 18));
             eqCard.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(12),
                     AndroidUtilities.dp(12), AndroidUtilities.dp(12));
 
@@ -247,19 +248,15 @@ public class SoundGramEQAlert extends BottomSheet {
         scroll.addView(container);
         setCustomView(scroll);
     }
-
     // ── helper: стеклянная карточка со слайдером ─────────────────────────────
     private View makeGlassSliderCard(Context context, String labelText, int max, int progress,
                                      SliderCallback callback) {
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
-                Theme.getColor(Theme.key_windowBackgroundGray), 110));
-        bg.setCornerRadius(AndroidUtilities.dp(16));
-        bg.setStroke(AndroidUtilities.dp(1),
-                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 22));
-        card.setBackground(bg);
+        card.setBackground(SoundGramStyleManager.buildGlassDrawable(
+                SoundGramStyleSettingsFragment.KEY_GLASS_EQ,
+                SoundGramStyleSettingsFragment.KEY_ALPHA_EQ,
+                Theme.getColor(Theme.key_featuredStickers_addButton), 16));
         card.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12),
                 AndroidUtilities.dp(14), AndroidUtilities.dp(12));
 

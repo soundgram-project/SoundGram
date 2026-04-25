@@ -11,7 +11,8 @@ package org.telegram.ui.Components;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.formatString;
 import static org.telegram.messenger.LocaleController.getString;
-
+import org.telegram.ui.SoundGramStyleManager;
+import org.telegram.ui.SoundGramStyleSettingsFragment;
 import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -124,7 +125,6 @@ import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import org.telegram.ui.SoundGramLyricsDialog;
 import org.telegram.ui.SoundGramEQAlert;
 import xyz.nextalone.nagram.NaConfig;
 import androidx.recyclerview.widget.LinearSmoothScroller;
@@ -537,14 +537,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 }
                 return handled;
             }
-        }; android.graphics.drawable.GradientDrawable playerGlass = new android.graphics.drawable.GradientDrawable();
-        playerGlass.setColor(0xE0101018); // очень тёмный, ~88% непрозрачности
-        playerGlass.setCornerRadii(new float[]{
-                AndroidUtilities.dp(28), AndroidUtilities.dp(28),
-                AndroidUtilities.dp(28), AndroidUtilities.dp(28),
-                0, 0, 0, 0
-        });
-        playerGlass.setStroke(AndroidUtilities.dp(1), 0x33FFFFFF); // белый полупрозрачный border
+        }; int playerAccent = Theme.getColor(Theme.key_featuredStickers_addButton);
+        android.graphics.drawable.GradientDrawable playerGlass =
+                SoundGramStyleManager.buildGlassDrawable(
+                        SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER,
+                        SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER,
+                        playerAccent, 28);
         playerLayout.setBackground(playerGlass);
         if (Build.VERSION.SDK_INT >= 21) playerLayout.setElevation(AndroidUtilities.dp(12));
 
@@ -596,7 +594,20 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 } else {
                     base.setColor(0xE0101018);
                 }
-                playerLayout.setBackground(base);
+                if (!SoundGramStyleSettingsFragment.isGlassEnabled(
+                        SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER)) {
+                    android.graphics.drawable.GradientDrawable solidBg =
+                            new android.graphics.drawable.GradientDrawable();
+                    solidBg.setColor(Theme.getColor(Theme.key_player_background));
+                    solidBg.setCornerRadii(new float[]{
+                            AndroidUtilities.dp(28), AndroidUtilities.dp(28),
+                            AndroidUtilities.dp(28), AndroidUtilities.dp(28),
+                            0, 0, 0, 0
+                    });
+                    playerLayout.setBackground(solidBg);
+                } else {
+                    playerLayout.setBackground(base);
+                }
             }
         };
 
@@ -806,7 +817,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
         int bgColor = Theme.getColor(Theme.key_dialogBackground);
         FrameLayout seekFrame = new FrameLayout(context);
-        seekFrame.setBackground(ChannelMusicFragment.createLiquidGlassDrawable(bgColor, accentColor, 20));
+        seekFrame.setBackground(SoundGramStyleManager.buildGlassDrawable(
+                SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER,
+                SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER,
+                accentColor, 20));
         seekFrame.addView(seekBarView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 40, Gravity.TOP | Gravity.LEFT, 16, 0, 16, 0));
         seekFrame.addView(progressView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 2, Gravity.TOP | Gravity.LEFT, 21, 20, 21, 0));
         seekFrame.addView(timeTextView, LayoutHelper.createFrame(100, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, 24, 25, 0, 0));
@@ -832,11 +846,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         FrameLayout mediaButtonsContainer = new FrameLayout(context);
         {
-            android.graphics.drawable.GradientDrawable btnsBg = new android.graphics.drawable.GradientDrawable();
-            btnsBg.setColor(0x1AFFFFFF); // почти прозрачный белый
-            btnsBg.setCornerRadius(AndroidUtilities.dp(40));
-            btnsBg.setStroke(AndroidUtilities.dp(1), 0x22FFFFFF);
-            mediaButtonsContainer.setBackground(btnsBg);
+            mediaButtonsContainer.setBackground(SoundGramStyleManager.buildGlassDrawable(
+                    SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER,
+                    SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER,
+                    Theme.getColor(Theme.key_featuredStickers_addButton), 40));
             if (Build.VERSION.SDK_INT >= 21) mediaButtonsContainer.setElevation(AndroidUtilities.dp(2));
         }
 
@@ -2285,11 +2298,17 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 }
             }
             if (playlist.size() > 1) {
-                playerLayout.setBackgroundColor(getThemedColor(Theme.key_player_background));
+                playerLayout.setBackground(SoundGramStyleManager.buildGlassDrawable(
+                        SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER,
+                        SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER,
+                        Theme.getColor(Theme.key_featuredStickers_addButton), 28));
                 playerShadow.setVisibility(View.VISIBLE);
                 listView.setPadding(0, listView.getPaddingTop(), 0, dp(179 + 52));
             } else {
-                playerLayout.setBackgroundColor(getThemedColor(Theme.key_player_background));
+                playerLayout.setBackground(SoundGramStyleManager.buildGlassDrawable(
+                        SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER,
+                        SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER,
+                        Theme.getColor(Theme.key_featuredStickers_addButton), 28));
                 playerShadow.setVisibility(View.VISIBLE);
                 listView.setPadding(0, listView.getPaddingTop(), 0, 0);
             }
