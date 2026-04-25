@@ -1500,12 +1500,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             ArrayList<MessageObject> loadedTracks  = new ArrayList<>();
             ArrayList<MessageObject> loadedAlbums  = new ArrayList<>();
             ArrayList<MessageObject> loadedPlaylists = new ArrayList<>();
+            HashSet<String> seenTrackKeys = new HashSet<>(); // дедупликация треков
 
             for (TLRPC.Message msg : messages.messages) {
                 if (msg.message != null) {
                     if (msg.message.startsWith("SG_STREAM|||")) {
                         String[] parts = msg.message.split("\\|\\|\\|");
                         if (parts.length >= 5) {
+                            // Дедупликация по URL (parts[3])
+                            String dedupeKey = parts[3];
+                            if (seenTrackKeys.contains(dedupeKey)) continue;
+                            seenTrackKeys.add(dedupeKey);
+
                             String cover = parts.length > 6 ? parts[6] : "";
                             loadedTracks.add(createWebMessageObject(
                                     currentAccount, parts[1], parts[2], parts[3],
@@ -1519,11 +1525,23 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         loadedPlaylists.add(new MessageObject(currentAccount, msg, false, false));
                     } else {
                         MessageObject mo = new MessageObject(currentAccount, msg, false, false);
-                        if (mo.isMusic()) loadedTracks.add(mo);
+                        if (mo.isMusic()) {
+                            String k = trackKey(mo.getMusicAuthor(), mo.getMusicTitle());
+                            if (!seenTrackKeys.contains(k)) {
+                                seenTrackKeys.add(k);
+                                loadedTracks.add(mo);
+                            }
+                        }
                     }
                 } else {
                     MessageObject mo = new MessageObject(currentAccount, msg, false, false);
-                    if (mo.isMusic()) loadedTracks.add(mo);
+                    if (mo.isMusic()) {
+                        String k = trackKey(mo.getMusicAuthor(), mo.getMusicTitle());
+                        if (!seenTrackKeys.contains(k)) {
+                            seenTrackKeys.add(k);
+                            loadedTracks.add(mo);
+                        }
+                    }
                 }
             }
 
@@ -2038,6 +2056,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     public void checkOrCreateMusicChannel() {
         final String requiredTitle = UserConfig.getInstance(currentAccount).getClientUserId() + "SoundGram";
+
+        // ── Сначала всегда пробуем загрузить кэш, чтобы библиотека
+        //    показалась мгновенно даже до ответа от Telegram серверов.
+        loadMessagesFromCache();
+
         for (TLRPC.Dialog dialog : MessagesController.getInstance(currentAccount).getAllDialogs()) {
             TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialog.id);
             if (chat != null && requiredTitle.equals(chat.title)) {
@@ -2060,7 +2083,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             loadMusicFromChannel();
             return;
         }
-        createMusicChannel(requiredTitle);
+
+        // Telegram недоступен или канал ещё не создан.
+        // Кэш уже загружен выше — пробуем создать канал только если есть сеть.
+        if (org.telegram.messenger.ApplicationLoader.isNetworkOnline()) {
+            createMusicChannel(requiredTitle);
+        }
+        // Если нет сети — mergeLocalOnlyTracks() уже был вызван из loadMessagesFromCache()
     }
 
     private void createMusicChannel(String title) {
@@ -2186,38 +2215,65 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         public void onFragmentDestroy() {
             super.onFragmentDestroy();
 
+            // ── Читаем существующий порядок треков в файле ───────────────────
             ArrayList<String> existingOrder = new ArrayList<>();
+            HashSet<String> existingSet = new HashSet<>(); // для быстрой проверки
             if (playlistFile.exists()) {
                 try (BufferedReader br = new BufferedReader(new FileReader(playlistFile))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        existingOrder.add(line.trim());
+                        line = line.trim();
+                        if (!line.isEmpty()) {
+                            existingOrder.add(line);
+                            existingSet.add(line);
+                        }
                     }
                 } catch (Exception e) { e.printStackTrace(); }
             }
 
-            ArrayList<String> finalOrder = new ArrayList<>();
+            // ── Строим финальный список без дублей ───────────────────────────
+            // Используем LinkedHashSet: сохраняет порядок вставки + гарантирует уникальность.
+            java.util.LinkedHashSet<String> finalSet = new java.util.LinkedHashSet<>();
 
-            for (MessageObject msg : allTracks) {
-                int idToCheck = (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) ? msg.messageOwner.message.split("\\|\\|\\|")[3].hashCode() : msg.getId();
+            // 1. Сначала оставляем старые треки которые НЕ сняты с отметки
+            for (String idStr : existingOrder) {
+                int idToCheck;
+                try {
+                    idToCheck = idStr.startsWith("SG_STREAM|||")
+                            ? idStr.split("\\|\\|\\|")[3].hashCode()
+                            : Integer.parseInt(idStr.trim());
+                } catch (Exception e) { continue; }
 
                 if (playlistIds.contains(idToCheck)) {
-                    String identifier = (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) ? msg.messageOwner.message : String.valueOf(msg.getId());
-                    if (!existingOrder.contains(identifier)) {
-                        finalOrder.add(identifier);
-                    }
+                    finalSet.add(idStr);
                 }
             }
 
-            for (String idStr : existingOrder) {
-                int idToCheck = idStr.startsWith("SG_STREAM|||") ? idStr.split("\\|\\|\\|")[3].hashCode() : Integer.parseInt(idStr);
-                if (playlistIds.contains(idToCheck)) {
-                    finalOrder.add(idStr);
+            // 2. Добавляем новые треки (которых не было в файле, но отмечены сейчас)
+            for (MessageObject msg : allTracks) {
+                if (msg.messageOwner == null) continue;
+
+                String identifier;
+                int idToCheck;
+                if (msg.messageOwner.message != null
+                        && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                    identifier = msg.messageOwner.message;
+                    String[] p = identifier.split("\\|\\|\\|");
+                    if (p.length < 4) continue;
+                    idToCheck = p[3].hashCode();
+                } else {
+                    identifier = String.valueOf(msg.getId());
+                    idToCheck = msg.getId();
+                }
+
+                // Добавляем только если отмечен и ещё не в finalSet
+                if (playlistIds.contains(idToCheck) && !finalSet.contains(identifier)) {
+                    finalSet.add(identifier);
                 }
             }
 
             try (BufferedWriter bw = new BufferedWriter(new FileWriter(playlistFile, false))) {
-                for (String identifier : finalOrder) {
+                for (String identifier : finalSet) {
                     bw.write(identifier);
                     bw.newLine();
                 }
@@ -2478,22 +2534,41 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private void loadPlaylistData() {
             playlistMessages.clear();
+            HashSet<String> seenKeys = new HashSet<>(); // дедупликация при чтении
+
             if (playlistFile.exists()) {
                 try (BufferedReader br = new BufferedReader(new FileReader(playlistFile))) {
                     String line;
                     while ((line = br.readLine()) != null) {
                         line = line.trim();
+                        if (line.isEmpty()) continue;
+
                         if (line.startsWith("SG_STREAM|||")) {
                             String[] parts = line.split("\\|\\|\\|");
                             if (parts.length >= 5) {
-                                int dur = 0; try { dur = Integer.parseInt(parts[4]); } catch (Exception e){}
-                                playlistMessages.add(createWebMessageObject(currentAccount, parts[1], parts[2], parts[3], dur, parts[3].hashCode(), ""));
+                                // Ключ дедупликации: URL трека
+                                String dedupeKey = parts[3];
+                                if (seenKeys.contains(dedupeKey)) continue;
+                                seenKeys.add(dedupeKey);
+
+                                int dur = 0;
+                                try { dur = Integer.parseInt(parts[4]); } catch (Exception e){}
+                                playlistMessages.add(createWebMessageObject(
+                                        currentAccount, parts[1], parts[2], parts[3],
+                                        dur, parts[3].hashCode(), ""));
                             }
                         } else {
                             try {
                                 int id = Integer.parseInt(line);
+                                String dedupeKey = "id:" + id;
+                                if (seenKeys.contains(dedupeKey)) continue;
+                                seenKeys.add(dedupeKey);
+
                                 for (MessageObject msg : ChannelMusicFragment.audioMessages) {
-                                    if (msg.getId() == id) { playlistMessages.add(msg); break; }
+                                    if (msg.getId() == id) {
+                                        playlistMessages.add(msg);
+                                        break;
+                                    }
                                 }
                             } catch (Exception ignored) {}
                         }
