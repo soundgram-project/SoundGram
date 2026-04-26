@@ -92,7 +92,7 @@
     <string name="SaveDeletedMessageForBot">Salvar no chat do bot</string>
     <string name="HideArchive">Remover \"Chats Arquivados\" da lista de chats</string>
     <string name="ConfirmAllLinks">Perguntar antes de abrir links inline</string>
-    <string name="ConfirmAllLinksDescription">Inclui links internos do Telegram (como links t.me) em botões de bots.</string>
+    <string name="ConfirmAllLinksDescription">Inclui links internos do Telegram (como t.me) em botões inline de bots.</string>
     <string name="TranslatorMinimizedChannel">A barra de tradução foi minimizada para este canal.</string>
     <string name="TranslatorMinimizedGroup">A barra de tradução foi minimizada para este grupo.</string>
     <string name="TranslatorMinimized">A barra de tradução foi minimizada para este chat.</string>
@@ -171,8 +171,8 @@
     <string name="IconReplacementSolar">Ícones Solares por @Design480</string>
     <string name="DebugMenuEnableInvoicePayment">Ativar pagamento por fatura</string>
     <string name="DebugMenuDisableInvoicePayment">Desativar pagamento por fatura</string>
-    <string name="DebugMenuUseCamera2Api">Usar a API Camera2</string>
-    <string name="DebugMenuUseOldCamera1Api">Usar a API antiga Camera1</string>
+    <string name="DebugMenuUseCamera2Api">Usar Camera 2 API</string>
+    <string name="DebugMenuUseOldCamera1Api">Usar Camera 1 API antiga</string>
     <string name="DebugMenuUseCpuBlur">Usar desfoque via CPU</string>
     <string name="DebugMenuUseNewGpuBlur">Usar novo desfoque via GPU</string>
     <string name="DebugMenuEnableAdaptableColorInBrowser">Ativar cores adaptáveis do navegador</string>
@@ -234,7 +234,7 @@
     <string name="KeepTranslatorPreferences">Manter preferências do tradutor</string>
     <string name="KeepTranslatorPreferencesNotice">Mantém as configurações do tradutor ao mudar o idioma do aplicativo.</string>
     <string name="UsePersianCalendar">Usar calendário persa</string>
-    <string name="UsePersianCalendarInfo">Exibe datas no calendário Solar Hégira.</string>
+    <string name="UsePersianCalendarInfo">Exibir data no calendário Solar Hijri</string>
     <string name="DisplayPersianCalendarByLatin">Exibir calendário persa em latim</string>
     <string name="TestBackendOn">Esta conta se conectará ao servidor de testes.</string>
     <string name="TestBackendOff">Esta conta se conectará ao servidor de produção.</string>

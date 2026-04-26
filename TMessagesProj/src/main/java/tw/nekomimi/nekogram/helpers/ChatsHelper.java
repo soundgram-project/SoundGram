@@ -43,6 +43,7 @@ public class ChatsHelper extends BaseController {
     public static final int LEFT_BUTTON_SAVE_MESSAGE = 2;
     public static final int LEFT_BUTTON_DIRECT_SHARE = 3;
     public static final int LEFT_BUTTON_SELECT_BETWEEN = 4;
+    public static final int LEFT_BUTTON_NOCAPTION = 5;
     private static final ChatsHelper[] Instance = new ChatsHelper[UserConfig.MAX_ACCOUNT_COUNT];
     public ChatActivity.ThemeDelegate themeDelegate;
 
@@ -71,7 +72,7 @@ public class ChatsHelper extends BaseController {
             return LEFT_BUTTON_REPLY;
         }
         return switch (action) {
-            case LEFT_BUTTON_REPLY, LEFT_BUTTON_SAVE_MESSAGE, LEFT_BUTTON_DIRECT_SHARE -> action;
+            case LEFT_BUTTON_REPLY, LEFT_BUTTON_SAVE_MESSAGE, LEFT_BUTTON_DIRECT_SHARE, LEFT_BUTTON_NOCAPTION -> action;
             default -> LEFT_BUTTON_NOQUOTE;
         };
     }
@@ -92,6 +93,7 @@ public class ChatsHelper extends BaseController {
             case LEFT_BUTTON_SAVE_MESSAGE -> getString(R.string.AddToSavedMessages);
             case LEFT_BUTTON_DIRECT_SHARE -> getString(R.string.ShareMessages);
             case LEFT_BUTTON_SELECT_BETWEEN -> getString(R.string.Select);
+            case LEFT_BUTTON_NOCAPTION -> getString(R.string.NoCaptionForwardShort);
             default -> getString(R.string.NoQuoteForwardShort);
         };
     }
@@ -142,11 +144,22 @@ public class ChatsHelper extends BaseController {
             case LEFT_BUTTON_SELECT_BETWEEN:
                 chatActivity.performSelectBetweenMessages();
                 break;
+            case LEFT_BUTTON_NOCAPTION:
+                ChatActivity.noForwardQuote = true;
+                ChatActivity.noForwardCaption = true;
+                if (chatActivity.messagePreviewParams != null) {
+                    chatActivity.messagePreviewParams.setHideForwardSendersName(true);
+                    chatActivity.messagePreviewParams.hideCaption = true;
+                }
+                chatActivity.openForward(false);
+                break;
             case LEFT_BUTTON_NOQUOTE:
             default:
                 ChatActivity.noForwardQuote = true;
+                ChatActivity.noForwardCaption = false;
                 if (chatActivity.messagePreviewParams != null) {
                     chatActivity.messagePreviewParams.setHideForwardSendersName(true);
+                    chatActivity.messagePreviewParams.hideCaption = false;
                 }
                 chatActivity.openForward(false);
                 break;
@@ -156,9 +169,6 @@ public class ChatsHelper extends BaseController {
     public void makeReplyButtonLongClick(ChatActivity chatActivity, boolean noForwards, Theme.ResourcesProvider resourcesProvider) {
         ArrayList<String> configStringKeys = new ArrayList<>();
         ArrayList<Integer> configValues = new ArrayList<>();
-
-        configStringKeys.add(getString(R.string.NoQuoteForward));
-        configValues.add(LEFT_BUTTON_NOQUOTE);
 
         configStringKeys.add(getString(R.string.Reply));
         configValues.add(LEFT_BUTTON_REPLY);
@@ -171,6 +181,12 @@ public class ChatsHelper extends BaseController {
 
         configStringKeys.add(getString(R.string.SelectBetween));
         configValues.add(LEFT_BUTTON_SELECT_BETWEEN);
+
+        configStringKeys.add(getString(R.string.NoCaptionForward));
+        configValues.add(LEFT_BUTTON_NOCAPTION);
+
+        configStringKeys.add(getString(R.string.NoQuoteForward));
+        configValues.add(LEFT_BUTTON_NOQUOTE);
 
         PopupHelper.show(configStringKeys, getString(R.string.LeftBottomButtonAction), configValues.indexOf(NaConfig.INSTANCE.getLeftBottomButton().Int()), chatActivity.getContext(), i -> {
             NaConfig.INSTANCE.getLeftBottomButton().setConfigInt(configValues.get(i));

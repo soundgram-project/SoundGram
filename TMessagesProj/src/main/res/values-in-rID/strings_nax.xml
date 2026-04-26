@@ -71,6 +71,8 @@
     <string name="UnshadowBan">Batalkan Penangguhan Diam-diam</string>
     <string name="ShadowBanAdded">Ditambahkan ke **penyaring pengguna**.</string>
     <string name="ShadowBanRemoved">Dihapus dari **penyaring pengguna**.</string>
+    <string name="ShadowBanChannelAdded">Ditambahkan ke **penyaring saluran**.</string>
+    <string name="ShadowBanChannelRemoved">Dihapus dari **penyaring saluran**.</string>
     <string name="botCommandConfirmTitle">Kirim Perintah</string>
     <string name="botCommandConfirmText">Apakah Anda ingin mengirim perintah ini?\n\n%s</string>
     <string name="MessageSavingSaveMedia">Simpan Media</string>

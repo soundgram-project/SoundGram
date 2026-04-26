@@ -3,6 +3,7 @@ package org.telegram.ui.Components;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.getString;
 
+import android.graphics.Canvas;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -18,12 +19,16 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.BaseFragment;
+import org.telegram.ui.ActionBar.SimpleTextView;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.BadWayToMakeButtonRound;
 import org.telegram.ui.Cells.CheckBoxCell;
 import org.telegram.ui.Components.Premium.boosts.cells.selector.SelectorBtnCell;
 import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 
 import java.util.ArrayList;
+
+import xyz.nextalone.nagram.NaConfig;
 
 public class AdminLogFilterAlert2 extends BottomSheetWithRecyclerListView {
 
@@ -131,6 +136,8 @@ public class AdminLogFilterAlert2 extends BottomSheetWithRecyclerListView {
             delegate.didSelectRights(currentFilter, selectedAdmins);
             dismiss();
         });
+        BadWayToMakeButtonRound.round(actionButton);
+        ScaleStateListAnimator.apply(actionButton, .02f, 1.2f);
         buttonContainer.addView(actionButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
         containerView.addView(buttonContainer, LayoutHelper.createFrameMarginPx(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL, backgroundPaddingLeft, 0, backgroundPaddingLeft, 0));
 
@@ -404,5 +411,18 @@ public class AdminLogFilterAlert2 extends BottomSheetWithRecyclerListView {
     @Override
     protected boolean canDismissWithSwipe() {
         return !recyclerListView.canScrollVertically(-1);
+    }
+
+    @Override
+    protected void onPreDraw(Canvas canvas, int top, float progressToFullView) {
+        super.onPreDraw(canvas, top, progressToFullView);
+        if (!NaConfig.INSTANCE.getCenterActionBarTitle().Bool() || NaConfig.INSTANCE.getCenterActionBarTitleType().Int() == 3) {
+            return;
+        }
+        final SimpleTextView titleTextView = actionBar.getTitleTextView();
+        if (titleTextView == null) {
+            return;
+        }
+        titleTextView.setTranslationX((actionBar.getMeasuredWidth() - titleTextView.getMeasuredWidth()) / 2f - titleTextView.getLeft());
     }
 }

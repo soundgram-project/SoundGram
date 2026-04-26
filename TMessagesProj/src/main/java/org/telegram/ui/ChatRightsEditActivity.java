@@ -1568,6 +1568,7 @@ public class ChatRightsEditActivity extends BaseFragment implements Notification
         if (currentType == TYPE_ADD_BOT) {
             return true;
         }
+        if (!ChatObject.hasAdminRights(currentChat)) return true;
         boolean changed;
         if (currentType == TYPE_BANNED) {
             String newBannedRights = ChatObject.getBannedRightsString(bannedRights);
