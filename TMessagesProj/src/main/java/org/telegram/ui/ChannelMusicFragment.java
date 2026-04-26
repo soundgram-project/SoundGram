@@ -128,6 +128,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private AlbumAdapter albumsAdapter; // Адаптер для альбомов добавим ниже
     private LinearLayout tabStrip;
     private androidx.viewpager.widget.ViewPager viewPager;
+    private TextView albumsTabBtnRef;
+    private int tabAccentColor, tabInactiveColor;
     private LinearLayout libraryListHeader;
     private RecyclerListView artistRecyclerView;
     private ArtistAdapter artistAdapter;
@@ -271,6 +273,26 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         tab.setTextColor(inactiveColor);
     }
 
+    // ── Динамическое управление вкладкой Альбомы ──────────────────────────────
+    private void refreshAlbumsTabVisibility(TextView albumsTabBtn, int accentColor, int inactiveColor) {
+        if (tabStrip == null || albumsTabBtn == null || viewPager == null) return;
+        boolean hasAlbums = !savedAlbumMessages.isEmpty();
+        boolean tabVisible = tabStrip.indexOfChild(albumsTabBtn) >= 0;
+        if (hasAlbums && !tabVisible) {
+            // Добавляем вкладку с анимацией
+            tabStrip.addView(albumsTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+            albumsTabBtn.setAlpha(0f);
+            albumsTabBtn.animate().alpha(1f).setDuration(200).start();
+            if (viewPager.getAdapter() != null) viewPager.getAdapter().notifyDataSetChanged();
+        } else if (!hasAlbums && tabVisible) {
+            // Удаляем вкладку с анимацией, если мы не на ней — переключаемся
+            if (viewPager.getCurrentItem() == 2) viewPager.setCurrentItem(1, true);
+            albumsTabBtn.animate().alpha(0f).setDuration(200)
+                    .withEndAction(() -> tabStrip.removeView(albumsTabBtn)).start();
+            if (viewPager.getAdapter() != null) viewPager.getAdapter().notifyDataSetChanged();
+        }
+    }
+
     private void animateTabSwitch(TextView tab, boolean isActive, int accentColor, int inactiveColor, int activeTextColor) {
         if (isActive) {
             applyTabActive(tab, accentColor);
@@ -302,101 +324,55 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         return Color.argb(Color.alpha(color), r, g, b);
     }
     private FrameLayout createWavePage(Context context) {
-        int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
 
-        // ── Корневой контейнер ────────────────────────────────────────────────
-        FrameLayout waveContainer = new FrameLayout(context);
-        waveContainer.setLayoutParams(new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // ── Корень ────────────────────────────────────────────────────────────
+        FrameLayout root = new FrameLayout(context);
+        root.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // ── 1. Многослойный градиентный фон (тёмно-фиолетовый → серый/тёмный) ─
-        // Нижний слой — основной цвет темы
-        View baseBg = new View(context);
-        baseBg.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        waveContainer.addView(baseBg, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-
-        // Верхний слой — фиолетовый градиент, как у ЯМ
-        View waveGradientBg = new View(context);
-        GradientDrawable waveBgGd = new GradientDrawable(
+        // ── Градиентный фон ───────────────────────────────────────────────────
+        View bgGrad = new View(context);
+        GradientDrawable bgDraw = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF5B0EA6, 200),
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF8A2BE2, 100),
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 30),
-                        Color.TRANSPARENT
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF3D1078, 255),
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF1A0533, 255),
+                        Theme.getColor(Theme.key_windowBackgroundWhite)
                 });
-        waveGradientBg.setBackground(waveBgGd);
-        waveContainer.addView(waveGradientBg, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, 520, Gravity.TOP));
+        bgGrad.setBackground(bgDraw);
+        root.addView(bgGrad, LayoutHelper.createFrame(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        // ── 2. ScrollView ─────────────────────────────────────────────────────
-        ScrollView waveScroll = new ScrollView(context);
-        waveScroll.setVerticalScrollBarEnabled(false);
-        waveScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        waveScroll.setClipToPadding(false);
-        waveScroll.setPadding(0, 0, 0, AndroidUtilities.dp(100));
+        // ── Центральный FrameLayout (шар + кнопка запуска) ───────────────────
+        FrameLayout centerFrame = new FrameLayout(context);
 
-        LinearLayout waveInnerLayout = new LinearLayout(context);
-        waveInnerLayout.setOrientation(LinearLayout.VERTICAL);
-        waveInnerLayout.setGravity(Gravity.CENTER_HORIZONTAL);
-        waveInnerLayout.setPadding(
-                AndroidUtilities.dp(20), AndroidUtilities.dp(28),
-                AndroidUtilities.dp(20), AndroidUtilities.dp(24));
-
-        // ── 3. Заголовок секции + subtitle (стиль ЯМ 2025) ───────────────────
-        // «Моя волна» жирный, крупный
-        TextView waveTitle = new TextView(context);
-        waveTitle.setText("Моя волна");
-        waveTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 34);
-        waveTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        waveTitle.setTextColor(0xFFFFFFFF);
-        waveTitle.setGravity(Gravity.CENTER);
-        waveTitle.setLetterSpacing(-0.02f);
-        waveInnerLayout.addView(waveTitle, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
-                Gravity.CENTER_HORIZONTAL, 0, 0, 0, 6));
-
-        // Subtitle
-        TextView waveSubtitle = new TextView(context);
-        waveSubtitle.setText("Персональный поток музыки для вас");
-        waveSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        waveSubtitle.setTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 170));
-        waveSubtitle.setGravity(Gravity.CENTER);
-        waveInnerLayout.addView(waveSubtitle, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
-                Gravity.CENTER_HORIZONTAL, 0, 0, 0, 32));
-
-        // ── 4. Анимированный виджет в стеклянной карточке ────────────────────
+        // Шар WaveAnimatedWidget — строго квадратный контейнер
+        // ВАЖНО: задаём размер через LayoutParams, не через саму view,
+        //        тогда свечение не выходит за квадрат
         waveWidget = new WaveAnimatedWidget(context);
-        FrameLayout widgetCard = new FrameLayout(context);
-        // Жидкое стекло — градиент фиолетовый + прозрачный + обводка
-        widgetCard.setBackground(SoundGramStyleManager.buildGlassDrawable(
-                SoundGramStyleSettingsFragment.KEY_GLASS_WAVE,
-                SoundGramStyleSettingsFragment.KEY_ALPHA_WAVE,
-                accentColor, 36));
-        if (Build.VERSION.SDK_INT >= 21) widgetCard.setElevation(AndroidUtilities.dp(10));
-        widgetCard.addView(waveWidget, new FrameLayout.LayoutParams(
-                AndroidUtilities.dp(200), AndroidUtilities.dp(200)));
-        waveInnerLayout.addView(widgetCard, LayoutHelper.createLinear(
-                220, 220, Gravity.CENTER_HORIZONTAL, 0, 0, 0, 36));
+        waveWidget.setLayerType(View.LAYER_TYPE_HARDWARE, null); // убираем квадратный клип
+        FrameLayout.LayoutParams wlp = new FrameLayout.LayoutParams(
+                AndroidUtilities.dp(220), AndroidUtilities.dp(220), Gravity.CENTER);
+        centerFrame.addView(waveWidget, wlp);
 
-        // ── 5. Большая кнопка ЗАПУСТИТЬ — градиент + жидкое стекло ───────────
-        playWaveBtn = new ImageView(context);
-        playWaveBtn.setImageResource(R.drawable.ic_play);
-        playWaveBtn.setScaleType(ImageView.ScaleType.CENTER);
-        playWaveBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
-
-        // Многослойный background: градиент + блик сверху
-        playWaveBtn.setBackground(SoundGramStyleManager.buildGlassDrawable(
-                SoundGramStyleSettingsFragment.KEY_GLASS_WAVE,
-                SoundGramStyleSettingsFragment.KEY_ALPHA_WAVE,
-                accentColor, 48));
-        if (Build.VERSION.SDK_INT >= 21) playWaveBtn.setElevation(AndroidUtilities.dp(8));
-
-        playWaveBtn.setOnClickListener(v -> {
+        // Кнопка запуска поверх шара (полупрозрачная)
+        ImageView playBtn = new ImageView(context);
+        playBtn.setImageResource(R.drawable.ic_play);
+        playBtn.setScaleType(ImageView.ScaleType.CENTER);
+        playBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
+        {
+            GradientDrawable pBg = new GradientDrawable();
+            pBg.setColor(0x44000000);
+            pBg.setShape(GradientDrawable.OVAL);
+            pBg.setStroke(AndroidUtilities.dp(2), 0x80FFFFFF);
+            playBtn.setBackground(pBg);
+        }
+        playBtn.setOnClickListener(v -> {
             applySpringClick(v);
             waveWidget.startAnimation();
+            AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
+            AudioPlayerAlert.currentSourceLabel = "";
             SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                 @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                     if (!tracks.isEmpty()) {
@@ -408,107 +384,47 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     MediaController.getInstance().addTracksToPlaylist(tracks);
                 }
                 @Override public void onError() {
-                    waveWidget.stopAnimation();
-                    if (getParentActivity() != null)
-                        Toast.makeText(getParentActivity(), "Ошибка волны", Toast.LENGTH_SHORT).show();
                 }
             });
         });
-        waveInnerLayout.addView(playWaveBtn, LayoutHelper.createLinear(
-                80, 80, Gravity.CENTER_HORIZONTAL, 0, 0, 0, 32));
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(
+                AndroidUtilities.dp(64), AndroidUtilities.dp(64), Gravity.CENTER);
+        centerFrame.addView(playBtn, plp);
 
-        // ── 6. Горизонтальный ряд: жанры (быстрый выбор) ─────────────────────
-        // Лейбл секции
-        TextView genreLabel = new TextView(context);
-        genreLabel.setText("Жанр");
-        genreLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-        genreLabel.setTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 160));
-        genreLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        genreLabel.setLetterSpacing(0.06f);
-        waveInnerLayout.addView(genreLabel, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
-                0, 0, 0, 10));
-
-        // HorizontalScrollView с жанровыми чипами (быстрый выбор)
-        HorizontalScrollView genreHScroll = new HorizontalScrollView(context);
-        genreHScroll.setHorizontalScrollBarEnabled(false);
-        genreHScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        genreHScroll.setClipToPadding(false);
-        genreHScroll.setPadding(0, 0, AndroidUtilities.dp(8), 0);
-
-        LinearLayout genreChipsRow = new LinearLayout(context);
-        genreChipsRow.setOrientation(LinearLayout.HORIZONTAL);
-        genreChipsRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        // Получаем текущий жанр из SmartRadioEngine
-        final String[] currentGenre = {SmartRadioEngine.currentConfig.query};
-
-        String[] quickGenres = {
-                "Любой жанр", "Поп", "Хип-Хоп", "Рок", "Инди", "Фонк",
-                "Электроника", "К-поп", "Джаз", "Классика", "Металл"
-        };
-
-        ArrayList<TextView> chipViews = new ArrayList<>();
-        for (int gi = 0; gi < quickGenres.length; gi++) {
-            final String genre = quickGenres[gi];
-            TextView chip = makeInlineGenreChip(context, genre, genre.equals(currentGenre[0]), accentColor);
-            chipViews.add(chip);
-
-            chip.setOnClickListener(v -> {
-                applySpringClick(v);
-                currentGenre[0] = genre;
-                SmartRadioEngine.currentConfig.query = genre;
-                // Обновляем состояние всех чипов
-                for (int k = 0; k < chipViews.size(); k++) {
-                    boolean active = quickGenres[k].equals(genre);
-                    applyChipState(chipViews.get(k), active, accentColor);
-                }
-            });
-
-            int rightMargin = gi < quickGenres.length - 1 ? 8 : 0;
-            genreChipsRow.addView(chip, LayoutHelper.createLinear(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
-                    0, 0, rightMargin, 0));
-        }
-
-        genreHScroll.addView(genreChipsRow, LayoutHelper.createScroll(
-                LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
-        waveInnerLayout.addView(genreHScroll, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
-                0, 0, 0, 20));
-
-        // ── 7. Кнопка «Все жанры / Настроить» — жидкое стекло ────────────────
-        TextView waveSettingsBtn = new TextView(context);
-        waveSettingsBtn.setText("✦  Все жанры и настройки");
-        waveSettingsBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        waveSettingsBtn.setTextColor(0xFFFFFFFF);
-        waveSettingsBtn.setGravity(Gravity.CENTER);
-        waveSettingsBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        waveSettingsBtn.setPadding(
-                AndroidUtilities.dp(24), AndroidUtilities.dp(13),
-                AndroidUtilities.dp(24), AndroidUtilities.dp(13));
-        {
-            waveSettingsBtn.setBackground(SoundGramStyleManager.buildGlassDrawable(
-                    SoundGramStyleSettingsFragment.KEY_GLASS_WAVE,
-                    SoundGramStyleSettingsFragment.KEY_ALPHA_WAVE,
-                    accentColor, 22));
-        }
-        if (Build.VERSION.SDK_INT >= 21) waveSettingsBtn.setElevation(AndroidUtilities.dp(3));
-        waveSettingsBtn.setOnClickListener(v -> {
-            applySpringClick(v);
-            showWaveSettingsSheet(context, waveSettingsBtn);
-        });
-        waveInnerLayout.addView(waveSettingsBtn, LayoutHelper.createLinear(
-                LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
-                Gravity.CENTER_HORIZONTAL, 0, 0, 0, 0));
-
-        waveScroll.addView(waveInnerLayout, LayoutHelper.createScroll(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
-        waveContainer.addView(waveScroll, LayoutHelper.createFrame(
+        root.addView(centerFrame, LayoutHelper.createFrame(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        return waveContainer;
+        // ── Кнопка «Жанр ▾» — снизу по центру ───────────────────────────────
+        TextView genreDropBtn = new TextView(context);
+        genreDropBtn.setGravity(Gravity.CENTER);
+        genreDropBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        genreDropBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        genreDropBtn.setTextColor(0xFFFFFFFF);
+        genreDropBtn.setText("✦  " + SmartRadioEngine.currentConfig.query + "  ▾");
+        {
+            GradientDrawable gBg = new GradientDrawable();
+            gBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF000000, 100));
+            gBg.setCornerRadius(AndroidUtilities.dp(24));
+            gBg.setStroke(AndroidUtilities.dp(1),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 80));
+            genreDropBtn.setBackground(gBg);
+        }
+        genreDropBtn.setPadding(
+                AndroidUtilities.dp(28), AndroidUtilities.dp(12),
+                AndroidUtilities.dp(28), AndroidUtilities.dp(12));
+        genreDropBtn.setOnClickListener(v -> {
+            applySpringClick(v);
+            showWaveGenreSheet(context, genreDropBtn);
+        });
+
+        root.addView(genreDropBtn, LayoutHelper.createFrame(
+                LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL,
+                0, 0, 0, 148)); // 64dp миниплеер + 84dp отступ
+
+        return root;
     }
+
     @Override
     public View createView(Context context) {
         actionBar.setAddToContainer(false);
@@ -559,11 +475,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         headerContainer.addView(albumsRecyclerView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         mainColumn.addView(headerContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // ── TAB STRIP (Яндекс Музыка стиль) ──────────────────────────────────
+        // ── TAB STRIP (центрированный, альбомы только при наличии) ──────────
         tabStrip = new LinearLayout(context);
         tabStrip.setOrientation(LinearLayout.HORIZONTAL);
-        tabStrip.setGravity(Gravity.CENTER_VERTICAL);
-        tabStrip.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(6), AndroidUtilities.dp(16), AndroidUtilities.dp(2));
+        tabStrip.setGravity(Gravity.CENTER);
+        tabStrip.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(6), AndroidUtilities.dp(12), AndroidUtilities.dp(2));
 
         int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
         int inactiveColor = Theme.getColor(Theme.key_windowBackgroundWhiteGrayText);
@@ -578,9 +494,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         applyTabInactive(waveTabBtn, inactiveColor);
         applyTabInactive(albumsTabBtn, inactiveColor);
 
+        // Сохраняем ссылки для динамического управления
+        albumsTabBtnRef = albumsTabBtn;
+        tabAccentColor = accentColor;
+        tabInactiveColor = inactiveColor;
+
         tabStrip.addView(waveTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 12, 0));
         tabStrip.addView(libraryTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 12, 0));
-        tabStrip.addView(albumsTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        // Вкладка альбомов добавляется только когда есть хоть 1 альбом
+        if (!savedAlbumMessages.isEmpty()) {
+            tabStrip.addView(albumsTabBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        }
         mainColumn.addView(tabStrip, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         // ── VIEW PAGER ────────────────────────────────────────────────────────
@@ -655,12 +579,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         savedAlbumsListView.setClipToPadding(false);
         albumsTabContainer.addView(savedAlbumsListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        // ── PAGER ADAPTER ─────────────────────────────────────────────────────
+        // ── PAGER ADAPTER (динамический — 2 или 3 страницы) ──────────────────
+        final FrameLayout finalWaveContainer = waveContainer;
+        final FrameLayout finalLibraryContainer = libraryContainer;
+        final FrameLayout finalAlbumsContainer = albumsTabContainer;
         viewPager.setAdapter(new androidx.viewpager.widget.PagerAdapter() {
-            @Override public int getCount() { return 3; }
+            @Override public int getCount() { return savedAlbumMessages.isEmpty() ? 2 : 3; }
             @Override public boolean isViewFromObject(View view, Object object) { return view == object; }
             @Override public Object instantiateItem(ViewGroup container, int position) {
-                View view = position == 0 ? waveContainer : (position == 1 ? libraryContainer : albumsTabContainer);
+                View view = position == 0 ? finalWaveContainer : (position == 1 ? finalLibraryContainer : finalAlbumsContainer);
                 container.addView(view);
                 return view;
             }
@@ -696,11 +623,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 miniPlayerView,
                 SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
                 SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                accentColor, 22f,
-                () -> miniPlayerView.invalidate()
-        );
-        int sysNavBar = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
+                SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
+                SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
+                22f,
+                () -> miniPlayerView.invalidate());
         int tgBottomMenu = AndroidUtilities.dp(60);
+        int sysNavBar = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
         FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM);
         playerParams.setMargins(AndroidUtilities.dp(8), 0, AndroidUtilities.dp(8), sysNavBar + tgBottomMenu + AndroidUtilities.dp(8));
         content.addView(miniPlayerView, playerParams);
@@ -708,6 +636,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         listView.setPadding(0, 0, 0, AndroidUtilities.dp(90));
 
         listView.setOnItemClickListener((view, position) -> {
+            // При запуске из библиотеки (listView.setOnItemClickListener):
+            AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_LIBRARY;
+            AudioPlayerAlert.currentSourceLabel = "";
             if (adapter.getItemViewType(position) == 2) return;
             if (isSearching) {
                 if (position < webResultTracks.size()) {
@@ -738,61 +669,58 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private void showWaveSettingsSheet(Context context, TextView updateTextTarget) {
         BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity());
 
-        // ── Корневой контейнер — жидкое стекло ───────────────────────────────
+        // ── Корневой контейнер ────────────────────────────────────────────────
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
 
+        // Жидкое стекло: полупрозрачный фон + скруглённые углы сверху
         int bgColor = Theme.getColor(Theme.key_dialogBackground);
-        GradientDrawable gd = new GradientDrawable();
-        // Полупрозрачный фон — видна тема за ним
-        gd.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bgColor, 238));
+        GradientDrawable sheetBg = new GradientDrawable();
+        sheetBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bgColor, 242));
         float radius = AndroidUtilities.dp(28);
-        gd.setCornerRadii(new float[]{radius, radius, radius, radius, 0, 0, 0, 0});
-        // Белая обводка сверху — ключевой элемент «жидкого стекла»
-        gd.setStroke(AndroidUtilities.dp(1),
-                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 45));
-        container.setBackground(gd);
-        if (Build.VERSION.SDK_INT >= 21) container.setElevation(AndroidUtilities.dp(12));
-        container.setPadding(0, AndroidUtilities.dp(12), 0, AndroidUtilities.dp(24));
+        sheetBg.setCornerRadii(new float[]{radius, radius, radius, radius, 0, 0, 0, 0});
+        sheetBg.setStroke(AndroidUtilities.dp(1),
+                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 40));
+        container.setBackground(sheetBg);
+        container.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(32));
 
-        // ── Drag handle ───────────────────────────────────────────────────────
+        // ── Ручка drag ────────────────────────────────────────────────────────
         View handle = new View(context);
         GradientDrawable handleBg = new GradientDrawable();
-        handleBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
-                Theme.getColor(Theme.key_windowBackgroundWhiteGrayText), 90));
-        handleBg.setCornerRadius(AndroidUtilities.dp(2));
+        handleBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 55));
+        handleBg.setCornerRadius(AndroidUtilities.dp(3));
         handle.setBackground(handleBg);
         FrameLayout handleWrapper = new FrameLayout(context);
         handleWrapper.addView(handle, new FrameLayout.LayoutParams(
                 AndroidUtilities.dp(40), AndroidUtilities.dp(4), Gravity.CENTER));
-        container.addView(handleWrapper,
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 24, 0, 0, 0, 12));
+        container.addView(handleWrapper, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, 24, 0, 0, 0, 16));
 
-        // ── Заголовок «Настройка волны» ───────────────────────────────────────
+        // ── Заголовок листа ───────────────────────────────────────────────────
         int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
 
-        TextView title = new TextView(context);
-        title.setText("Настройка волны");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
-        title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        title.setGravity(Gravity.CENTER);
-        container.addView(title, LayoutHelper.createLinear(
+        TextView sheetTitle = new TextView(context);
+        sheetTitle.setText("Настройка волны");
+        sheetTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
+        sheetTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        sheetTitle.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        sheetTitle.setGravity(Gravity.CENTER);
+        container.addView(sheetTitle, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                 20, 0, 20, 20));
 
-        // ── Лейбл «Жанр» ─────────────────────────────────────────────────────
+        // ── Лейбл «ЖАНР» ─────────────────────────────────────────────────────
         TextView genreLabel = new TextView(context);
         genreLabel.setText("ЖАНР");
         genreLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         genreLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         genreLabel.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        genreLabel.setLetterSpacing(0.08f);
+        genreLabel.setLetterSpacing(0.10f);
         container.addView(genreLabel, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                 20, 0, 20, 10));
 
-        // ── Сетка жанров 3 × N — жидкое стекло на каждом чипе ───────────────
+        // ── Сетка жанров 3×N ─────────────────────────────────────────────────
         String[] genres = {
                 "Любой жанр", "Поп", "Хип-Хоп", "Рок", "Инди", "Фонк",
                 "Гиперпоп", "Пост-панк", "Эмо-рэп", "Металл", "Альтернатива",
@@ -801,28 +729,20 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         };
 
         RecyclerListView genreListView = new RecyclerListView(context);
-        genreListView.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(context, 3));
-        // Используем существующий ChipsAdapter — он уже умеет выделять элементы
-        ChipsAdapter genreAdapter = new ChipsAdapter(context, genres, SmartRadioEngine.currentConfig.query);
+        genreListView.setLayoutManager(
+                new androidx.recyclerview.widget.GridLayoutManager(context, 3));
+        ChipsAdapter genreAdapter = new ChipsAdapter(context, genres,
+                SmartRadioEngine.currentConfig.query);
         genreListView.setAdapter(genreAdapter);
+        genreListView.setHasFixedSize(true);
         genreListView.setClipToPadding(false);
-        genreListView.setPadding(
-                AndroidUtilities.dp(12), 0,
+        genreListView.setPadding(AndroidUtilities.dp(12), 0,
                 AndroidUtilities.dp(12), AndroidUtilities.dp(8));
-
-        // ──────────────────────────────────────────────────────────────────────
-        //  СТИЛИЗАЦИЯ ChipsAdapter: если хочешь применить жидкое стекло к чипам
-        //  внутри ChipsAdapter — переопредели метод onBindViewHolder (или
-        //  оберни данные в кастомный адаптер). Вариант «без изменения адаптера»:
-        //  добавь ItemDecoration с кастомной отрисовкой фона.
-        //  Если ChipsAdapter уже создаёт TextView — просто поставь ниже
-        //  RecyclerView.ItemAnimator.
-        // ──────────────────────────────────────────────────────────────────────
 
         ScrollView genreScroll = new ScrollView(context);
         genreScroll.addView(genreListView);
         container.addView(genreScroll, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, 300, 0, 0, 0, 16));
+                LayoutHelper.MATCH_PARENT, 300, 0, 0, 0, 20));
 
         // ── Кнопка «Применить» — градиентный фиолетовый ─────────────────────
         TextView applyBtn = new TextView(context);
@@ -834,23 +754,20 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         GradientDrawable applyBg = new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xFFAB47BC, 0xFF6A1B9A});
-        applyBg.setCornerRadius(AndroidUtilities.dp(14));
+                new int[]{0xFFCE93D8, 0xFF7B1FA2});
+        applyBg.setCornerRadius(AndroidUtilities.dp(16));
         applyBg.setStroke(AndroidUtilities.dp(1),
-                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 50));
+                androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 55));
         applyBtn.setBackground(applyBg);
         if (Build.VERSION.SDK_INT >= 21) applyBtn.setElevation(AndroidUtilities.dp(4));
 
         applyBtn.setOnClickListener(v -> {
             applySpringClick(v);
             SmartRadioEngine.currentConfig.query = genreAdapter.getSelectedItem();
-            // Кнопка «Настроить» показывает выбранный жанр
-            if (updateTextTarget != null) {
+            if (updateTextTarget != null)
                 updateTextTarget.setText("✦  " + SmartRadioEngine.currentConfig.query);
-            }
             builder.getDismissRunnable().run();
         });
-
         container.addView(applyBtn, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, 52, 20, 0, 20, 0));
 
@@ -1292,32 +1209,56 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         }).start();
     }
-        // ОБНОВЛЕН: Скачивает в папку Music и отправляет только ссылку в канал
-        private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
-            long targetId = getTargetChannelId();
-            if (targetId == 0) return;
-
-            long trackHashId = Math.abs((long) track.downloadUrl.hashCode());
-            String text = "SG_STREAM|||" + track.title + "|||" + track.artist
-                    + "|||" + track.downloadUrl + "|||" + parseDuration(track.duration)
-                    + "|||" + trackHashId + "|||" + track.coverUrl;
-            SendMessagesHelper.getInstance(currentAccount).sendMessage(
-                    text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
-            Toast.makeText(getParentActivity(), "Трек добавлен в библиотеку", Toast.LENGTH_SHORT).show();
-
-            // Скачиваем в фоне с правильным именем
-            new Thread(() -> {
-                File destFile = getLocalTrackFile(track.artist, track.title);
-                if (!destFile.exists() || destFile.length() < 1024) {
-                    boolean ok = MusicWebSearcher.downloadTrackToExactFileSync(track.downloadUrl, destFile);
-                    FileLog.d("SoundGram: saveWebTrack download " + (ok ? "OK" : "FAILED") + ": " + destFile.getName());
-                }
-            }).start();
-
-            countBeforeUpload = audioMessages.size();
-            isWaitingForUpload = true;
-            AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+    private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
+        // NULL-guards — краш именно отсюда при VPN (track может прийти незаполненным)
+        if (track == null) return;
+        if (TextUtils.isEmpty(track.downloadUrl)) {
+            Toast.makeText(getParentActivity(),
+                    "Трек ещё загружается, подождите", Toast.LENGTH_SHORT).show();
+            return;
         }
+        if (TextUtils.isEmpty(track.title) || track.title.equals("Unknown")) {
+            Toast.makeText(getParentActivity(),
+                    "Не удалось определить название трека", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        long targetId = getTargetChannelId();
+        if (targetId == 0) {
+            Toast.makeText(getParentActivity(), "Библиотека не найдена", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String safeTitle  = track.title  != null ? track.title  : "Unknown";
+        String safeArtist = track.artist != null ? track.artist : "Unknown";
+        String safeDur    = track.duration != null ? track.duration : "0:00";
+        String safeCover  = track.coverUrl != null ? track.coverUrl : "";
+
+        long trackHashId = Math.abs((long) track.downloadUrl.hashCode());
+        String text = "SG_STREAM|||" + safeTitle + "|||" + safeArtist
+                + "|||" + track.downloadUrl + "|||" + parseDuration(safeDur)
+                + "|||" + trackHashId + "|||" + safeCover;
+
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(
+                text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+        Toast.makeText(getParentActivity(), "Добавлено в библиотеку", Toast.LENGTH_SHORT).show();
+
+        // Скачиваем в фоне (VPN-safe через downloadTrackInternal с trust-all fallback)
+        final String dlUrl    = track.downloadUrl;
+        final String dlArtist = safeArtist;
+        final String dlTitle  = safeTitle;
+        new Thread(() -> {
+            File destFile = getLocalTrackFile(dlArtist, dlTitle);
+            if (!destFile.exists() || destFile.length() < 1024) {
+                boolean ok = MusicWebSearcher.downloadTrackToExactFileSync(dlUrl, destFile);
+                FileLog.d("SoundGram: saveWebTrack download " + (ok ? "OK" : "FAILED") + ": " + destFile.getName());
+            }
+        }).start();
+
+        countBeforeUpload = audioMessages.size();
+        isWaitingForUpload = true;
+        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+    }
     public static void setAudioCover(BackupImageView coverImage, MessageObject msg, String filter, int radius) {
         coverImage.setRoundRadius(AndroidUtilities.dp(radius));
         android.graphics.drawable.Drawable placeholder = Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_graySection));
@@ -1454,6 +1395,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 safeNotifyAdapter(adapter, listView);
                 safeNotifyAdapter(playlistsAdapter, playlistsListView);
                 safeNotifyAdapter(savedAlbumsAdapter, null);
+                refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
 
                 // Запускаем скачивание недостающих файлов (для оффлайн работы)
                 syncLocalLibraryDownloads();
@@ -1562,6 +1504,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 safeNotifyAdapter(adapter, listView);
                 safeNotifyAdapter(playlistsAdapter, playlistsListView);
                 safeNotifyAdapter(savedAlbumsAdapter, null);
+                refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
 
                 // Авто-скачивание при открытии вкладки
                 syncLocalLibraryDownloads();
@@ -2473,6 +2416,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             listView.addItemDecoration(new TrackItemDecoration(6, 12, false));
             listView.setPadding(0, 0, 0, AndroidUtilities.dp(16));
             listView.setOnItemClickListener((view, position) -> {
+                // При запуске из плейлиста (PlaylistDetailFragment):
+                AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_PLAYLIST;
+                AudioPlayerAlert.currentSourceLabel = currentPlaylistName;
                 if (adapter.getItemViewType(position) == 2) return;
                 if (position > 0 && position <= playlistMessages.size()) {
                     playStrictInPlaylist(playlistMessages.get(position - 1));
@@ -2483,12 +2429,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
 
-            int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
             SoundGramStyleManager.applyGlass(
                     miniPlayerView,
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                    accentColor, 22f,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
+                    22f,
                     () -> miniPlayerView.invalidate()
             );
             content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM));
@@ -2815,7 +2762,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     btnPanel.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_PLAYLISTS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYLISTS,
-                            accentColor, 28));
+                            SoundGramStyleSettingsFragment.KEY_COLOR_BG_PLAYLISTS,
+                            SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_PLAYLISTS,
+                            28f));
                     if (android.os.Build.VERSION.SDK_INT >= 21)
                         btnPanel.setElevation(AndroidUtilities.dp(8));
 
@@ -2840,6 +2789,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     if (android.os.Build.VERSION.SDK_INT >= 21)
                         playButton.setElevation(AndroidUtilities.dp(4));
                     playButton.setOnClickListener(v -> {
+                        // При запуске из плейлиста (PlaylistDetailFragment):
+                        AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_PLAYLIST;
+                        AudioPlayerAlert.currentSourceLabel = currentPlaylistName;
                         applySpringClick(playButton);
                         if (!playlistMessages.isEmpty())
                             playStrictInPlaylist(playlistMessages.get(0));
@@ -2855,8 +2807,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     shuffleButton.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_PLAYLISTS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYLISTS,
-                            accentColor, 22));
+                            SoundGramStyleSettingsFragment.KEY_COLOR_BG_PLAYLISTS,
+                            SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_PLAYLISTS,
+                            22f));
                     shuffleButton.setOnClickListener(v -> {
+                        // При запуске из плейлиста (PlaylistDetailFragment):
+                        AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_PLAYLIST;
+                        AudioPlayerAlert.currentSourceLabel = currentPlaylistName;
                         applySpringClick(shuffleButton);
                         if (!playlistMessages.isEmpty()) {
                             ArrayList<MessageObject> shuffled = new ArrayList<>(playlistMessages);
@@ -2880,11 +2837,16 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     waveButton.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_PLAYLISTS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYLISTS,
-                            accentColor, 22));
+                            SoundGramStyleSettingsFragment.KEY_COLOR_BG_PLAYLISTS,
+                            SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_PLAYLISTS,
+                            22f));
                     waveButton.setPadding(AndroidUtilities.dp(20), 0, AndroidUtilities.dp(20), 0);
                     if (android.os.Build.VERSION.SDK_INT >= 21)
                         waveButton.setElevation(AndroidUtilities.dp(4));
                     waveButton.setOnClickListener(v -> {
+                        // При запуске волны (SmartRadioEngine.generateWaveFromSettings callback.onTracksFound):
+                        AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
+                        AudioPlayerAlert.currentSourceLabel = "";
                         applySpringClick(waveButton);
                         if (playlistMessages.isEmpty()) return;
                         Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
@@ -3092,7 +3054,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             setBackground(SoundGramStyleManager.buildGlassDrawable(
                     SoundGramStyleSettingsFragment.KEY_GLASS_TRACKS,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_TRACKS,
-                    accentColor, 14));
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_TRACKS,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_TRACKS,
+                    14f));
 
             FrameLayout coverFrame = new FrameLayout(context);
             coverImage = new BackupImageView(context);
@@ -3679,7 +3643,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             setBackground(SoundGramStyleManager.buildGlassDrawable(
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                    accentColor, 20));
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
+                    20f));
             if (Build.VERSION.SDK_INT >= 21) {
                 setElevation(AndroidUtilities.dp(8));
             }
@@ -4075,7 +4041,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             actionsCard.setBackground(SoundGramStyleManager.buildGlassDrawable(
                     SoundGramStyleSettingsFragment.KEY_GLASS_ARTIST,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_ARTIST,
-                    accentColor, 20));
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_ARTIST,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_ARTIST,
+                    20f));
             if (android.os.Build.VERSION.SDK_INT >= 21)
                 actionsCard.setElevation(AndroidUtilities.dp(6));
 
@@ -4098,6 +4066,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (android.os.Build.VERSION.SDK_INT >= 21)
                 playAllBtn.setElevation(AndroidUtilities.dp(4));
             playAllBtn.setOnClickListener(v -> {
+                // При запуске из профиля артиста (ArtistProfileFragment):
+                AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_ARTIST;
+                AudioPlayerAlert.currentSourceLabel = artistName;
                 applySpringClick(v);
                 if (!queue.isEmpty()) {
                     MediaController.getInstance().setPlaylist(queue, queue.get(0),
@@ -4118,8 +4089,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             shuffleBtn.setBackground(SoundGramStyleManager.buildGlassDrawable(
                     SoundGramStyleSettingsFragment.KEY_GLASS_ARTIST,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_ARTIST,
-                    accentColor, 26));
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_ARTIST,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_ARTIST,
+                    26f));
             shuffleBtn.setOnClickListener(v -> {
+                // При запуске из профиля артиста (ArtistProfileFragment):
+                AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_ARTIST;
+                AudioPlayerAlert.currentSourceLabel = artistName;
                 applySpringClick(v);
                 if (!queue.isEmpty()) {
                     ArrayList<MessageObject> shuffled = new ArrayList<>(queue);
@@ -4144,11 +4120,16 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             waveBtn.setBackground(SoundGramStyleManager.buildGlassDrawable(
                     SoundGramStyleSettingsFragment.KEY_GLASS_ARTIST,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_ARTIST,
-                    accentColor, 26));
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_ARTIST,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_ARTIST,
+                    26f));
             waveBtn.setPadding(AndroidUtilities.dp(20), 0, AndroidUtilities.dp(20), 0);
             if (android.os.Build.VERSION.SDK_INT >= 21)
                 waveBtn.setElevation(AndroidUtilities.dp(4));
             waveBtn.setOnClickListener(v -> {
+                // При запуске волны (SmartRadioEngine.generateWaveFromSettings callback.onTracksFound):
+                AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
+                AudioPlayerAlert.currentSourceLabel = "";
                 applySpringClick(v);
                 Toast.makeText(context, "Генерация волны...", Toast.LENGTH_SHORT).show();
                 new Thread(() -> {
@@ -4238,7 +4219,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     miniPlayerView,
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                    accentColor, 22f,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
+                    22f,
                     () -> miniPlayerView.invalidate()
             );
             loadData(context);
@@ -4372,29 +4355,30 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             queue.clear();
             tracksContainer.removeAllViews();
 
-            int bgColor    = Theme.getColor(Theme.key_windowBackgroundWhite);
             int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
-            int textColor  = Theme.getColor(Theme.key_windowBackgroundWhiteBlackText);
-            int grayColor  = Theme.getColor(Theme.key_windowBackgroundWhiteGrayText);
+            int textColor   = Theme.getColor(Theme.key_windowBackgroundWhiteBlackText);
+            int grayColor   = Theme.getColor(Theme.key_windowBackgroundWhiteGrayText);
 
             MusicWebSearcher.ArtistProfileCallback callback = new MusicWebSearcher.ArtistProfileCallback() {
                 int trackIndex = 1;
 
                 @Override
                 public void onTrackLoaded(MusicWebSearcher.WebTrack track) {
+                    if (track == null || TextUtils.isEmpty(track.downloadUrl)) return;
+
                     int durSec = ChannelMusicFragment.parseDuration(track.duration);
                     MessageObject fakeMsg = ChannelMusicFragment.createWebMessageObject(
                             currentAccount, track.title, track.artist, track.downloadUrl,
                             durSec, -(long) track.downloadUrl.hashCode(), track.coverUrl);
                     queue.add(fakeMsg);
-                    final int idx = trackIndex++;
 
-                    // ── Стеклянная карточка трека ────────────────────────────
                     FrameLayout trackCard = new FrameLayout(context);
                     trackCard.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_TRACKS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_TRACKS,
-                            accentColor, 14));
+                            SoundGramStyleSettingsFragment.KEY_COLOR_BG_TRACKS,
+                            SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_TRACKS,
+                            14f));
                     if (android.os.Build.VERSION.SDK_INT >= 21)
                         trackCard.setElevation(AndroidUtilities.dp(2));
 
@@ -4402,33 +4386,25 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     trackRow.setOrientation(LinearLayout.HORIZONTAL);
                     trackRow.setGravity(Gravity.CENTER_VERTICAL);
                     trackRow.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(10),
-                            AndroidUtilities.dp(8),  AndroidUtilities.dp(10));
+                            AndroidUtilities.dp(8), AndroidUtilities.dp(10));
                     trackRow.setBackground(Theme.createSelectorDrawable(
                             androidx.core.graphics.ColorUtils.setAlphaComponent(
                                     Theme.getColor(Theme.key_listSelector), 60), 0));
 
-                    // Номер трека
                     TextView numberTxt = new TextView(context);
-                    numberTxt.setText(String.format("%02d", idx));
+                    numberTxt.setText(String.format("%02d", trackIndex++));
                     numberTxt.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-                    numberTxt.setTextColor(
-                            androidx.core.graphics.ColorUtils.setAlphaComponent(grayColor, 180));
+                    numberTxt.setTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(grayColor, 180));
                     numberTxt.setGravity(Gravity.CENTER);
                     numberTxt.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-                    trackRow.addView(numberTxt,
-                            LayoutHelper.createLinear(28, LayoutHelper.WRAP_CONTENT,
-                                    0, 0, 10, 0));
+                    trackRow.addView(numberTxt, LayoutHelper.createLinear(28, LayoutHelper.WRAP_CONTENT, 0, 0, 10, 0));
 
-                    // Обложка трека
                     BackupImageView trackCover = new BackupImageView(context);
                     trackCover.setRoundRadius(AndroidUtilities.dp(8));
-                    String useCover = !TextUtils.isEmpty(track.coverUrl)
-                            ? track.coverUrl : bannerUrl;
+                    String useCover = !TextUtils.isEmpty(track.coverUrl) ? track.coverUrl : bannerUrl;
                     trackCover.setImage(useCover, "60_60", null);
-                    trackRow.addView(trackCover,
-                            LayoutHelper.createLinear(48, 48, 0, 0, 12, 0));
+                    trackRow.addView(trackCover, LayoutHelper.createLinear(48, 48, 0, 0, 12, 0));
 
-                    // Текст (название + исполнитель)
                     LinearLayout textBlock = new LinearLayout(context);
                     textBlock.setOrientation(LinearLayout.VERTICAL);
                     textBlock.setGravity(Gravity.CENTER_VERTICAL);
@@ -4444,41 +4420,32 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     TextView artistTxt = new TextView(context);
                     artistTxt.setText(track.artist);
                     artistTxt.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-                    artistTxt.setTextColor(
-                            androidx.core.graphics.ColorUtils.setAlphaComponent(grayColor, 200));
+                    artistTxt.setTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(grayColor, 200));
                     artistTxt.setSingleLine(true);
                     artistTxt.setEllipsize(TextUtils.TruncateAt.END);
 
-                    textBlock.addView(titleTxt,
-                            LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,
-                                    LayoutHelper.WRAP_CONTENT));
-                    textBlock.addView(artistTxt,
-                            LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,
-                                    LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
-                    trackRow.addView(textBlock,
-                            LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+                    textBlock.addView(titleTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+                    textBlock.addView(artistTxt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
+                    trackRow.addView(textBlock, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
 
-                    // Кнопка «⋯»
                     ImageView optionsIcon = new ImageView(context);
-                    optionsIcon.setImageResource(
-                            org.telegram.messenger.R.drawable.ic_ab_other);
+                    optionsIcon.setImageResource(org.telegram.messenger.R.drawable.ic_ab_other);
                     optionsIcon.setColorFilter(
                             androidx.core.graphics.ColorUtils.setAlphaComponent(grayColor, 180),
                             PorterDuff.Mode.SRC_IN);
                     optionsIcon.setScaleType(ImageView.ScaleType.CENTER);
-                    optionsIcon.setBackground(Theme.createSelectorDrawable(
-                            Theme.getColor(Theme.key_listSelector), 1));
-                    trackRow.addView(optionsIcon,
-                            LayoutHelper.createLinear(40, 44));
+                    optionsIcon.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
+                    trackRow.addView(optionsIcon, LayoutHelper.createLinear(40, 44));
                     optionsIcon.setOnClickListener(v ->
                             showWebTrackOptionsBottomSheet(ArtistProfileFragment.this, track));
 
-                    trackCard.addView(trackRow,
-                            LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT,
-                                    LayoutHelper.WRAP_CONTENT));
+                    trackCard.addView(trackRow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
                     // Клик → воспроизведение
                     trackCard.setOnClickListener(v -> {
+                        // При запуске из профиля артиста (ArtistProfileFragment):
+                        AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_ARTIST;
+                        AudioPlayerAlert.currentSourceLabel = artistName;
                         applySpringClick(trackCard);
                         MediaController.getInstance().setPlaylist(
                                 new ArrayList<>(queue), fakeMsg,
@@ -4493,17 +4460,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT);
                     lp.setMargins(0, 0, 0, AndroidUtilities.dp(6));
                     tracksContainer.addView(trackCard, lp);
-
-                    // Вход-анимация: fade + slide up
-                    trackCard.setAlpha(0f);
-                    trackCard.setTranslationY(AndroidUtilities.dp(20));
-                    trackCard.animate()
-                            .alpha(1f)
-                            .translationY(0f)
-                            .setDuration(280)
-                            .setStartDelay((long)(idx - 1) * 35L)
-                            .setInterpolator(new OvershootInterpolator(1.2f))
-                            .start();
                 }
 
                 @Override
@@ -4515,51 +4471,85 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 @Override
                 public void onFailed() {
                     AndroidUtilities.runOnUIThread(() ->
-                            Toast.makeText(context, "Не удалось загрузить треки",
-                                    Toast.LENGTH_SHORT).show());
+                            Toast.makeText(context, "Не удалось загрузить треки", Toast.LENGTH_SHORT).show());
                 }
             };
 
-            // ── Логика выбора источника (без изменений) ─────────────────────
-            if (targetUrl == null || targetUrl.isEmpty()
-                    || targetUrl.startsWith("DEEZER_ARTIST:")) {
-                new Thread(() -> {
-                    try {
-                        String hitmoUrl = null;
-                        String[] queriesToTry = {
-                                artistName,
-                                MusicWebSearcher.transliteratePublic(artistName),
-                        };
-                        for (String q : queriesToTry) {
-                            String found = MusicWebSearcher.fetchHtml("https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q, "UTF-8"));
-                            if (found != null) { hitmoUrl = found; break; }
-                        }
-                        if (hitmoUrl != null) {
-                            final String finalUrl = hitmoUrl;
-                            AndroidUtilities.runOnUIThread(() ->
-                                    MusicWebSearcher.loadArtistProfile(finalUrl,
-                                            createFallbackCallback(callback, targetUrl, artistName)));
-                        } else {
-                            if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
-                                long id = Long.parseLong(
-                                        targetUrl.replace("DEEZER_ARTIST:", "").trim());
-                                MusicWebSearcher.loadArtistTracksDeezer(id, artistName, callback);
-                            } else {
-                                callback.onFailed();
-                            }
-                        }
-                    } catch (Exception e) {
-                        AndroidUtilities.runOnUIThread(callback::onFailed);
-                    }
-                }).start();
-            } else {
+            if (targetUrl != null && !targetUrl.isEmpty() && !targetUrl.startsWith("DEEZER_ARTIST:")) {
+                // Обычный Hitmos URL — грузим напрямую постранично
                 MusicWebSearcher.loadArtistProfile(targetUrl,
                         createFallbackCallback(callback, targetUrl, artistName));
+                return;
             }
+
+            // DEEZER_ARTIST: или пустой URL
+            // Шаг 1: ищем страницу артиста на Hitmos
+            new Thread(() -> {
+                try {
+                    long deezerArtistId = -1;
+                    if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
+                        try {
+                            deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
+                        } catch (NumberFormatException ignored) {}
+                    }
+
+                    String foundHitmosUrl = null;
+                    String[] queriesToTry = {
+                            artistName,
+                            MusicWebSearcher.transliteratePublic(artistName)
+                    };
+
+                    for (String q : queriesToTry) {
+                        if (q == null || q.isEmpty()) continue;
+                        try {
+                            String searchHtml = MusicWebSearcher.fetchHtml(
+                                    "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q, "UTF-8"));
+                            if (searchHtml == null || searchHtml.isEmpty()) continue;
+
+                            // ИСПРАВЛЕНИЕ: парсим HTML чтобы найти URL страницы артиста
+                            ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
+                            MusicWebSearcher.parseHtmlToResults(searchHtml,
+                                    new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
+
+                            // Точное совпадение по имени
+                            String lowerName = artistName.toLowerCase();
+                            for (MusicWebSearcher.WebArtist wa : foundArtists) {
+                                String waLower = wa.name.toLowerCase();
+                                if (waLower.equals(lowerName) || waLower.contains(lowerName)
+                                        || lowerName.contains(waLower)) {
+                                    foundHitmosUrl = wa.artistUrl;
+                                    break;
+                                }
+                            }
+                            // Частичное: первый попавшийся
+                            if (foundHitmosUrl == null && !foundArtists.isEmpty()) {
+                                foundHitmosUrl = foundArtists.get(0).artistUrl;
+                            }
+                            if (foundHitmosUrl != null) break;
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        }
+                    }
+
+                    if (foundHitmosUrl != null) {
+                        // Нашли страницу артиста — грузим постранично (много треков)
+                        final String finalUrl = foundHitmosUrl;
+                        AndroidUtilities.runOnUIThread(() ->
+                                MusicWebSearcher.loadArtistProfile(finalUrl,
+                                        createFallbackCallback(callback, targetUrl, artistName)));
+                    } else if (deezerArtistId > 0) {
+                        // Hitmos не нашёл — используем полную Deezer дискографию
+                        final long finalId = deezerArtistId;
+                        MusicWebSearcher.loadAllArtistTracksDeezer(finalId, artistName, callback);
+                    } else {
+                        AndroidUtilities.runOnUIThread(callback::onFailed);
+                    }
+                } catch (Exception e) {
+                    FileLog.e(e);
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                }
+            }).start();
         }
-
-
-
     }
 
     public class AlbumProfileFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
@@ -4633,6 +4623,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             deleteTrackFromChannel(savedMsg);
                             savedAlbumMessages.remove(savedMsg);
                             safeNotifyAdapter(savedAlbumsAdapter, null);
+                refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
                             finishFragment();
                             Toast.makeText(getParentActivity(), "Альбом удален", Toast.LENGTH_SHORT).show();
                         } else {
@@ -4675,6 +4666,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             listView.setPadding(0, 0, 0, AndroidUtilities.dp(70));
             listView.setClipToPadding(false);
             listView.setOnItemClickListener((view, position) -> {
+                // При запуске трека из альбома (AlbumProfileFragment.playStrictInPlaylist):
+                AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_ALBUM;
+                AudioPlayerAlert.currentSourceLabel = title; // поле title класса AlbumProfileFragment
                 if (adapter.getItemViewType(position) == 2) return;
                 if (position > 0 && position <= playlistMessages.size()) {
                     playStrictInPlaylist(playlistMessages.get(position - 1));
@@ -4689,7 +4683,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     miniPlayerView,
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                    accentColor, 22f,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
+                    22f,
                     () -> miniPlayerView.invalidate()
             );
             content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM));
@@ -4893,7 +4889,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     btnPanel.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_ALBUMS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_ALBUMS,
-                            accentColor, 28));
+                            SoundGramStyleSettingsFragment.KEY_COLOR_BG_ALBUMS,
+                            SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_ALBUMS,
+                            28f));
                     if (android.os.Build.VERSION.SDK_INT >= 21)
                         btnPanel.setElevation(AndroidUtilities.dp(8));
 
@@ -4918,6 +4916,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     if (android.os.Build.VERSION.SDK_INT >= 21)
                         playBtn.setElevation(AndroidUtilities.dp(4));
                     playBtn.setOnClickListener(v -> {
+                        // При запуске трека из альбома (AlbumProfileFragment.playStrictInPlaylist):
+                        AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_ALBUM;
+                        AudioPlayerAlert.currentSourceLabel = title; // поле title класса AlbumProfileFragment
                         applySpringClick(playBtn);
                         if (!playlistMessages.isEmpty())
                             playStrictInPlaylist(playlistMessages.get(0));
@@ -4935,13 +4936,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     waveBtn.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_ALBUMS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_ALBUMS,
-                            accentColor, 22));
+                            SoundGramStyleSettingsFragment.KEY_COLOR_BG_ALBUMS,
+                            SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_ALBUMS,
+                            22f));
                     waveBtn.setPadding(AndroidUtilities.dp(20), 0, AndroidUtilities.dp(20), 0);
                     if (android.os.Build.VERSION.SDK_INT >= 21)
                         waveBtn.setElevation(AndroidUtilities.dp(4));
 
                     // ── Логика волны для альбома (без изменений) ───────────
                     waveBtn.setOnClickListener(v -> {
+                        // При запуске волны (SmartRadioEngine.generateWaveFromSettings callback.onTracksFound):
+                        AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
+                        AudioPlayerAlert.currentSourceLabel = "";
                         applySpringClick(waveBtn);
                         Toast.makeText(mContext, "Генерация волны...", Toast.LENGTH_SHORT).show();
                         String aArtist = "";
@@ -4971,7 +4977,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                                     MediaController.getInstance().playMessage(tracks.get(0));
                                                 }
                                             }
-                                            @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {}
+                                            @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
+                                                MediaController.getInstance().addTracksToPlaylist(t);
+                                            }
                                             @Override public void onError() {
                                                 SmartRadioEngine.currentConfig.query = savedQ;
                                                 Toast.makeText(mContext, "Ошибка волны",
@@ -5049,7 +5057,9 @@ public static class ChipCell extends FrameLayout {
         public ChipCell(Context context) {
             super(context);
             // MATCH_PARENT по ширине, чтобы занимать всю колонку
-            setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    AndroidUtilities.dp(48)));
             setPadding(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
 
             textView = new TextView(context);
@@ -5223,10 +5233,197 @@ public static class ChipCell extends FrameLayout {
         applyChipState(chip, active, accent);
         return chip;
     }
+    private void applyWaveModeCardStyle(LinearLayout card, boolean active, int accentColor) {
+        GradientDrawable bg = new GradientDrawable();
+        if (active) {
+            bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{
+                            androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 160),
+                            androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF4A148C, 200)
+                    });
+            bg.setCornerRadius(AndroidUtilities.dp(20));
+            bg.setStroke(AndroidUtilities.dp(1),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 80));
+        } else {
+            int bgColor = Theme.getColor(Theme.key_dialogBackground);
+            bg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bgColor, 90));
+            bg.setCornerRadius(AndroidUtilities.dp(20));
+            bg.setStroke(AndroidUtilities.dp(1),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 30));
+        }
+        card.setBackground(bg);
+        if (Build.VERSION.SDK_INT >= 21)
+            card.setElevation(active ? AndroidUtilities.dp(8) : AndroidUtilities.dp(2));
+    }
+    private void showWaveGenreSheet(Context context, TextView updateTarget) {
+        // Строим BottomSheet вручную — без RecyclerView, без ChipsAdapter
+        BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity());
 
-    /**
-     * Применяет активное / неактивное состояние к чипу жанра.
-     */
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        {
+            int bg = Theme.getColor(Theme.key_dialogBackground);
+            GradientDrawable gd = new GradientDrawable();
+            gd.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bg, 245));
+            float r = AndroidUtilities.dp(28);
+            gd.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+            gd.setStroke(AndroidUtilities.dp(1),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 40));
+            container.setBackground(gd);
+        }
+        container.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(32));
+
+        // Drag handle
+        {
+            View h = new View(context);
+            GradientDrawable hBg = new GradientDrawable();
+            hBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 55));
+            hBg.setCornerRadius(AndroidUtilities.dp(3));
+            h.setBackground(hBg);
+            FrameLayout hw = new FrameLayout(context);
+            hw.addView(h, new FrameLayout.LayoutParams(
+                    AndroidUtilities.dp(40), AndroidUtilities.dp(4), Gravity.CENTER));
+            container.addView(hw, LayoutHelper.createLinear(
+                    LayoutHelper.MATCH_PARENT, 28, 0, 0, 0, 12));
+        }
+
+        // Заголовок
+        TextView title = new TextView(context);
+        title.setText("Жанр волны");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
+        title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        title.setGravity(Gravity.CENTER);
+        container.addView(title, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 20));
+
+        // ── Жанры в виде FlexWrap через несколько LinearLayout-строк ─────────
+        String[] genres = {
+                "Любой жанр", "Поп", "Хип-Хоп", "Рок", "Инди", "Фонк",
+                "Гиперпоп", "Пост-панк", "Эмо-рэп", "Металл", "Альтернатива",
+                "К-поп", "Джаз", "Блюз", "Классика", "Электроника", "Дабстеп",
+                "Синтвейв", "Ло-фай", "Эмбиент"
+        };
+
+        final String[] selectedGenre = {SmartRadioEngine.currentConfig.query};
+        final int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
+
+        // Скроллящийся контейнер с жанрами
+        ScrollView scroll = new ScrollView(context);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+        // WrapLayout — LinearLayout per row, строки добавляем сами
+        // Чипы по 3 в строке (просто GridLayout через LinearLayout)
+        LinearLayout grid = new LinearLayout(context);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        grid.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), AndroidUtilities.dp(8));
+
+        // Список всех чипов для обновления состояния
+        ArrayList<TextView> allChips = new ArrayList<>();
+
+        int cols = 3;
+        for (int row = 0; row < (genres.length + cols - 1) / cols; row++) {
+            LinearLayout rowLayout = new LinearLayout(context);
+            rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+            rowLayout.setGravity(Gravity.CENTER_VERTICAL);
+            rowLayout.setWeightSum(cols);
+
+            for (int col = 0; col < cols; col++) {
+                int idx = row * cols + col;
+                if (idx >= genres.length) {
+                    // Пустое место — заполнитель
+                    View spacer = new View(context);
+                    rowLayout.addView(spacer, LayoutHelper.createLinear(
+                            0, 40, 1f, 4, 4, 4, 4));
+                    continue;
+                }
+
+                String genre = genres[idx];
+                boolean isSelected = genre.equals(selectedGenre[0]);
+
+                TextView chip = new TextView(context);
+                chip.setText(genre);
+                chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+                chip.setGravity(Gravity.CENTER);
+                chip.setSingleLine(true);
+                chip.setEllipsize(TextUtils.TruncateAt.END);
+                chip.setPadding(AndroidUtilities.dp(4), AndroidUtilities.dp(10),
+                        AndroidUtilities.dp(4), AndroidUtilities.dp(10));
+                applyWaveChipStyle(chip, isSelected, accent);
+                allChips.add(chip);
+
+                chip.setOnClickListener(v -> {
+                    selectedGenre[0] = genre;
+                    SmartRadioEngine.currentConfig.query = genre;
+                    // Обновляем стиль всех чипов
+                    for (int i = 0; i < allChips.size(); i++) {
+                        applyWaveChipStyle(allChips.get(i), genres[i].equals(genre), accent);
+                    }
+                    // Обновляем текст кнопки
+                    if (updateTarget != null) {
+                        updateTarget.setText("✦  " + genre + "  ▾");
+                    }
+                });
+
+                rowLayout.addView(chip, LayoutHelper.createLinear(
+                        0, 40, 1f, 4, 4, 4, 4));
+            }
+            grid.addView(rowLayout, LayoutHelper.createLinear(
+                    LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        }
+
+        scroll.addView(grid, LayoutHelper.createScroll(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
+        container.addView(scroll, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, 320, 0, 0, 0, 16));
+
+        // Кнопка «Применить»
+        TextView applyBtn = new TextView(context);
+        applyBtn.setText("Применить");
+        applyBtn.setGravity(Gravity.CENTER);
+        applyBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        applyBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        applyBtn.setTextColor(0xFFFFFFFF);
+        {
+            GradientDrawable aBg = new GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    new int[]{0xFFCE93D8, 0xFF7B1FA2});
+            aBg.setCornerRadius(AndroidUtilities.dp(16));
+            applyBtn.setBackground(aBg);
+        }
+        applyBtn.setOnClickListener(v -> {
+            applySpringClick(v);
+            builder.getDismissRunnable().run();
+        });
+        container.addView(applyBtn, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, 52, 20, 0, 20, 0));
+
+        builder.setCustomView(container);
+        showDialog(builder.create());
+    }
+
+    // Стилизация одного чипа жанра
+    private void applyWaveChipStyle(TextView chip, boolean selected, int accent) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(AndroidUtilities.dp(10));
+        if (selected) {
+            bg.setColor(accent);
+            bg.setStroke(0, 0);
+            chip.setTextColor(0xFFFFFFFF);
+            chip.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        } else {
+            int bgColor = Theme.getColor(Theme.key_windowBackgroundGray);
+            bg.setColor(bgColor);
+            bg.setStroke(AndroidUtilities.dp(1),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(
+                            Theme.getColor(Theme.key_windowBackgroundWhiteGrayText), 80));
+            chip.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            chip.setTypeface(AndroidUtilities.getTypeface("fonts/rregular.ttf"));
+        }
+        chip.setBackground(bg);
+    }
+
     private void applyChipState(TextView chip, boolean active, int accent) {
         GradientDrawable bg = new GradientDrawable();
         if (active) {

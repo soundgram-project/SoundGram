@@ -134,7 +134,6 @@ public class SmartRadioEngine {
         });
     }
 
-    // В этом методе мы удаляем проверку if (!useNeuralNetwork), так как она теперь работает всегда
     private static ArrayList<String> verifyCandidatesWithNeuralNetwork(ArrayList<String> candidates, float[] targetVector, int requiredCount) {
         ArrayList<String> verified = new ArrayList<>();
         ArrayList<String> fallback = new ArrayList<>();
@@ -167,9 +166,7 @@ public class SmartRadioEngine {
         return verified;
     }
 
-
     public static void startNewWaveSession(int mode) {
-        // Принудительно глушим старую волну, если она была
         isWaveActive = false;
         isLoading = false;
 
@@ -177,16 +174,12 @@ public class SmartRadioEngine {
         basePlaylistContext.clear();
         lastGeneratedBatch.clear();
 
-        // Стартуем новую
         isWaveActive = true;
     }
-
 
     private static void handleError(WaveCallback callback, Exception e) {
         AndroidUtilities.runOnUIThread(() -> { isLoading = false; callback.onError(); });
     }
-
-
 
     private static void processAndReturnTracksOneByOne(ArrayList<String> queries, int account, boolean isInitial, WaveCallback callback) {
         if (queries.isEmpty()) {
@@ -250,7 +243,7 @@ public class SmartRadioEngine {
         if (data == null || data.length() == 0) return res;
         long id = data.getJSONObject(0).getLong("id");
 
-        // 1. Сначала пробуем радио
+        // 1. Радио артиста
         JSONArray radio = new JSONObject(performGetRequest("https://api.deezer.com/artist/" + id + "/radio")).optJSONArray("data");
         if (radio != null) {
             for (int i = 0; i < radio.length(); i++) {
@@ -262,7 +255,7 @@ public class SmartRadioEngine {
             }
         }
 
-        // 2. Если радио кончилось (или не вернуло достаточно), берем похожих артистов и их топ-треки
+        // 2. Похожие артисты и их топ-треки
         JSONArray related = new JSONObject(performGetRequest("https://api.deezer.com/artist/" + id + "/related?limit=5")).optJSONArray("data");
         if (related != null) {
             for (int i = 0; i < related.length(); i++) {
@@ -280,6 +273,64 @@ public class SmartRadioEngine {
             }
         }
         return res;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // НОВЫЙ метод: получаем треки конкретного альбома с Deezer (как "сид" для волны)
+    // ─────────────────────────────────────────────────────────────────────────
+    private static ArrayList<String> getTracksFromAlbum(String artistName, String albumName, int limit) throws Exception {
+        ArrayList<String> res = new ArrayList<>();
+        // Ищем альбом по артисту + названию
+        String query = URLEncoder.encode(artistName + " " + albumName, "UTF-8");
+        String resp = performGetRequest("https://api.deezer.com/search/album?q=" + query + "&limit=5");
+        if (resp.isEmpty()) return res;
+        JSONObject json = new JSONObject(resp);
+        if (!json.has("data")) return res;
+        JSONArray albums = json.getJSONArray("data");
+        if (albums.length() == 0) return res;
+
+        long albumId = albums.getJSONObject(0).getLong("id");
+
+        // Получаем все треки альбома
+        String tracksResp = performGetRequest("https://api.deezer.com/album/" + albumId + "/tracks?limit=50");
+        JSONArray tracks = new JSONObject(tracksResp).optJSONArray("data");
+        if (tracks == null) return res;
+
+        for (int i = 0; i < tracks.length(); i++) {
+            JSONObject t = tracks.getJSONObject(i);
+            String art = t.has("artist") ? t.getJSONObject("artist").getString("name") : artistName;
+            String tit = t.getString("title");
+            if (globalPlayHistory.add(art + tit)) res.add(art + " - " + tit);
+            if (res.size() >= limit) return res;
+        }
+        return res;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // НОВЫЙ метод: получаем жанры альбома с Deezer для более точного поиска
+    // ─────────────────────────────────────────────────────────────────────────
+    private static String getAlbumGenreQuery(String artistName, String albumName) throws Exception {
+        String query = URLEncoder.encode(artistName + " " + albumName, "UTF-8");
+        String resp = performGetRequest("https://api.deezer.com/search/album?q=" + query + "&limit=3");
+        if (resp.isEmpty()) return null;
+        JSONObject json = new JSONObject(resp);
+        if (!json.has("data") || json.getJSONArray("data").length() == 0) return null;
+
+        long albumId = json.getJSONArray("data").getJSONObject(0).getLong("id");
+
+        // Детали альбома содержат genres
+        String detailResp = performGetRequest("https://api.deezer.com/album/" + albumId);
+        if (detailResp.isEmpty()) return null;
+        JSONObject detail = new JSONObject(detailResp);
+
+        // Пробуем взять жанр
+        if (detail.has("genres")) {
+            JSONObject genresObj = detail.getJSONObject("genres");
+            if (genresObj.has("data") && genresObj.getJSONArray("data").length() > 0) {
+                return genresObj.getJSONArray("data").getJSONObject(0).getString("name");
+            }
+        }
+        return null;
     }
 
     public static void loadMoreForCurrentWave(MessageObject currentTrack, int currentAccount, WaveCallback callback) {
@@ -308,7 +359,6 @@ public class SmartRadioEngine {
                     }
                 }
 
-                // ИСПРАВЛЕНИЕ: Жёсткий фоллбэк, чтобы Волна не умирала
                 if (candidates.isEmpty()) {
                     candidates.addAll(getTracksFromDynamicPlaylists("Top Hits", 10, random.nextInt(500)));
                 }
@@ -322,7 +372,7 @@ public class SmartRadioEngine {
     public static void generateWaveByArtist(String artistName, int currentAccount, WaveCallback callback) {
         startNewWaveSession(2);
         currentConfig.query = artistName;
-        initNeuroRankerIfNeeded(); // ← был пропущен!
+        initNeuroRankerIfNeeded();
 
         backgroundExecutor.execute(() -> {
             try {
@@ -348,7 +398,7 @@ public class SmartRadioEngine {
                 ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(nextCandidates, seedVector, 25);
                 processAndReturnTracksOneByOne(verified, currentAccount, false, callback);
 
-                // 3. Пополнение — чтобы волна не умирала (запускаем ещё порцию через паузу)
+                // 3. Пополнение — чтобы волна не умирала
                 Thread.sleep(3000);
                 if (isWaveActive) {
                     ArrayList<String> moreCandidates = getDeepSimilarTracks(artistName, 30);
@@ -362,48 +412,133 @@ public class SmartRadioEngine {
         });
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // ПЕРЕПИСАННЫЙ generateWaveByAlbum — логика как у generateWaveByArtist,
+    // но использует треки альбома + жанры альбома для поиска похожего контента
+    // ─────────────────────────────────────────────────────────────────────────
     public static void generateWaveByAlbum(String artistName, String albumName,
                                            int currentAccount, WaveCallback callback) {
         startNewWaveSession(3);
-        initNeuroRankerIfNeeded(); // ← был пропущен!
+        initNeuroRankerIfNeeded();
 
         backgroundExecutor.execute(() -> {
             try {
-                String safeArtist = (artistName == null || artistName.isEmpty())
-                        ? "Unknown Artist" : artistName;
+                String safeArtist = (artistName == null || artistName.isEmpty()) ? "Unknown Artist" : artistName;
+                String safeAlbum  = (albumName  == null || albumName.isEmpty())  ? ""              : albumName;
                 currentConfig.query = safeArtist;
 
-                // 1. Быстрый старт
-                ArrayList<String> initialCandidates = getDeepSimilarTracks(safeArtist, 8);
-                if (initialCandidates.isEmpty())
+                // ── ШАГ 1: Быстрый старт ─────────────────────────────────────
+                // Приоритет: треки самого альбома → радио артиста → похожие → топ хиты
+                ArrayList<String> initialCandidates = new ArrayList<>();
+
+                // a) Реальные треки альбома (самый релевантный контент)
+                if (!safeAlbum.isEmpty()) {
+                    initialCandidates.addAll(getTracksFromAlbum(safeArtist, safeAlbum, 8));
+                }
+
+                // b) Если треков альбома не хватает — добираем радио артиста
+                if (initialCandidates.size() < 5) {
+                    ArrayList<String> artistTracks = getDeepSimilarTracks(safeArtist, 8 - initialCandidates.size());
+                    initialCandidates.addAll(artistTracks);
+                }
+
+                // c) Финальный фоллбэк
+                if (initialCandidates.isEmpty()) {
                     initialCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 8, 0);
-                if (initialCandidates.isEmpty())
+                }
+                if (initialCandidates.isEmpty()) {
                     initialCandidates = getTracksFromDynamicPlaylists("Top Hits", 8, 0);
+                }
 
                 processAndReturnTracksOneByOne(initialCandidates, currentAccount, true, callback);
 
-                // 2. Нейросеть
-                float[] seedVector = neuroRanker.getVectorForRemoteTrack(safeArtist, albumName);
-                if (seedVector == null) seedVector = neuroRanker.getGenreVector("Рок");
+                // ── ШАГ 2: Нейросеть-порция (по жанру альбома + треку-сиду) ─
+                // Пробуем получить жанр альбома для более точного вектора
+                String albumGenre = null;
+                try {
+                    if (!safeAlbum.isEmpty()) {
+                        albumGenre = getAlbumGenreQuery(safeArtist, safeAlbum);
+                    }
+                } catch (Exception ignored) {}
 
-                ArrayList<String> nextCandidates = getDeepSimilarTracks(safeArtist, 40);
-                if (nextCandidates.isEmpty())
-                    nextCandidates = getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 40, 0);
-                if (nextCandidates.isEmpty())
+                // Строим seed-вектор: сначала пробуем трек из альбома, потом артиста, потом жанр
+                float[] seedVector = null;
+
+                // Берём первый трек альбома как наиболее репрезентативный
+                ArrayList<String> albumTracksForSeed = new ArrayList<>();
+                if (!safeAlbum.isEmpty()) {
+                    try {
+                        albumTracksForSeed = getTracksFromAlbum(safeArtist, safeAlbum, 3);
+                    } catch (Exception ignored) {}
+                }
+
+                if (!albumTracksForSeed.isEmpty()) {
+                    String[] parts = albumTracksForSeed.get(0).split(" - ", 2);
+                    String seedArt = parts[0];
+                    String seedTit = parts.length > 1 ? parts[1] : "";
+                    seedVector = neuroRanker.getVectorForRemoteTrack(seedArt, seedTit);
+                }
+
+                if (seedVector == null) {
+                    seedVector = neuroRanker.getVectorForRemoteTrack(safeArtist, safeAlbum);
+                }
+                if (seedVector == null && albumGenre != null) {
+                    seedVector = neuroRanker.getGenreVector(albumGenre);
+                }
+                if (seedVector == null) {
+                    seedVector = neuroRanker.getGenreVector("Инди");
+                }
+
+                // Кандидаты: радио артиста + треки по жанру альбома
+                ArrayList<String> nextCandidates = new ArrayList<>();
+
+                // Радио артиста — самый релевантный источник
+                nextCandidates.addAll(getDeepSimilarTracks(safeArtist, 25));
+
+                // Плейлисты по жанру альбома (если знаем жанр)
+                if (albumGenre != null && nextCandidates.size() < 40) {
+                    nextCandidates.addAll(getTracksFromDynamicPlaylists(albumGenre, 20, random.nextInt(50)));
+                }
+
+                // Плейлисты по артисту
+                if (nextCandidates.size() < 30) {
+                    nextCandidates.addAll(getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 15, random.nextInt(30)));
+                }
+
+                // Фоллбэк
+                if (nextCandidates.isEmpty()) {
                     nextCandidates = getTracksFromDynamicPlaylists("Top Hits", 40, random.nextInt(200));
+                }
 
                 ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(nextCandidates, seedVector, 25);
                 processAndReturnTracksOneByOne(verified, currentAccount, false, callback);
 
-                // 3. Дополнение — не даём волне умереть
-                Thread.sleep(3000);
-                if (isWaveActive) {
-                    ArrayList<String> extra = getDeepSimilarTracks(safeArtist, 30);
-                    if (extra.isEmpty())
+                // ── ШАГ 3: Бесконечное пополнение — волна не умирает ────────
+                final float[] finalSeedVector = seedVector;
+                int refillRound = 0;
+                while (isWaveActive) {
+                    Thread.sleep(4000);
+                    if (!isWaveActive) break;
+
+                    ArrayList<String> extra = new ArrayList<>();
+
+                    // Чередуем: радио артиста и жанровые плейлисты
+                    if (refillRound % 2 == 0) {
+                        extra.addAll(getDeepSimilarTracks(safeArtist, 25));
+                    }
+                    if (albumGenre != null && extra.size() < 30) {
+                        extra.addAll(getTracksFromDynamicPlaylists(albumGenre, 15, random.nextInt(300)));
+                    }
+                    if (extra.size() < 15) {
+                        extra.addAll(getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 15, random.nextInt(200)));
+                    }
+                    if (extra.isEmpty()) {
                         extra = getTracksFromDynamicPlaylists("Top Hits", 30, random.nextInt(500));
-                    ArrayList<String> extraVer = verifyCandidatesWithNeuralNetwork(
-                            extra, seedVector, 20);
+                    }
+
+                    ArrayList<String> extraVer = verifyCandidatesWithNeuralNetwork(extra, finalSeedVector, 20);
                     processAndReturnTracksOneByOne(extraVer, currentAccount, false, callback);
+                    refillRound++;
                 }
             } catch (Exception e) { handleError(callback, e); }
         });
@@ -492,7 +627,6 @@ public class SmartRadioEngine {
 
                 ByteBuffer buf = ByteBuffer.allocate(8192);
                 ArrayList<Float> pcmData = new ArrayList<>();
-                // УСКОРЕНИЕ: ЧИТАЕМ ВСЕГО 3 СЕКУНДЫ ВМЕСТО 10
                 while (extractor.readSampleData(buf, 0) >= 0 && pcmData.size() < 16000 * 3) {
                     buf.rewind();
                     while (buf.hasRemaining()) pcmData.add(buf.getShort() / 32768.0f);

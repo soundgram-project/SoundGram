@@ -1,5 +1,13 @@
 package org.telegram.ui;
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SoundGramStyleManager.java — обновлён для новой логики цветов (Задача 1)
+//
+// Новые методы:
+//   buildGlassDrawable() теперь читает кастомные цвета из prefs
+//   dispatchStyleChanged() вызывается при любом изменении
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.drawable.GradientDrawable;
@@ -10,111 +18,101 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.ui.ActionBar.Theme;
 
-/**
- * SoundGramStyleManager — центральный менеджер стиля жидкого стекла.
- *
- * Использование в MiniPlayer / других компонентах:
- *
- *   // 1. Подписаться на изменения (в onCreate / onAttach):
- *   SoundGramStyleManager.addStyleListener(myView, () -> applyGlassStyle());
- *
- *   // 2. Применить стиль:
- *   myCard.setBackground(
- *       SoundGramStyleManager.buildGlassDrawable(
- *           KEY_GLASS_MINI, KEY_ALPHA_MINI, accentColor, 18f));
- *
- *   // 3. Отписаться (в onDestroy / onDetach):
- *   SoundGramStyleManager.removeStyleListener(myView);
- */
 public class SoundGramStyleManager {
 
-    // ─── Интерфейс слушателя изменений стиля ─────────────────────────────────
-    public interface StyleListener {
-        void onStyleChanged();
-    }
+    // ─── Слушатели мгновенного обновления ─────────────────────────────────────
+    public interface StyleListener { void onStyleChanged(); }
 
-    // Хранилище слушателей: View → Listener (используем WeakHashMap чтобы не держать View в памяти)
     private static final java.util.WeakHashMap<View, StyleListener> sListeners =
             new java.util.WeakHashMap<>();
 
-    /** Подписывает view на изменения стиля */
-    public static void addStyleListener(View view, StyleListener listener) {
-        sListeners.put(view, listener);
-    }
+    public static void addStyleListener(View v, StyleListener l)  { sListeners.put(v, l); }
+    public static void removeStyleListener(View v)                 { sListeners.remove(v); }
 
-    /** Отписывает view от изменений стиля */
-    public static void removeStyleListener(View view) {
-        sListeners.remove(view);
-    }
-
-    /**
-     * Вызывается из SoundGramStyleSettingsFragment при любом изменении настройки.
-     * Мгновенно обновляет все зарегистрированные компоненты.
-     */
+    /** Вызывает onStyleChanged() у всех прикреплённых View немедленно */
     public static void dispatchStyleChanged() {
-        for (java.util.Map.Entry<View, StyleListener> entry : sListeners.entrySet()) {
-            View v = entry.getKey();
-            StyleListener l = entry.getValue();
-            if (v != null && l != null && v.isAttachedToWindow()) {
-                v.post(l::onStyleChanged);
-            }
+        for (java.util.Map.Entry<View, StyleListener> e : new java.util.ArrayList<>(sListeners.entrySet())) {
+            View v = e.getKey(); StyleListener l = e.getValue();
+            if (v != null && l != null && v.isAttachedToWindow()) v.post(l::onStyleChanged);
         }
     }
 
-    // ─── Построение GradientDrawable ─────────────────────────────────────────
+    // ─── Построение GradientDrawable ──────────────────────────────────────────
 
     /**
-     * Возвращает готовый GradientDrawable для жидкого стекла по настройкам.
+     * Строит drawable по ключам из SoundGramStyleSettingsFragment.
      *
-     * @param keySwitch  ключ boolean (включено / выключено)
-     * @param keyAlpha   ключ int 0..255 (прозрачность)
-     * @param accentColor цвет обводки
-     * @param cornerDp   радиус скругления в dp
+     * @param keySwitch      ключ boolean — обводка вкл/выкл
+     * @param keyAlpha       ключ int 0..255 — прозрачность подложки
+     * @param keyBgColor     ключ int — кастомный цвет подложки (-1 = тема TG)
+     * @param keyStrokeColor ключ int — кастомный цвет обводки (-1 = акцент TG)
+     * @param cornerDp       радиус скругления dp
      */
-    public static GradientDrawable buildGlassDrawable(String keySwitch, String keyAlpha,
-                                                      int accentColor, float cornerDp) {
-        SharedPreferences prefs = ApplicationLoader.applicationContext
+    public static GradientDrawable buildGlassDrawable(
+            String keySwitch,
+            String keyAlpha,
+            String keyBgColor,
+            String keyStrokeColor,
+            float  cornerDp) {
+
+        SharedPreferences p = ApplicationLoader.applicationContext
                 .getSharedPreferences(SoundGramStyleSettingsFragment.PREFS_NAME, Context.MODE_PRIVATE);
 
-        boolean glassOn = prefs.getBoolean(keySwitch, true);
-        int alpha       = prefs.getInt(keyAlpha, 180);
+        boolean strokeOn = p.getBoolean(keySwitch, true);
+        int alpha        = p.getInt(keyAlpha, 180);
 
-        int bgColor = Theme.getColor(Theme.key_dialogBackground);
-        float radius = AndroidUtilities.dp(cornerDp);
+        int bgColor = p.getInt(keyBgColor, -1);
+        if (bgColor == -1) bgColor = Theme.getColor(Theme.key_dialogBackground);
+
+        int strokeColor = p.getInt(keyStrokeColor, -1);
+        if (strokeColor == -1) strokeColor = Theme.getColor(Theme.key_featuredStickers_addButton);
 
         GradientDrawable gd = new GradientDrawable();
-        if (glassOn) {
-            gd.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bgColor, alpha));
-            gd.setCornerRadius(radius);
+        gd.setCornerRadius(AndroidUtilities.dp(cornerDp));
+        gd.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bgColor, alpha));
+        if (strokeOn) {
             gd.setStroke(AndroidUtilities.dp(1),
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 90));
-        } else {
-            gd.setColor(bgColor);
-            gd.setCornerRadius(radius);
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(strokeColor, 180));
         }
         return gd;
     }
 
     /**
-     * Удобный метод: сразу применяет стиль к View и подписывает её на обновления.
-     *
-     * Пример:
-     *   SoundGramStyleManager.applyGlass(
-     *       miniPlayerCard,
-     *       KEY_GLASS_MINI, KEY_ALPHA_MINI,
-     *       accentColor, 22f,
-     *       () -> { // доп. логика после обновления стиля, например invalidate() }
-     *   );
+     * Обратная совместимость: старый сигнатур (без кастомных цветов).
+     * Используется в местах где ещё нет пар ключей цветов.
+     * Цвета берутся из темы TG.
      */
+    public static GradientDrawable buildGlassDrawable(
+            String keySwitch, String keyAlpha, int accentColor, float cornerDp) {
+
+        SharedPreferences p = ApplicationLoader.applicationContext
+                .getSharedPreferences(SoundGramStyleSettingsFragment.PREFS_NAME, Context.MODE_PRIVATE);
+
+        boolean strokeOn = p.getBoolean(keySwitch, true);
+        int alpha        = p.getInt(keyAlpha, 180);
+        int bgColor      = Theme.getColor(Theme.key_dialogBackground);
+
+        GradientDrawable gd = new GradientDrawable();
+        gd.setCornerRadius(AndroidUtilities.dp(cornerDp));
+        gd.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bgColor, alpha));
+        if (strokeOn) {
+            gd.setStroke(AndroidUtilities.dp(1),
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 180));
+        }
+        return gd;
+    }
+
     public static void applyGlass(View view,
                                   String keySwitch, String keyAlpha,
-                                  int accentColor, float cornerDp,
-                                  Runnable afterApply) {
-        Runnable applyFn = () -> {
-            view.setBackground(buildGlassDrawable(keySwitch, keyAlpha, accentColor, cornerDp));
+                                  String keyBgColor, String keyStrokeColor,
+                                  float cornerDp, Runnable afterApply) {
+        Runnable fn = () -> {
+            view.setBackground(buildGlassDrawable(
+                    keySwitch, keyAlpha, keyBgColor, keyStrokeColor, cornerDp));
             if (afterApply != null) afterApply.run();
         };
-        applyFn.run(); // Применить немедленно
-        addStyleListener(view, applyFn::run); // Подписать на будущие изменения
+        fn.run();
+        addStyleListener(view, fn::run);
     }
+
 }

@@ -40,7 +40,9 @@ public class SoundGramEQAlert extends BottomSheet {
         container.setBackground(SoundGramStyleManager.buildGlassDrawable(
                 SoundGramStyleSettingsFragment.KEY_GLASS_EQ,
                 SoundGramStyleSettingsFragment.KEY_ALPHA_EQ,
-                Theme.getColor(Theme.key_featuredStickers_addButton), 24));
+                SoundGramStyleSettingsFragment.KEY_COLOR_BG_EQ,
+                SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_EQ,
+                24f));
         if (android.os.Build.VERSION.SDK_INT >= 21) {
             container.setElevation(AndroidUtilities.dp(8));
         }
@@ -106,7 +108,9 @@ public class SoundGramEQAlert extends BottomSheet {
             eqCard.setBackground(SoundGramStyleManager.buildGlassDrawable(
                     SoundGramStyleSettingsFragment.KEY_GLASS_EQ,
                     SoundGramStyleSettingsFragment.KEY_ALPHA_EQ,
-                    Theme.getColor(Theme.key_featuredStickers_addButton), 18));
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_EQ,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_EQ,
+                    18f));
             eqCard.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(12),
                     AndroidUtilities.dp(12), AndroidUtilities.dp(12));
 
@@ -256,7 +260,9 @@ public class SoundGramEQAlert extends BottomSheet {
         card.setBackground(SoundGramStyleManager.buildGlassDrawable(
                 SoundGramStyleSettingsFragment.KEY_GLASS_EQ,
                 SoundGramStyleSettingsFragment.KEY_ALPHA_EQ,
-                Theme.getColor(Theme.key_featuredStickers_addButton), 16));
+                SoundGramStyleSettingsFragment.KEY_COLOR_BG_EQ,
+                SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_EQ,
+                16f));
         card.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12),
                 AndroidUtilities.dp(14), AndroidUtilities.dp(12));
 
