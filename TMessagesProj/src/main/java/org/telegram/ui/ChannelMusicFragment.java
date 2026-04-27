@@ -223,12 +223,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     public int countBeforeUpload = 0;
     public boolean isWaitingForUpload = false;
+    private int pollAttempts = 0;
+    private static final int MAX_POLL_ATTEMPTS = 10; // максимум 10 попыток × 2сек = 20сек таймаут
     public final Runnable pollMessagesRunnable = new Runnable() {
         @Override
         public void run() {
             if (!isWaitingForUpload) return;
-            if (audioMessages.size() + savedAlbumMessages.size() > countBeforeUpload) {
+            pollAttempts++;
+            // Останавливаемся если трек появился ИЛИ вышел таймаут
+            if (audioMessages.size() + savedAlbumMessages.size() > countBeforeUpload
+                    || pollAttempts >= MAX_POLL_ATTEMPTS) {
                 isWaitingForUpload = false;
+                pollAttempts = 0;
                 return;
             }
             loadMusicFromChannel();
@@ -245,6 +251,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
         isWaitingForUpload = true;
+        pollAttempts = 0;
         AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
     }
 
@@ -336,36 +343,30 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         GradientDrawable bgDraw = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF3D1078, 255),
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF1A0533, 255),
-                        Theme.getColor(Theme.key_windowBackgroundWhite)
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF2A0060, 255),
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF0D0020, 255),
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF000010, 255),
                 });
         bgGrad.setBackground(bgDraw);
         root.addView(bgGrad, LayoutHelper.createFrame(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        // ── Центральный FrameLayout (шар + кнопка запуска) ───────────────────
-        FrameLayout centerFrame = new FrameLayout(context);
-
-        // Шар WaveAnimatedWidget — строго квадратный контейнер
-        // ВАЖНО: задаём размер через LayoutParams, не через саму view,
-        //        тогда свечение не выходит за квадрат
+        // ── WaveAnimatedWidget на весь экран — свечение и частицы не обрезаются
         waveWidget = new WaveAnimatedWidget(context);
-        waveWidget.setLayerType(View.LAYER_TYPE_HARDWARE, null); // убираем квадратный клип
-        FrameLayout.LayoutParams wlp = new FrameLayout.LayoutParams(
-                AndroidUtilities.dp(220), AndroidUtilities.dp(220), Gravity.CENTER);
-        centerFrame.addView(waveWidget, wlp);
+        // Занимаем весь экран чтобы свечение и кольца не обрезались
+        root.addView(waveWidget, LayoutHelper.createFrame(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        // Кнопка запуска поверх шара (полупрозрачная)
+        // ── Кнопка Play поверх шара — по центру экрана ───────────────────────
         ImageView playBtn = new ImageView(context);
         playBtn.setImageResource(R.drawable.ic_play);
         playBtn.setScaleType(ImageView.ScaleType.CENTER);
         playBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
         {
             GradientDrawable pBg = new GradientDrawable();
-            pBg.setColor(0x44000000);
+            pBg.setColor(0x55000000);
             pBg.setShape(GradientDrawable.OVAL);
-            pBg.setStroke(AndroidUtilities.dp(2), 0x80FFFFFF);
+            pBg.setStroke(AndroidUtilities.dp(2), 0xAAFFFFFF);
             playBtn.setBackground(pBg);
         }
         playBtn.setOnClickListener(v -> {
@@ -387,12 +388,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
             });
         });
-        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(
-                AndroidUtilities.dp(64), AndroidUtilities.dp(64), Gravity.CENTER);
-        centerFrame.addView(playBtn, plp);
-
-        root.addView(centerFrame, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // Кнопка чуть выше центра — чтобы совпадала с центром шара (размер уменьшен для горизонтального ряда)
 
         // ── Кнопка «Жанр ▾» — снизу по центру ───────────────────────────────
         TextView genreDropBtn = new TextView(context);
@@ -403,10 +399,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         genreDropBtn.setText("✦  " + SmartRadioEngine.currentConfig.query + "  ▾");
         {
             GradientDrawable gBg = new GradientDrawable();
-            gBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF000000, 100));
+            gBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF000000, 120));
             gBg.setCornerRadius(AndroidUtilities.dp(24));
             gBg.setStroke(AndroidUtilities.dp(1),
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 80));
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 90));
             genreDropBtn.setBackground(gBg);
         }
         genreDropBtn.setPadding(
@@ -417,10 +413,21 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             showWaveGenreSheet(context, genreDropBtn);
         });
 
-        root.addView(genreDropBtn, LayoutHelper.createFrame(
+        // ── Горизонтальный ряд: [▶] [Жанр ▾] — оба отцентрированы снизу ──────
+        LinearLayout bottomRow = new LinearLayout(context);
+        bottomRow.setOrientation(LinearLayout.HORIZONTAL);
+        bottomRow.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams playLp = new LinearLayout.LayoutParams(
+                AndroidUtilities.dp(52), AndroidUtilities.dp(52));
+        playLp.rightMargin = AndroidUtilities.dp(12);
+        bottomRow.addView(playBtn, playLp);
+        bottomRow.addView(genreDropBtn, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        root.addView(bottomRow, LayoutHelper.createFrame(
                 LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL,
-                0, 0, 0, 148)); // 64dp миниплеер + 84dp отступ
+                0, 0, 0, 168)); // поднято выше — 64dp миниплеер + 104dp отступ
 
         return root;
     }
@@ -1138,7 +1145,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             return msgObj;
         }
 
-        // Файла нет — ставим URL для стриминга (требует сети)
+        // Файла нет — сохраняем исходный URL; финальный редирект резолвится асинхронно при воспроизведении
         msgObj.messageOwner.attachPath = url;
         return msgObj;
     }
@@ -1200,9 +1207,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     msg.messageOwner.attachPath = targetFile.getAbsolutePath();
                     FileLog.d("SoundGram: downloaded OK → " + targetFile.getName());
                 } else {
-                    // Оставляем URL, воспроизведение будет стриминговым (если есть сеть)
-                    msg.messageOwner.attachPath = downloadUrl;
-                    FileLog.d("SoundGram: download failed, will stream: " + downloadUrl);
+                    // Оставляем URL — резолвим зеркало и стримим
+                    msg.messageOwner.attachPath = MusicWebSearcher.resolveRedirectUrl(downloadUrl);
+                    FileLog.d("SoundGram: download failed, streaming resolved url: " + downloadUrl);
                 }
 
                 try { Thread.sleep(300); } catch (InterruptedException ignored) {}
@@ -1255,8 +1262,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         }).start();
 
-        countBeforeUpload = audioMessages.size();
+        countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
         isWaitingForUpload = true;
+        pollAttempts = 0;
         AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
     }
     public static void setAudioCover(BackupImageView coverImage, MessageObject msg, String filter, int radius) {
@@ -2103,8 +2111,31 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             }
                             return;
                         } else {
-                            // Есть сеть — стримим по URL
-                            track.messageOwner.attachPath = streamUrl;
+                            // Есть сеть — резолвим финальный URL зеркала асинхронно и стримим
+                            final MessageObject finalTrack = track;
+                            final ArrayList<MessageObject> finalQueue = queue;
+                            final long finalContextId = contextId;
+                            final String originalUrl = streamUrl;
+                            new Thread(() -> {
+                                String resolved = originalUrl;
+                                try {
+                                    // Первая попытка — через MusicWebSearcher (поддерживает VPN-прокси)
+                                    resolved = MusicWebSearcher.resolveRedirectUrl(originalUrl);
+                                } catch (Exception e1) {
+                                    FileLog.e("resolveRedirectUrl failed, using original: " + e1);
+                                }
+                                // Если resolve вернул пустую строку — фолбек на оригинальный URL
+                                if (resolved == null || resolved.isEmpty()) resolved = originalUrl;
+                                final String finalResolved = resolved;
+                                AndroidUtilities.runOnUIThread(() -> {
+                                    finalTrack.messageOwner.attachPath = finalResolved;
+                                    for (MessageObject m : finalQueue) { m.audioProgress = 0.0f; m.audioProgressSec = 0; }
+                                    mediaController.setPlaylist(new ArrayList<>(finalQueue), finalTrack, finalContextId);
+                                    mediaController.seekToProgress(finalTrack, 0);
+                                    mediaController.playMessage(finalTrack);
+                                });
+                            }).start();
+                            return; // выходим — плеер запустится из потока выше
                         }
                     }
                 }
@@ -3326,6 +3357,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private void showWebTrackOptionsBottomSheet(BaseFragment fragment, MusicWebSearcher.WebTrack track) {
         Context context = fragment.getParentActivity();
         if (context == null) return;
+        final BottomSheet[] dialogRef = {null};
         BottomSheet.Builder builder = new BottomSheet.Builder(context);
 
         LinearLayout container = new LinearLayout(context);
@@ -3388,12 +3420,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         container.addView(divider, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 0, 0, 0, 4));
 
         container.addView(createGlassMenuOption(context, getString(R.string.addlb), R.drawable.msg_add, () -> {
-            builder.getDismissRunnable().run();
+            if (dialogRef[0] != null) dialogRef[0].dismiss();
             saveWebTrackToLibrary(track);
         }));
 
         builder.setCustomView(container);
-        fragment.showDialog(builder.create());
+        BottomSheet dialog = builder.create();
+        dialogRef[0] = dialog;
+        fragment.showDialog(dialog);
     }
 
     public void showSelectPlaylistBottomSheet(@NonNull BaseFragment fragment, MessageObject msg) {

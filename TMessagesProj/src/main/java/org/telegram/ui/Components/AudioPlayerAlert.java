@@ -337,42 +337,54 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private void showPlayerOptionsMenu() {
         if (getContext() == null) return;
 
-        BottomSheet.Builder builder = new BottomSheet.Builder(getContext());
+        final BottomSheet[] menuDialogRef = {null};
 
+        // Внешний контейнер с тёмным стеклянным фоном (как на скрине)
         LinearLayout container = new LinearLayout(getContext());
         container.setOrientation(LinearLayout.VERTICAL);
         {
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(0xFF1C1C1E);
-            float r = AndroidUtilities.dp(20);
+            bg.setColor(0xE8252528); // очень тёмный, почти чёрный
+            float r = AndroidUtilities.dp(22);
             bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+            bg.setStroke(AndroidUtilities.dp(1), 0x22FFFFFF);
             container.setBackground(bg);
         }
-        container.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(24));
+        container.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(32));
 
         // Drag-handle
         View handle = new View(getContext());
         {
             GradientDrawable hBg = new GradientDrawable();
-            hBg.setColor(0xFF48484A);
-            hBg.setCornerRadius(AndroidUtilities.dp(2));
+            hBg.setColor(0x55FFFFFF);
+            hBg.setCornerRadius(AndroidUtilities.dp(3));
             handle.setBackground(hBg);
         }
         FrameLayout hw = new FrameLayout(getContext());
         hw.addView(handle, new FrameLayout.LayoutParams(
-                AndroidUtilities.dp(40), AndroidUtilities.dp(4), Gravity.CENTER));
+                AndroidUtilities.dp(36), AndroidUtilities.dp(4), Gravity.CENTER));
         container.addView(hw,
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 24, 0, 0, 0, 8));
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 20, 0, 4, 0, 12));
 
         MessageObject mo = MediaController.getInstance().getPlayingMessageObject();
 
+        // Карточка с пунктами меню — единый блок с закруглениями (как на скрине)
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(LinearLayout.VERTICAL);
+        {
+            GradientDrawable cardBg = new GradientDrawable();
+            cardBg.setColor(0xFF1C1C1F);
+            cardBg.setCornerRadius(AndroidUtilities.dp(14));
+            card.setBackground(cardBg);
+        }
+        card.setClipToOutline(true);
+
         // 1. Эквалайзер
-        container.addView(buildMenuRow(getContext(), "Эквалайзер", R.drawable.msg_customize, () -> {
-            builder.getDismissRunnable().run();
+        card.addView(buildMenuRow2(getContext(), "Эквалайзер", R.drawable.msg_customize, false, () -> {
+            if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
             if (parentActivity != null) new SoundGramEQAlert(parentActivity).show();
         }));
-
-        container.addView(buildMenuDivider(getContext()));
+        card.addView(buildMenuDivider2(getContext()));
 
         // 2. В библиотеку — только если трека ещё нет
         boolean inLib = false;
@@ -382,65 +394,62 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             }
         }
         if (!inLib) {
-            container.addView(buildMenuRow(getContext(), "В библиотеку", R.drawable.msg_download, () -> {
-                builder.getDismissRunnable().run();
+            card.addView(buildMenuRow2(getContext(), "В библиотеку", R.drawable.msg_download, false, () -> {
+                if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
                 onSubItemClick(5);
             }));
-            container.addView(buildMenuDivider(getContext()));
+            card.addView(buildMenuDivider2(getContext()));
         }
 
         // 3. Поделиться
-        container.addView(buildMenuRow(getContext(), "Поделиться", R.drawable.msg_shareout, () -> {
-            builder.getDismissRunnable().run();
+        card.addView(buildMenuRow2(getContext(), "Поделиться", R.drawable.msg_shareout, false, () -> {
+            if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
             onSubItemClick(1);
         }));
+        card.addView(buildMenuDivider2(getContext()));
 
-        container.addView(buildMenuDivider(getContext()));
-
-        // 4. Добавить в плейлист
-        container.addView(buildMenuRow(getContext(), "Добавить в плейлист", R.drawable.msg_add, () -> {
-            builder.getDismissRunnable().run();
+        // 4. Добавить в плейлист (последний — без разделителя после)
+        card.addView(buildMenuRow2(getContext(), "Добавить в плейлист", R.drawable.msg_add, true, () -> {
+            if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
             onSubItemClick(100);
         }));
 
+        container.addView(card, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        BottomSheet.Builder builder = new BottomSheet.Builder(getContext());
         builder.setCustomView(container);
-        showDialog(builder.create());
+        BottomSheet menuDialog = builder.create();
+        menuDialogRef[0] = menuDialog;
+        menuDialog.show();
     }
 
-    // Вспомогательные методы для строк меню
-    private View buildMenuRow(Context ctx, String title, int iconRes, Runnable onClick) {
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(20), AndroidUtilities.dp(16));
-        row.setBackground(Theme.createSelectorDrawable(0x18FFFFFF, 0));
+    /** Строка меню в новом стиле (без иконки слева, только текст, крупный) */
+    private View buildMenuRow2(Context ctx, String title, int iconRes, boolean isLast, Runnable onClick) {
+        FrameLayout row = new FrameLayout(ctx);
+        row.setMinimumHeight(AndroidUtilities.dp(58));
+        if (Build.VERSION.SDK_INT >= 21) {
+            row.setBackground(Theme.createSelectorDrawable(0x18FFFFFF, 0));
+        }
         row.setOnClickListener(v -> onClick.run());
-
-        ImageView icon = new ImageView(ctx);
-        icon.setImageResource(iconRes);
-        icon.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
-        icon.setScaleType(ImageView.ScaleType.CENTER);
-        row.addView(icon,
-                LayoutHelper.createLinear(24, 24, Gravity.CENTER_VERTICAL, 0, 0, 18, 0));
 
         TextView tv = new TextView(ctx);
         tv.setText(title);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
         tv.setTextColor(0xFFFFFFFF);
-        row.addView(tv,
-                LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        tv.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(tv, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                Gravity.CENTER_VERTICAL, 20, 0, 20, 0));
 
         return row;
     }
 
-    private View buildMenuDivider(Context ctx) {
+    private View buildMenuDivider2(Context ctx) {
         View v = new View(ctx);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(1));
+                LinearLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(0.5f));
         lp.setMargins(AndroidUtilities.dp(20), 0, AndroidUtilities.dp(20), 0);
         v.setLayoutParams(lp);
-        v.setBackgroundColor(0x18FFFFFF);
+        v.setBackgroundColor(0x30FFFFFF);
         return v;
     }
     public AudioPlayerAlert(final Context context, Theme.ResourcesProvider resourcesProvider) {
@@ -679,12 +688,11 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         if (Build.VERSION.SDK_INT >= 21) playerLayout.setElevation(AndroidUtilities.dp(12));
 
 
-        LinearLayout playerUiContainer = new LinearLayout(context);
-        playerUiContainer.setOrientation(LinearLayout.VERTICAL);
-        playerUiContainer.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        // playerUiContainer — FrameLayout, чтобы якорить элементы снизу вверх
+        // и вычислять оставшееся место для обложки динамически
+        FrameLayout playerUiContainer = new FrameLayout(context);
         int navBarPad = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
-        int statusBarH = AndroidUtilities.statusBarHeight > 0 ? AndroidUtilities.statusBarHeight : 0;
-        playerUiContainer.setPadding(0, statusBarH + AndroidUtilities.dp(12), 0, navBarPad + AndroidUtilities.dp(8));
+        int statusBarPad = AndroidUtilities.statusBarHeight > 0 ? AndroidUtilities.statusBarHeight : AndroidUtilities.dp(24);
         playerLayout.addView(playerUiContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP));
 
         coverContainer = new CoverContainer(context) {
@@ -697,6 +705,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         0, 0, 0, 0
                 });
                 base.setStroke(AndroidUtilities.dp(1), 0x33FFFFFF);
+
+                android.content.SharedPreferences stylePrefs = ApplicationLoader.applicationContext
+                        .getSharedPreferences(SoundGramStyleSettingsFragment.PREFS_NAME, android.content.Context.MODE_PRIVATE);
+                int playerAlpha = stylePrefs.getInt(SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER, 220);
 
                 if (imageReceiver != null) {
                     android.graphics.Bitmap b = imageReceiver.getBitmap();
@@ -712,22 +724,27 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                             int dark = androidx.core.graphics.ColorUtils.blendARGB(0xFF050508, avg, 0.35f);
                             int darker = androidx.core.graphics.ColorUtils.blendARGB(0xFF020205, avg, 0.20f);
                             base.setColors(new int[]{
-                                    androidx.core.graphics.ColorUtils.setAlphaComponent(dark,   220),
-                                    androidx.core.graphics.ColorUtils.setAlphaComponent(darker, 235)
+                                    androidx.core.graphics.ColorUtils.setAlphaComponent(dark,   playerAlpha),
+                                    androidx.core.graphics.ColorUtils.setAlphaComponent(darker, Math.min(255, playerAlpha + 15))
                             });
                             base.setGradientType(android.graphics.drawable.GradientDrawable.LINEAR_GRADIENT);
                         } catch (Exception e) {
-                            base.setColor(0xE0101018);
+                            base.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0x101018, playerAlpha));
                         }
                     } else {
-                        base.setColor(0xE0101018);
+                        base.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0x101018, playerAlpha));
                     }
                 } else {
-                    base.setColor(0xE0101018);
+                    base.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0x101018, playerAlpha));
                 }
                 playerLayout.setBackground(base);
             }
         };
+
+        // Слушаем изменения стиля — перерисовываем фон плеера при смене прозрачности
+        SoundGramStyleManager.addStyleListener(playerLayout, () -> {
+            if (coverContainer != null) coverContainer.invalidate();
+        });
 
         borderView = new View(context);
         {
@@ -800,23 +817,26 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             topOptionsBtn.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(20)));
         topOptionsBtn.setOnClickListener(v -> showPlayerOptionsMenu());
         playerTopBar.addView(topOptionsBtn,
-                LayoutHelper.createFrame(40, 40, Gravity.CENTER_VERTICAL | Gravity.RIGHT));
+                LayoutHelper.createFrame(40, 40, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 0, 0));
 
-        // topBar — первый элемент
+        // topBar — в самом верху плеера, минимальный отступ под статус-бар
+        int topBarTopMargin = statusBarPad > 0 ? (int)(statusBarPad / AndroidUtilities.density) + 4 : 8;
         playerUiContainer.addView(playerTopBar,
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44,
-                        Gravity.CENTER_HORIZONTAL, 20, 0, 20, 14));
+                LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 44,
+                        Gravity.TOP | Gravity.CENTER_HORIZONTAL,
+                        16, topBarTopMargin, 16, 0));
 
         // ── Обложка ───────────────────────────────────────────────────────────
         // Обложка — большая, занимает большую часть экрана, со скруглёнными углами
         int screenWidthDp = (int) (AndroidUtilities.displaySize.x / AndroidUtilities.density);
-        int coverSizeDp = Math.min(screenWidthDp - 48, 340); // почти на весь экран, отступ 24dp с каждой стороны
+        int coverSizeDp = Math.min(screenWidthDp - 32, 360); // крупнее — отступ 16dp с каждой стороны
         FrameLayout coverFrame = new FrameLayout(context);
         coverFrame.addView(coverContainer, LayoutHelper.createFrame(coverSizeDp, coverSizeDp, Gravity.CENTER));
         coverFrame.addView(borderView, LayoutHelper.createFrame(coverSizeDp, coverSizeDp, Gravity.CENTER));
-        playerUiContainer.addView(coverFrame, LayoutHelper.createLinear(
+        // coverFrame — центрируется, но смещён чуть вверх чтобы не наезжать на метаданные
+        playerUiContainer.addView(coverFrame, LayoutHelper.createFrame(
                 LayoutHelper.MATCH_PARENT, coverSizeDp + 8,
-                Gravity.CENTER_HORIZONTAL, 24, 0, 24, 0));
+                Gravity.CENTER, 16, 0, 16, 80)); // 80dp смещение вниз убирает наезд на текст
 
         // --- СОЗДАНИЕ КОНТЕЙНЕРА С ТЕКСТАМИ (ИСПРАВЛЕНО) ---
         lyricsContainer = new FrameLayout(context);
@@ -833,13 +853,16 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         lyricsListView.setItemAnimator(null);
         lyricsContainer.addView(lyricsListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         View lyricsTouchBlocker = new View(context) {
-            @Override public boolean onTouchEvent(MotionEvent event) { return true; } // Проглатываем все касания
+            @Override public boolean onTouchEvent(MotionEvent event) { return true; }
         };
         lyricsTouchBlocker.setBackgroundColor(Color.TRANSPARENT);
-        lyricsContainer.addView(lyricsTouchBlocker, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        // Кладем контейнер текстов поверх всего плеера с отступом снизу, чтобы не перекрыть кнопки
-        playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 0, 0, AndroidUtilities.dp(100)));
+        // Огородка закрывает ровно 5 нижних строк текста (~52dp на строку)
+        lyricsContainer.addView(lyricsTouchBlocker,
+                LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 260, Gravity.BOTTOM));
+        // Кладем контейнер текстов поверх всего плеера с отступом сверху (под топбар с кнопкой ···) и снизу (кнопки управления)
+        // topMargin = высота топбара (44dp) + отступ топбара сверху + размер кнопки (40dp) → итого topBarTopMargin + 44 + 4dp запас
+        int lyricsTopMargin = topBarTopMargin + 44 + 4;
+        playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, lyricsTopMargin, 0, AndroidUtilities.dp(100)));
 
         // ── Название + автор + кнопка лирики ─────────────────────────────────
         FrameLayout textAndButtonsContainer = new FrameLayout(context);
@@ -948,7 +971,33 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         // Текст занимает всё слева, кнопка лирики — справа (48dp)
         textAndButtonsContainer.addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 4, 0, 56, 0));
-        playerUiContainer.addView(textAndButtonsContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 20, 14, 20, 0));seekBarView = new SeekBarView(context, resourcesProvider) {
+
+        // Прозрачный блокировщик скролла поверх области текста.
+        // Появляется только когда текст виден. Блокирует свайп (чтобы список не листался),
+        // но пропускает клики — кнопки под ним нажимаются нормально через dispatchTouchEvent.
+        View metadataTouchBlocker = new View(context) {
+            @Override
+            public boolean onTouchEvent(MotionEvent event) {
+                // Поглощаем только MOVE чтобы не листался список, ACTION_UP/DOWN пропускаем вглубь
+                return event.getAction() == MotionEvent.ACTION_MOVE;
+            }
+        };
+        metadataTouchBlocker.setBackgroundColor(Color.TRANSPARENT);
+        // Высота = блок метаданных (~70dp) + отступ до топбара (~52dp)
+        textAndButtonsContainer.addView(metadataTouchBlocker,
+                LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT,
+                        Gravity.TOP, 0, 0, 0, 0));
+
+        // Название + автор + кнопка текста — якорим СНИЗУ, между обложкой и seekFrame
+        // seekFrame: bottomMargin = seekBottomMargin, height = 50dp
+        // Текстовый блок: высота ~70dp, gap 8dp над seekFrame
+        int textBottomMargin = 50 + 8 + (navBarPad > 0 ? (int)(navBarPad / AndroidUtilities.density) + 20 : 28) + 80 + 16;
+        playerUiContainer.addView(textAndButtonsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL,
+                20, 0, 20, textBottomMargin));
+
+        // Перемотка — с отступом под текстом
+        seekBarView = new SeekBarView(context, resourcesProvider) {
             @Override boolean onTouch(MotionEvent ev) { return rewindingState == 0 && super.onTouch(ev); }
         };
         seekBarView.setLineWidth(4);
@@ -1000,7 +1049,11 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         seekFrame.addView(progressView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 2, Gravity.TOP | Gravity.LEFT, 21, 20, 21, 0));
         seekFrame.addView(timeTextView, LayoutHelper.createFrame(100, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, 24, 25, 0, 0));
         seekFrame.addView(durationTextView, LayoutHelper.createFrame(100, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.RIGHT, 0, 25, 24, 0));
-        playerUiContainer.addView(seekFrame, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50, Gravity.CENTER_HORIZONTAL, 20, 12, 20, 8));
+        // seekFrame — якорим снизу, прямо над bottomControls (+16dp gap между ними)
+        int seekBottomMargin = 80 + 16 + (navBarPad > 0 ? (int)(navBarPad / AndroidUtilities.density) + 20 : 28);
+        playerUiContainer.addView(seekFrame, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 50,
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL,
+                20, 0, 20, seekBottomMargin));
 
         buttons = new View[7];
         final int iconColor = Theme.getColor(Theme.key_player_actionBarTitle);
@@ -1239,21 +1292,15 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         final ImageView loopOneBtn = new ImageView(context);
         loopOneBtn.setScaleType(ImageView.ScaleType.CENTER);
         loopOneBtn.setImageResource(R.drawable.player_new_repeatone);
-        loopOneBtn.setColorFilter(
-                SharedConfig.repeatMode == 2
-                        ? Theme.getColor(Theme.key_featuredStickers_addButton)
-                        : 0x80FFFFFF,
-                PorterDuff.Mode.SRC_IN);
+        // Всегда белый цвет — как у кнопок prev/next/play, не зависит от прозрачности фона
+        loopOneBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
+        loopOneBtn.setAlpha(SharedConfig.repeatMode == 2 ? 1.0f : 0.45f);
         if (Build.VERSION.SDK_INT >= 21)
             loopOneBtn.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
         loopOneBtn.setOnClickListener(v -> {
-            if (SharedConfig.repeatMode == 2) SharedConfig.setRepeatMode(0);
-            else SharedConfig.setRepeatMode(2);
-            loopOneBtn.setColorFilter(
-                    SharedConfig.repeatMode == 2
-                            ? Theme.getColor(Theme.key_featuredStickers_addButton)
-                            : 0x80FFFFFF,
-                    PorterDuff.Mode.SRC_IN);
+            boolean willBeActive = SharedConfig.repeatMode != 2;
+            SharedConfig.setRepeatMode(willBeActive ? 2 : 0);
+            loopOneBtn.setAlpha(willBeActive ? 1.0f : 0.45f);
         });
         bottomControls.addView(loopOneBtn,
                 LayoutHelper.createFrame(48, 48, Gravity.CENTER_VERTICAL | Gravity.LEFT, 8, 0, 0, 0));
@@ -1262,30 +1309,26 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         final ImageView shuffleBtn = new ImageView(context);
         shuffleBtn.setScaleType(ImageView.ScaleType.CENTER);
         shuffleBtn.setImageResource(R.drawable.player_new_shuffle);
-        shuffleBtn.setColorFilter(
-                SharedConfig.shuffleMusic
-                        ? Theme.getColor(Theme.key_featuredStickers_addButton)
-                        : 0x80FFFFFF,
-                PorterDuff.Mode.SRC_IN);
+        // Всегда белый цвет — как у кнопок prev/next/play, не зависит от прозрачности фона
+        shuffleBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
+        shuffleBtn.setAlpha(SharedConfig.shuffleMusic ? 1.0f : 0.45f);
         if (Build.VERSION.SDK_INT >= 21)
             shuffleBtn.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
         shuffleBtn.setOnClickListener(v -> {
-            MediaController.getInstance().setPlaybackOrderType(SharedConfig.shuffleMusic ? 0 : 2);
-            shuffleBtn.setColorFilter(
-                    SharedConfig.shuffleMusic
-                            ? Theme.getColor(Theme.key_featuredStickers_addButton)
-                            : 0x80FFFFFF,
-                    PorterDuff.Mode.SRC_IN);
+            boolean willBeActive = !SharedConfig.shuffleMusic;
+            MediaController.getInstance().setPlaybackOrderType(willBeActive ? 2 : 0);
+            shuffleBtn.setAlpha(willBeActive ? 1.0f : 0.45f);
         });
         bottomControls.addView(shuffleBtn,
                 LayoutHelper.createFrame(48, 48, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 8, 0));
 
-        // Кнопки repeat/shuffle — прижаты к низу экрана
+        // Кнопки play/prev/next — подняты выше от низа экрана
         int navBarH2 = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
+        int bottomControlsMarginDp = navBarH2 > 0 ? (int)(navBarH2 / AndroidUtilities.density) + 20 : 28;
         playerLayout.addView(bottomControls,
                 LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 80,
                         Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL,
-                        8, 0, 8, navBarH2 > 0 ? (int)(navBarH2 / AndroidUtilities.density) + 8 : 16));
+                        8, 0, 8, bottomControlsMarginDp));
 
 
         emptyView = new LinearLayout(context);

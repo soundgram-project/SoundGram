@@ -83,6 +83,23 @@ public class WaveAnimatedWidget extends View {
     // ─── Visualizer ───────────────────────────────────────────────────────────
     private Visualizer visualizer;
 
+    // ─── Кэш шейдеров (обновляем только при смене цвета/размера) ────────────────
+    private RadialGradient cachedOuterGrad;
+    private RadialGradient cachedInnerGrad;
+    private LinearGradient cachedBlobGrad;
+    private float lastOuterR  = -1f;
+    private float lastMidR    = -1f;
+    private int   lastCol1    = 0;
+    private int   lastCol2    = 0;
+    private int   lastCol3    = 0;
+    private float lastBlobR   = -1f;
+    private float lastCx      = -1f;
+    private float lastCy      = -1f;
+
+    // ─── Кэш для оптимизации onDraw (не создавать объекты каждый кадр) ─────────
+    private final float[] blobPx = new float[SPECTRUM_BANDS];
+    private final float[] blobPy = new float[SPECTRUM_BANDS];
+
     // ─── ValueAnimator для постоянного invalidate() ───────────────────────────
     private ValueAnimator ticker;
 
@@ -93,7 +110,9 @@ public class WaveAnimatedWidget extends View {
 
     public WaveAnimatedWidget(Context context) {
         super(context);
-        setLayerType(LAYER_TYPE_SOFTWARE, null); // нужен для BlurMaskFilter
+        // LAYER_TYPE_HARDWARE: BlurMaskFilter не используется в onDraw — HW-слой
+        // в разы быстрее SW-рендеринга и не грузит CPU на каждый кадр
+        setLayerType(LAYER_TYPE_HARDWARE, null);
         init();
     }
 
@@ -111,11 +130,11 @@ public class WaveAnimatedWidget extends View {
 
         particlePaint.setStyle(Paint.Style.FILL);
 
-        // Инициализируем кольца
+        // Инициализируем кольца — медленная пульсация
         for (int i = 0; i < RING_COUNT; i++) {
             ringRadius[i] = i * 0.3f; // разнесём по фазе
             ringAlpha[i]  = 1f - i * 0.3f;
-            ringSpeed[i]  = 0.6f + i * 0.25f;
+            ringSpeed[i]  = 0.25f + i * 0.12f; // замедлили вдвое
         }
     }
 
@@ -149,7 +168,7 @@ public class WaveAnimatedWidget extends View {
         for (int i = 0; i < SPECTRUM_BANDS; i++) {
             if (i < dataSize) {
                 float mag = (float) Math.hypot(fft[2 * i], fft[2 * i + 1]);
-                targetMagnitudes[i] = Math.min(mag * 1.1f, organismRadius * 0.28f);
+                targetMagnitudes[i] = Math.min(mag * 1.1f, organismRadius * 0.55f); // усилена деформация
                 if (i < 5) bassLevel += mag;
             } else {
                 targetMagnitudes[i] = 0f;
@@ -213,7 +232,8 @@ public class WaveAnimatedWidget extends View {
             // Цвет — разнообразная палитра: синий, фиолетовый, розовый, белый
             int h2 = 180 + rng.nextInt(180); // 180–360
             float sat = i % 7 == 0 ? 0.0f : (0.3f + rng.nextFloat() * 0.6f); // часть — белые
-            pColor[i] = Color.HSVToColor(new float[]{h2, sat, 1f});
+            hsvBuf[0] = h2; hsvBuf[1] = sat; hsvBuf[2] = 1f;
+            pColor[i] = Color.HSVToColor(hsvBuf);
         }
         particlesInit = true;
     }
@@ -226,16 +246,16 @@ public class WaveAnimatedWidget extends View {
         if (w == 0 || h == 0) return;
 
         float cx = w / 2f;
-        float cy = h / 2f;
-        float baseRadius = Math.min(w, h) * 0.38f; // увеличенный шар
+        float cy = h / 2f - h * 0.10f; // шар поднят на 10% высоты экрана вверх
+        float baseRadius = Math.min(w, h) * 0.30f; // крупный шар на полном экране
 
         if (!particlesInit) initParticles(cx, cy, baseRadius);
 
         // ── Шаг времени ───────────────────────────────────────────────────────
-        rotationAngle += 1.2f;
-        colorShift    += 0.0018f;
-        idleBreathing += 0.045f;
-        shimmerAngle  += 0.4f;
+        rotationAngle += 0.6f;   // замедлили вращение
+        colorShift    += 0.0010f; // замедлили смену цвета
+        idleBreathing += 0.018f;  // ОЧЕНЬ медленное «дыхание» — как в Spotify/Apple Music
+        shimmerAngle  += 0.25f;
 
         if (rotationAngle >= 360f) rotationAngle -= 360f;
         if (colorShift   >  1f)   colorShift    -= 1f;
@@ -249,20 +269,26 @@ public class WaveAnimatedWidget extends View {
             for (int i = 0; i < SPECTRUM_BANDS; i++) targetMagnitudes[i] = 0f;
         }
 
-        // Smart-fallback: если visualizer null, но музыка идёт
+        // Smart-fallback: если visualizer null, но музыка идёт — плавный случайный бас
         if ((visualizer == null) && isPlaying) {
-            targetBass = 8f + rng.nextFloat() * 10f;
+            // Не скачем каждый кадр — обновляем targetBass только иногда для плавности
+            if (rng.nextFloat() < 0.08f) { // обновляем ~каждые 12 кадров
+                targetBass = 6f + rng.nextFloat() * 10f;
+            }
             for (int i = 0; i < SPECTRUM_BANDS; i++) {
-                targetMagnitudes[i] = rng.nextFloat() * baseRadius * 0.12f;
+                if (rng.nextFloat() < 0.05f) { // редко обновляем магнитуды
+                    targetMagnitudes[i] = rng.nextFloat() * baseRadius * 0.18f;
+                }
             }
         }
 
-        // ── Интерполяция bass ─────────────────────────────────────────────────
-        float bassAlpha = targetBass > currentBass ? 0.38f : 0.08f;
+        // ── Интерполяция bass — плавная реакция на бас, как в Spotify/Apple Music ────
+        // Нарастает за ~4 кадра (0.22), спадает плавно за ~25 кадров (0.04)
+        float bassAlpha = targetBass > currentBass ? 0.22f : 0.04f;
         currentBass += (targetBass - currentBass) * bassAlpha;
-        if (currentBass > baseRadius * 0.22f) currentBass = baseRadius * 0.22f;
+        if (currentBass > baseRadius * 0.18f) currentBass = baseRadius * 0.18f; // ограничиваем max пульс
 
-        float breathingOffset = (float) Math.sin(idleBreathing) * (baseRadius * 0.06f);
+        float breathingOffset = (float) Math.sin(idleBreathing) * (baseRadius * 0.035f); // тихое дыхание
         this.organismRadius = baseRadius + currentBass + breathingOffset;
 
         // ── Цвета ─────────────────────────────────────────────────────────────
@@ -280,25 +306,35 @@ public class WaveAnimatedWidget extends View {
         // ── 1. Внешнее динамическое свечение (пульсирует с музыкой) ─────────
         float bassBoost = 1f + (currentBass / (baseRadius * 0.22f)) * 0.6f; // 1.0–1.6x от баса
         float outerR = organismRadius * (2.0f + 0.5f * bassBoost);
-        // Слой 1: самое внешнее — широкая аура
-        outerGlowPaint.setShader(new RadialGradient(cx, cy, outerR,
-                new int[]{
-                        Color.argb((int)(70 * bassBoost),  Color.red(col1), Color.green(col1), Color.blue(col1)),
-                        Color.argb((int)(35 * bassBoost),  Color.red(col2), Color.green(col2), Color.blue(col2)),
-                        Color.argb(12, Color.red(col3), Color.green(col3), Color.blue(col3)),
-                        Color.TRANSPARENT
-                },
-                new float[]{0f, 0.35f, 0.65f, 1f}, Shader.TileMode.CLAMP));
+        // Слой 1: самое внешнее — широкая аура (шейдер пересоздаётся только при смене цвета или размера)
+        if (cachedOuterGrad == null || Math.abs(outerR - lastOuterR) > 1f
+                || col1 != lastCol1 || col3 != lastCol3) {
+            cachedOuterGrad = new RadialGradient(cx, cy, outerR,
+                    new int[]{
+                            Color.argb((int)(70 * bassBoost),  Color.red(col1), Color.green(col1), Color.blue(col1)),
+                            Color.argb((int)(35 * bassBoost),  Color.red(col2), Color.green(col2), Color.blue(col2)),
+                            Color.argb(12, Color.red(col3), Color.green(col3), Color.blue(col3)),
+                            Color.TRANSPARENT
+                    },
+                    new float[]{0f, 0.35f, 0.65f, 1f}, Shader.TileMode.CLAMP);
+            lastOuterR = outerR;
+        }
+        outerGlowPaint.setShader(cachedOuterGrad);
         canvas.drawCircle(cx, cy, outerR, outerGlowPaint);
-        // Слой 2: средняя аура (смещённый цвет для хроматического эффекта)
+        // Слой 2: средняя аура
         float midR = organismRadius * (1.65f + 0.25f * bassBoost);
-        innerGlowPaint.setShader(new RadialGradient(cx, cy, midR,
-                new int[]{
-                        Color.argb((int)(160 * Math.min(1.2f, bassBoost)), Color.red(col1), Color.green(col1), Color.blue(col1)),
-                        Color.argb((int)(80  * bassBoost), Color.red(col3), Color.green(col3), Color.blue(col3)),
-                        Color.TRANSPARENT
-                },
-                new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        if (cachedInnerGrad == null || Math.abs(midR - lastMidR) > 1f
+                || col1 != lastCol1 || col3 != lastCol3) {
+            cachedInnerGrad = new RadialGradient(cx, cy, midR,
+                    new int[]{
+                            Color.argb((int)(160 * Math.min(1.2f, bassBoost)), Color.red(col1), Color.green(col1), Color.blue(col1)),
+                            Color.argb((int)(80  * bassBoost), Color.red(col3), Color.green(col3), Color.blue(col3)),
+                            Color.TRANSPARENT
+                    },
+                    new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP);
+            lastMidR = midR;
+        }
+        innerGlowPaint.setShader(cachedInnerGrad);
         canvas.drawCircle(cx, cy, midR, innerGlowPaint);
 
         // ── 2. Пульсирующие кольца ────────────────────────────────────────────
@@ -322,18 +358,26 @@ public class WaveAnimatedWidget extends View {
         }
 
         // ── 3. Blob-тело ──────────────────────────────────────────────────────
-        blobPaint.setShader(new LinearGradient(
-                cx - organismRadius, cy - organismRadius,
-                cx + organismRadius, cy + organismRadius,
-                new int[]{col1, col2, col3},
-                new float[]{0f, 0.5f, 1f},
-                Shader.TileMode.MIRROR));
+        if (cachedBlobGrad == null || Math.abs(organismRadius - lastBlobR) > 2f
+                || col1 != lastCol1 || col2 != lastCol2 || col3 != lastCol3
+                || Math.abs(cx - lastCx) > 1f || Math.abs(cy - lastCy) > 1f) {
+            cachedBlobGrad = new LinearGradient(
+                    cx - organismRadius, cy - organismRadius,
+                    cx + organismRadius, cy + organismRadius,
+                    new int[]{col1, col2, col3},
+                    new float[]{0f, 0.5f, 1f},
+                    Shader.TileMode.MIRROR);
+            lastBlobR = organismRadius;
+            lastCx = cx; lastCy = cy;
+            lastCol1 = col1; lastCol2 = col2; lastCol3 = col3;
+        }
+        blobPaint.setShader(cachedBlobGrad);
 
         // Интерполяция FFT-деформаций
         blobPath.reset();
         int pts = SPECTRUM_BANDS;
-        float[] px = new float[pts];
-        float[] py = new float[pts];
+        float[] px = blobPx; // переиспользуем pre-allocated массивы
+        float[] py = blobPy;
 
         for (int i = 0; i < pts; i++) {
             float tgt = targetMagnitudes[i];
@@ -341,8 +385,8 @@ public class WaveAnimatedWidget extends View {
             currentMagnitudes[i] = cur + (tgt - cur) * (tgt > cur ? 0.45f : 0.12f);
 
             // Дополнительная деформация от idle-дыхания (органичная форма)
-            float idleDeform = (float) Math.sin(idleBreathing * 0.7f + i * 0.4f) * baseRadius * 0.03f;
-            float surfaceDeform = currentMagnitudes[i] * 0.65f + idleDeform;
+            float idleDeform = (float) Math.sin(idleBreathing * 0.7f + i * 0.4f) * baseRadius * 0.05f;
+            float surfaceDeform = currentMagnitudes[i] * 1.4f + idleDeform; // усилена деформация от трека
             float r = this.organismRadius + surfaceDeform;
 
             float angle = (float)(i * 2 * Math.PI / pts) + (float) Math.toRadians(rotationAngle);
@@ -359,12 +403,12 @@ public class WaveAnimatedWidget extends View {
         canvas.drawPath(blobPath, blobPaint);
 
         // ── 4. Shimmer-блик (стеклянный отблеск) ─────────────────────────────
-        // Вращаем полупрозрачный белый эллипс поверх blob
         canvas.save();
         canvas.translate(cx, cy);
         canvas.rotate(shimmerAngle);
         float shimW = organismRadius * 0.55f;
         float shimH = organismRadius * 0.22f;
+        // shimmer не меняет цвет — пересоздаём только при изменении размера blob
         shimmerPaint.setShader(new LinearGradient(
                 -shimW, -shimH, shimW, shimH,
                 new int[]{Color.TRANSPARENT, Color.argb(55, 255, 255, 255), Color.TRANSPARENT},

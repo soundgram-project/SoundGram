@@ -245,18 +245,16 @@ public class MusicWebSearcher {
                                               java.util.function.Consumer<String> onResolved) {
         new Thread(() -> {
             try {
+                // Проверяем локальный файл
                 File destFile = org.telegram.ui.ChannelMusicFragment.getLocalTrackFile(artist, title);
                 if (destFile.exists() && destFile.length() > 1024) {
                     AndroidUtilities.runOnUIThread(() -> onResolved.accept(destFile.getAbsolutePath()));
                     return;
                 }
-                boolean ok = downloadTrackToExactFileSync(streamUrl, destFile);
-                if (ok) {
-                    AndroidUtilities.runOnUIThread(() -> onResolved.accept(destFile.getAbsolutePath()));
-                } else {
-                    // Не скачалось — всё равно передаём URL (ExoPlayer попробует сам)
-                    AndroidUtilities.runOnUIThread(() -> onResolved.accept(streamUrl));
-                }
+                // Файла нет — резолвим финальный URL зеркала (следуем редиректам) для стриминга
+                // ExoPlayer получит прямой URL без редиректов и сам откроет поток
+                String resolved = resolveRedirectUrl(streamUrl);
+                AndroidUtilities.runOnUIThread(() -> onResolved.accept(resolved));
             } catch (Exception e) {
                 FileLog.e(e);
                 AndroidUtilities.runOnUIThread(() -> onResolved.accept(streamUrl));
@@ -456,25 +454,268 @@ public class MusicWebSearcher {
             }
         }).start();
     }
+    /**
+     * Следует редиректам (с правильными заголовками) и возвращает финальный URL.
+     *
+     * Проблема: hitmos.me редиректит на разные зеркала в зависимости от того,
+     * включён ли VPN. ExoPlayer получает исходный URL и пытается открыть его
+     * напрямую — без нужных заголовков (Referer, User-Agent) и без понимания
+     * что нужно идти по редиректу на другой домен.
+     *
+     * Решение: мы сами делаем HEAD-запрос через системный прокси (который уже
+     * настроен VPN), проходим все редиректы и возвращаем ExoPlayer уже
+     * финальный прямой URL к аудио-файлу на зеркале.
+     *
+     * @param originalUrl исходный URL с hitmos.me
+     * @return финальный URL после редиректов, или исходный если резолв не удался
+     */
+    /**
+     * Резолвит финальный URL после всех редиректов.
+     *
+     * Ключевой момент: ExoPlayer НЕ умеет ходить через системный VPN-прокси,
+     * поэтому нам нужен финальный прямой URL к аудио-файлу.
+     * Стратегия:
+     *  1. Пробуем через системный прокси (VPN) — получаем итоговый URL
+     *  2. Если не получилось — пробуем напрямую без прокси
+     *  Возвращённый URL ExoPlayer откроет сам напрямую.
+     */
+    public static String resolveRedirectUrl(String originalUrl) {
+        if (originalUrl == null || originalUrl.isEmpty()) return originalUrl;
+        if (originalUrl.startsWith("/")) return originalUrl; // локальный файл
+
+        // Попытка 1: через системный прокси (VPN туннелирует трафик)
+        try {
+            String resolved = resolveRedirectInternal(originalUrl, false, 0);
+            if (resolved != null && !resolved.isEmpty()) {
+                FileLog.d("resolveRedirectUrl via proxy: " + originalUrl + " → " + resolved);
+                return resolved;
+            }
+        } catch (Exception e) {
+            FileLog.e("resolveRedirectUrl proxy attempt failed: " + e);
+        }
+
+        // Попытка 2: через прокси, но с trust-all SSL (VPN с перехватом TLS)
+        try {
+            String resolved = resolveRedirectInternal(originalUrl, true, 0);
+            if (resolved != null && !resolved.isEmpty()) {
+                FileLog.d("resolveRedirectUrl via proxy+trustAll: " + originalUrl + " → " + resolved);
+                return resolved;
+            }
+        } catch (Exception e) {
+            FileLog.e("resolveRedirectUrl proxy+trustAll failed: " + e);
+        }
+
+        // Попытка 3: напрямую без прокси (некоторые VPN блокируют прокси)
+        try {
+            String resolved = resolveRedirectDirect(originalUrl, true, 0);
+            if (resolved != null && !resolved.isEmpty()) {
+                FileLog.d("resolveRedirectUrl direct: " + originalUrl + " → " + resolved);
+                return resolved;
+            }
+        } catch (Exception e) {
+            FileLog.e("resolveRedirectUrl direct also failed: " + e);
+        }
+
+        // Все попытки провалились — отдаём оригинальный URL, пусть ExoPlayer сам попробует
+        return originalUrl;
+    }
+
+    private static String resolveRedirectDirect(String urlString, boolean trustAll, int depth) throws Exception {
+        if (depth > 10) return urlString;
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(java.net.Proxy.NO_PROXY);
+        if (conn instanceof javax.net.ssl.HttpsURLConnection) {
+            try {
+                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+                sc.init(null, new javax.net.ssl.TrustManager[]{
+                        new javax.net.ssl.X509TrustManager() {
+                            public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                        }
+                }, new java.security.SecureRandom());
+                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
+            } catch (Exception ignored) {}
+        }
+        try { conn.setRequestMethod("HEAD"); } catch (ProtocolException e) { conn.setRequestMethod("GET"); }
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
+        conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+        conn.setRequestProperty("Referer", "https://hitmos.me/");
+        conn.setInstanceFollowRedirects(false);
+        conn.setConnectTimeout(8000);
+        conn.setReadTimeout(8000);
+        int code = conn.getResponseCode();
+        if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+            String location = conn.getHeaderField("Location");
+            conn.disconnect();
+            if (location == null || location.isEmpty()) return urlString;
+            if (!location.startsWith("http")) location = new URL(url, location).toString();
+            return resolveRedirectDirect(location, trustAll, depth + 1);
+        }
+        conn.disconnect();
+        return urlString;
+    }
+
+    private static String resolveRedirectInternal(String urlString, boolean trustAll, int depth)
+            throws Exception {
+        if (depth > 10) return urlString; // защита от петель
+
+        URL url = new URL(urlString);
+
+        // Используем системный прокси — он уже настроен VPN
+        java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
+        java.util.List<java.net.Proxy> proxies = selector != null
+                ? selector.select(url.toURI()) : null;
+        java.net.Proxy proxy = (proxies != null && !proxies.isEmpty())
+                ? proxies.get(0) : java.net.Proxy.NO_PROXY;
+
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
+
+        if (trustAll && conn instanceof javax.net.ssl.HttpsURLConnection) {
+            try {
+                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+                sc.init(null, new javax.net.ssl.TrustManager[]{
+                        new javax.net.ssl.X509TrustManager() {
+                            public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                                return new java.security.cert.X509Certificate[0];
+                            }
+                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                        }
+                }, new java.security.SecureRandom());
+                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
+            } catch (Exception ignored) {}
+        }
+
+        try {
+            conn.setRequestMethod("HEAD"); // только заголовки — не качаем файл
+        } catch (ProtocolException ignored) {
+            conn.setRequestMethod("GET");
+        }
+        conn.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
+        conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+        conn.setRequestProperty("Referer", "https://hitmos.me/");
+        conn.setInstanceFollowRedirects(false); // вручную, чтобы ловить http→https
+        conn.setConnectTimeout(8000);
+        conn.setReadTimeout(8000);
+
+        try {
+            int code = conn.getResponseCode();
+
+            if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+                String location = conn.getHeaderField("Location");
+                conn.disconnect();
+                if (location == null || location.isEmpty()) return urlString;
+                // Относительный редирект → абсолютный
+                if (!location.startsWith("http")) {
+                    location = new URL(url, location).toString();
+                }
+                FileLog.d("resolveRedirectUrl: " + urlString + " → " + location);
+                return resolveRedirectInternal(location, trustAll, depth + 1);
+            }
+
+            conn.disconnect();
+            // Финальный URL — это тот, на котором получили 200/206
+            FileLog.d("resolveRedirectUrl: resolved → " + urlString + " (code=" + code + ")");
+            return urlString;
+
+        } catch (javax.net.ssl.SSLException e) {
+            conn.disconnect();
+            if (!trustAll) {
+                // VPN иногда ломает TLS — пробуем trust-all
+                return resolveRedirectInternal(urlString, true, depth);
+            }
+            throw e;
+        }
+    }
+
     public static String fetchHtml(String urlString) throws Exception {
         try {
             return fetchHtmlInternal(urlString, false);
-        } catch (javax.net.ssl.SSLException | java.net.SocketException e) {
-            // VPN может перехватывать SSL или обрывать соединение — пробуем trust-all
+        } catch (javax.net.ssl.SSLException e) {
+            // VPN ломает TLS — пробуем trust-all, затем напрямую
             try {
                 return fetchHtmlInternal(urlString, true);
             } catch (Exception e2) {
-                FileLog.e("fetchHtml trust-all also failed: " + e2);
-                throw e2;
+                try {
+                    return fetchHtmlDirect(urlString);
+                } catch (Exception e3) {
+                    FileLog.e("fetchHtml all attempts failed: " + e3);
+                    throw e2;
+                }
             }
-        } catch (java.net.UnknownHostException e) {
-            // DNS-блокировка при VPN — пробуем через прокси системы
+        } catch (java.net.SocketTimeoutException e) {
+            // Таймаут — пробуем напрямую без прокси
             try {
-                return fetchHtmlViaSystemProxy(urlString);
+                return fetchHtmlDirect(urlString);
             } catch (Exception e2) {
                 throw e;
             }
+        } catch (java.net.SocketException e) {
+            // ConnectException (подкласс SocketException) или обрыв соединения —
+            // пробуем сначала trust-all, потом напрямую без прокси
+            try {
+                return fetchHtmlInternal(urlString, true);
+            } catch (Exception e2) {
+                try {
+                    return fetchHtmlDirect(urlString);
+                } catch (Exception e3) {
+                    throw e;
+                }
+            }
+        } catch (java.net.UnknownHostException e) {
+            // DNS-блокировка при VPN — пробуем через системный прокси, затем напрямую
+            try {
+                return fetchHtmlViaSystemProxy(urlString);
+            } catch (Exception e2) {
+                try {
+                    return fetchHtmlDirect(urlString);
+                } catch (Exception e3) {
+                    throw e;
+                }
+            }
         }
+    }
+
+    /** Прямое соединение без прокси — fallback когда локальный VPN-прокси не работает */
+    private static String fetchHtmlDirect(String urlString) throws Exception {
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(java.net.Proxy.NO_PROXY);
+        // trust-all для случаев когда VPN ломает TLS
+        if (conn instanceof javax.net.ssl.HttpsURLConnection) {
+            try {
+                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+                sc.init(null, new javax.net.ssl.TrustManager[]{
+                        new javax.net.ssl.X509TrustManager() {
+                            public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                        }
+                }, new java.security.SecureRandom());
+                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
+            } catch (Exception ignored) {}
+        }
+        applyStandardHeaders(conn);
+        conn.setConnectTimeout(12000);
+        conn.setReadTimeout(12000);
+        conn.setInstanceFollowRedirects(true);
+        int code = conn.getResponseCode();
+        if (code == 200 || code == 201 || code == 202) {
+            java.io.InputStream raw = conn.getInputStream();
+            String encoding = conn.getContentEncoding();
+            java.io.InputStream is = "gzip".equalsIgnoreCase(encoding)
+                    ? new java.util.zip.GZIPInputStream(raw) : new BufferedInputStream(raw);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] b = new byte[8192]; int len;
+            while ((len = is.read(b)) != -1) bos.write(b, 0, len);
+            is.close();
+            return bos.toString("UTF-8");
+        }
+        return "";
     }
 
     /**
@@ -670,9 +911,68 @@ public class MusicWebSearcher {
             if (!trustAll) return downloadTrackInternal(fileUrl, destFile, true);
             FileLog.e("downloadTrack SSL failed: " + e);
             return false;
+        } catch (java.net.ConnectException | java.net.SocketTimeoutException e) {
+            if (conn != null) conn.disconnect();
+            // Локальный прокси VPN не отвечает — пробуем напрямую без прокси
+            FileLog.e("downloadTrack proxy connect failed, retrying direct: " + e);
+            return downloadTrackDirect(fileUrl, destFile);
         } catch (Exception e) {
             if (conn != null) conn.disconnect();
             FileLog.e("downloadTrack failed: " + e);
+            if (destFile.exists()) destFile.delete();
+            return false;
+        }
+    }
+
+    /** Скачивание напрямую без прокси — для работы при VPN с локальными прокси */
+    private static boolean downloadTrackDirect(String fileUrl, File destFile) {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(fileUrl);
+            conn = (HttpURLConnection) url.openConnection(java.net.Proxy.NO_PROXY);
+            if (conn instanceof javax.net.ssl.HttpsURLConnection) {
+                try {
+                    javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
+                    sc.init(null, new javax.net.ssl.TrustManager[]{
+                            new javax.net.ssl.X509TrustManager() {
+                                public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
+                                public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                                public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
+                            }
+                    }, new java.security.SecureRandom());
+                    ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
+                    ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
+                } catch (Exception ignored) {}
+            }
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
+            conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+            conn.setRequestProperty("Accept-Encoding", "identity");
+            conn.setRequestProperty("Referer", "https://hitmos.me/");
+            conn.setConnectTimeout(20000);
+            conn.setReadTimeout(60000);
+            conn.setInstanceFollowRedirects(true);
+            conn.connect();
+            int code = conn.getResponseCode();
+            if (code == 301 || code == 302 || code == 307 || code == 308) {
+                String location = conn.getHeaderField("Location");
+                conn.disconnect();
+                if (location != null && !location.isEmpty()) return downloadTrackDirect(location, destFile);
+                return false;
+            }
+            if (code != 200 && code != 206) { conn.disconnect(); return false; }
+            destFile.getParentFile().mkdirs();
+            if (destFile.exists()) destFile.delete();
+            java.io.InputStream is = new BufferedInputStream(conn.getInputStream());
+            FileOutputStream os = new FileOutputStream(destFile);
+            byte[] buffer = new byte[16384]; int count;
+            while ((count = is.read(buffer)) != -1) os.write(buffer, 0, count);
+            os.flush(); os.close(); is.close(); conn.disconnect();
+            if (destFile.length() < 1024) { destFile.delete(); return false; }
+            return true;
+        } catch (Exception e) {
+            if (conn != null) conn.disconnect();
+            FileLog.e("downloadTrackDirect failed: " + e);
             if (destFile.exists()) destFile.delete();
             return false;
         }

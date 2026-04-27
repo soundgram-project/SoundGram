@@ -2,6 +2,7 @@ package org.telegram.ui;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -275,28 +276,51 @@ public class SoundGramEQAlert extends BottomSheet {
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                         0, 0, 0, 10));
 
+        int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
+
+        // Обёртка — как barFrame у вертикальных полос
+        FrameLayout sliderFrame = new FrameLayout(context);
+
+        // Фоновая дорожка — точно как trackView у вертикальных (accent с alpha 35)
+        View trackView = new View(context);
+        android.graphics.drawable.GradientDrawable trackBg = new android.graphics.drawable.GradientDrawable();
+        trackBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 35));
+        trackBg.setCornerRadius(AndroidUtilities.dp(4));
+        trackView.setBackground(trackBg);
+        // Горизонтальная дорожка: высота 8dp, полная ширина, по центру
+        sliderFrame.addView(trackView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(8), Gravity.CENTER_VERTICAL));
+
         android.widget.SeekBar bar = new android.widget.SeekBar(context);
         bar.setMax(max);
         bar.setProgress(progress);
-        int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
+        // Делаем стандартный трек прозрачным — видна только наша дорожка
+        bar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
         bar.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            bar.setBackground(null);
+        }
+        // Thumb — точно как у вертикальных полос
         if (android.os.Build.VERSION.SDK_INT >= 21) {
             android.graphics.drawable.GradientDrawable thumbBg = new android.graphics.drawable.GradientDrawable();
             thumbBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
             thumbBg.setColor(accentColor);
-            thumbBg.setStroke(AndroidUtilities.dp(2), 0xCCFFFFFF);
+            thumbBg.setSize(AndroidUtilities.dp(20), AndroidUtilities.dp(20));
+            thumbBg.setStroke(AndroidUtilities.dp(3), 0xCCFFFFFF);
             bar.setThumb(thumbBg);
+            bar.setThumbOffset(AndroidUtilities.dp(10));
         }
         bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
-                if (fromUser) {
-                    callback.onChange(label, p);
-                }
+                if (fromUser) callback.onChange(label, p);
             }
             @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
             @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
         });
-        card.addView(bar,
+        sliderFrame.addView(bar, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER_VERTICAL));
+        card.addView(sliderFrame,
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         return card;
     }
