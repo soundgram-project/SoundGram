@@ -247,7 +247,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         if (targetId == 0) return;
         String text = "SG_ALBUM|||" + title + "|||" + url + "|||" + coverUrl;
         SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
-        Toast.makeText(getParentActivity(), "Альбом сохранен в библиотеку", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getParentActivity(), getString(R.string.sg_album_saved_to_library), Toast.LENGTH_SHORT).show();
 
         countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
         isWaitingForUpload = true;
@@ -377,7 +377,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                 @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                     if (!tracks.isEmpty()) {
-                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), 0);
+                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
                         MediaController.getInstance().playMessage(tracks.get(0));
                     }
                 }
@@ -494,7 +494,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         TextView waveTabBtn = createYmTab(context, getString(R.string.mywave));
         TextView libraryTabBtn = createYmTab(context, getString(R.string.lib));
-        TextView albumsTabBtn = createYmTab(context, "Альбомы");
+        TextView albumsTabBtn = createYmTab(context, getString(R.string.sg_albums_tab));
 
         // Изначально активна вкладка Библиотека
         applyTabActive(libraryTabBtn, accentColor);
@@ -707,7 +707,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
 
         TextView sheetTitle = new TextView(context);
-        sheetTitle.setText("Настройка волны");
+        sheetTitle.setText(getString(R.string.sg_wave_settings_title));
         sheetTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         sheetTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         sheetTitle.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
@@ -718,7 +718,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── Лейбл «ЖАНР» ─────────────────────────────────────────────────────
         TextView genreLabel = new TextView(context);
-        genreLabel.setText("ЖАНР");
+        genreLabel.setText(getString(R.string.sg_wave_genre_label));
         genreLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         genreLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         genreLabel.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
@@ -753,7 +753,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── Кнопка «Применить» — градиентный фиолетовый ─────────────────────
         TextView applyBtn = new TextView(context);
-        applyBtn.setText("Применить");
+        applyBtn.setText(getString(R.string.sg_wave_apply));
         applyBtn.setGravity(Gravity.CENTER);
         applyBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         applyBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -1220,19 +1220,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         // NULL-guards — краш именно отсюда при VPN (track может прийти незаполненным)
         if (track == null) return;
         if (TextUtils.isEmpty(track.downloadUrl)) {
-            Toast.makeText(getParentActivity(),
-                    "Трек ещё загружается, подождите", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT).show();
             return;
         }
         if (TextUtils.isEmpty(track.title) || track.title.equals("Unknown")) {
-            Toast.makeText(getParentActivity(),
-                    "Не удалось определить название трека", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getParentActivity(), getString(R.string.sg_track_title_unknown), Toast.LENGTH_SHORT).show();
             return;
         }
 
         long targetId = getTargetChannelId();
         if (targetId == 0) {
-            Toast.makeText(getParentActivity(), "Библиотека не найдена", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getParentActivity(), getString(R.string.sg_library_not_found), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1248,7 +1246,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         SendMessagesHelper.getInstance(currentAccount).sendMessage(
                 text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
-        Toast.makeText(getParentActivity(), "Добавлено в библиотеку", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getParentActivity(), getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT).show();
 
         // Скачиваем в фоне (VPN-safe через downloadTrackInternal с trust-all fallback)
         final String dlUrl    = track.downloadUrl;
@@ -1592,7 +1590,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (f.length() < 1024) continue; // битый/пустой файл
 
                 String rawName = f.getName().replace(".mp3", "");
-                String artist = "Неизвестен";
+                String artist = getString(R.string.sg_unknown_artist);
                 String title  = rawName;
                 int dashIdx = rawName.indexOf(" - ");
                 if (dashIdx > 0) {
@@ -2106,8 +2104,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         } else if (!org.telegram.messenger.ApplicationLoader.isNetworkOnline()) {
                             // Нет сети и нет файла
                             if (getParentActivity() != null) {
-                                Toast.makeText(getParentActivity(),
-                                        "Нет подключения. Трек не скачан.", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getParentActivity(), getString(R.string.sg_no_connection_track_not_downloaded), Toast.LENGTH_SHORT).show();
                             }
                             return;
                         } else {
@@ -2579,8 +2576,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         private void deletePlaylist() {
             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
             builder.setTitle(getString(R.string.AppName));
-            builder.setMessage("Вы уверены, что хотите удалить этот плейлист?");
-            builder.setPositiveButton("Удалить", (dialog, which) -> {
+            builder.setMessage(getString(R.string.sg_delete_playlist_confirm));
+            builder.setPositiveButton(getString(R.string.sg_delete_playlist), (dialog, which) -> {
                 if (playlistFile.delete()) {
                     File coverFile = new File(getPlaylistsDir(), currentPlaylistName + "_cover.jpg");
                     if (coverFile.exists()) coverFile.delete();
@@ -3540,7 +3537,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (!peer.chats.isEmpty()) {
                     fetchMusicFromResolvedChannel(peer.chats.get(0).id, ((TLRPC.TL_channel) peer.chats.get(0)).access_hash);
                 } else {
-                    AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), "Channel not found", Toast.LENGTH_SHORT).show());
+                    AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_channel_not_found), Toast.LENGTH_SHORT).show());
                     checkOrCreateMusicChannel();
                 }
             }
@@ -3563,7 +3560,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     if (messageObject.isMusic()) importedTracks.add(messageObject);
                 }
                 AndroidUtilities.runOnUIThread(() -> showImportSelectionSheet(importedTracks));
-            } else AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), "No tracks found", Toast.LENGTH_SHORT).show());
+            } else AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_no_tracks_found), Toast.LENGTH_SHORT).show());
         });
     }
 
@@ -4109,7 +4106,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             -(long)"artist_context".hashCode());
                     MediaController.getInstance().seekToProgress(queue.get(0), 0);
                     MediaController.getInstance().playMessage(queue.get(0));
-                } else Toast.makeText(context, "Треки загружаются...", Toast.LENGTH_SHORT).show();
+                } else Toast.makeText(context, getString(R.string.sg_tracks_loading), Toast.LENGTH_SHORT).show();
             });
             playBtnWrap.addView(playAllBtn, LayoutHelper.createFrame(52, 52));
             actionsRow.addView(playBtnWrap,
@@ -4145,7 +4142,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             // Кнопка «Моя Волна» (градиент, фиолетовый)
             TextView waveBtn = new TextView(context);
-            waveBtn.setText("✦ Моя Волна");
+            waveBtn.setText("✦ " + getString(R.string.mywave));
             waveBtn.setTextColor(0xFFFFFFFF);
             waveBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
             waveBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -4165,7 +4162,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                 AudioPlayerAlert.currentSourceLabel = "";
                 applySpringClick(v);
-                Toast.makeText(context, "Генерация волны...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, getString(R.string.sg_wave_generating), Toast.LENGTH_SHORT).show();
                 new Thread(() -> {
                     ArrayList<String> genres = MusicWebSearcher.getArtistGenresSync(artistName);
                     String genreQuery = genres.isEmpty() ? artistName : genres.get(0);
@@ -4176,7 +4173,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                 new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                                         SmartRadioEngine.currentConfig.query = savedQuery;
-                                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), 0);
+                                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
                                         MediaController.getInstance().playMessage(tracks.get(0));
                                     }
                                     @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
@@ -4184,7 +4181,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                     }
                                     @Override public void onError() {
                                         SmartRadioEngine.currentConfig.query = savedQuery;
-                                        Toast.makeText(context, "Ошибка", Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(context, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
                                     }
                                 });
                     });
@@ -4201,7 +4198,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             // ── ❸ БЛОК АЛЬБОМОВ (заголовок + горизонтальный скролл) ─────────
             albumsTitle = new TextView(context);
-            albumsTitle.setText("Популярные релизы");
+            albumsTitle.setText(getString(R.string.sg_popular_releases));
             albumsTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
             albumsTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
             albumsTitle.setTextColor(textColor);
@@ -4227,7 +4224,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             // ── ❹ ЗАГОЛОВОК «Популярные треки» ─────────────────────────────
             TextView tracksTitle = new TextView(context);
-            tracksTitle.setText("Популярные треки");
+            tracksTitle.setText(getString(R.string.sg_popular_tracks));
             tracksTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
             tracksTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
             tracksTitle.setTextColor(textColor);
@@ -4356,7 +4353,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                 () -> fetchTracksFromHitmos(artistUrl, context));
                     } else {
                         AndroidUtilities.runOnUIThread(() ->
-                                Toast.makeText(context, "Треки не найдены",
+                                Toast.makeText(context, getString(R.string.sg_tracks_not_found),
                                         Toast.LENGTH_SHORT).show());
                     }
                 });
@@ -4505,7 +4502,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 @Override
                 public void onFailed() {
                     AndroidUtilities.runOnUIThread(() ->
-                            Toast.makeText(context, "Не удалось загрузить треки", Toast.LENGTH_SHORT).show());
+                            Toast.makeText(context, getString(R.string.sg_wave_error_load_tracks), Toast.LENGTH_SHORT).show());
                 }
             };
 
@@ -4659,13 +4656,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             safeNotifyAdapter(savedAlbumsAdapter, null);
                 refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
                             finishFragment();
-                            Toast.makeText(getParentActivity(), "Альбом удален", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getParentActivity(), getString(R.string.sg_album_deleted), Toast.LENGTH_SHORT).show();
                         } else {
                             // ИСПРАВЛЕНИЕ: Безопасное добавление через UI поток, чтобы не крашить ViewPager
                             AndroidUtilities.runOnUIThread(() -> {
                                 saveAlbumToChannel(title, albumUrl, coverUrl);
                                 menu.getItem(1).setIcon(R.drawable.msg_delete);
-                                Toast.makeText(getParentActivity(), "Альбом сохранен", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getParentActivity(), getString(R.string.sg_album_saved), Toast.LENGTH_SHORT).show();
                             });
                         }
                     } else if (id == 5) {
@@ -4765,7 +4762,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
                     @Override
                     public void onFailed() {
-                        Toast.makeText(getParentActivity(), "Альбом не найден", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT).show();
                     }
                 });
             } else {
@@ -4795,7 +4792,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     safeNotifyAdapter(adapter, listView);
                 }
 
-                @Override public void onFailed() { Toast.makeText(getParentActivity(), "Ошибка загрузки", Toast.LENGTH_SHORT).show(); }
+                @Override public void onFailed() { Toast.makeText(getParentActivity(), getString(R.string.sg_loading_error), Toast.LENGTH_SHORT).show(); }
             });
         }
 
@@ -4962,7 +4959,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
                     // Кнопка «Волна» (фиолетовая)
                     TextView waveBtn = new TextView(mContext);
-                    waveBtn.setText("✦ Волна");
+                    waveBtn.setText("✦ " + getString(R.string.sg_source_wave));
                     waveBtn.setTextColor(0xFFFFFFFF);
                     waveBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
                     waveBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -4983,7 +4980,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                         AudioPlayerAlert.currentSourceLabel = "";
                         applySpringClick(waveBtn);
-                        Toast.makeText(mContext, "Генерация волны...", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(mContext, getString(R.string.sg_wave_generating), Toast.LENGTH_SHORT).show();
                         String aArtist = "";
                         if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
                             String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
@@ -5007,7 +5004,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                                 SmartRadioEngine.currentConfig.query = savedQ;
                                                 if (!tracks.isEmpty()) {
                                                     MediaController.getInstance().setPlaylist(
-                                                            tracks, tracks.get(0), 0);
+                                                            tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
                                                     MediaController.getInstance().playMessage(tracks.get(0));
                                                 }
                                             }
@@ -5016,8 +5013,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                             }
                                             @Override public void onError() {
                                                 SmartRadioEngine.currentConfig.query = savedQ;
-                                                Toast.makeText(mContext, "Ошибка волны",
-                                                        Toast.LENGTH_SHORT).show();
+                                                Toast.makeText(mContext, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
                                             }
                                         });
                             });
@@ -5071,7 +5067,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             return;
                         } else {
                             // Трек ещё не загружен
-                            Toast.makeText(mContext, "Трек ещё загружается...", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(mContext, getString(R.string.sg_track_loading), Toast.LENGTH_SHORT).show();
                             return;
                         }
                     }
@@ -5323,7 +5319,7 @@ public static class ChipCell extends FrameLayout {
 
         // Заголовок
         TextView title = new TextView(context);
-        title.setText("Жанр волны");
+        title.setText(getString(R.string.sg_wave_genre_title));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
@@ -5414,7 +5410,7 @@ public static class ChipCell extends FrameLayout {
 
         // Кнопка «Применить»
         TextView applyBtn = new TextView(context);
-        applyBtn.setText("Применить");
+        applyBtn.setText(getString(R.string.sg_wave_apply));
         applyBtn.setGravity(Gravity.CENTER);
         applyBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         applyBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -5559,7 +5555,7 @@ public static class ChipCell extends FrameLayout {
 
     private void startAlbumFilesDownload(String albumTitle, ArrayList<MessageObject> tracks) {
         if (tracks == null || tracks.isEmpty()) return;
-        Toast.makeText(getParentActivity(), "Загрузка альбома: " + albumTitle, Toast.LENGTH_SHORT).show();
+        Toast.makeText(getParentActivity(), String.format(getString(R.string.sg_album_downloading), albumTitle), Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
             for (MessageObject mo : tracks) {
@@ -5596,7 +5592,7 @@ public static class ChipCell extends FrameLayout {
                 try { Thread.sleep(200); } catch (InterruptedException ignored) {}
             }
             AndroidUtilities.runOnUIThread(() ->
-                    Toast.makeText(getParentActivity(), "Альбом \"" + albumTitle + "\" загружен!", Toast.LENGTH_SHORT).show());
+                    Toast.makeText(getParentActivity(), String.format(getString(R.string.sg_album_downloaded), albumTitle), Toast.LENGTH_SHORT).show());
         }).start();
     }
 

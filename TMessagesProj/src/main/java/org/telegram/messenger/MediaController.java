@@ -3787,9 +3787,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
     private android.os.Bundle buildStreamHeaders() {
         android.os.Bundle headers = new android.os.Bundle();
-        headers.putString("User-Agent",
-                "Mozilla/5.0 (Android 14; Mobile; rv:115.0) Gecko/115.0 Firefox/115.0");
-        headers.putString("Referer", "https://eu.hitmoz.com/");
+        headers.putString("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
+        headers.putString("Referer", "https://hitmos.me/");
         headers.putString("Accept", "*/*");
         return headers;
     }
@@ -4010,21 +4009,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             }
 
             if (isDirectStream) {
-                try {
-                    // Жестко игнорируем SSL ошибки для ExoPlayer при включенном VPN
-                    javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
-
-                    com.google.android.exoplayer2.MediaItem mediaItem = new com.google.android.exoplayer2.MediaItem.Builder()
-                            .setUri(android.net.Uri.parse(messageObject.messageOwner.attachPath))
-                            .setRequestMetadata(new com.google.android.exoplayer2.MediaItem.RequestMetadata.Builder()
-                                    .setExtras(buildStreamHeaders())
-                                    .build())
-                            .build();
-                    audioPlayer.preparePlayerWithMediaItem(mediaItem, "other");
-                } catch (Exception e) {
-                    FileLog.e("ExoPlayer VPN Stream fallback: " + e);
-                    audioPlayer.preparePlayer(Uri.parse(messageObject.messageOwner.attachPath), "other");
-                }
+                // VPN FIX: SSL обход теперь встроен в VideoPlayer.createVpnAwareDataSourceFactory
+                videoPlayer.preparePlayer(Uri.parse(messageObject.messageOwner.attachPath), "other");
                 isStreamingCurrentAudio = true;
             }
             else if (exists) {

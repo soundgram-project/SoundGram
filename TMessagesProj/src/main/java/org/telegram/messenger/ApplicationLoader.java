@@ -318,7 +318,6 @@ public class ApplicationLoader extends Application {
 
         }
         SoundGramConfig.load();
-
         super.onCreate();
 
         if (BuildVars.LOGS_ENABLED) {

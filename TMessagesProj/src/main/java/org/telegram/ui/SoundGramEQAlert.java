@@ -1,5 +1,7 @@
 package org.telegram.ui;
 
+import static org.telegram.messenger.LocaleController.getString;
+
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -12,6 +14,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+
+import org.telegram.messenger.R;
 import org.telegram.ui.SoundGramStyleManager;
 import org.telegram.ui.SoundGramStyleSettingsFragment;
 import org.telegram.messenger.AndroidUtilities;
@@ -65,7 +69,7 @@ public class SoundGramEQAlert extends BottomSheet {
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView title = new TextView(context);
-        title.setText("AudioFX & Pitch");
+        title.setText(getString(R.string.sg_eq_title));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -74,7 +78,7 @@ public class SoundGramEQAlert extends BottomSheet {
 
         // Кнопка СБРОС — жидкое стекло с красным оттенком
         TextView resetBtn = new TextView(context);
-        resetBtn.setText("СБРОС");
+        resetBtn.setText(getString(R.string.sg_eq_reset));
         resetBtn.setTextColor(0xFFFF5252);
         resetBtn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 13);
         resetBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -116,7 +120,7 @@ public class SoundGramEQAlert extends BottomSheet {
                     AndroidUtilities.dp(12), AndroidUtilities.dp(12));
 
             TextView eqLabel = new TextView(context);
-            eqLabel.setText("Эквалайзер");
+            eqLabel.setText(getString(R.string.sg_eq_equalizer));
             eqLabel.setTextColor(
                     androidx.core.graphics.ColorUtils.setAlphaComponent(
                             Theme.getColor(Theme.key_dialogTextBlack), 160));
@@ -205,7 +209,7 @@ public class SoundGramEQAlert extends BottomSheet {
 
         // ── Bass Boost в стеклянной карточке ─────────────────────────────────
         container.addView(
-                makeGlassSliderCard(context, "BassBoost",
+                makeGlassSliderCard(context, getString(R.string.sg_eq_bassboost),
                         1000, SoundGramAudioFX.getBassLevel(),
                         (label, p) -> SoundGramAudioFX.setBassLevel((short) p)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
@@ -215,12 +219,12 @@ public class SoundGramEQAlert extends BottomSheet {
         final float[] speedHolder = {SoundGramAudioFX.getCurrentSpeed()};
         container.addView(
                 makeGlassSliderCard(context,
-                        String.format("Скорость: %.1fx", speedHolder[0]),
+                        String.format(getString(R.string.sg_eq_speed), speedHolder[0]),
                         19,
                         Math.round((speedHolder[0] - 0.1f) / 0.1f),
                         (label, p) -> {
                             speedHolder[0] = 0.1f + (p * 0.1f);
-                            label.setText(String.format("Скорость: %.1fx", speedHolder[0]));
+                            label.setText(String.format(getString(R.string.sg_eq_speed), speedHolder[0]));
                             SoundGramAudioFX.setCurrentSpeed(speedHolder[0]);
                             try { org.telegram.messenger.MediaController.getInstance()
                                     .setPlaybackSpeed(false, speedHolder[0]); }
@@ -233,12 +237,12 @@ public class SoundGramEQAlert extends BottomSheet {
         final float[] pitchHolder = {SoundGramAudioFX.getCurrentPitch()};
         container.addView(
                 makeGlassSliderCard(context,
-                        String.format("Тон: %.1fx", pitchHolder[0]),
+                        String.format(getString(R.string.sg_eq_pitch), pitchHolder[0]),
                         19,
                         Math.round((pitchHolder[0] - 0.1f) / 0.1f),
                         (label, p) -> {
                             pitchHolder[0] = 0.1f + (p * 0.1f);
-                            label.setText(String.format("Тон: %.1fx", pitchHolder[0]));
+                            label.setText(String.format(getString(R.string.sg_eq_pitch), pitchHolder[0]));
                             SoundGramAudioFX.setCurrentPitch(pitchHolder[0]);
                             try { org.telegram.messenger.MediaController.getInstance()
                                     .setPlaybackSpeed(false, SoundGramAudioFX.getCurrentSpeed()); }

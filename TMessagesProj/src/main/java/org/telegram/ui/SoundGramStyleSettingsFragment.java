@@ -15,6 +15,8 @@ package org.telegram.ui;
 //  • Готово  → применяет, мгновенно диспатчит StyleChanged
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import static org.telegram.messenger.LocaleController.getString;
+
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -153,24 +155,33 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
     }
 
     // ── Таблица строк: {title, subtitle, KEY_GLASS, KEY_ALPHA, KEY_COLOR_BG, KEY_COLOR_STROKE}
+    // NOTE: titles/subtitles are loaded dynamically via getItemTitle/getItemSubtitle to support localization
     private static final String[][] ITEMS = {
-            {"Треки",           "Библиотека, плейлисты, альбомы",
-                    KEY_GLASS_TRACKS,    KEY_ALPHA_TRACKS,    KEY_COLOR_BG_TRACKS,    KEY_COLOR_STROKE_TRACKS},
-            {"Альбомы",         "Карточки в сетке",
-                    KEY_GLASS_ALBUMS,    KEY_ALPHA_ALBUMS,    KEY_COLOR_BG_ALBUMS,    KEY_COLOR_STROKE_ALBUMS},
-            {"Моя волна",       "Виджет и кнопки",
-                    KEY_GLASS_WAVE,      KEY_ALPHA_WAVE,      KEY_COLOR_BG_WAVE,      KEY_COLOR_STROKE_WAVE},
-            {"Плейлисты",       "Горизонтальный список",
-                    KEY_GLASS_PLAYLISTS, KEY_ALPHA_PLAYLISTS, KEY_COLOR_BG_PLAYLISTS, KEY_COLOR_STROKE_PLAYLISTS},
-            {"Аудиоплеер",      "Полноэкранный плеер",
-                    KEY_GLASS_PLAYER,    KEY_ALPHA_PLAYER,    KEY_COLOR_BG_PLAYER,    KEY_COLOR_STROKE_PLAYER},
-            {"Мини-плеер",      "Плавающая панель внизу",
-                    KEY_GLASS_MINI,      KEY_ALPHA_MINI,      KEY_COLOR_BG_MINI,      KEY_COLOR_STROKE_MINI},
-            {"Профиль артиста", "Шапка и треки артиста",
-                    KEY_GLASS_ARTIST,    KEY_ALPHA_ARTIST,    KEY_COLOR_BG_ARTIST,    KEY_COLOR_STROKE_ARTIST},
-            {"Эквалайзер",      "AudioFX & Pitch",
-                    KEY_GLASS_EQ,        KEY_ALPHA_EQ,        KEY_COLOR_BG_EQ,        KEY_COLOR_STROKE_EQ},
+            {null, null, KEY_GLASS_TRACKS,    KEY_ALPHA_TRACKS,    KEY_COLOR_BG_TRACKS,    KEY_COLOR_STROKE_TRACKS},
+            {null, null, KEY_GLASS_ALBUMS,    KEY_ALPHA_ALBUMS,    KEY_COLOR_BG_ALBUMS,    KEY_COLOR_STROKE_ALBUMS},
+            {null, null, KEY_GLASS_WAVE,      KEY_ALPHA_WAVE,      KEY_COLOR_BG_WAVE,      KEY_COLOR_STROKE_WAVE},
+            {null, null, KEY_GLASS_PLAYLISTS, KEY_ALPHA_PLAYLISTS, KEY_COLOR_BG_PLAYLISTS, KEY_COLOR_STROKE_PLAYLISTS},
+            {null, null, KEY_GLASS_PLAYER,    KEY_ALPHA_PLAYER,    KEY_COLOR_BG_PLAYER,    KEY_COLOR_STROKE_PLAYER},
+            {null, null, KEY_GLASS_MINI,      KEY_ALPHA_MINI,      KEY_COLOR_BG_MINI,      KEY_COLOR_STROKE_MINI},
+            {null, null, KEY_GLASS_ARTIST,    KEY_ALPHA_ARTIST,    KEY_COLOR_BG_ARTIST,    KEY_COLOR_STROKE_ARTIST},
+            {null, null, KEY_GLASS_EQ,        KEY_ALPHA_EQ,        KEY_COLOR_BG_EQ,        KEY_COLOR_STROKE_EQ},
     };
+
+    private String getItemTitle(int index) {
+        int[] ids = {R.string.sg_style_tracks_title, R.string.sg_style_albums_title,
+                R.string.sg_style_wave_title, R.string.sg_style_playlists_title,
+                R.string.sg_style_player_title, R.string.sg_style_mini_title,
+                R.string.sg_style_artist_title, R.string.sg_style_eq_title};
+        return getString(ids[index]);
+    }
+
+    private String getItemSubtitle(int index) {
+        int[] ids = {R.string.sg_style_tracks_subtitle, R.string.sg_style_albums_subtitle,
+                R.string.sg_style_wave_subtitle, R.string.sg_style_playlists_subtitle,
+                R.string.sg_style_player_subtitle, R.string.sg_style_mini_subtitle,
+                R.string.sg_style_artist_subtitle, R.string.sg_style_eq_subtitle};
+        return getString(ids[index]);
+    }
 
     private RecyclerListView recyclerView;
     private SettingsAdapter  settingsAdapter;
@@ -181,7 +192,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("Внешний вид");
+        actionBar.setTitle(getString(R.string.sg_style_title));
         actionBar.setOccupyStatusBar(true);
         actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
@@ -239,7 +250,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int pos) {
             if (holder.getItemViewType() == TYPE_HEADER) return;
             String[] row = ITEMS[pos - 1];
-            ((GlassSettingCell) holder.itemView).bind(row[0], row[1], row[2], row[3], row[4], row[5]);
+            ((GlassSettingCell) holder.itemView).bind(getItemTitle(pos - 1), getItemSubtitle(pos - 1), row[2], row[3], row[4], row[5]);
         }
     }
 
@@ -253,7 +264,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         root.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
                 AndroidUtilities.dp(16), AndroidUtilities.dp(8));
 
-        TextView lbl = makeLabel(ctx, "СТАТИСТИКА");
+        TextView lbl = makeLabel(ctx, getString(R.string.sg_style_section_stats));
         root.addView(lbl, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
 
@@ -276,16 +287,16 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         long  ts = sp.getLong("total_seconds", 0L);
         long  h  = ts / 3600, m = (ts % 3600) / 60;
 
-        row.addView(makeStatPill(ctx, "🎵", String.valueOf(tt), "треков",  accent),
+        row.addView(makeStatPill(ctx, "🎵", String.valueOf(tt), getString(R.string.sg_stats_tracks_label), accent),
                 LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 8, 0));
-        row.addView(makeStatPill(ctx, "⏱",  h + "ч " + m + "м", "времени", accent),
+        row.addView(makeStatPill(ctx, "⏱", h + getString(R.string.hour) + " " + m + getString(R.string.min), getString(R.string.sg_stats_time_label), accent),
                 LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 8, 0, 0, 0));
         card.addView(row, LayoutHelper.createFrame(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         root.addView(card, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        root.addView(makeLabel(ctx, "СТИЛЬ ЖИДКОГО СТЕКЛА"),
+        root.addView(makeLabel(ctx, getString(R.string.sg_style_section_glass)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         return root;
     }
@@ -419,7 +430,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
             // Левая метка = "Непрозрачно"
             TextView leftLbl = new TextView(ctx);
-            leftLbl.setText("◼");
+            leftLbl.setText(getString(R.string.sg_opacity_opaque));
             leftLbl.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
             leftLbl.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             sliderRow.addView(leftLbl, LayoutHelper.createLinear(
@@ -437,7 +448,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
             // Правая метка = "Прозрачно"
             TextView rightLbl = new TextView(ctx);
-            rightLbl.setText("◻");
+            rightLbl.setText(getString(R.string.sg_opacity_transparent));
             rightLbl.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
             rightLbl.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             sliderRow.addView(rightLbl, LayoutHelper.createLinear(
@@ -581,7 +592,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
             // Заголовок
             TextView tit = new TextView(getContext());
-            tit.setText("Выбор цвета — " + titleTv.getText());
+            tit.setText(String.format(getString(R.string.sg_color_pick_title), titleTv.getText()));
             tit.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
             tit.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
             tit.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
@@ -590,9 +601,9 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
                     LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 20));
 
             // Опция: Для стекла
-            container.addView(makeMenuRow(getContext(), "Для стекла", keyBgColor, true, builder));
+            container.addView(makeMenuRow(getContext(), getString(R.string.sg_color_for_glass), keyBgColor, true, builder));
             // Опция: Для обводки
-            container.addView(makeMenuRow(getContext(), "Для обводки", keyStrokeColor, false, builder));
+            container.addView(makeMenuRow(getContext(), getString(R.string.sg_color_for_stroke), keyStrokeColor, false, builder));
 
             builder.setCustomView(container);
             // Показываем через BaseFragment (у нас есть доступ к showDialog через внешний фрагмент)
@@ -679,7 +690,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
                     Gravity.CENTER_VERTICAL | Gravity.LEFT));
 
             TextView resetBtn = new TextView(ctx);
-            resetBtn.setText("Сброс");
+            resetBtn.setText(getString(R.string.sg_color_reset));
             resetBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
             resetBtn.setTextColor(Theme.getColor(Theme.key_featuredStickers_addButton));
             headerRow.addView(resetBtn, LayoutHelper.createFrame(
@@ -787,7 +798,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
             // ── Кнопка «Готово» ────────────────────────────────────────────
             TextView doneBtn = new TextView(ctx);
-            doneBtn.setText("Готово");
+            doneBtn.setText(getString(R.string.sg_color_done));
             doneBtn.setGravity(Gravity.CENTER);
             doneBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
             doneBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));

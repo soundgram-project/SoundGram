@@ -102,12 +102,21 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 
 import xyz.nextalone.nagram.NaConfig;
 
@@ -196,6 +205,48 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public VideoPlayer() {
         this(true, false);
     }
+
+    // ==========================================
+    // VPN FIX: SSL-tolerant DataSource factory
+    // ==========================================
+    private static SSLSocketFactory vpnSslSocketFactory;
+    private static X509TrustManager vpnTrustManager;
+
+    private static void ensureVpnSsl() {
+        if (vpnSslSocketFactory != null) return;
+        try {
+            vpnTrustManager = new X509TrustManager() {
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, new TrustManager[]{vpnTrustManager}, new SecureRandom());
+            vpnSslSocketFactory = sc.getSocketFactory();
+        } catch (Exception e) {
+            FileLog.e("VideoPlayer VPN SSL init: " + e);
+        }
+    }
+
+    private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent) {
+        ensureVpnSsl();
+        DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
+                .setUserAgent(userAgent)
+                .setConnectTimeoutMs(DefaultHttpDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS)
+                .setReadTimeoutMs(DefaultHttpDataSource.DEFAULT_READ_TIMEOUT_MILLIS)
+                .setAllowCrossProtocolRedirects(true);
+        if (vpnSslSocketFactory != null) {
+            httpFactory.setDefaultRequestProperties(new java.util.HashMap<>());
+            // Inject trust-all SSL via reflection on the underlying OkHttpClient workaround
+            try {
+                javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(vpnSslSocketFactory);
+                javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+            } catch (Exception ignore) {}
+        }
+        return new com.google.android.exoplayer2.upstream.DefaultDataSource.Factory(
+                ApplicationLoader.applicationContext, httpFactory);
+    }
+    // ==========================================
 
     static int playerCounter = 0;
     public VideoPlayer(boolean pauseOther, boolean audioDisabled) {
@@ -400,32 +451,26 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     private MediaSource mediaSourceFromUri(Uri uri, long videoByteOffset, String type) {
         final MediaItem mediaItem = new MediaItem.Builder().setUri(uri).build();
+        // VPN FIX: для HTTP/HTTPS стриминга используем SSL-tolerant фабрику
+        boolean isHttp = uri != null && (uri.getScheme() != null) &&
+                (uri.getScheme().startsWith("http"));
+        DataSource.Factory factory = isHttp
+                ? createVpnAwareDataSourceFactory("Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/47.0 (Chrome)")
+                : mediaDataSourceFactory;
         if (videoByteOffset != 0) {
             return new ProgressiveMediaSource.Factory(
-                () -> new OffsetDataSource(mediaDataSourceFactory.createDataSource(), videoByteOffset)
+                () -> new OffsetDataSource(factory.createDataSource(), videoByteOffset)
             ).createMediaSource(mediaItem);
         }
         switch (type) {
             case "dash":
-                if (dashMediaSourceFactory == null) {
-                    dashMediaSourceFactory = new DashMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return dashMediaSourceFactory.createMediaSource(mediaItem);
+                return new DashMediaSource.Factory(factory).createMediaSource(mediaItem);
             case "hls":
-                if (hlsMediaSourceFactory == null) {
-                    hlsMediaSourceFactory = new HlsMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return hlsMediaSourceFactory.createMediaSource(mediaItem);
+                return new HlsMediaSource.Factory(factory).createMediaSource(mediaItem);
             case "ss":
-                if (ssMediaSourceFactory == null) {
-                    ssMediaSourceFactory = new SsMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return ssMediaSourceFactory.createMediaSource(mediaItem);
+                return new SsMediaSource.Factory(factory).createMediaSource(mediaItem);
             default:
-                if (progressiveMediaSourceFactory == null) {
-                    progressiveMediaSourceFactory = new ProgressiveMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return progressiveMediaSourceFactory.createMediaSource(mediaItem);
+                return new ProgressiveMediaSource.Factory(factory).createMediaSource(mediaItem);
         }
     }
 
