@@ -165,8 +165,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private TextView emptyTitleTextView;
     private TextView emptySubtitleTextView;
     private FrameLayout lyricsContainer;
-    private RecyclerListView lyricsListView;
-    private LyricsAdapter lyricsAdapter;
+    private RecyclerListView lyricsListView; // unused, kept for compat
+    @SuppressWarnings("unused")
+    private Object lyricsAdapter;            // unused, kept for compat
+    private LyricsView lyricsView;
     private ArrayList<LrcLine> lyricsLines = new ArrayList<>();
     private boolean isLyricsVisible = false;
     private ValueAnimator lyricsAnimator;
@@ -198,6 +200,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private ActionBarMenuSubItem[] speedItems = new ActionBarMenuSubItem[6];
     private TextView durationTextView;
     private ActionBarMenuItem repeatButton;
+    private ActionBarMenuItem modeMenuButton; // кнопка режимов в правом нижнем углу
     private ActionBarMenuSubItem playOnceItem;
     private ActionBarMenuSubItem repeatSongItem;
     private ActionBarMenuSubItem repeatListItem;
@@ -450,6 +453,160 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         v.setLayoutParams(lp);
         v.setBackgroundColor(0x30FFFFFF);
         return v;
+    }
+
+    /** Является ли данный режим активным прямо сейчас */
+    private boolean isModeActive(int id) {
+        switch (id) {
+            case 5: return SharedConfig.repeatMode == PLAY_ONCE;
+            case 3: return SharedConfig.repeatMode == 2;
+            case 4: return SharedConfig.repeatMode == 1;
+            case 2: return SharedConfig.shuffleMusic;
+            case 1: return SharedConfig.playOrderReversed;
+        }
+        return false;
+    }
+
+    /**
+     * Кастомный попап режимов воспроизведения — появляется ВВЕРХ над кнопкой modeMenuButton.
+     * Строки крупные (52dp), иконка + текст, активный режим подсвечен акцентным цветом.
+     */
+    private void showModeMenu() {
+        if (getContext() == null || modeMenuButton == null) return;
+
+        // Собираем контейнер попапа
+        LinearLayout container = new LinearLayout(getContext());
+        container.setOrientation(LinearLayout.VERTICAL);
+        {
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(0xF2202023);
+            bg.setCornerRadius(AndroidUtilities.dp(16));
+            bg.setStroke(AndroidUtilities.dp(1), 0x28FFFFFF);
+            container.setBackground(bg);
+        }
+        container.setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(6));
+
+        int[] modeIds   = {5, 3, 4, 2, 1};
+        int[] modeIcons = {
+            R.drawable.photo_timer,
+            R.drawable.player_new_repeatone,
+            R.drawable.player_new_repeatall,
+            R.drawable.player_new_shuffle,
+            R.drawable.player_new_order
+        };
+        int[] modeLabels = {
+            R.string.PlayOnce,
+            R.string.RepeatSong,
+            R.string.RepeatList,
+            R.string.ShuffleList,
+            R.string.ReverseOrder
+        };
+
+        android.widget.PopupWindow[] popupRef = {null};
+
+        for (int i = 0; i < modeIds.length; i++) {
+            final int id = modeIds[i];
+            boolean active = isModeActive(id);
+            int color = active ? getThemedColor(Theme.key_player_buttonActive) : 0xFFFFFFFF;
+
+            LinearLayout row = new LinearLayout(getContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(AndroidUtilities.dp(52));
+            row.setPadding(AndroidUtilities.dp(18), 0, AndroidUtilities.dp(24), 0);
+            if (Build.VERSION.SDK_INT >= 21)
+                row.setBackground(Theme.createSelectorDrawable(0x18FFFFFF, 0));
+
+            ImageView iconView = new ImageView(getContext());
+            iconView.setImageResource(modeIcons[i]);
+            iconView.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+            iconView.setScaleType(ImageView.ScaleType.CENTER);
+            row.addView(iconView, LayoutHelper.createLinear(28, 28, Gravity.CENTER_VERTICAL));
+
+            TextView tv = new TextView(getContext());
+            tv.setText(LocaleController.getString(modeLabels[i]));
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+            tv.setTextColor(color);
+            tv.setSingleLine(true);
+            row.addView(tv, LayoutHelper.createLinear(
+                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
+                    Gravity.CENTER_VERTICAL, 14, 0, 0, 0));
+
+            row.setOnClickListener(v -> {
+                if (popupRef[0] != null) popupRef[0].dismiss();
+                // Применяем режим
+                if (id == 1 || id == 2) {
+                    boolean oldReversed = SharedConfig.playOrderReversed;
+                    if (SharedConfig.playOrderReversed && id == 1 || SharedConfig.shuffleMusic && id == 2)
+                        MediaController.getInstance().setPlaybackOrderType(0);
+                    else
+                        MediaController.getInstance().setPlaybackOrderType(id);
+                    if (listAdapter != null) listAdapter.notifyDataSetChanged();
+                    if (oldReversed != SharedConfig.playOrderReversed) {
+                        if (listView != null) listView.stopScroll();
+                        scrollToCurrentSong(false);
+                    }
+                } else {
+                    if (id == 4) {
+                        if (SharedConfig.repeatMode == 1) SharedConfig.setRepeatMode(0);
+                        else SharedConfig.setRepeatMode(1);
+                    } else if (id == 5) {
+                        if (SharedConfig.repeatMode == PLAY_ONCE) SharedConfig.setRepeatMode(0);
+                        else SharedConfig.setRepeatMode(PLAY_ONCE);
+                    } else {
+                        if (SharedConfig.repeatMode == 2) SharedConfig.setRepeatMode(0);
+                        else SharedConfig.setRepeatMode(2);
+                    }
+                }
+                updateRepeatButtonBoth();
+            });
+
+            container.addView(row, LayoutHelper.createLinear(
+                    LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            if (i < modeIds.length - 1) {
+                View div = new View(getContext());
+                div.setBackgroundColor(0x20FFFFFF);
+                LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 1);
+                dlp.setMargins(AndroidUtilities.dp(18), 0, AndroidUtilities.dp(18), 0);
+                container.addView(div, dlp);
+            }
+        }
+
+        // Минимальная ширина попапа — 220dp
+        int popupWidth = Math.max(AndroidUtilities.dp(220),
+                AndroidUtilities.displaySize.x / 2);
+        container.measure(
+                View.MeasureSpec.makeMeasureSpec(popupWidth, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        int popupH = container.getMeasuredHeight();
+
+        android.widget.PopupWindow popup = new android.widget.PopupWindow(
+                container, popupWidth, popupH, true);
+        popup.setOutsideTouchable(true);
+        popup.setElevation(AndroidUtilities.dp(8));
+        popupRef[0] = popup;
+
+        // Координаты кнопки на экране → показываем попап ВЫШЕ неё
+        int[] loc = new int[2];
+        modeMenuButton.getLocationInWindow(loc);
+        int xOff = loc[0] + modeMenuButton.getWidth() - popupWidth;
+        int yOff = loc[1] - popupH - AndroidUtilities.dp(6);
+
+        popup.showAtLocation(modeMenuButton, Gravity.NO_GRAVITY, xOff, yOff);
+
+        // Плавное появление попапа: анимация alpha + scale (как у кнопки ···)
+        container.setAlpha(0f);
+        container.setScaleY(0.85f);
+        container.setPivotX(popupWidth);
+        container.setPivotY(popupH);
+        container.animate()
+                .alpha(1f)
+                .scaleY(1f)
+                .setDuration(180)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
+                .start();
     }
     public AudioPlayerAlert(final Context context, Theme.ResourcesProvider resourcesProvider) {
         super(context, true, resourcesProvider);
@@ -807,14 +964,24 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
                         Gravity.CENTER_VERTICAL | Gravity.LEFT));
 
-        // Кнопка ··· (правый верхний угол) — круглая тёмная
-        ImageView topOptionsBtn = new ImageView(context);
-        topOptionsBtn.setScaleType(ImageView.ScaleType.CENTER);
-        topOptionsBtn.setImageResource(R.drawable.ic_ab_other);
-        topOptionsBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
+        // Кнопка ··· (правый верхний угол) — нативное ТГ-меню, раскрывается вниз вправо
+        ActionBarMenuItem topOptionsBtn = new ActionBarMenuItem(context, null, 0, 0xFFFFFFFF, false, resourcesProvider);
+        topOptionsBtn.setIcon(R.drawable.ic_ab_other);
+        topOptionsBtn.setLongClickEnabled(false);
+        topOptionsBtn.setShowSubmenuByMove(false);
+        topOptionsBtn.setSubMenuOpenSide(0);
+        topOptionsBtn.setShowedFromBottom(false);
         if (Build.VERSION.SDK_INT >= 21)
             topOptionsBtn.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(20)));
-        topOptionsBtn.setOnClickListener(v -> showPlayerOptionsMenu());
+        topOptionsBtn.addSubItem(201, R.drawable.msg_customize, getString(R.string.sg_menu_equalizer));
+        topOptionsBtn.addSubItem(202, R.drawable.msg_shareout, getString(R.string.sg_menu_share));
+        topOptionsBtn.addSubItem(203, R.drawable.msg_add, getString(R.string.sg_menu_add_to_playlist));
+        topOptionsBtn.setOnClickListener(v -> topOptionsBtn.toggleSubMenu());
+        topOptionsBtn.setDelegate(id -> {
+            if (id == 201) { if (parentActivity != null) new SoundGramEQAlert(parentActivity).show(); }
+            else if (id == 202) onSubItemClick(1);
+            else if (id == 203) onSubItemClick(100);
+        });
         playerTopBar.addView(topOptionsBtn,
                 LayoutHelper.createFrame(40, 40, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 0, 0));
 
@@ -842,26 +1009,14 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         lyricsContainer.setVisibility(View.GONE);
         lyricsContainer.setAlpha(0f);
 
-        lyricsListView = new RecyclerListView(context);
-        // ВАЖНО: Теперь LayoutManager и Adapter инициализируются сразу, зависаний не будет!
-        lyricsListView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
-        lyricsAdapter = new LyricsAdapter(context);
-        lyricsListView.setAdapter(lyricsAdapter);
-        lyricsListView.setClipToPadding(false);
-        lyricsListView.setPadding(0, AndroidUtilities.dp(350), 0, AndroidUtilities.dp(160));
-        lyricsListView.setItemAnimator(null);
-        lyricsContainer.addView(lyricsListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        View lyricsTouchBlocker = new View(context) {
-            @Override public boolean onTouchEvent(MotionEvent event) { return true; }
-        };
-        lyricsTouchBlocker.setBackgroundColor(Color.TRANSPARENT);
-        // Огородка закрывает ровно 5 нижних строк текста (~52dp на строку)
-        lyricsContainer.addView(lyricsTouchBlocker,
-                LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 260, Gravity.BOTTOM));
+        lyricsView = new LyricsView(context);
+        lyricsContainer.addView(lyricsView, LayoutHelper.createFrame(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // lyricsContainer — поверх плеера, от topBar до кнопок управления
         // Кладем контейнер текстов поверх всего плеера с отступом сверху (под топбар с кнопкой ···) и снизу (кнопки управления)
         // topMargin = высота топбара (44dp) + отступ топбара сверху + размер кнопки (40dp) → итого topBarTopMargin + 44 + 4dp запас
         int lyricsTopMargin = topBarTopMargin + 44 + 4;
-        playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, lyricsTopMargin, 0, AndroidUtilities.dp(100)));
+        playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, lyricsTopMargin, 0, AndroidUtilities.dp(80)));
 
         // ── Название + автор + кнопка лирики ─────────────────────────────────
         // Используем горизонтальный LinearLayout: [текст (weight=1)] [кнопка лирики (48dp)]
@@ -1267,45 +1422,13 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         optionsButton.setShowedFromBottom(true);
         optionsButton.setOnClickListener(v -> optionsButton.toggleSubMenu());
         optionsButton.setDelegate(this::onSubItemClick);
+        // optionsButton скрыт — его функции перенесены в topOptionsBtn (верхний бар)
+        optionsButton.setVisibility(View.GONE);
         FrameLayout bottomControls = new FrameLayout(context);
 
         // Центр: prev | play | next
         bottomControls.addView(mediaButtonsContainer,
                 LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 80, Gravity.CENTER));
-
-        // Слева: зацикливание (loop one)
-        final ImageView loopOneBtn = new ImageView(context);
-        loopOneBtn.setScaleType(ImageView.ScaleType.CENTER);
-        loopOneBtn.setImageResource(R.drawable.player_new_repeatone);
-        // Всегда белый цвет — как у кнопок prev/next/play, не зависит от прозрачности фона
-        loopOneBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
-        loopOneBtn.setAlpha(SharedConfig.repeatMode == 2 ? 1.0f : 0.45f);
-        if (Build.VERSION.SDK_INT >= 21)
-            loopOneBtn.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
-        loopOneBtn.setOnClickListener(v -> {
-            boolean willBeActive = SharedConfig.repeatMode != 2;
-            SharedConfig.setRepeatMode(willBeActive ? 2 : 0);
-            loopOneBtn.setAlpha(willBeActive ? 1.0f : 0.45f);
-        });
-        bottomControls.addView(loopOneBtn,
-                LayoutHelper.createFrame(48, 48, Gravity.CENTER_VERTICAL | Gravity.LEFT, 8, 0, 0, 0));
-
-        // Справа: перемешивание (shuffle)
-        final ImageView shuffleBtn = new ImageView(context);
-        shuffleBtn.setScaleType(ImageView.ScaleType.CENTER);
-        shuffleBtn.setImageResource(R.drawable.player_new_shuffle);
-        // Всегда белый цвет — как у кнопок prev/next/play, не зависит от прозрачности фона
-        shuffleBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
-        shuffleBtn.setAlpha(SharedConfig.shuffleMusic ? 1.0f : 0.45f);
-        if (Build.VERSION.SDK_INT >= 21)
-            shuffleBtn.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
-        shuffleBtn.setOnClickListener(v -> {
-            boolean willBeActive = !SharedConfig.shuffleMusic;
-            MediaController.getInstance().setPlaybackOrderType(willBeActive ? 2 : 0);
-            shuffleBtn.setAlpha(willBeActive ? 1.0f : 0.45f);
-        });
-        bottomControls.addView(shuffleBtn,
-                LayoutHelper.createFrame(48, 48, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 8, 0));
 
         // Кнопки play/prev/next — подняты выше от низа экрана
         int navBarH2 = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
@@ -1314,6 +1437,25 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 80,
                         Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL,
                         8, 0, 8, bottomControlsMarginDp));
+
+        // Кнопка режимов (repeat/shuffle/etc) — вынесена из bottomControls в playerLayout
+        // чтобы не зависеть от панели кнопок и всегда находиться на фиксированном месте
+        modeMenuButton = new ActionBarMenuItem(context, null, 0, 0xFFFFFFFF, false, resourcesProvider);
+        modeMenuButton.setIcon(R.drawable.player_new_repeatall);
+        modeMenuButton.setLongClickEnabled(false);
+        modeMenuButton.setShowSubmenuByMove(false);
+        if (Build.VERSION.SDK_INT >= 21)
+            modeMenuButton.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
+        // Нажатие — кастомный попап, открывается ВВЕРХ над кнопкой
+        modeMenuButton.setOnClickListener(v -> showModeMenu());
+        // Добавляем modeMenuButton в playerLayout напрямую (НЕ в bottomControls):
+        // Gravity.BOTTOM|RIGHT, rightMargin=60dp — левее от края экрана (не в панели кнопок),
+        // bottomMargin совпадает с центром bottomControls
+        int modeButtonBottomMargin = bottomControlsMarginDp + (80 - 48) / 2;
+        playerLayout.addView(modeMenuButton,
+                LayoutHelper.createFrame(48, 48,
+                        Gravity.BOTTOM | Gravity.RIGHT,
+                        0, 0, 12, modeButtonBottomMargin));
 
 
         emptyView = new LinearLayout(context);
@@ -1496,7 +1638,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         getContainer().addView(blurredView);
 
         updateTitle(false);
-        try { updateRepeatButton(); } catch (Exception ignored) {}
+        try { updateRepeatButtonBoth(); } catch (Exception ignored) {}
         try { updateEmptyView(); } catch (Exception ignored) {}
     }
 
@@ -1613,6 +1755,19 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         setMenuItemChecked(repeatListItem, SharedConfig.repeatMode == 1);
         setMenuItemChecked(repeatSongItem, SharedConfig.repeatMode == 2);
         setMenuItemChecked(playOnceItem, SharedConfig.repeatMode == PLAY_ONCE);
+        // Синхронизируем иконку кнопки режимов в нижнем правом углу
+        if (modeMenuButton != null) {
+            int iconRes;
+            int mode = SharedConfig.repeatMode;
+            if (mode == 2) iconRes = R.drawable.player_new_repeatone;
+            else if (mode == PLAY_ONCE) iconRes = R.drawable.photo_timer;
+            else if (SharedConfig.shuffleMusic) iconRes = mode == 1 ? R.drawable.player_new_repeat_shuffle : R.drawable.player_new_shuffle;
+            else if (SharedConfig.playOrderReversed) iconRes = mode == 1 ? R.drawable.player_new_repeat_reverse : R.drawable.player_new_order;
+            else iconRes = R.drawable.player_new_repeatall;
+            modeMenuButton.setIcon(iconRes);
+            boolean isActive = mode != 0 || SharedConfig.shuffleMusic || SharedConfig.playOrderReversed;
+            modeMenuButton.setIconColor(isActive ? getThemedColor(Theme.key_player_buttonActive) : 0xFFFFFFFF);
+        }
     }
 
     private boolean equals(float a, float b) {
@@ -2164,6 +2319,28 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         return TAG;
     }
 
+    private void updateRepeatButtonBoth() {
+        updateRepeatButton();
+        // Синхронизируем иконку modeMenuButton с текущим режимом
+        if (modeMenuButton == null) return;
+        int mode = SharedConfig.repeatMode;
+        int iconRes;
+        if (mode == 2) {
+            iconRes = R.drawable.player_new_repeatone;
+        } else if (mode == AudioPlayerAlert.PLAY_ONCE) {
+            iconRes = R.drawable.photo_timer;
+        } else if (SharedConfig.shuffleMusic) {
+            iconRes = mode == 1 ? R.drawable.player_new_repeat_shuffle : R.drawable.player_new_shuffle;
+        } else if (SharedConfig.playOrderReversed) {
+            iconRes = mode == 1 ? R.drawable.player_new_repeat_reverse : R.drawable.player_new_order;
+        } else {
+            iconRes = R.drawable.player_new_repeatall;
+        }
+        modeMenuButton.setIcon(iconRes);
+        boolean isActive = mode != 0 || SharedConfig.shuffleMusic || SharedConfig.playOrderReversed;
+        modeMenuButton.setIconColor(isActive ? getThemedColor(Theme.key_player_buttonActive) : 0xFFFFFFFF);
+    }
+
     private void updateRepeatButton() {
         int mode = SharedConfig.repeatMode;
         if (mode == 0 || mode == 1) {
@@ -2276,53 +2453,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     }
 
     private void smoothScrollToCenter(int position) {
-        if (lyricsListView == null || lyricsListView.getLayoutManager() == null) return;
-        LinearLayoutManager llm = (LinearLayoutManager) lyricsListView.getLayoutManager();
-
-        int listHeight = lyricsListView.getHeight();
-        if (listHeight == 0) return;
-
-        // Фиксированная высота строки — совпадает с onCreateViewHolder
-        final int ITEM_H = AndroidUtilities.dp(64);
-        final int screenCenter = listHeight / 2;
-
-        // ФИКС: Вместо LinearSmoothScroller с неточным calculateDtToFit
-        // используем smoothScrollBy с точным вычислением смещения.
-        // Т.к. высота всех строк одинакова (ITEM_H), расчёт всегда точен.
-
-        View itemView = llm.findViewByPosition(position);
-        if (itemView != null) {
-            // Item виден — вычисляем точный dy
-            int itemCenter = itemView.getTop() + ITEM_H / 2;
-            int dy = itemCenter - screenCenter;
-            if (Math.abs(dy) > AndroidUtilities.dp(2)) {
-                lyricsListView.smoothScrollBy(0, dy);
-            }
-            return;
-        }
-
-        // Item не виден — вычисляем его положение через первый видимый item
-        int firstVisible = llm.findFirstVisibleItemPosition();
-        if (firstVisible == RecyclerView.NO_ID) return;
-        View firstView = llm.findViewByPosition(firstVisible);
-        if (firstView == null) return;
-
-        // Поскольку высота фиксирована, позиция любого item вычисляется точно
-        int targetTop = firstView.getTop() + (position - firstVisible) * ITEM_H;
-        int targetCenter = targetTop + ITEM_H / 2;
-        int dy = targetCenter - screenCenter;
-        if (Math.abs(dy) > AndroidUtilities.dp(2)) {
-            lyricsListView.smoothScrollBy(0, dy);
-        }
+        if (lyricsView == null) return;
+        lyricsView.setActiveIndex(position, true);
     }
 
-
-    /**
-     * Мгновенно (без анимации скролла) прыгает к текущей строке текста.
-     * Вызывается при первом показе текстов, чтобы не начинать с начала.
-     */
     private void jumpToCurrentLyric() {
-        if (lyricsLines.isEmpty() || lyricsListView == null) return;
+        if (lyricsLines.isEmpty() || lyricsView == null) return;
         MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
         if (playing == null) return;
         long currentMs = MediaController.getInstance().getProgressMs(playing);
@@ -2331,52 +2467,31 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             else currentMs = (long) (playing.audioProgress * playing.getDuration() * 1000L);
         }
         long adjustedMs = currentMs + 150;
-        int idx = -1;
+        int idx = 0;
         for (int i = lyricsLines.size() - 1; i >= 0; i--) {
             if (adjustedMs >= lyricsLines.get(i).timeMs) { idx = i; break; }
         }
         currentLyricIndex = idx;
-        if (idx >= 0 && lyricsListView.getLayoutManager() != null) {
-            // ФИКС: offset с учётом фиксированной высоты строки (64dp), центрируем активную строку
-            int fixedItemHeight = AndroidUtilities.dp(64);
-            ((LinearLayoutManager) lyricsListView.getLayoutManager())
-                    .scrollToPositionWithOffset(idx, lyricsListView.getHeight() / 2 - fixedItemHeight / 2);
-        }
+        lyricsView.jumpToIndex(idx);
     }
 
+
+
     private void updateHighlight(long currentMs) {
-        // Небольшое смещение вперёд чтобы строка подсвечивалась чуть раньше (компенсация задержки UI)
         long adjustedMs = currentMs + 150;
 
-        int newActiveIndex = -1;
+        int newActiveIndex = 0;
         for (int i = lyricsLines.size() - 1; i >= 0; i--) {
             if (adjustedMs >= lyricsLines.get(i).timeMs) {
                 newActiveIndex = i;
                 break;
             }
         }
-        if (newActiveIndex == currentLyricIndex) return; // ничего не изменилось
-
-        int oldIndex = currentLyricIndex;
+        if (newActiveIndex == currentLyricIndex) return;
         currentLyricIndex = newActiveIndex;
 
-        // Обновляем только изменившиеся строки (±2 от старой и новой позиции)
-        // чтобы не пересоздавать все view и не сбивать скролл-анимацию
-        if (lyricsAdapter != null) {
-            int start = Math.max(0, Math.min(oldIndex, newActiveIndex) - 2);
-            int end = Math.min(lyricsLines.size() - 1,
-                    Math.max(oldIndex, newActiveIndex) + 2);
-            for (int i = start; i <= end; i++) {
-                lyricsAdapter.notifyItemChanged(i);
-            }
-        }
-
-        if (currentLyricIndex != -1) {
-            // ФИКС: post() — ждём завершения relayout RecyclerView после notifyItemChanged,
-            // иначе smooth scroll начинается до того как позиции item'ов обновились
-            lyricsListView.post(() -> {
-                if (currentLyricIndex >= 0) smoothScrollToCenter(currentLyricIndex);
-            });
+        if (lyricsView != null) {
+            lyricsView.setActiveIndex(currentLyricIndex, true);
         }
     }
 
@@ -3771,7 +3886,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private void fetchLyrics(MessageObject msg) {
         lyricsLines.clear();
         lyricsLines.add(new LrcLine(0, getString(R.string.sg_lyrics_searching)));
-        if (lyricsAdapter != null) lyricsAdapter.notifyDataSetChanged();
+        if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
         currentLyricIndex = -1;
 
         String title = msg.getMusicTitle();
@@ -3788,7 +3903,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             AndroidUtilities.runOnUIThread(() -> {
                 lyricsLines.clear();
                 lyricsLines.addAll(cached);
-                if (lyricsAdapter != null) lyricsAdapter.notifyDataSetChanged();
+                if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
                 jumpToCurrentLyric();
             });
             return;
@@ -3816,7 +3931,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                             AndroidUtilities.runOnUIThread(() -> {
                                 lyricsLines.clear();
                                 lyricsLines.addAll(parsed);
-                                if (lyricsAdapter != null) lyricsAdapter.notifyDataSetChanged();
+                                if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
                                 jumpToCurrentLyric();
                             });
                             return;
@@ -3916,7 +4031,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                     AndroidUtilities.runOnUIThread(() -> {
                         lyricsLines.clear();
                         lyricsLines.addAll(result);
-                        if (lyricsAdapter != null) lyricsAdapter.notifyDataSetChanged();
+                        if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
                         // Сразу прыгаем к текущей строке без анимации
                         jumpToCurrentLyric();
                     });
@@ -3940,7 +4055,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         AndroidUtilities.runOnUIThread(() -> {
             lyricsLines.clear();
             lyricsLines.add(new LrcLine(0, getString(R.string.sg_lyrics_not_found)));
-            if (lyricsAdapter != null) lyricsAdapter.notifyDataSetChanged();
+            if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
         });
     }
 
@@ -3971,81 +4086,174 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         }
         java.util.Collections.sort(out, (a, b) -> Long.compare(a.timeMs, b.timeMs));
     }
-    private class LyricsAdapter extends RecyclerListView.SelectionAdapter {
-        private Context mContext;
+    /**
+     * Кастомный View лирики в стиле Spotify:
+     * - Активная строка всегда нарисована в фиксированной точке (activeY = 350dp от верха)
+     * - Остальные строки рисуются выше/ниже с одинаковым шагом ROW_HEIGHT
+     * - При смене activeIndex View плавно анимирует scrollOffset через ValueAnimator
+     * - textSize НЕ меняется (нет requestLayout) — только alpha, scale, цвет, glow через Paint
+     */
+    private class LyricsView extends View {
 
-        public LyricsAdapter(Context context) {
-            mContext = context;
+        // Высота одной строки в пикселях
+        private final int ROW_HEIGHT = AndroidUtilities.dp(80);
+        // Y-координата центра активной строки (фиксированная точка)
+        private final int ACTIVE_Y   = AndroidUtilities.dp(240);
+
+        // Размеры текста в px
+        private final float TEXT_SIZE_ACTIVE  = AndroidUtilities.dp(26);
+        private final float TEXT_SIZE_PASSIVE = AndroidUtilities.dp(20);
+
+        private final android.text.TextPaint activePaint  = new android.text.TextPaint(Paint.ANTI_ALIAS_FLAG);
+        private final android.text.TextPaint passivePaint = new android.text.TextPaint(Paint.ANTI_ALIAS_FLAG);
+
+        // Текущее анимируемое смещение в пикселях (0 = активная строка в ACTIVE_Y)
+        private float scrollOffset = 0f;
+        private ValueAnimator scrollAnim;
+
+        // Индекс активной строки (целевой — после анимации)
+        private int activeIndex = 0;
+
+        // Paint для glow эффекта активной строки
+        private final android.text.TextPaint glowPaint = new android.text.TextPaint(Paint.ANTI_ALIAS_FLAG);
+
+        public LyricsView(Context context) {
+            super(context);
+
+            activePaint.setTextSize(TEXT_SIZE_ACTIVE);
+            activePaint.setTypeface(AndroidUtilities.bold());
+            activePaint.setTextAlign(Paint.Align.CENTER);
+            activePaint.setColor(0xFFFFFFFF);
+
+            passivePaint.setTextSize(TEXT_SIZE_PASSIVE);
+            passivePaint.setTypeface(AndroidUtilities.bold());
+            passivePaint.setTextAlign(Paint.Align.CENTER);
+            passivePaint.setColor(0xFFFFFFFF);
+
+            glowPaint.setTextSize(TEXT_SIZE_ACTIVE);
+            glowPaint.setTypeface(AndroidUtilities.bold());
+            glowPaint.setTextAlign(Paint.Align.CENTER);
+            glowPaint.setColor(0xFFFFFFFF);
+            glowPaint.setMaskFilter(new android.graphics.BlurMaskFilter(
+                    AndroidUtilities.dp(12), android.graphics.BlurMaskFilter.Blur.NORMAL));
         }
 
-        @NonNull @Override public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            TextView textView = new TextView(getContext());
-            // ФИКС: фиксированная высота строки — изменение textSize НЕ вызывает relayout RecyclerView
-            // и НЕ прерывает smooth scroll к активной строке
-            textView.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(64)));
-            textView.setGravity(Gravity.CENTER);
-            textView.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
-            textView.setMaxLines(2);
-            textView.setEllipsize(TextUtils.TruncateAt.END);
-            return new RecyclerListView.Holder(textView);
-        }
-        @Override
-        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-            TextView textView = (TextView) holder.itemView;
-            textView.setText(lyricsLines.get(position).text);
+        /** Установить новый активный индекс с плавной прокруткой */
+        public void setActiveIndex(int index, boolean animate) {
+            if (index < 0 || lyricsLines.isEmpty()) return;
+            activeIndex = index;
 
-            int activeIndex = currentLyricIndex != -1 ? currentLyricIndex : 0;
-            int distance = Math.abs(position - activeIndex);
+            float targetOffset = 0f; // 0 = активная строка ровно в ACTIVE_Y
 
-            float targetAlpha;
-            float targetScaleX, targetScaleY;
-            float targetTextSizeSp;
+            if (scrollAnim != null) scrollAnim.cancel();
 
-            if (distance == 0) {
-                targetAlpha = 1.0f;
-                targetScaleX = 1.05f; targetScaleY = 1.05f;
-                targetTextSizeSp = 24f;
-                textView.setShadowLayer(25f, 0f, 0f, 0xCCFFFFFF);
-                textView.setTextColor(0xFFFFFFFF);
-            } else if (distance == 1) {
-                targetAlpha = 0.45f;
-                targetScaleX = 1.0f; targetScaleY = 1.0f;
-                targetTextSizeSp = 20f;
-                textView.setShadowLayer(0f, 0f, 0f, 0);
-                textView.setTextColor(0xFFFFFFFF);
-            } else if (distance == 2) {
-                targetAlpha = 0.15f;
-                targetScaleX = 0.95f; targetScaleY = 0.95f;
-                targetTextSizeSp = 20f;
-                textView.setShadowLayer(0f, 0f, 0f, 0);
-                textView.setTextColor(0xFFFFFFFF);
-            } else {
-                targetAlpha = 0.0f;
-                targetScaleX = 0.92f; targetScaleY = 0.92f;
-                targetTextSizeSp = 20f;
-                textView.setShadowLayer(0f, 0f, 0f, 0);
+            if (!animate) {
+                scrollOffset = targetOffset;
+                invalidate();
+                return;
             }
 
-            // Плавная анимация смены стиля вместо мгновенной установки
-            textView.animate()
-                    .alpha(targetAlpha)
-                    .scaleX(targetScaleX)
-                    .scaleY(targetScaleY)
-                    .setDuration(200)
-                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
-                    .start();
-            textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, targetTextSizeSp);
+            scrollAnim = ValueAnimator.ofFloat(scrollOffset, targetOffset);
+            scrollAnim.setDuration(600);
+            scrollAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(2.5f));
+            scrollAnim.addUpdateListener(a -> {
+                scrollOffset = (float) a.getAnimatedValue();
+                invalidate();
+            });
+            scrollAnim.start();
+        }
 
-            textView.setOnClickListener(null);
-            textView.setClickable(false);
+        /** Прыжок без анимации (при открытии лирики) */
+        public void jumpToIndex(int index) {
+            setActiveIndex(index, false);
         }
 
         @Override
-        public int getItemCount() {
-            return lyricsLines.size();
+        protected void onDraw(Canvas canvas) {
+            if (lyricsLines.isEmpty()) return;
+
+            int w = getWidth();
+            int cx = w / 2;
+
+            // Сколько строк влезает выше и ниже
+            int visibleRows = getMeasuredHeight() / ROW_HEIGHT + 4;
+
+            for (int i = 0; i < lyricsLines.size(); i++) {
+                // Y центра этой строки
+                float rowY = ACTIVE_Y + scrollOffset + (i - activeIndex) * ROW_HEIGHT;
+
+                // Отсекаем строки вне экрана (с запасом)
+                if (rowY < -ROW_HEIGHT || rowY > getMeasuredHeight() + ROW_HEIGHT) continue;
+
+                int dist = Math.abs(i - activeIndex);
+
+                // Alpha затухает с расстоянием
+                float alpha;
+                float scale;
+                if (dist == 0) {
+                    alpha = 1.0f;
+                    scale = 1.0f;
+                } else if (dist == 1) {
+                    alpha = 0.5f;
+                    scale = 0.88f;
+                } else if (dist == 2) {
+                    alpha = 0.22f;
+                    scale = 0.82f;
+                } else if (dist == 3) {
+                    alpha = 0.08f;
+                    scale = 0.78f;
+                } else {
+                    alpha = 0.0f;
+                    scale = 0.75f;
+                }
+
+                if (alpha <= 0.01f) continue;
+
+                String text = lyricsLines.get(i).text;
+
+                // Многострочный текст: разбиваем по ширине
+                android.text.TextPaint paint = (dist == 0) ? activePaint : passivePaint;
+                paint.setAlpha((int)(alpha * 255));
+
+                // Применяем scale через canvas.save/restore
+                canvas.save();
+                // Сначала переносим canvas в центр строки, потом масштабируем относительно этой точки
+                canvas.translate(cx, rowY);
+                canvas.scale(scale, scale);
+
+                // Glow для активной строки
+                if (dist == 0) {
+                    glowPaint.setAlpha(120);
+                    drawMultilineText(canvas, text, w);
+                }
+
+                drawMultilineText(canvas, text, paint, w);
+                canvas.restore();
+            }
         }
 
-        @Override
-        public boolean isEnabled(RecyclerView.ViewHolder holder) { return false; }
+        /** Рисует текст с переносом по ширине, центрируя блок по Y.
+         *  Canvas должен быть уже translate(cx, rowY) перед вызовом. */
+        private void drawMultilineText(Canvas canvas, String text, android.text.TextPaint paint, int viewWidth) {
+            int maxWidth = (int)(viewWidth * 0.82f);
+            android.text.StaticLayout sl = android.text.StaticLayout.Builder
+                    .obtain(text, 0, text.length(), paint, maxWidth)
+                    .setAlignment(android.text.Layout.Alignment.ALIGN_CENTER)
+                    .setMaxLines(2)
+                    .setEllipsize(TextUtils.TruncateAt.END)
+                    .build();
+
+            float totalH = sl.getHeight();
+            canvas.save();
+            // canvas уже в точке (cx, rowY) — рисуем блок по центру
+            canvas.translate(-maxWidth / 2f, -totalH / 2f);
+            sl.draw(canvas);
+            canvas.restore();
+        }
+
+        private void drawMultilineText(Canvas canvas, String text, int viewWidth) {
+            drawMultilineText(canvas, text, glowPaint, viewWidth);
+        }
     }
+
 }

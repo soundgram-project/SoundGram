@@ -4127,9 +4127,15 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     }
                 });
                 if (isDirectStream) {
-                    audioPlayer.preparePlayer(Uri.parse(messageObject.messageOwner.attachPath), "other");
+                    // ИСПРАВЛЕНИЕ: Блокировка Cleartext Traffic при автопереключении треков (Next Track)
+                    String streamUrl = messageObject.messageOwner.attachPath;
+                    if (streamUrl != null && streamUrl.startsWith("http://")) {
+                        streamUrl = streamUrl.replaceFirst("http://", "https://");
+                    }
+                    audioPlayer.preparePlayer(Uri.parse(streamUrl), "other");
                     isStreamingCurrentAudio = true;
-                } else if (exists) {
+                }
+ else if (exists) {
                     if (!messageObject.mediaExists && cacheFile != file) {
                         AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.fileLoaded, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
                         if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && messageObject.isAyuDeleted()) {

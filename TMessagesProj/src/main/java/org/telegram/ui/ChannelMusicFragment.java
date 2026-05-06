@@ -1207,9 +1207,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     msg.messageOwner.attachPath = targetFile.getAbsolutePath();
                     FileLog.d("SoundGram: downloaded OK → " + targetFile.getName());
                 } else {
-                    // Оставляем URL — резолвим зеркало и стримим
-                    msg.messageOwner.attachPath = MusicWebSearcher.resolveRedirectUrl(downloadUrl);
-                    FileLog.d("SoundGram: download failed, streaming resolved url: " + downloadUrl);
+                    // ИСПРАВЛЕНИЕ VPN: Не резолвим URL заранее — оставляем оригинальный hitmos.me URL.
+                    // Резолвинг заранее создаёт URL привязанный к текущей VPN-сессии/IP,
+                    // который к моменту воспроизведения может устареть или стать недоступным.
+                    // ExoPlayer сам пройдёт редиректы через VPN TUN-интерфейс в момент воспроизведения.
+                    msg.messageOwner.attachPath = downloadUrl;
+                    FileLog.d("SoundGram: download failed, will stream original url: " + downloadUrl);
                 }
 
                 try { Thread.sleep(300); } catch (InterruptedException ignored) {}
@@ -2085,54 +2088,47 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 String trackArtist = parts.length > 2 ? parts[2] : "";
                 String streamUrl   = parts[3];
 
-                // 1. Новый формат имени
                 File byName = getLocalTrackFile(trackArtist, trackTitle);
                 if (byName.exists() && byName.length() > 1024) {
                     track.messageOwner.attachPath = byName.getAbsolutePath();
                 } else {
-                    // 2. По messageId
                     long msgId = track.getId();
                     File byId = msgId > 0 ? new File(getMusicStorageDir(), msgId + ".mp3") : null;
                     if (byId != null && byId.exists() && byId.length() > 1024) {
                         track.messageOwner.attachPath = byId.getAbsolutePath();
                     } else {
-                        // 3. По hashId
                         long hashId = Math.abs((long) streamUrl.hashCode());
                         File byHash = new File(getMusicStorageDir(), hashId + ".mp3");
                         if (byHash.exists() && byHash.length() > 1024) {
                             track.messageOwner.attachPath = byHash.getAbsolutePath();
                         } else if (!org.telegram.messenger.ApplicationLoader.isNetworkOnline()) {
-                            // Нет сети и нет файла
                             if (getParentActivity() != null) {
                                 Toast.makeText(getParentActivity(), getString(R.string.sg_no_connection_track_not_downloaded), Toast.LENGTH_SHORT).show();
                             }
                             return;
                         } else {
-                            // Есть сеть — резолвим финальный URL зеркала асинхронно и стримим
                             final MessageObject finalTrack = track;
                             final ArrayList<MessageObject> finalQueue = queue;
                             final long finalContextId = contextId;
                             final String originalUrl = streamUrl;
-                            new Thread(() -> {
-                                String resolved = originalUrl;
-                                try {
-                                    // Первая попытка — через MusicWebSearcher (поддерживает VPN-прокси)
-                                    resolved = MusicWebSearcher.resolveRedirectUrl(originalUrl);
-                                } catch (Exception e1) {
-                                    FileLog.e("resolveRedirectUrl failed, using original: " + e1);
-                                }
-                                // Если resolve вернул пустую строку — фолбек на оригинальный URL
-                                if (resolved == null || resolved.isEmpty()) resolved = originalUrl;
-                                final String finalResolved = resolved;
-                                AndroidUtilities.runOnUIThread(() -> {
-                                    finalTrack.messageOwner.attachPath = finalResolved;
-                                    for (MessageObject m : finalQueue) { m.audioProgress = 0.0f; m.audioProgressSec = 0; }
-                                    mediaController.setPlaylist(new ArrayList<>(finalQueue), finalTrack, finalContextId);
-                                    mediaController.seekToProgress(finalTrack, 0);
-                                    mediaController.playMessage(finalTrack);
-                                });
-                            }).start();
-                            return; // выходим — плеер запустится из потока выше
+
+                            // ИСПРАВЛЕНИЕ VPN: Передаём оригинальный hitmos.me URL напрямую в ExoPlayer.
+                            // ExoPlayer с setAllowCrossProtocolRedirects(true) и правильными заголовками
+                            // (Referer, User-Agent) сам пройдёт все редиректы через VPN TUN-интерфейс
+                            // в момент воспроизведения — это надёжнее чем резолв заранее,
+                            // который привязывался к IP/сессии VPN и устаревал.
+                            String streamingUrl = originalUrl.startsWith("http://")
+                                    ? originalUrl.replaceFirst("http://", "https://")
+                                    : originalUrl;
+
+                            AndroidUtilities.runOnUIThread(() -> {
+                                finalTrack.messageOwner.attachPath = streamingUrl;
+                                for (MessageObject m : finalQueue) { m.audioProgress = 0.0f; m.audioProgressSec = 0; }
+                                mediaController.setPlaylist(new ArrayList<>(finalQueue), finalTrack, finalContextId);
+                                mediaController.seekToProgress(finalTrack, 0);
+                                mediaController.playMessage(finalTrack);
+                            });
+                            return;
                         }
                     }
                 }
@@ -2147,6 +2143,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         mediaController.seekToProgress(track, 0);
         mediaController.playMessage(track);
     }
+
     public static class AddTracksFragment extends BaseFragment {
         private File playlistFile;
         private PlaylistUpdateListener listener;

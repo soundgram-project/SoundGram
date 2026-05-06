@@ -227,17 +227,33 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             FileLog.e("VideoPlayer VPN SSL init: " + e);
         }
     }
-
     private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent) {
         ensureVpnSsl();
-        DefaultHttpDataSource.Factory httpFactory = new DefaultHttpDataSource.Factory()
-                .setUserAgent(userAgent)
-                .setConnectTimeoutMs(DefaultHttpDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS)
-                .setReadTimeoutMs(DefaultHttpDataSource.DEFAULT_READ_TIMEOUT_MILLIS)
+        // ИСПРАВЛЕНИЕ: СТРОГО ЕДИНЫЙ USER-AGENT как в MusicWebSearcher для обхода защиты Cloudflare/Hitmos
+        String unifiedUserAgent = "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0";
+
+        com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory httpFactory = new com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory()
+                .setUserAgent(unifiedUserAgent)
+                .setConnectTimeoutMs(25000)
+                .setReadTimeoutMs(25000)
+                // setAllowCrossProtocolRedirects позволяет следовать редиректам http↔https И между разными хостами
+                // Критично при VPN: hitmos.me → eu.hitmoz.com или rus.hitmoz.org
                 .setAllowCrossProtocolRedirects(true);
+
+        java.util.Map<String, String> headers = new java.util.HashMap<>();
+        // Referer должен совпадать с ожиданием зеркальных серверов
+        // hitmos.me, eu.hitmoz.com и rus.hitmoz.org — одна экосистема, все принимают hitmos.me как Referer
+        headers.put("Referer", "https://hitmos.me/");
+        headers.put("Origin", "https://hitmos.me");
+        headers.put("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+        headers.put("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8");
+        headers.put("Connection", "keep-alive");
+        headers.put("Accept-Encoding", "identity"); // Критично для VPN, чтобы стрим не рвался
+        headers.put("Icy-MetaData", "1");
+        httpFactory.setDefaultRequestProperties(headers);
+
+        // Обходим TLS-проблемы при перехвате трафика VPN'ом (для зеркал с нестандартными сертификатами)
         if (vpnSslSocketFactory != null) {
-            httpFactory.setDefaultRequestProperties(new java.util.HashMap<>());
-            // Inject trust-all SSL via reflection on the underlying OkHttpClient workaround
             try {
                 javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(vpnSslSocketFactory);
                 javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
@@ -246,7 +262,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         return new com.google.android.exoplayer2.upstream.DefaultDataSource.Factory(
                 ApplicationLoader.applicationContext, httpFactory);
     }
-    // ==========================================
+
 
     static int playerCounter = 0;
     public VideoPlayer(boolean pauseOther, boolean audioDisabled) {
