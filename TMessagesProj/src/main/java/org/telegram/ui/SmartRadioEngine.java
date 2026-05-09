@@ -202,43 +202,83 @@ public class SmartRadioEngine {
         initNeuroRankerIfNeeded();
         backgroundExecutor.execute(() -> {
             try {
+                // Шаг 1: Берем якоря из нашей заготовленной базы жанра
+                ArrayList<String> seedPool = getSeedTracksForGenre(currentConfig.query);
+                Collections.shuffle(seedPool);
+
+                ArrayList<String> initial = new ArrayList<>();
+                // Берем до 8 случайных треков из нашей базы
+                for (int i = 0; i < Math.min(8, seedPool.size()); i++) {
+                    initial.add(seedPool.get(i));
+                }
+
                 String searchKeyword = getDeezerSearchQuery(currentConfig.query);
 
-                // Шаг 1: мгновенный старт (5 треков без нейронки) — случайный offset
-                ArrayList<String> initial = getTracksFromDynamicPlaylists(searchKeyword, 8, random.nextInt(600));
-                if (initial.size() < 5) {
-                    initial.addAll(getTracksFromITunes(searchKeyword, 8 - initial.size()));
+                // Fallback: если для выбранного жанра мы не прописали списки, тянем динамически
+                if (initial.isEmpty()) {
+                    initial.addAll(getTracksFromDynamicPlaylists(searchKeyword, 8, random.nextInt(600)));
+                    if (initial.size() < 5) initial.addAll(getTracksFromITunes(searchKeyword, 8 - initial.size()));
                 }
+
                 processAndReturnTracks(initial, currentAccount, true, callback);
 
                 if (cancelFlag.get()) return;
 
-                // Шаг 2: нейронный подбор
+                // Шаг 2: Жестко фиксируем вектор ЖАНРА. Он будет гарантом того, что треки не перетекут
                 float[] contextVector = neuroRanker.getGenreVector(currentConfig.query);
                 cachedSeedVector = contextVector;
 
+                // Собираем кандидатов на основе авторов из сгенерированной начальной пачки
                 ArrayList<String> next = new ArrayList<>();
-                next.addAll(getTracksFromDynamicPlaylists(searchKeyword, 20, random.nextInt(300) + 10));
-                next.addAll(getTracksFromITunes(searchKeyword, 15));
+                for(String track : initial) {
+                    String[] parts = track.split(" - ", 2);
+                    if(parts.length > 0) {
+                        String artist = parts[0];
+                        // Ищем похожие на этот конкретный трек/артиста из базы
+                        next.addAll(getDeepSimilarTracks(artist, 5));
+                        next.addAll(getLastFmSimilarTracks(artist, 5));
+                    }
+                }
+
+                // Разбавляем свежими чартами жанра для разнообразия
+                next.addAll(getTracksFromDynamicPlaylists(searchKeyword, 10, random.nextInt(300) + 10));
+
+                // Фильтруем найденные треки через вектор жанра, чтобы отсечь мусор
                 ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(next, contextVector, 20);
                 processAndReturnTracks(verified, currentAccount, false, callback);
 
                 if (cancelFlag.get()) return;
 
                 // Шаг 3: бесконечный рефилл
-                startInfiniteRefill(currentAccount, callback,
-                        () -> {
-                            ArrayList<String> r = new ArrayList<>();
-                            try {
-                                r.addAll(getTracksFromDynamicPlaylists(searchKeyword, 20, random.nextInt(500)));
-                                r.addAll(getTracksFromITunes(searchKeyword, 10));
-                            } catch (Exception ignored) {}
-                            return r;
-                        });
+                startInfiniteRefill(currentAccount, callback, () -> {
+                    ArrayList<String> r = new ArrayList<>();
+                    try {
+                        // Берем треки из УЖЕ сгенерированной пачки для развития волны
+                        List<MessageObject> batch = new ArrayList<>(lastGeneratedBatch);
+                        if (!batch.isEmpty()) {
+                            Collections.shuffle(batch);
+                            // Берем 3 случайных авторов из текущей очереди
+                            for (int i = 0; i < Math.min(3, batch.size()); i++) {
+                                String author = batch.get(i).getMusicAuthor();
+                                if (author != null && !author.isEmpty()) {
+                                    r.addAll(getDeezerArtistMix(author, 10));
+                                    r.addAll(getLastFmSimilarTracks(author, 8));
+                                }
+                            }
+                        }
+
+                        // Если артистов не хватило, добиваем динамическими плейлистами самого жанра
+                        if (r.size() < 10) {
+                            r.addAll(getTracksFromDynamicPlaylists(searchKeyword, 15, random.nextInt(500)));
+                        }
+                    } catch (Exception ignored) {}
+                    return r;
+                });
 
             } catch (Exception e) { handleError(callback, e); }
         });
     }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // generateWaveByPlaylist
@@ -256,39 +296,74 @@ public class SmartRadioEngine {
                 synchronized (basePlaylistContext) { ctx = new ArrayList<>(basePlaylistContext); }
                 if (ctx.isEmpty()) throw new Exception("Плейлист пуст");
 
-                MessageObject seedTrack = ctx.get(random.nextInt(ctx.size()));
-                final String seedArtist = seedTrack.getMusicAuthor();
+                // Берём несколько seed-треков для лучшего покрытия стиля плейлиста
+                int seedCount = Math.min(3, ctx.size());
+                Collections.shuffle(ctx);
+                ArrayList<MessageObject> seeds = new ArrayList<>(ctx.subList(0, seedCount));
+                final String primarySeedArtist = seeds.get(0).getMusicAuthor();
 
-                ArrayList<String> initial = getDeepSimilarTracks(seedArtist, 8);
-                if (initial.size() < 5) initial.addAll(getTracksFromDynamicPlaylists("Top Hits", 8 - initial.size(), 0));
+                ArrayList<String> initial = new ArrayList<>();
+                for (MessageObject seed : seeds) {
+                    initial.addAll(getDeezerArtistMix(seed.getMusicAuthor(), 4));
+                }
+                if (initial.size() < 5) initial.addAll(getDeepSimilarTracks(primarySeedArtist, 8 - initial.size()));
+                if (initial.size() < 5) initial.addAll(getTracksFromDeezerCharts(5));
                 processAndReturnTracks(initial, currentAccount, true, callback);
 
                 if (cancelFlag.get()) return;
 
-                float[] seedVector = neuroRanker.getVectorForRemoteTrack(seedArtist, seedTrack.getMusicTitle());
+                // Строим вектор как среднее по нескольким seed-трекам
+                float[] seedVector = buildMultiTrackSeedVector(seeds);
                 if (seedVector == null) seedVector = neuroRanker.getGenreVector("Поп");
                 cachedSeedVector = seedVector;
 
                 ArrayList<String> next = new ArrayList<>();
-                next.addAll(getDeepSimilarTracks(seedArtist, 30));
-                next.addAll(getTracksFromDynamicPlaylists("Top Hits", 15, random.nextInt(100)));
+                for (MessageObject seed : seeds) next.addAll(getDeepSimilarTracks(seed.getMusicAuthor(), 15));
+                next.addAll(getDeezerArtistMix(primarySeedArtist, 15));
+                next.addAll(getLastFmSimilarTracks(primarySeedArtist, 10));
                 ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(next, seedVector, 20);
                 processAndReturnTracks(verified, currentAccount, false, callback);
 
                 if (cancelFlag.get()) return;
 
-                startInfiniteRefill(currentAccount, callback,
-                        () -> {
-                            ArrayList<String> r = new ArrayList<>();
-                            try {
-                                r.addAll(getDeepSimilarTracks(seedArtist, 25));
-                                r.addAll(getTracksFromDynamicPlaylists("Top Hits", 15, random.nextInt(500)));
-                            } catch (Exception ignored) {}
-                            return r;
-                        });
+                final float[] finalSeed = seedVector;
+                startInfiniteRefill(currentAccount, callback, () -> {
+                    ArrayList<String> r = new ArrayList<>();
+                    try {
+                        r.addAll(getDeezerArtistMix(primarySeedArtist, 20));
+                        r.addAll(getDeepSimilarTracks(primarySeedArtist, 15));
+                        r.addAll(getLastFmSimilarTracks(primarySeedArtist, 10));
+                        if (r.size() < 10) r.addAll(getTracksFromDeezerCharts(10));
+                    } catch (Exception ignored) {}
+                    return r;
+                });
 
             } catch (Exception e) { handleError(callback, e); }
         });
+    }
+
+    /** Усреднённый вектор по нескольким трекам */
+    private static float[] buildMultiTrackSeedVector(ArrayList<MessageObject> tracks) {
+        try {
+            float[] sum = new float[400];
+            int count = 0;
+            for (MessageObject mo : tracks) {
+                String a = mo.getMusicAuthor();
+                String t = mo.getMusicTitle();
+                if (a == null || a.isEmpty()) continue;
+                float[] vec = neuroRanker.getVectorForRemoteTrack(a, t != null ? t : "");
+                if (vec == null) continue;
+                for (int i = 0; i < 400; i++) sum[i] += vec[i];
+                count++;
+            }
+            if (count == 0) return null;
+            float norm = 0;
+            for (int i = 0; i < 400; i++) { sum[i] /= count; norm += sum[i] * sum[i]; }
+            norm = (float) Math.sqrt(norm);
+            if (norm < 1e-9f) return null;
+            for (int i = 0; i < 400; i++) sum[i] /= norm;
+            return sum;
+        } catch (Exception e) { return null; }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -302,9 +377,11 @@ public class SmartRadioEngine {
 
         backgroundExecutor.execute(() -> {
             try {
-                ArrayList<String> initial = getDeepSimilarTracks(artistName, 8);
-                if (initial.size() < 5) initial.addAll(getLastFmSimilarTracks(artistName, 8 - initial.size()));
-                if (initial.isEmpty()) initial.addAll(getTracksFromDynamicPlaylists("Top Hits", 8, 0));
+                // Шаг 1: artist radio + mix для мгновенного старта
+                ArrayList<String> initial = new ArrayList<>();
+                initial.addAll(getDeezerArtistMix(artistName, 5));
+                if (initial.size() < 5) initial.addAll(getDeepSimilarTracks(artistName, 8 - initial.size()));
+                if (initial.size() < 5) initial.addAll(getLastFmSimilarTracks(artistName, 5 - initial.size()));
                 processAndReturnTracks(initial, currentAccount, true, callback);
 
                 if (cancelFlag.get()) return;
@@ -314,24 +391,23 @@ public class SmartRadioEngine {
                 cachedSeedVector = seedVector;
 
                 ArrayList<String> next = new ArrayList<>();
-                next.addAll(getDeepSimilarTracks(artistName, 30));
-                next.addAll(getLastFmSimilarTracks(artistName, 20));
-                if (next.isEmpty()) next.addAll(getTracksFromDynamicPlaylists("Top Hits", 30, random.nextInt(200)));
+                next.addAll(getDeepSimilarTracks(artistName, 25));
+                next.addAll(getDeezerArtistMix(artistName, 15));
+                next.addAll(getLastFmSimilarTracks(artistName, 15));
                 ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(next, seedVector, 25);
                 processAndReturnTracks(verified, currentAccount, false, callback);
 
                 if (cancelFlag.get()) return;
 
-                startInfiniteRefill(currentAccount, callback,
-                        () -> {
-                            ArrayList<String> r = new ArrayList<>();
-                            try {
-                                r.addAll(getDeepSimilarTracks(artistName, 30));
-                                r.addAll(getLastFmSimilarTracks(artistName, 15));
-                                if (r.size() < 10) r.addAll(getTracksFromDynamicPlaylists("Top Hits", 20, random.nextInt(500)));
-                            } catch (Exception ignored) {}
-                            return r;
-                        });
+                startInfiniteRefill(currentAccount, callback, () -> {
+                    ArrayList<String> r = new ArrayList<>();
+                    try {
+                        r.addAll(getDeezerArtistMix(artistName, 20));
+                        r.addAll(getDeepSimilarTracks(artistName, 15));
+                        r.addAll(getLastFmSimilarTracks(artistName, 10));
+                    } catch (Exception ignored) {}
+                    return r;
+                });
 
             } catch (Exception e) { handleError(callback, e); }
         });
@@ -351,16 +427,16 @@ public class SmartRadioEngine {
                 String safeAlbum  = (albumName  == null || albumName.isEmpty())  ? "" : albumName;
                 currentConfig.query = safeArtist;
 
-                // Шаг 1: треки альбома → радио артиста → fallback
+                // Шаг 1: треки альбома → artist mix → fallback
                 ArrayList<String> initial = new ArrayList<>();
-                if (!safeAlbum.isEmpty()) initial.addAll(getTracksFromAlbum(safeArtist, safeAlbum, 8));
-                if (initial.size() < 5) initial.addAll(getDeepSimilarTracks(safeArtist, 8 - initial.size()));
-                if (initial.isEmpty()) initial.addAll(getTracksFromDynamicPlaylists("Top Hits", 8, 0));
+                if (!safeAlbum.isEmpty()) initial.addAll(getTracksFromAlbum(safeArtist, safeAlbum, 5));
+                initial.addAll(getDeezerArtistMix(safeArtist, 5 - Math.min(initial.size(), 4)));
+                if (initial.size() < 5) initial.addAll(getDeepSimilarTracks(safeArtist, 5 - initial.size()));
                 processAndReturnTracks(initial, currentAccount, true, callback);
 
                 if (cancelFlag.get()) return;
 
-                // Шаг 2: seed-вектор + нейронный подбор
+                // Шаг 2: seed из треков альбома или артиста
                 String albumGenre = null;
                 try { if (!safeAlbum.isEmpty()) albumGenre = getAlbumGenreQuery(safeArtist, safeAlbum); }
                 catch (Exception ignored) {}
@@ -380,10 +456,11 @@ public class SmartRadioEngine {
                 cachedSeedVector = seedVector;
 
                 ArrayList<String> next = new ArrayList<>();
-                next.addAll(getDeepSimilarTracks(safeArtist, 25));
-                if (albumGenre != null) next.addAll(getTracksFromDynamicPlaylists(albumGenre, 20, random.nextInt(50)));
-                next.addAll(getTracksFromDynamicPlaylists(getDeezerSearchQuery(safeArtist), 15, random.nextInt(30)));
-                if (next.isEmpty()) next.addAll(getTracksFromDynamicPlaylists("Top Hits", 40, random.nextInt(200)));
+                next.addAll(getDeezerArtistMix(safeArtist, 20));
+                next.addAll(getDeepSimilarTracks(safeArtist, 20));
+                if (albumGenre != null) next.addAll(getTracksFromDynamicPlaylists(albumGenre, 15, random.nextInt(50)));
+                next.addAll(getLastFmSimilarTracks(safeArtist, 10));
+                if (next.isEmpty()) next.addAll(getTracksFromDeezerCharts(20));
 
                 ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(next, seedVector, 25);
                 processAndReturnTracks(verified, currentAccount, false, callback);
@@ -391,17 +468,17 @@ public class SmartRadioEngine {
                 if (cancelFlag.get()) return;
 
                 final String finalAlbumGenre = albumGenre;
-                startInfiniteRefill(currentAccount, callback,
-                        () -> {
-                            ArrayList<String> r = new ArrayList<>();
-                            try {
-                                r.addAll(getDeepSimilarTracks(safeArtist, 25));
-                                if (finalAlbumGenre != null) r.addAll(getTracksFromDynamicPlaylists(finalAlbumGenre, 15, random.nextInt(300)));
-                                r.addAll(getTracksFromITunes(safeArtist, 10));
-                                if (r.size() < 10) r.addAll(getTracksFromDynamicPlaylists("Top Hits", 20, random.nextInt(500)));
-                            } catch (Exception ignored) {}
-                            return r;
-                        });
+                startInfiniteRefill(currentAccount, callback, () -> {
+                    ArrayList<String> r = new ArrayList<>();
+                    try {
+                        r.addAll(getDeezerArtistMix(safeArtist, 20));
+                        r.addAll(getDeepSimilarTracks(safeArtist, 15));
+                        if (finalAlbumGenre != null) r.addAll(getTracksFromDynamicPlaylists(finalAlbumGenre, 10, random.nextInt(300)));
+                        r.addAll(getTracksFromITunes(safeArtist, 8));
+                        if (r.size() < 10) r.addAll(getTracksFromDeezerCharts(10));
+                    } catch (Exception ignored) {}
+                    return r;
+                });
 
             } catch (Exception e) { handleError(callback, e); }
         });
@@ -410,11 +487,78 @@ public class SmartRadioEngine {
     // ─────────────────────────────────────────────────────────────────────────
     // loadMoreForCurrentWave
     // ─────────────────────────────────────────────────────────────────────────
+    // Метод для фоновой загрузки и обновления якорей с GitHub
+    public static void checkAndUpdateWaveSeeds(Context context) {
+        backgroundExecutor.execute(() -> {
+            try {
+                String url = "https://raw.githubusercontent.com/soundgram-project/SoundGram-wave/main/wave.txt";
+                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(5000);
+                c.setReadTimeout(5000);
+                c.setRequestMethod("GET");
+                c.setRequestProperty("Cache-Control", "no-cache");
+
+                if (c.getResponseCode() != 200) return;
+
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                try (InputStream is = c.getInputStream()) {
+                    byte[] b = new byte[8192]; int len;
+                    while ((len = is.read(b)) != -1) bos.write(b, 0, len);
+                }
+                String content = bos.toString("UTF-8");
+                String[] lines = content.split("\\r?\\n");
+                if (lines.length == 0) return;
+
+                String firstLine = lines[0].trim().toLowerCase();
+                if (!firstLine.startsWith("update")) return;
+
+                int versionParsed = 0;
+                try {
+                    versionParsed = Integer.parseInt(firstLine.replace("update", "").trim());
+                } catch (Exception e) { return; }
+
+                final int newVersion = versionParsed; // Создаем финальную копию для лямбды
+                android.content.SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_wave", Context.MODE_PRIVATE);
+                int currentVersion = prefs.getInt("wave_seed_version", 0);
+
+                if (newVersion > currentVersion) {
+                    JSONObject newSeeds = new JSONObject();
+                    String currentGenre = null;
+                    JSONArray currentArray = null;
+
+                    for (int i = 1; i < lines.length; i++) {
+                        String line = lines[i].trim();
+                        if (line.isEmpty()) continue;
+
+                        if (!line.contains(" - ")) {
+                            currentGenre = line.replaceAll("\\(.*?\\)", "").trim().toLowerCase();
+                            currentArray = new JSONArray();
+                            newSeeds.put(currentGenre, currentArray);
+                        } else if (currentArray != null) {
+                            currentArray.put(line.replace("\"", ""));
+                        }
+                    }
+
+                    prefs.edit()
+                            .putInt("wave_seed_version", newVersion)
+                            .putString("wave_seed_data", newSeeds.toString())
+                            .apply();
+
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (context != null) {
+                            android.widget.Toast.makeText(context, "Волна SoundGram обновлена до v." + newVersion, android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                FileLog.e("Wave Update Error", e);
+            }
+        });
+    }
 
     public static void loadMoreForCurrentWave(MessageObject currentTrack, int currentAccount, WaveCallback callback) {
         if (isLoading) return;
         isLoading = true;
-        // FIX: убеждаемся что волна активна
         isWaveActive = true;
         initNeuroRankerIfNeeded();
 
@@ -430,31 +574,41 @@ public class SmartRadioEngine {
                     cachedSeedVector = seedVector;
                 }
 
+                // Адаптируем seed к текущему треку
+                if (currentTrack != null) adaptSeedToCurrentTrack(currentTrack.getMusicAuthor(), currentTrack.getMusicTitle());
+
                 ArrayList<String> candidates = new ArrayList<>();
                 String searchQuery = getDeezerSearchQuery(currentConfig.query);
-                // FIX: случайный offset для каждого запроса — разные треки каждый раз
                 int randOffset = random.nextInt(800);
 
                 switch (currentWaveMode) {
                     case 0: // жанровая волна
-                        candidates.addAll(getTracksFromDynamicPlaylists(searchQuery, 20, randOffset));
-                        candidates.addAll(getTracksFromITunes(searchQuery, 10));
+                        // Ищем похожих артистов на текущего играющего
+                        if (seed.getMusicAuthor() != null) {
+                            candidates.addAll(getDeezerArtistMix(seed.getMusicAuthor(), 15));
+                            candidates.addAll(getLastFmSimilarTracks(seed.getMusicAuthor(), 10));
+                        }
+                        // Всегда подкидываем треки из жанровых плейлистов для поддержания общей канвы
+                        candidates.addAll(getTracksFromDynamicPlaylists(searchQuery, 10, randOffset));
                         break;
                     case 1: // плейлист
                     case 2: // артист
                     case 3: // альбом
-                        candidates.addAll(getDeepSimilarTracks(seed.getMusicAuthor(), 25));
-                        candidates.addAll(getLastFmSimilarTracks(seed.getMusicAuthor(), 15));
-                        if (candidates.size() < 10) candidates.addAll(getTracksFromDynamicPlaylists(searchQuery, 20, randOffset));
+                        candidates.addAll(getDeezerArtistMix(seed.getMusicAuthor(), 15));
+                        candidates.addAll(getDeepSimilarTracks(seed.getMusicAuthor(), 15));
+                        candidates.addAll(getLastFmSimilarTracks(seed.getMusicAuthor(), 10));
+                        if (candidates.size() < 10) candidates.addAll(getTracksFromDeezerCharts(10));
                         break;
                 }
-                if (candidates.isEmpty()) candidates.addAll(getTracksFromDynamicPlaylists("Top Hits", 20, randOffset));
+
+                if (candidates.isEmpty()) candidates.addAll(getTracksFromDeezerCharts(20));
 
                 ArrayList<String> verified = verifyCandidatesWithNeuralNetwork(candidates, seedVector, 20);
                 processAndReturnTracks(verified, currentAccount, false, callback);
             } catch (Exception e) { handleError(callback, e); }
         });
     }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // Бесконечный рефилл (FIX #6: отдельный поток)
@@ -496,13 +650,13 @@ public class SmartRadioEngine {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Нейронная верификация (FIX #4: двойной порог)
+    // Нейронная верификация — ужесточённые пороги + адаптивный вес
     // ─────────────────────────────────────────────────────────────────────────
 
     private static ArrayList<String> verifyCandidatesWithNeuralNetwork(ArrayList<String> candidates, float[] targetVector, int requiredCount) {
-        ArrayList<String> verified = new ArrayList<>();
-        ArrayList<String> softFallback = new ArrayList<>();
-        ArrayList<String> hardFallback = new ArrayList<>();
+        ArrayList<String> verified   = new ArrayList<>();
+        ArrayList<String> softBucket = new ArrayList<>();
+        ArrayList<String> hardBucket = new ArrayList<>();
         Collections.shuffle(candidates);
 
         for (String candidate : candidates) {
@@ -517,31 +671,173 @@ public class SmartRadioEngine {
                 if (similarity >= SIMILARITY_THRESHOLD) {
                     verified.add(candidate);
                 } else if (similarity >= SOFT_THRESHOLD) {
-                    softFallback.add(candidate);
-                } else {
-                    hardFallback.add(candidate);
+                    softBucket.add(candidate);
                 }
-            } else {
-                softFallback.add(candidate); // неизвестный трек — лучше дать шанс
+                // Треки ниже SOFT_THRESHOLD полностью отбрасываем — не добавляем в hardBucket
             }
+            // Треки без вектора (null) тоже отбрасываем — нейронка не может их оценить
         }
 
-        // Заполняем сначала мягким fallback, потом жёстким
-        while (verified.size() < requiredCount && !softFallback.isEmpty()) {
-            verified.add(softFallback.remove(0));
+        // Заполняем только из мягкого bucket если не хватает
+        while (verified.size() < requiredCount && !softBucket.isEmpty()) {
+            verified.add(softBucket.remove(0));
         }
-        while (verified.size() < requiredCount && !hardFallback.isEmpty()) {
-            verified.add(hardFallback.remove(0));
-        }
-        // Последний резерв
+
+        // Если совсем пусто — берём кандидатов напрямую без фильтра (чтобы не зависать)
         if (verified.isEmpty() && !candidates.isEmpty()) {
-            verified.addAll(candidates.subList(0, Math.min(requiredCount, candidates.size())));
+            int take = Math.min(requiredCount / 2, candidates.size());
+            verified.addAll(candidates.subList(0, take));
         }
         return verified;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Отдача треков (FIX #2: AtomicBoolean, FIX #11: thread-safe batch)
+    // Адаптивное обновление seed-вектора по текущему треку (вызывается снаружи)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Обновить seed на основе реально играющего трека.
+     * Вызывать из MediaController при смене трека во время волны.
+     * Интерполируем: 70% старый seed + 30% новый вектор (медленный дрейф).
+     */
+    public static void adaptSeedToCurrentTrack(String artist, String title) {
+        if (!isWaveActive || neuroRanker == null) return;
+        backgroundExecutor.execute(() -> {
+            try {
+                float[] newVec = neuroRanker.getVectorForRemoteTrack(artist, title);
+                if (newVec == null) return;
+                float[] old = cachedSeedVector;
+                if (old == null || old.length != newVec.length) {
+                    cachedSeedVector = newVec;
+                    return;
+                }
+                float[] blended = new float[old.length];
+                for (int i = 0; i < old.length; i++) blended[i] = 0.70f * old[i] + 0.30f * newVec[i];
+                // Ренормализуем
+                float norm = 0;
+                for (float v : blended) norm += v * v;
+                norm = (float) Math.sqrt(norm);
+                if (norm > 1e-9f) for (int i = 0; i < blended.length; i++) blended[i] /= norm;
+                cachedSeedVector = blended;
+            } catch (Exception e) { FileLog.e(e); }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Персонализация: seed из библиотеки пользователя
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Строим seed-вектор из треков библиотеки пользователя (audioMessages).
+     * Берём до 5 случайных треков, усредняем их векторы.
+     */
+    private static float[] buildLibrarySeedVector() {
+        try {
+            ArrayList<MessageObject> lib = ChannelMusicFragment.audioMessages;
+            if (lib == null || lib.isEmpty()) return null;
+            int sampleSize = Math.min(5, lib.size());
+            ArrayList<MessageObject> sample = new ArrayList<>(lib);
+            Collections.shuffle(sample);
+            sample = new ArrayList<>(sample.subList(0, sampleSize));
+
+            float[] sum = new float[400];
+            int count = 0;
+            for (MessageObject mo : sample) {
+                String a = mo.getMusicAuthor();
+                String t = mo.getMusicTitle();
+                if (a == null || t == null || a.isEmpty()) continue;
+                float[] vec = neuroRanker.getVectorForRemoteTrack(a, t);
+                if (vec == null) continue;
+                for (int i = 0; i < 400; i++) sum[i] += vec[i];
+                count++;
+            }
+            if (count == 0) return null;
+            float norm = 0;
+            for (int i = 0; i < 400; i++) { sum[i] /= count; norm += sum[i] * sum[i]; }
+            norm = (float) Math.sqrt(norm);
+            if (norm < 1e-9f) return null;
+            for (int i = 0; i < 400; i++) sum[i] /= norm;
+            return sum;
+        } catch (Exception e) { FileLog.e(e); return null; }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Источник 5: Deezer Charts (топ треки по стране — самый актуальный контент)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Deezer Charts — глобальный и страновой топ.
+     * chart_id: 0=global, 1111141420=RU, 2273=US, 1362=FR итд
+     */
+    private static ArrayList<String> getTracksFromDeezerCharts(int limit) throws Exception {
+        ArrayList<String> res = new ArrayList<>();
+        // Чередуем глобальный и RU чарт
+        long[] chartIds = {0L, 1111141420L};
+        for (long chartId : chartIds) {
+            int offset = random.nextInt(80);
+            String url = "https://api.deezer.com/chart/" + chartId + "/tracks?limit=50&index=" + offset;
+            String resp = performGetRequest(url);
+            if (resp.isEmpty()) continue;
+            JSONObject json = new JSONObject(resp);
+            JSONArray data = json.optJSONArray("data");
+            if (data == null) {
+                // Иногда Deezer оборачивает ответ в { tracks: { data: [...] } }
+                if (json.has("tracks")) data = json.getJSONObject("tracks").optJSONArray("data");
+            }
+            if (data == null) continue;
+            ArrayList<JSONObject> items = new ArrayList<>();
+            for (int i = 0; i < data.length(); i++) items.add(data.getJSONObject(i));
+            Collections.shuffle(items);
+            for (JSONObject t : items) {
+                String art = t.has("artist") ? t.getJSONObject("artist").getString("name") : "";
+                String tit = t.optString("title", "");
+                if (art.isEmpty() || tit.isEmpty()) continue;
+                synchronized (historyLock) {
+                    if (globalPlayHistory.add(art + tit)) res.add(art + " - " + tit);
+                }
+                if (res.size() >= limit) return res;
+            }
+        }
+        return res;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Источник 6: Deezer Recommendations (на основе артиста через mix/radio)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static ArrayList<String> getDeezerArtistMix(String artist, int limit) throws Exception {
+        ArrayList<String> res = new ArrayList<>();
+        // Шаг 1: найти artist id
+        String artistResp = performGetRequest("https://api.deezer.com/search/artist?q=" + URLEncoder.encode(artist, "UTF-8") + "&limit=1");
+        if (artistResp.isEmpty()) return res;
+        JSONArray artistData = new JSONObject(artistResp).optJSONArray("data");
+        if (artistData == null || artistData.length() == 0) return res;
+        long artistId = artistData.getJSONObject(0).getLong("id");
+
+        // Шаг 2: artist mix (умные рекомендации Deezer на основе артиста)
+        String mixResp = performGetRequest("https://api.deezer.com/artist/" + artistId + "/radio?limit=" + Math.min(limit * 2, 40));
+        if (mixResp.isEmpty()) return res;
+        JSONArray mixData = new JSONObject(mixResp).optJSONArray("data");
+        if (mixData == null) return res;
+
+        ArrayList<JSONObject> items = new ArrayList<>();
+        for (int i = 0; i < mixData.length(); i++) items.add(mixData.getJSONObject(i));
+        Collections.shuffle(items);
+
+        for (JSONObject t : items) {
+            String a = t.has("artist") ? t.getJSONObject("artist").getString("name") : "";
+            String tit = t.optString("title", "");
+            if (a.isEmpty() || tit.isEmpty()) continue;
+            synchronized (historyLock) {
+                if (globalPlayHistory.add(a + tit)) res.add(a + " - " + tit);
+            }
+            if (res.size() >= limit) break;
+        }
+        return res;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Отдача треков — строгий поиск каждого кандидата
     // ─────────────────────────────────────────────────────────────────────────
 
     private static void processAndReturnTracks(ArrayList<String> queries, int account, boolean isInitial, WaveCallback callback) {
@@ -549,38 +845,50 @@ public class SmartRadioEngine {
 
         if (isInitial) lastGeneratedBatch.clear();
 
+        // Дедуп по нормализованному ключу внутри батча
+        java.util.Set<String> batchSeen = java.util.Collections.synchronizedSet(new HashSet<>());
+
         AtomicBoolean initialFired = new AtomicBoolean(false);
         AtomicInteger pending = new AtomicInteger(queries.size());
 
         for (String q : queries) {
             backgroundExecutor.execute(() -> {
-                MusicWebSearcher.search(q, (tracks, artists, albums) -> {
-                    try {
-                        if (tracks != null && !tracks.isEmpty()) {
-                            MusicWebSearcher.WebTrack wt = tracks.get(0);
-                            int dur = ChannelMusicFragment.parseDuration(wt.duration);
-                            MessageObject msg = ChannelMusicFragment.createWebMessageObject(
-                                    account, wt.title, wt.artist, wt.downloadUrl, dur,
-                                    -(long) wt.downloadUrl.hashCode(), wt.coverUrl);
+                try {
+                    String[] parts = q.split(" - ", 2);
+                    String artist = parts[0].trim();
+                    String title  = parts.length > 1 ? parts[1].trim() : "";
 
-                            lastGeneratedBatch.add(msg);
+                    // Нормализованный ключ для дедупа
+                    String dedupeKey = (artist + title).toLowerCase().replaceAll("[^a-zа-яё0-9]", "");
+                    if (!batchSeen.add(dedupeKey)) return;
 
-                            AndroidUtilities.runOnUIThread(() -> {
-                                ArrayList<MessageObject> single = new ArrayList<>();
-                                single.add(msg);
-                                if (isInitial && initialFired.compareAndSet(false, true)) {
-                                    callback.onTracksFound(single);
-                                } else {
-                                    callback.onMoreTracksAdded(single);
-                                }
-                            });
+                    // Строгий поиск: находим трек с проверкой совпадения артиста и названия
+                    MusicWebSearcher.WebTrack wt = MusicWebSearcher.searchTrackStrict(artist, title, 0);
+                    if (wt == null || wt.downloadUrl == null || wt.downloadUrl.isEmpty()) return;
+
+                    int dur = ChannelMusicFragment.parseDuration(wt.duration);
+                    MessageObject msg = ChannelMusicFragment.createWebMessageObject(
+                            account, wt.title, wt.artist, wt.downloadUrl, dur,
+                            -(long) wt.downloadUrl.hashCode(), wt.coverUrl);
+
+                    lastGeneratedBatch.add(msg);
+
+                    AndroidUtilities.runOnUIThread(() -> {
+                        ArrayList<MessageObject> single = new ArrayList<>();
+                        single.add(msg);
+                        if (isInitial && initialFired.compareAndSet(false, true)) {
+                            callback.onTracksFound(single);
+                        } else {
+                            callback.onMoreTracksAdded(single);
                         }
-                    } finally {
-                        if (pending.decrementAndGet() == 0) {
-                            AndroidUtilities.runOnUIThread(() -> isLoading = false, 1500);
-                        }
+                    });
+                } catch (Exception e) {
+                    FileLog.e(e);
+                } finally {
+                    if (pending.decrementAndGet() == 0) {
+                        AndroidUtilities.runOnUIThread(() -> isLoading = false, 1500);
                     }
-                });
+                }
             });
         }
     }
@@ -1008,4 +1316,355 @@ public class SmartRadioEngine {
             return (float) (dot / (Math.sqrt(nA) * Math.sqrt(nB)));
         }
     }
+
+    private static ArrayList<String> getSeedTracksForGenre(String genre) {
+        String g = genre.toLowerCase().trim();
+        ArrayList<String> list = new ArrayList<>();
+
+        // 1. Сначала пытаемся вытянуть треки из обновленной базы GitHub (сохраненной в кэше)
+        try {
+            android.content.SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_wave", Context.MODE_PRIVATE);
+            String jsonStr = prefs.getString("wave_seed_data", null);
+            if (jsonStr != null) {
+                JSONObject json = new JSONObject(jsonStr);
+                if (json.has(g)) {
+                    JSONArray arr = json.getJSONArray(g);
+                    for (int i = 0; i < arr.length(); i++) {
+                        list.add(arr.getString(i));
+                    }
+                    // Если треки найдены в динамической базе, возвращаем ИХ (полная перезапись дефолта)
+                    if (!list.isEmpty()) {
+                        return list;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e("SoundGram Wave JSON parse error", e);
+        }
+
+        // 2. Если в кэше пусто или жанр там не найден — отдаем хардкод
+        switch (g) {
+            case "метал":
+            case "металл":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Holding Absence - Afterlife",
+                        "Northlane - Echo Chamber",
+                        "Bring Me The Horizon - Die4U",
+                        "Spiritbox - Circle With Me",
+                        "Architects - Tear Gas",
+                        "Sleep Token - The Summoning",
+                        "I Prevail - Every Time You Leave",
+                        "Our Last Night - Paradise",
+                        "Landmvrks - Left For Dead",
+                        "Bad Omens - Like A Villain",
+                        "Slaughter to Prevail - Viking",
+                        "Wildways - Прада",
+                        "AMATORY - Космос",
+                        "Neverlove - Инструктор из НАТО",
+                        "Louna - Колыбельная",
+                        "Dark Tranquillity - Phantom Days",
+                        "Insomnium - Lumina",
+                        "Omnium Gatherum - Paragon",
+                        "Soilwork - Needle",
+                        "At The Gates - Spectre of Extinction"
+                ));
+                break;
+            case "поп":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Anna Asti - Царица",
+                        "Zivert - Wake Up",
+                        "JONY - Комета",
+                        "Niletto - Любимка",
+                        "The Weeknd - Blinding Lights",
+                        "Dua Lipa - Levitating",
+                        "Ed Sheeran - Bad Habits",
+                        "Miley Cyrus - Flowers",
+                        "Taylor Swift - Anti-Hero",
+                        "Harry Styles - As It Was",
+                        "Artik & Asti - Гармония",
+                        "Клава Кока - Покинула чат",
+                        "Люся Чеботина - Солнце Монако",
+                        "Billie Eilish - bad guy",
+                        "Ariana Grande - positions",
+                        "Doja Cat - Kiss Me More",
+                        "Olivia Rodrigo - drivers license",
+                        "Justin Bieber - Peaches",
+                        "Bruno Mars - Leave The Door Open",
+                        "Мари Краймбрери - Иди танцуй"
+                ));
+                break;
+            case "хип-хоп":
+            case "хип хоп":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Kendrick Lamar - N95",
+                        "Drake - Gods Plan",
+                        "Travis Scott - SICKO MODE",
+                        "J. Cole - MIDDLE CHILD",
+                        "Future - Mask Off",
+                        "21 Savage - a lot",
+                        "Lil Uzi Vert - XO Tour Llif3",
+                        "Eminem - Godzilla",
+                        "Post Malone - rockstar",
+                        "ASAP Rocky - Praise The Lord",
+                        "Скриптонит - Цепи",
+                        "Oxxxymiron - Оябун",
+                        "Miyagi & Andy Panda - Minor",
+                        "Баста - Сансара",
+                        "Noize MC - Вселенная бесконечна",
+                        "Макс Корж - Малый повзрослел",
+                        "Kizaru - Дежавю",
+                        "Big Baby Tape - Gimme The Loot",
+                        "Boulevard Depo - Кащенко",
+                        "PHARAOH - Дико например"
+                ));
+                break;
+            case "рок":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Maneskin - ZITTI E BUONI",
+                        "Imagine Dragons - Believer",
+                        "Twenty One Pilots - Stressed Out",
+                        "Muse - Compliance",
+                        "Foo Fighters - Rescued",
+                        "Royal Blood - Troubles Coming",
+                        "Nothing But Thieves - Amsterdam",
+                        "YUNGBLUD - The Funeral",
+                        "Greta Van Fleet - Highway Tune",
+                        "The Black Keys - Wild Child",
+                        "Би-2 - Пекло",
+                        "ДДТ - Борщевик",
+                        "Сплин - Передайте это Гарри Поттеру",
+                        "Земфира - Остин",
+                        "Мумий Тролль - Лето без интернета",
+                        "Кипелов - Час пик",
+                        "Ария - Проклятье морей",
+                        "Король и Шут - Лесник",
+                        "Порнофильмы - Я так соскучился",
+                        "Нервы - Батареи"
+                ));
+                break;
+            case "инди":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Arctic Monkeys - 505",
+                        "The Neighbourhood - Sweater Weather",
+                        "Tame Impala - The Less I Know The Better",
+                        "Mac DeMarco - Chamber Of Reflection",
+                        "Wallows - Are You Bored Yet",
+                        "Girl in Red - we fell in love in october",
+                        "The Strokes - The Adults Are Talking",
+                        "Florence + The Machine - Dog Days Are Over",
+                        "Lana Del Rey - Video Games",
+                        "Lorde - Royals",
+                        "Сироткин - Выше домов",
+                        "ssshhhiiittt - Танцы",
+                        "Дайте танк - Утро",
+                        "Буерак - Страсть к курению",
+                        "Перемотка - Встречная",
+                        "Космонавтов Нет - Баночка с ошейником",
+                        "Свидание - Любовь",
+                        "электрофорез - Э Зло",
+                        "Папин Олимпос - Темно-оранжевый закат",
+                        "Алена Швец - Вино и сигареты"
+                ));
+                break;
+            case "фонк":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Kordhell - Murder In My Mind",
+                        "Ghostface Playa - Why Not",
+                        "Kaito Shoma - Scary Garry",
+                        "DVRST - Close Eyes",
+                        "Hensonn - Sahara",
+                        "MoonDeity - Neon Blade",
+                        "Interworld - Metamorphosis",
+                        "dabl - Vengeance",
+                        "Scxr Soul - Sigma",
+                        "Kute - Avoid Me",
+                        "Swerve - Kerosene",
+                        "Phonkha - MTG",
+                        "Misha Xramovi - Misha Xramovi",
+                        "VOJ - Memory Reboot",
+                        "Razihel - Love U",
+                        "Odetari - Good Loyal Thots",
+                        "Plenka - Call Me",
+                        "ZXC - GHOUL",
+                        "Gawne - Deathwish",
+                        "PlayaPhonk - PHONKY TOWN"
+                ));
+                break;
+            case "гиперпоп":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "100 gecs - money machine",
+                        "Charli XCX - Vroom Vroom",
+                        "SOPHIE - Its Okay to Cry",
+                        "Dorian Electra - Flamboyant",
+                        "Rico Nasty - IPHONE",
+                        "Glaive - astrid",
+                        "ericdoa - fawnboy",
+                        "midwxst - trying",
+                        "Brakence - dropout",
+                        "ElyOtto - SugarCrash",
+                        "Lida - Девочка с концерта",
+                        "GSPD - Евродэнс",
+                        "Мейби Бэйби - Ахегао",
+                        "Дора - Втюрилась",
+                        "CMH - PAYDAY",
+                        "Sqwoz Bab - ОЙ",
+                        "Slava Marlow - Ты горишь как огонь",
+                        "Эльдар Джарахов - Я в моменте",
+                        "Morgenstern - Cristal MOET",
+                        "Instasamka - За деньги да"
+                ));
+                break;
+            case "пост-панк":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Molchat Doma - Судно",
+                        "Ploho - Закладка",
+                        "Buerak - Спортивные очки",
+                        "Kino - Группа крови",
+                        "Ssshhhiiittt - Восьмерка",
+                        "Nautilus Pompilius - Дыхание",
+                        "Agatha Christie - Как на войне",
+                        "Bi-2 - Полковнику никто не пишет",
+                        "Joy Division - Love Will Tear Us Apart",
+                        "The Cure - Boys Dont Cry",
+                        "Echo And The Bunnymen - The Killing Moon",
+                        "Bauhaus - Bela Lugosis Dead",
+                        "Siouxsie And The Banshees - Spellbound",
+                        "The Smiths - This Charming Man",
+                        "New Order - Blue Monday",
+                        "Interpol - Evil",
+                        "Editors - Munich",
+                        "White Lies - To Lose My Life",
+                        "Soviet Soviet - No Lesson",
+                        "Motorama - Alps"
+                ));
+                break;
+            case "эмо-рэп":
+            case "эмо реп":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Lil Peep - Star Shopping",
+                        "XXXTENTACION - Jocelyn Flores",
+                        "Juice WRLD - Lucid Dreams",
+                        "Trippie Redd - Love Scars",
+                        "Iann Dior - emotions",
+                        "The Kid LAROI - WITHOUT YOU",
+                        "Post Malone - I Fall Apart",
+                        "Joji - SLOW DANCING IN THE DARK",
+                        "Lil Uzi Vert - The Way Life Goes",
+                        "Sueco - Paralyzed",
+                        "Lida - Иди за мной",
+                        "PHARAOH - Лаллипап",
+                        "Morgenstern - Селяви",
+                        "Face - Юморист",
+                        "Oxxxymiron - Город под подошвой",
+                        "Скриптонит - Космос",
+                        "T-Fest - Улети",
+                        "Элджей - Розовое вино",
+                        "ЛСП - Монетка",
+                        "Хаски - Иуда"
+                ));
+                break;
+            case "альтернатива":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Linkin Park - Numb",
+                        "Nirvana - Smells Like Teen Spirit",
+                        "Red Hot Chili Peppers - Californication",
+                        "Green Day - Boulevard of Broken Dreams",
+                        "My Chemical Romance - Welcome to the Black Parade",
+                        "Fall Out Boy - Sugar We Are Goin Down",
+                        "Paramore - Misery Business",
+                        "Blink-182 - All The Small Things",
+                        "Sum 41 - Fat Lip",
+                        "The Offspring - The Kids Arent Alright",
+                        "Lumen - Гореть",
+                        "Tracktor Bowling - Черта",
+                        "Amatory - Черно-белые дни",
+                        "Stigmata - Сентябрь",
+                        "Jane Air - Junk",
+                        "Психея - Навсегда",
+                        "Слот - Мертвые звезды",
+                        "Алиса - Трасса Е-95",
+                        "Агата Кристи - Сказочная тайга",
+                        "Би-2 - Серебро"
+                ));
+                break;
+            case "к-поп":
+            case "к поп":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "BTS - Dynamite",
+                        "BLACKPINK - How You Like That",
+                        "Stray Kids - God's Menu",
+                        "TWICE - The Feels",
+                        "EXO - Love Shot",
+                        "Red Velvet - Psycho",
+                        "ITZY - WANNABE",
+                        "SEVENTEEN - HOT",
+                        "NCT 127 - Kick It",
+                        "TXT - 0X1=LOVESONG",
+                        "ATEEZ - WONDERLAND",
+                        "ENHYPEN - Drunk-Dazed",
+                        "aespa - Next Level",
+                        "NewJeans - OMG",
+                        "LE SSERAFIM - ANTIFRAGILE",
+                        "IVE - LOVE DIVE",
+                        "FIFTY FIFTY - Cupid",
+                        "Jimin - Like Crazy",
+                        "Jung Kook - Seven",
+                        "MAMAMOO - HIP"
+                ));
+                break;
+            case "электроника":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Daft Punk - Get Lucky",
+                        "The Prodigy - Smack My Bitch Up",
+                        "The Chemical Brothers - Hey Boy Hey Girl",
+                        "Fatboy Slim - Right Here Right Now",
+                        "Moby - Porcelain",
+                        "Aphex Twin - Windowlicker",
+                        "Bicep - Glue",
+                        "Disclosure - Latch",
+                        "Flume - Never Be Like You",
+                        "Avicii - Levels",
+                        "IC3PEAK - Смерти Больше Нет",
+                        "Cream Soda - Плачу на техно",
+                        "GSPD - Некстген",
+                        "XS Project - Бочка Басс Колбасер",
+                        "Hard Bass School - Narkotik Kal",
+                        "Dead Blonde - Мальчик на девятке",
+                        "Skrillex - Bangarang",
+                        "DJ Snake - Turn Down for What",
+                        "Major Lazer - Lean On",
+                        "Marshmello - Alone"
+                ));
+                break;
+            case "синтвейв":
+                list = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "Kavinsky - Nightcall",
+                        "The Midnight - Sunset",
+                        "Timecop1983 - On the Run",
+                        "Gunship - Tech Noir",
+                        "FM-84 - Running In The Night",
+                        "Lazerhawk - Overdrive",
+                        "Miami Nights 1984 - Ocean Drive",
+                        "Carpenter Brut - Turbo Killer",
+                        "Perturbator - Future Club",
+                        "Dance With The Dead - Riot",
+                        "Scandroid - Neo-Tokyo",
+                        "Trevor Something - Summer Love",
+                        "Mitch Murder - Interceptor",
+                        "W O L F C L U B - Tears",
+                        "Ollie Wride - The Line",
+                        "Электрофорез - Я ничего не могу с собою сделать",
+                        "Bi-2 - Депрессия",
+                        "Kino - Спокойная ночь",
+                        "Nautilus Pompilius - Взгляд с экрана",
+                        "Альянс - На заре"
+                ));
+                break;
+            default:
+                break;
+        }
+        return list;
+    }
+
+
 }

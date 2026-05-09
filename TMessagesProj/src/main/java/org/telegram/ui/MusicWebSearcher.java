@@ -182,99 +182,62 @@ public class MusicWebSearcher {
                 String cTitle = albumTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
                 String dSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(artistName + " " + cTitle, "UTF-8");
                 String dResp = fetchHtml(dSearch);
-                JSONObject dJson = new JSONObject(dResp);
 
+                JSONObject dJson = new JSONObject(dResp);
                 if (!dJson.has("data") || dJson.getJSONArray("data").length() == 0) {
                     dSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(cTitle, "UTF-8");
                     dResp = fetchHtml(dSearch);
                     dJson = new JSONObject(dResp);
                 }
 
-                if (!dJson.has("data") || dJson.getJSONArray("data").length() == 0) {
-                    AndroidUtilities.runOnUIThread(callback::onFailed);
-                    return;
-                }
+                if (dJson.has("data") && dJson.getJSONArray("data").length() > 0) {
+                    long albumId = dJson.getJSONArray("data").getJSONObject(0).getLong("id");
+                    String coverUrl = dJson.getJSONArray("data").getJSONObject(0).getString("cover_xl");
+                    String tracksResp = fetchHtml("https://api.deezer.com/album/" + albumId + "/tracks");
+                    JSONArray tracksArr = new JSONObject(tracksResp).getJSONArray("data");
 
-                long albumId = dJson.getJSONArray("data").getJSONObject(0).getLong("id");
-                final String coverUrl = dJson.getJSONArray("data").getJSONObject(0).optString("cover_xl", "");
-                String tracksResp = fetchHtml("https://api.deezer.com/album/" + albumId + "/tracks");
-                JSONArray tracksArr = new JSONObject(tracksResp).getJSONArray("data");
+                    ArrayList<WebTrack> finalCompiledTracks = new ArrayList<>();
 
-                if (tracksArr.length() == 0) {
-                    AndroidUtilities.runOnUIThread(callback::onFailed);
-                    return;
-                }
+                    for (int i = 0; i < tracksArr.length(); i++) {
+                        String trackTitle = tracksArr.getJSONObject(i).getString("title");
+                        String trackClean = trackTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                        int exactDuration = tracksArr.getJSONObject(i).getInt("duration");
 
-                // Собираем данные треков
-                ArrayList<String[]> trackDataList = new ArrayList<>();
-                for (int i = 0; i < tracksArr.length(); i++) {
-                    JSONObject tObj = tracksArr.getJSONObject(i);
-                    String trackTitle = tObj.optString("title", "");
-                    if (!trackTitle.isEmpty()) {
-                        trackDataList.add(new String[]{trackTitle, String.valueOf(tObj.optInt("duration", 0))});
-                    }
-                }
+                        String trackSearchUrl = "https://hitmos.me/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8");
+                        String trackHtml = fetchHtml(trackSearchUrl);
 
-                // Параллельный поиск с сохранением порядка треков альбома — 6 потоков
-                int totalAlbumTracks = trackDataList.size();
-                ExecutorService executor = Executors.newFixedThreadPool(6);
-                AtomicInteger foundCount = new AtomicInteger(0);
-                CountDownLatch latch = new CountDownLatch(totalAlbumTracks);
-                // Массив результатов по индексу — null если трек не найден на хитмосе
-                WebTrack[] orderedAlbumResults = new WebTrack[totalAlbumTracks];
+                        ArrayList<WebTrack> searchTracks = new ArrayList<>();
+                        parseHtmlToResults(trackHtml, searchTracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
 
-                for (int idx = 0; idx < totalAlbumTracks; idx++) {
-                    final int trackIdx = idx;
-                    final String trackTitle = trackDataList.get(idx)[0];
-                    final int exactDuration = Integer.parseInt(trackDataList.get(idx)[1]);
-                    final String trackClean = trackTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                        WebTrack bestMatch = null;
+                        for (WebTrack wt : searchTracks) {
+                            int hitmoDur = org.telegram.ui.ChannelMusicFragment.parseDuration(wt.duration);
+                            // ИСПРАВЛЕНИЕ: Жесткая проверка по строкам, чтобы не путать ремиксы и чужие треки
+                            boolean titleMatch = wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase());
+                            boolean artistMatch = wt.artist.toLowerCase().contains(artistName.toLowerCase()) || artistName.toLowerCase().contains(wt.artist.toLowerCase());
 
-                    executor.submit(() -> {
-                        try {
-                            ArrayList<WebTrack> searchTracks = new ArrayList<>();
-                            try {
-                                parseHtmlToResults(
-                                    fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8")),
-                                    searchTracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                            } catch (Exception e) { FileLog.e(e); }
-                            if (searchTracks.isEmpty()) {
-                                try {
-                                    parseHtmlToResults(
-                                        fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(trackClean, "UTF-8")),
-                                        searchTracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                                } catch (Exception e) { FileLog.e(e); }
+                            if (titleMatch && artistMatch && Math.abs(hitmoDur - exactDuration) <= 15) {
+                                bestMatch = wt;
+                                break;
                             }
-                            WebTrack bestMatch = findBestMatch(searchTracks, trackClean, artistName, exactDuration);
-                            if (bestMatch != null) {
-                                bestMatch.title = trackTitle;
-                                bestMatch.artist = artistName;
-                                bestMatch.coverUrl = coverUrl;
-                                foundCount.incrementAndGet();
-                                orderedAlbumResults[trackIdx] = bestMatch;
-                            }
-                        } catch (Exception e) {
-                            FileLog.e(e);
-                        } finally {
-                            latch.countDown();
                         }
-                    });
-                }
 
-                executor.shutdown();
-                latch.await();
+                        if (bestMatch != null) {
+                            bestMatch.title = trackTitle;
+                            bestMatch.artist = artistName;
+                            bestMatch.coverUrl = coverUrl;
 
-                if (foundCount.get() == 0) {
-                    AndroidUtilities.runOnUIThread(callback::onFailed);
-                } else {
-                    // Отдаём треки строго в оригинальном порядке альбома из Deezer
-                    ArrayList<WebTrack> orderedAlbumTracks = new ArrayList<>();
-                    for (WebTrack wt : orderedAlbumResults) {
-                        if (wt != null) orderedAlbumTracks.add(wt);
+                            final WebTrack finalTrack = bestMatch;
+                            finalCompiledTracks.add(finalTrack);
+
+                            AndroidUtilities.runOnUIThread(() -> callback.onTrackLoaded(finalTrack));
+                        }
+                        Thread.sleep(100);
                     }
-                    AndroidUtilities.runOnUIThread(() -> {
-                        for (WebTrack wt : orderedAlbumTracks) callback.onTrackLoaded(wt);
-                        callback.onResult(new ArrayList<>(), new ArrayList<>());
-                    });
+                    if(finalCompiledTracks.isEmpty()) AndroidUtilities.runOnUIThread(callback::onFailed);
+                    else AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(), finalCompiledTracks));
+                } else {
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
                 }
             } catch (Exception e) {
                 FileLog.e(e);
@@ -282,26 +245,7 @@ public class MusicWebSearcher {
             }
         }).start();
     }
-    public static void resolveStreamUrlToFile(String streamUrl, String artist, String title,
-                                              java.util.function.Consumer<String> onResolved) {
-        new Thread(() -> {
-            try {
-                // Проверяем локальный файл
-                File destFile = org.telegram.ui.ChannelMusicFragment.getLocalTrackFile(artist, title);
-                if (destFile.exists() && destFile.length() > 1024) {
-                    AndroidUtilities.runOnUIThread(() -> onResolved.accept(destFile.getAbsolutePath()));
-                    return;
-                }
-                // Файла нет — резолвим финальный URL зеркала (следуем редиректам) для стриминга
-                // ExoPlayer получит прямой URL без редиректов и сам откроет поток
-                String resolved = resolveRedirectUrl(streamUrl);
-                AndroidUtilities.runOnUIThread(() -> onResolved.accept(resolved));
-            } catch (Exception e) {
-                FileLog.e(e);
-                AndroidUtilities.runOnUIThread(() -> onResolved.accept(streamUrl));
-            }
-        }).start();
-    }
+
     private static String transliterate(String input) {
         String[] abcSearch = {"а","б","в","g","д","е","ё","ж","з","и","й","к","л","м","н","о","п","р","с","т","у","ф","х","ц","ч","ш","щ","ъ","ы","ь","э","ю","я","капсайз","мэдкид"};
         String[] abcTrans = {"a","b","v","g","d","e","e","zh","z","i","y","k","l","m","n","o","p","r","s","t","u","f","h","ts","ch","sh","sh","","y","","e","yu","ya","cupsize","madk1d"};
@@ -420,7 +364,7 @@ public class MusicWebSearcher {
             try {
                 String url = "https://api.deezer.com/artist/" + artistId + "/top?limit=100";
                 String html = fetchHtml(url);
-                if (html == null || html.isEmpty()) {
+                if (html.isEmpty()) {
                     AndroidUtilities.runOnUIThread(callback::onFailed);
                     return;
                 }
@@ -432,92 +376,63 @@ public class MusicWebSearcher {
                 JSONArray data = json.getJSONArray("data");
                 String translitName = transliterate(artistName);
 
-                // Собираем треки из Deezer
-                ArrayList<JSONObject> trackObjects = new ArrayList<>();
                 for (int i = 0; i < data.length(); i++) {
                     JSONObject obj = data.getJSONObject(i);
-                    if (!obj.optString("title", "").isEmpty()) trackObjects.add(obj);
-                }
-                if (trackObjects.isEmpty()) {
-                    AndroidUtilities.runOnUIThread(callback::onFailed);
-                    return;
-                }
-
-                // Параллельный поиск с сохранением порядка треков (top Deezer) — 6 потоков
-                int totalDeezerTracks = trackObjects.size();
-                ExecutorService executor = Executors.newFixedThreadPool(6);
-                AtomicInteger foundCount = new AtomicInteger(0);
-                CountDownLatch latch = new CountDownLatch(totalDeezerTracks);
-                WebTrack[] orderedDeezerResults = new WebTrack[totalDeezerTracks];
-
-                // Предварительно извлекаем данные чтобы избежать try/catch внутри лямбды
-                String[] deezerTitles = new String[totalDeezerTracks];
-                int[] deezerDurations = new int[totalDeezerTracks];
-                String[] deezerCovers = new String[totalDeezerTracks];
-                for (int i = 0; i < totalDeezerTracks; i++) {
-                    JSONObject obj = trackObjects.get(i);
-                    deezerTitles[i] = obj.optString("title", "");
-                    deezerDurations[i] = obj.optInt("duration", 0);
-                    try { deezerCovers[i] = obj.has("album") ? obj.getJSONObject("album").optString("cover_xl", "") : ""; }
-                    catch (Exception ex) { deezerCovers[i] = ""; }
-                }
-
-                for (int idx = 0; idx < totalDeezerTracks; idx++) {
-                    final int trackIdx = idx;
-                    final String title = deezerTitles[idx];
-                    final int duration = deezerDurations[idx];
-                    final String cover = deezerCovers[idx];
-                    final String cleanTitle = title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
-
-                    executor.submit(() -> {
-                        try {
-                            ArrayList<WebTrack> results = new ArrayList<>();
-                            try {
-                                parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(artistName + " " + cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                            } catch (Exception e) { FileLog.e(e); }
-                            if (results.isEmpty() && !translitName.equals(artistName)) {
-                                try {
-                                    parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(translitName + " " + cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                                } catch (Exception e) { FileLog.e(e); }
-                            }
-                            if (results.isEmpty()) {
-                                try {
-                                    parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                                } catch (Exception e) { FileLog.e(e); }
-                            }
-                            if (!results.isEmpty()) {
-                                WebTrack best = findBestMatch(results, cleanTitle, artistName, duration);
-                                if (best != null) {
-                                    best.title = title;
-                                    best.artist = artistName;
-                                    best.coverUrl = cover;
-                                    foundCount.incrementAndGet();
-                                    orderedDeezerResults[trackIdx] = best;
-                                }
-                            }
-                        } catch (Exception e) {
-                            FileLog.e(e);
-                        } finally {
-                            latch.countDown();
-                        }
-                    });
-                }
-
-                executor.shutdown();
-                latch.await();
-
-                if (foundCount.get() == 0) {
-                    AndroidUtilities.runOnUIThread(callback::onFailed);
-                } else {
-                    ArrayList<WebTrack> orderedDeezerTracks = new ArrayList<>();
-                    for (WebTrack wt : orderedDeezerResults) {
-                        if (wt != null) orderedDeezerTracks.add(wt);
+                    String title = obj.optString("title", "");
+                    if (title.isEmpty()) continue;
+                    int duration = obj.optInt("duration", 0);
+                    // Безопасное извлечение обложки
+                    String cover = "";
+                    if (obj.has("album")) {
+                        cover = obj.getJSONObject("album").optString("cover_xl", "");
                     }
-                    AndroidUtilities.runOnUIThread(() -> {
-                        for (WebTrack wt : orderedDeezerTracks) callback.onTrackLoaded(wt);
-                        callback.onResult(new ArrayList<>(), new ArrayList<>());
-                    });
+
+                    String cleanTitle = title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+
+                    // Стратегия 1: "Имя артиста + название"
+                    ArrayList<WebTrack> results = new ArrayList<>();
+                    try {
+                        String q1 = artistName + " " + cleanTitle;
+                        parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(q1, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                    } catch (Exception e) { FileLog.e(e); }
+
+                    // Стратегия 2: транслитерация имени + название
+                    if (results.isEmpty() && !translitName.equals(artistName)) {
+                        try {
+                            String q2 = translitName + " " + cleanTitle;
+                            parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(q2, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                        } catch (Exception e) { FileLog.e(e); }
+                    }
+
+                    // Стратегия 3: только название
+                    if (results.isEmpty()) {
+                        try {
+                            parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                        } catch (Exception e) { FileLog.e(e); }
+                    }
+
+                    if (!results.isEmpty()) {
+                        // Ищем лучший трек по длительности
+                        WebTrack best = null;
+                        for (WebTrack wt : results) {
+                            int hitDur = org.telegram.ui.ChannelMusicFragment.parseDuration(wt.duration);
+                            if (duration > 0 && Math.abs(hitDur - duration) <= 8) {
+                                best = wt;
+                                break;
+                            }
+                        }
+                        if (best == null) best = results.get(0);
+
+                        best.title = title;
+                        best.artist = artistName;
+                        best.coverUrl = cover;
+                        final WebTrack finalTrack = best;
+                        AndroidUtilities.runOnUIThread(() -> callback.onTrackLoaded(finalTrack));
+                    }
+
+                    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                 }
+                AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(), new ArrayList<>()));
             } catch (Exception e) {
                 FileLog.e(e);
                 AndroidUtilities.runOnUIThread(callback::onFailed);
@@ -1346,13 +1261,10 @@ public class MusicWebSearcher {
                                     parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(translitName + " " + cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                                 } catch (Exception e) { FileLog.e(e); }
                             }
-                            if (results.isEmpty()) {
-                                try {
-                                    parseHtmlToResults(fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                                } catch (Exception e) { FileLog.e(e); }
-                            }
+                            // Поиск только по названию без артиста убран — возвращает чужие треки
                             if (!results.isEmpty()) {
-                                WebTrack best = findBestMatch(results, cleanTitle, artistName, duration);
+                                WebTrack best = findBestMatch(results, cleanTitle, artistName, duration, true);
+
                                 if (best != null) {
                                     best.title  = trackTitle;
                                     best.artist = artistName;
@@ -1420,41 +1332,73 @@ public class MusicWebSearcher {
             } catch (Exception e) { AndroidUtilities.runOnUIThread(() -> callback.run(null)); }
         }).start();
     }
-    private static WebTrack findBestMatch(ArrayList<WebTrack> hitmosResults, String expectedTitle, String expectedArtist, int expectedDuration) {
+    /**
+     * Строгий синхронный поиск трека по артисту и названию.
+     * Используется SmartRadioEngine для поиска конкретных треков.
+     * Параметр flags зарезервирован для будущего использования (передавайте 0).
+     */
+    public static WebTrack searchTrackStrict(String artist, String title, int flags) {
+        try {
+            String query = artist + " " + title;
+            query = query.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            String html = fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(query, "UTF-8"));
+            ArrayList<WebTrack> tracks = new ArrayList<>();
+            parseHtmlToResults(html, tracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+            if (!tracks.isEmpty()) {
+                // Пробуем найти лучшее совпадение с проверкой артиста и тайтла
+                WebTrack best = findBestMatch(tracks, title, artist, 0, false);
+                if (best != null) return best;
+                // Фолбэк — первый результат
+                return tracks.get(0);
+            }
+        } catch (Exception e) { FileLog.e(e); }
+        return null;
+    }
+
+    private static WebTrack findBestMatch(ArrayList<WebTrack> hitmosResults, String expectedTitle, String expectedArtist, int expectedDuration, boolean strictArtist) {
         String cleanExpectedTitle = expectedTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
-        String cleanExpectedArtist = expectedArtist.toLowerCase();
+        String cleanExpectedArtist = expectedArtist.toLowerCase().trim();
 
         WebTrack best = null;
         int bestScore = -1;
 
         for (WebTrack wt : hitmosResults) {
             String hitTitle = wt.title.toLowerCase();
-            String hitArtist = wt.artist.toLowerCase();
+            String hitArtist = wt.artist.toLowerCase().trim();
 
             boolean titleMatch = hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle);
-            boolean artistMatch = hitArtist.contains(cleanExpectedArtist) || cleanExpectedArtist.contains(hitArtist);
 
-            // Должно быть хоть какое-то логичное совпадение по тексту
-            if (titleMatch || artistMatch) {
-                int hitDur = org.telegram.ui.ChannelMusicFragment.parseDuration(wt.duration);
-                int durDiff = expectedDuration > 0 ? Math.abs(hitDur - expectedDuration) : 0;
+            // ИСПРАВЛЕНО: "Исполнитель точь в точь совпадает с именем"
+            boolean exactArtistMatch = hitArtist.equals(cleanExpectedArtist);
+            boolean artistMatch = exactArtistMatch || hitArtist.contains(cleanExpectedArtist) || cleanExpectedArtist.contains(hitArtist);
 
-                int score = 0;
-                if (titleMatch && artistMatch) score += 50;
-                else if (titleMatch) score += 20;
+            if (!titleMatch) continue;
 
-                if (expectedDuration > 0 && durDiff <= 15) score += 30;
-                else if (expectedDuration > 0 && durDiff <= 5) score += 50;
+            // При strictArtist должно быть точное совпадение имени исполнителя
+            if (strictArtist && !exactArtistMatch) continue;
 
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = wt;
-                }
+            int hitDur = org.telegram.ui.ChannelMusicFragment.parseDuration(wt.duration);
+            int durDiff = expectedDuration > 0 ? Math.abs(hitDur - expectedDuration) : 0;
+
+            int score = 0;
+            if (artistMatch) score += 50;
+            if (exactArtistMatch) score += 50;
+            score += 20;
+
+            if (expectedDuration > 0 && durDiff <= 5) score += 50;
+            else if (expectedDuration > 0 && durDiff <= 15) score += 25;
+            else if (expectedDuration > 0 && durDiff > 30) score -= 20;
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = wt;
             }
         }
-        // Отдаём трек только если он набрал проходной балл (совпадение тайтла или артист+длина)
-        if (bestScore >= 20) return best;
+
+        if (strictArtist && bestScore >= 0) return best;
+        if (bestScore >= 45) return best;
         return null;
     }
+
 
 }

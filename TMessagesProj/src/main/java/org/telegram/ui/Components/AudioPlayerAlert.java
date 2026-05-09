@@ -187,6 +187,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private RLottieImageView nextButton;
     private ClippingTextViewSwitcher authorTextView;
     private ActionBarMenuItem optionsButton;
+    private ActionBarMenuItem topOptionsButton;
     private ChooseQualityLayout.QualityIcon optionsIcon;
     private ActionBarMenuSubItem castItem;
     private CastMediaRouteButton castItemButton;
@@ -410,11 +411,13 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         }));
         card.addView(buildMenuDivider2(getContext()));
 
-        // 4. Добавить в плейлист (последний — без разделителя после)
-        card.addView(buildMenuRow2(getContext(), getString(R.string.sg_menu_add_to_playlist), R.drawable.msg_add, true, () -> {
-            if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
-            onSubItemClick(100);
-        }));
+        // 4. Добавить в плейлист — только если трек есть в библиотеке
+        if (inLib) {
+            card.addView(buildMenuRow2(getContext(), getString(R.string.sg_menu_add_to_playlist), R.drawable.msg_add, true, () -> {
+                if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
+                onSubItemClick(100);
+            }));
+        }
 
         container.addView(card, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
@@ -667,7 +670,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 ignoreLayout = true;
 
                 if (playerLayout != null) {
-                    playerLayout.setVisibility(searchWas || keyboardVisible ? INVISIBLE : VISIBLE);
+                    playerLayout.setVisibility(searchWas && keyboardVisible ? INVISIBLE : VISIBLE);
                     if (playerShadow != null) playerShadow.setVisibility(GONE); // Полностью отключаем тень
 
                     // Измеряем плеер как WRAP_CONTENT, чтобы он занял ровно свой объем
@@ -965,7 +968,8 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         Gravity.CENTER_VERTICAL | Gravity.LEFT));
 
         // Кнопка ··· (правый верхний угол) — нативное ТГ-меню, раскрывается вниз вправо
-        ActionBarMenuItem topOptionsBtn = new ActionBarMenuItem(context, null, 0, 0xFFFFFFFF, false, resourcesProvider);
+        topOptionsButton = new ActionBarMenuItem(context, null, 0, 0xFFFFFFFF, false, resourcesProvider);
+        ActionBarMenuItem topOptionsBtn = topOptionsButton;
         topOptionsBtn.setIcon(R.drawable.ic_ab_other);
         topOptionsBtn.setLongClickEnabled(false);
         topOptionsBtn.setShowSubmenuByMove(false);
@@ -973,15 +977,20 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         topOptionsBtn.setShowedFromBottom(false);
         if (Build.VERSION.SDK_INT >= 21)
             topOptionsBtn.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(20)));
+        // ... (вокруг строки с topOptionsBtn)
         topOptionsBtn.addSubItem(201, R.drawable.msg_customize, getString(R.string.sg_menu_equalizer));
         topOptionsBtn.addSubItem(202, R.drawable.msg_shareout, getString(R.string.sg_menu_share));
         topOptionsBtn.addSubItem(203, R.drawable.msg_add, getString(R.string.sg_menu_add_to_playlist));
+        topOptionsBtn.addSubItem(5, R.drawable.msg_download, getString(R.string.sg_menu_to_library)); // <-- ДОБАВЛЕНО
         topOptionsBtn.setOnClickListener(v -> topOptionsBtn.toggleSubMenu());
         topOptionsBtn.setDelegate(id -> {
             if (id == 201) { if (parentActivity != null) new SoundGramEQAlert(parentActivity).show(); }
             else if (id == 202) onSubItemClick(1);
             else if (id == 203) onSubItemClick(100);
+            else if (id == 5) onSubItemClick(5); // <-- ДОБАВЛЕНО
         });
+        // ...
+
         playerTopBar.addView(topOptionsBtn,
                 LayoutHelper.createFrame(40, 40, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 0, 0));
 
@@ -1010,13 +1019,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         lyricsContainer.setAlpha(0f);
 
         lyricsView = new LyricsView(context);
-        lyricsContainer.addView(lyricsView, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        lyricsContainer.addView(lyricsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         // lyricsContainer — поверх плеера, от topBar до кнопок управления
         // Кладем контейнер текстов поверх всего плеера с отступом сверху (под топбар с кнопкой ···) и снизу (кнопки управления)
         // topMargin = высота топбара (44dp) + отступ топбара сверху + размер кнопки (40dp) → итого topBarTopMargin + 44 + 4dp запас
         int lyricsTopMargin = topBarTopMargin + 44 + 4;
-        playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, lyricsTopMargin, 0, AndroidUtilities.dp(80)));
+        playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 16, lyricsTopMargin, 16, AndroidUtilities.dp(80)));
 
         // ── Название + автор + кнопка лирики ─────────────────────────────────
         // Используем горизонтальный LinearLayout: [текст (weight=1)] [кнопка лирики (48dp)]
@@ -1026,7 +1034,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         LinearLayout textLayout = new LinearLayout(context);
         textLayout.setOrientation(LinearLayout.VERTICAL);
-        textLayout.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        textLayout.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
 
         titleTextView = new ClippingTextViewSwitcher(context) {
             @Override protected TextView createTextView() {
@@ -1040,7 +1048,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 textView.setFocusable(true);
                 textView.setFocusableInTouchMode(true);
                 textView.setHorizontallyScrolling(true);
-                textView.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                textView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
                 return textView;
             }
         };
@@ -1058,7 +1066,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 textView.setFocusable(true);
                 textView.setFocusableInTouchMode(true);
                 textView.setHorizontallyScrolling(true);
-                textView.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+                textView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
                 return textView;
             }
         };
@@ -1134,7 +1142,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         int textBottomMargin = 135 + 16 + (navBarPad > 0 ? (int)(navBarPad / AndroidUtilities.density) + 20 : 28);
         playerUiContainer.addView(textAndButtonsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.START,
-                20, 0, 20, textBottomMargin));
+                36, 0, 20, textBottomMargin));
 
         // Перемотка — с отступом под текстом
         seekBarView = new SeekBarView(context, resourcesProvider) {
@@ -1455,7 +1463,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         playerLayout.addView(modeMenuButton,
                 LayoutHelper.createFrame(48, 48,
                         Gravity.BOTTOM | Gravity.RIGHT,
-                        0, 0, 12, modeButtonBottomMargin));
+                        0, 0, 16, modeButtonBottomMargin));
 
 
         emptyView = new LinearLayout(context);
@@ -1925,16 +1933,69 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                     && messageObject.messageOwner.message != null
                     && messageObject.messageOwner.message.startsWith("SG_STREAM|||");
             if (isSGStream) {
-                SendMessagesHelper.getInstance(currentAccount).sendMessage(
-                        messageObject.messageOwner.message, -targetId,
-                        null, null, null, true, null, null, null, true, 0, 0, null, false);
+                // Для SG_STREAM — скачиваем файл и отправляем как аудио-документ
+                String[] sgParts = messageObject.messageOwner.message.split("\\|\\|\\|");
+                String sgTitle  = sgParts.length > 1 ? sgParts[1] : "Unknown";
+                String sgArtist = sgParts.length > 2 ? sgParts[2] : "Unknown";
+                String sgUrl    = sgParts.length > 3 ? sgParts[3] : "";
+
+                // Проверяем, есть ли файл уже локально
+                File existingFile = org.telegram.ui.ChannelMusicFragment.getLocalTrackFile(sgArtist, sgTitle);
+                if (!existingFile.exists() || existingFile.length() < 1024) {
+                    // Проверяем attachPath
+                    if (messageObject.messageOwner.attachPath != null
+                            && !messageObject.messageOwner.attachPath.isEmpty()
+                            && !messageObject.messageOwner.attachPath.startsWith("http")) {
+                        File ap = new File(messageObject.messageOwner.attachPath);
+                        if (ap.exists() && ap.length() > 1024) existingFile = ap;
+                    }
+                }
+
+                final long fTargetId2 = targetId;
+                final String fTitle   = sgTitle;
+                final String fArtist  = sgArtist;
+                final String fUrl     = sgUrl;
+                final File fExisting  = existingFile;
+
+                if (fExisting.exists() && fExisting.length() > 1024) {
+                    // Файл уже скачан — сразу отправляем
+                    org.telegram.ui.ChannelMusicFragment.sendLocalAudioFileToChannel(
+                            fExisting, fTitle, fArtist, fTargetId2, currentAccount);
+                    Toast.makeText(getContext(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
+                    dismiss();
+                } else {
+                    // Скачиваем в фоне, показываем прогресс
+                    AlertDialog prog = new AlertDialog(getContext(), 3);
+                    prog.setMessage(getString(R.string.sg_downloading_track));
+                    prog.show();
+                    new Thread(() -> {
+                        File destFile = org.telegram.ui.ChannelMusicFragment.getLocalTrackFile(fArtist, fTitle);
+                        boolean ok = MusicWebSearcher.downloadTrackToExactFileSync(fUrl, destFile);
+                        AndroidUtilities.runOnUIThread(() -> {
+                            prog.dismiss();
+                            if (ok && destFile.exists()) {
+                                org.telegram.ui.ChannelMusicFragment.sendLocalAudioFileToChannel(
+                                        destFile, fTitle, fArtist, fTargetId2, currentAccount);
+                                Toast.makeText(getContext(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
+                            } else {
+                                // Фоллбэк — отправляем ссылку
+                                SendMessagesHelper.getInstance(currentAccount).sendMessage(
+                                        messageObject.messageOwner.message, -fTargetId2,
+                                        null, null, null, true, null, null, null, true, 0, 0, null, false);
+                                Toast.makeText(getContext(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }).start();
+                    dismiss();
+                    return;
+                }
             } else {
                 ArrayList<MessageObject> fmessages = new ArrayList<>();
                 fmessages.add(messageObject);
                 SendMessagesHelper.getInstance(currentAccount).sendMessage(fmessages, -targetId, false, false, true, 0, 0);
+                Toast.makeText(getContext(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
+                dismiss();
             }
-            Toast.makeText(getContext(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
-            dismiss();
 
         } else if (id == 100) { // В плейлист
             showPlaylistSelectorFromDialog(messageObject);
@@ -2576,7 +2637,19 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             checkIfMusicDownloaded(messageObject);
             updateProgress(messageObject, !sameMessageObject);
             updateCover(messageObject, !sameMessageObject);
-
+            // Показываем кнопки в зависимости от нахождения в библиотеке
+            if (topOptionsButton != null) {
+                boolean isInLib = false;
+                for (MessageObject libMsg : org.telegram.ui.ChannelMusicFragment.audioMessages) {
+                    if (libMsg.getId() == messageObject.getId() ||
+                            (libMsg.messageOwner.message != null && messageObject.messageOwner.message != null &&
+                                    libMsg.messageOwner.message.equals(messageObject.messageOwner.message))) {
+                        isInLib = true; break;
+                    }
+                }
+                topOptionsButton.setSubItemShown(203, isInLib);
+                topOptionsButton.setSubItemShown(5, !isInLib); // <-- Показываем 'В библиотеку' если трека там нет
+            }
             if (MediaController.getInstance().isMessagePaused()) {
                 playPauseDrawable.setPause(false);
                 playButton.setContentDescription(LocaleController.getString(R.string.AccActionPlay));
@@ -4095,8 +4168,8 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
      */
     private class LyricsView extends View {
 
-        // Высота одной строки в пикселях
-        private final int ROW_HEIGHT = AndroidUtilities.dp(80);
+        // Высота одной строки в пикселях (увеличена под 3-строчный текст)
+        private final int ROW_HEIGHT = AndroidUtilities.dp(96);
         // Y-координата центра активной строки (фиксированная точка)
         private final int ACTIVE_Y   = AndroidUtilities.dp(240);
 
@@ -4122,17 +4195,14 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
             activePaint.setTextSize(TEXT_SIZE_ACTIVE);
             activePaint.setTypeface(AndroidUtilities.bold());
-            activePaint.setTextAlign(Paint.Align.CENTER);
             activePaint.setColor(0xFFFFFFFF);
 
             passivePaint.setTextSize(TEXT_SIZE_PASSIVE);
             passivePaint.setTypeface(AndroidUtilities.bold());
-            passivePaint.setTextAlign(Paint.Align.CENTER);
             passivePaint.setColor(0xFFFFFFFF);
 
             glowPaint.setTextSize(TEXT_SIZE_ACTIVE);
             glowPaint.setTypeface(AndroidUtilities.bold());
-            glowPaint.setTextAlign(Paint.Align.CENTER);
             glowPaint.setColor(0xFFFFFFFF);
             glowPaint.setMaskFilter(new android.graphics.BlurMaskFilter(
                     AndroidUtilities.dp(12), android.graphics.BlurMaskFilter.Blur.NORMAL));
@@ -4141,21 +4211,25 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         /** Установить новый активный индекс с плавной прокруткой */
         public void setActiveIndex(int index, boolean animate) {
             if (index < 0 || lyricsLines.isEmpty()) return;
-            activeIndex = index;
-
-            float targetOffset = 0f; // 0 = активная строка ровно в ACTIVE_Y
+            if (index == activeIndex) return; // уже на нужном индексе
 
             if (scrollAnim != null) scrollAnim.cancel();
 
             if (!animate) {
-                scrollOffset = targetOffset;
+                activeIndex = index;
+                scrollOffset = 0f;
                 invalidate();
                 return;
             }
 
-            scrollAnim = ValueAnimator.ofFloat(scrollOffset, targetOffset);
-            scrollAnim.setDuration(600);
-            scrollAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(2.5f));
+            // Вычисляем начальное смещение: сколько пикселей до старой позиции
+            float fromOffset = scrollOffset + (activeIndex - index) * ROW_HEIGHT;
+            activeIndex = index;
+            scrollOffset = fromOffset; // визуально оставляем на месте
+
+            scrollAnim = ValueAnimator.ofFloat(fromOffset, 0f);
+            scrollAnim.setDuration(450);
+            scrollAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f));
             scrollAnim.addUpdateListener(a -> {
                 scrollOffset = (float) a.getAnimatedValue();
                 invalidate();
@@ -4235,11 +4309,15 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         /** Рисует текст с переносом по ширине, центрируя блок по Y.
          *  Canvas должен быть уже translate(cx, rowY) перед вызовом. */
         private void drawMultilineText(Canvas canvas, String text, android.text.TextPaint paint, int viewWidth) {
-            int maxWidth = (int)(viewWidth * 0.82f);
+            // Отступ 16dp с каждой стороны — одинаковый слева и справа
+            int sidePadding = AndroidUtilities.dp(16);
+            // Учитываем текущий scale canvas: берём фиксированную ширину без масштабирования
+            // canvas уже translate(cx, rowY) + scale(s, s), поэтому maxWidth в scaled coords
+            int maxWidth = viewWidth - sidePadding * 2;
             android.text.StaticLayout sl = android.text.StaticLayout.Builder
                     .obtain(text, 0, text.length(), paint, maxWidth)
                     .setAlignment(android.text.Layout.Alignment.ALIGN_CENTER)
-                    .setMaxLines(2)
+                    .setMaxLines(3)
                     .setEllipsize(TextUtils.TruncateAt.END)
                     .build();
 

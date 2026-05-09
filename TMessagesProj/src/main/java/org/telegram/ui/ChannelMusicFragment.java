@@ -182,8 +182,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         checkOrCreateMusicChannel();
         refreshPlaylistFiles();
+
+        // НОВЫЙ ВЫЗОВ: Проверяем наличие обновлений волны с GitHub
+        SmartRadioEngine.checkAndUpdateWaveSeeds(getParentActivity());
+
         return true;
     }
+
 
     @Override
     public void onFragmentDestroy() {
@@ -1156,8 +1161,24 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         new Thread(() -> {
             for (MessageObject msg : snapshot) {
-                if (msg == null || msg.messageOwner == null
-                        || msg.messageOwner.message == null) continue;
+                if (msg == null || msg.messageOwner == null) continue;
+
+                // --- Нативные TG-аудио треки (не SG_STREAM) ---
+                if (msg.messageOwner.message == null || msg.messageOwner.message.isEmpty()) {
+                    if (msg.isMusic() && msg.getDocument() != null) {
+                        File tgFile = FileLoader.getInstance(currentAccount).getPathToMessage(msg.messageOwner);
+                        if (tgFile == null || !tgFile.exists() || tgFile.length() < 1024) {
+                            // Скачиваем через TG FileLoader
+                            AndroidUtilities.runOnUIThread(() ->
+                                    FileLoader.getInstance(currentAccount).loadFile(
+                                            msg.getDocument(), msg, FileLoader.PRIORITY_LOW, 1));
+                        } else {
+                            msg.messageOwner.attachPath = tgFile.getAbsolutePath();
+                        }
+                    }
+                    continue;
+                }
+
                 if (!msg.messageOwner.message.startsWith("SG_STREAM|||")) continue;
 
                 String[] parts = msg.messageOwner.message.split("\\|\\|\\|");
@@ -1207,10 +1228,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     msg.messageOwner.attachPath = targetFile.getAbsolutePath();
                     FileLog.d("SoundGram: downloaded OK → " + targetFile.getName());
                 } else {
-                    // ИСПРАВЛЕНИЕ VPN: Не резолвим URL заранее — оставляем оригинальный hitmos.me URL.
-                    // Резолвинг заранее создаёт URL привязанный к текущей VPN-сессии/IP,
-                    // который к моменту воспроизведения может устареть или стать недоступным.
-                    // ExoPlayer сам пройдёт редиректы через VPN TUN-интерфейс в момент воспроизведения.
                     msg.messageOwner.attachPath = downloadUrl;
                     FileLog.d("SoundGram: download failed, will stream original url: " + downloadUrl);
                 }
@@ -1220,7 +1237,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }).start();
     }
     private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
-        // NULL-guards — краш именно отсюда при VPN (track может прийти незаполненным)
         if (track == null) return;
         if (TextUtils.isEmpty(track.downloadUrl)) {
             Toast.makeText(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT).show();
@@ -1242,31 +1258,91 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         String safeDur    = track.duration != null ? track.duration : "0:00";
         String safeCover  = track.coverUrl != null ? track.coverUrl : "";
 
-        long trackHashId = Math.abs((long) track.downloadUrl.hashCode());
-        String text = "SG_STREAM|||" + safeTitle + "|||" + safeArtist
-                + "|||" + track.downloadUrl + "|||" + parseDuration(safeDur)
-                + "|||" + trackHashId + "|||" + safeCover;
-
-        SendMessagesHelper.getInstance(currentAccount).sendMessage(
-                text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
-        Toast.makeText(getParentActivity(), getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT).show();
-
-        // Скачиваем в фоне (VPN-safe через downloadTrackInternal с trust-all fallback)
         final String dlUrl    = track.downloadUrl;
         final String dlArtist = safeArtist;
         final String dlTitle  = safeTitle;
+        final long   fTargetId = targetId;
+        final String fSafeDur  = safeDur;
+        final String fSafeCover = safeCover;
+
+        // Удален AlertDialog, скачивание происходит абсолютно незаметно
         new Thread(() -> {
             File destFile = getLocalTrackFile(dlArtist, dlTitle);
-            if (!destFile.exists() || destFile.length() < 1024) {
-                boolean ok = MusicWebSearcher.downloadTrackToExactFileSync(dlUrl, destFile);
-                FileLog.d("SoundGram: saveWebTrack download " + (ok ? "OK" : "FAILED") + ": " + destFile.getName());
+            boolean downloaded = destFile.exists() && destFile.length() > 1024;
+            if (!downloaded) {
+                downloaded = MusicWebSearcher.downloadTrackToExactFileSync(dlUrl, destFile);
             }
-        }).start();
+            final boolean ok = downloaded && destFile.exists() && destFile.length() > 1024;
+            final File finalFile = ok ? destFile : null;
 
-        countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
-        isWaitingForUpload = true;
-        pollAttempts = 0;
-        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+            AndroidUtilities.runOnUIThread(() -> {
+                if (ok && finalFile != null) {
+                    sendLocalAudioFileToChannel(finalFile, dlTitle, dlArtist, fTargetId);
+                    Toast.makeText(getParentActivity(), getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT).show();
+                } else {
+                    long trackHashId = Math.abs((long) dlUrl.hashCode());
+                    String text = "SG_STREAM|||" + dlTitle + "|||" + dlArtist
+                            + "|||" + dlUrl + "|||" + parseDuration(fSafeDur)
+                            + "|||" + trackHashId + "|||" + fSafeCover;
+                    SendMessagesHelper.getInstance(currentAccount).sendMessage(
+                            text, -fTargetId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+                    Toast.makeText(getParentActivity(), getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT).show();
+                }
+
+                countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
+                isWaitingForUpload = true;
+                pollAttempts = 0;
+                AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+            });
+        }).start();
+    }
+
+
+    /**
+     * Отправляет локальный mp3-файл в канал-библиотеку как аудио-документ через TG.
+     * Создаём TLRPC.TL_document с нулевым id (новый файл) и attachPath — TG сам загрузит файл.
+     */
+    public static void sendLocalAudioFileToChannel(File file, String title, String artist, long channelId, int account) {
+        try {
+            // Создаём минимальный TG-документ для нового файла
+            TLRPC.TL_document doc = new TLRPC.TL_document();
+            doc.id = 0;
+            doc.access_hash = 0;
+            doc.date = (int) (System.currentTimeMillis() / 1000);
+            doc.mime_type = "audio/mpeg";
+            doc.size = file.length();
+            doc.dc_id = 0;
+            doc.file_reference = new byte[0];
+
+            // Аудио-атрибут с названием и артистом
+            TLRPC.TL_documentAttributeAudio audioAttr = new TLRPC.TL_documentAttributeAudio();
+            audioAttr.title = title;
+            audioAttr.performer = artist;
+            audioAttr.duration = 0;
+            audioAttr.flags |= 1; // has title+performer
+            doc.attributes.add(audioAttr);
+
+            // Атрибут имени файла
+            TLRPC.TL_documentAttributeFilename fileAttr = new TLRPC.TL_documentAttributeFilename();
+            fileAttr.file_name = artist + " - " + title + ".mp3";
+            doc.attributes.add(fileAttr);
+
+            // Отправляем как документ с указанием локального пути
+            SendMessagesHelper.SendMessageParams params = SendMessagesHelper.SendMessageParams.of(
+                    doc, null, file.getAbsolutePath(),
+                    -channelId,
+                    null, null, null, null, null, null,
+                    true, 0, 0, 0, null, null, false, false);
+            SendMessagesHelper.getInstance(account).sendMessage(params);
+
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
+    /** Экземплярный wrapper для вызова внутри фрагмента */
+    private void sendLocalAudioFileToChannel(File file, String title, String artist, long channelId) {
+        sendLocalAudioFileToChannel(file, title, artist, channelId, currentAccount);
     }
     public static void setAudioCover(BackupImageView coverImage, MessageObject msg, String filter, int radius) {
         coverImage.setRoundRadius(AndroidUtilities.dp(radius));
@@ -1277,7 +1353,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             return;
         }
 
-        // ПАРСИМ КАСТОМНУЮ ОБЛОЖКУ
+        // Поддержка кастомных обложек для веб-треков (SG_STREAM)
         if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
             String[] parts = msg.messageOwner.message.split("\\|\\|\\|");
             if (parts.length >= 7 && !TextUtils.isEmpty(parts[6])) {
@@ -1287,38 +1363,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         TLRPC.Document document = msg.getDocument();
-        TLRPC.PhotoSize thumb = null;
-
-        if (msg.photoThumbs != null && !msg.photoThumbs.isEmpty()) {
-            thumb = org.telegram.messenger.FileLoader.getClosestPhotoSizeWithSize(msg.photoThumbs, 320);
+        // Точная логика как в AudioPlayerAlert (getArtworkThumbImageLocation)
+        TLRPC.PhotoSize thumb = document != null ? org.telegram.messenger.FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 360) : null;
+        if (!(thumb instanceof TLRPC.TL_photoSize) && !(thumb instanceof TLRPC.TL_photoSizeProgressive)) {
+            thumb = null;
         }
 
-        if (thumb == null && document != null && document.thumbs != null && !document.thumbs.isEmpty()) {
-            thumb = org.telegram.messenger.FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 320);
-        }
+        String artworkUrl = msg.getArtworkUrl(true); // true для миниатюры
 
-        if (thumb != null && document != null) {
+        if (artworkUrl != null && !artworkUrl.isEmpty()) {
+            coverImage.setImage(org.telegram.messenger.ImageLocation.getForPath(artworkUrl), filter, placeholder, msg);
+        } else if (thumb != null && document != null) {
             coverImage.setImage(org.telegram.messenger.ImageLocation.getForDocument(thumb, document), filter, placeholder, msg);
-            return;
+        } else {
+            coverImage.setImageDrawable(placeholder);
         }
-
-        String artworkUrl = msg.getArtworkUrl(true);
-        if (!TextUtils.isEmpty(artworkUrl)) {
-            coverImage.setImage(artworkUrl, filter, placeholder);
-            return;
-        }
-
-        if (document != null) {
-            org.telegram.messenger.ImageLocation loc = org.telegram.messenger.ImageLocation.getForDocument(document);
-            if (loc != null) {
-                coverImage.setImage(loc, filter, placeholder, msg);
-                return;
-            }
-        }
-
-        coverImage.setImageDrawable(placeholder);
     }
-
 
     private void saveMessagesToCache(ArrayList<MessageObject> messages) {
         if (messages == null || messages.isEmpty()) return;
@@ -4469,9 +4529,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
                     trackCard.addView(trackRow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-                    // Клик → воспроизведение
                     trackCard.setOnClickListener(v -> {
-                        // При запуске из профиля артиста (ArtistProfileFragment):
                         AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_ARTIST;
                         AudioPlayerAlert.currentSourceLabel = artistName;
                         applySpringClick(trackCard);
@@ -4483,7 +4541,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         updatePlayingTrackColor();
                     });
 
-                    // Отступ между треками
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                             LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT);
                     lp.setMargins(0, 0, 0, AndroidUtilities.dp(6));
@@ -4504,14 +4561,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             };
 
             if (targetUrl != null && !targetUrl.isEmpty() && !targetUrl.startsWith("DEEZER_ARTIST:")) {
-                // Обычный Hitmos URL — грузим напрямую постранично
                 MusicWebSearcher.loadArtistProfile(targetUrl,
                         createFallbackCallback(callback, targetUrl, artistName));
                 return;
             }
 
-            // DEEZER_ARTIST: или пустой URL
-            // Шаг 1: ищем страницу артиста на Hitmos
             new Thread(() -> {
                 try {
                     long deezerArtistId = -1;
@@ -4534,24 +4588,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                     "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q, "UTF-8"));
                             if (searchHtml == null || searchHtml.isEmpty()) continue;
 
-                            // ИСПРАВЛЕНИЕ: парсим HTML чтобы найти URL страницы артиста
                             ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
                             MusicWebSearcher.parseHtmlToResults(searchHtml,
                                     new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
 
-                            // Точное совпадение по имени
                             String lowerName = artistName.toLowerCase();
                             for (MusicWebSearcher.WebArtist wa : foundArtists) {
                                 String waLower = wa.name.toLowerCase();
-                                if (waLower.equals(lowerName) || waLower.contains(lowerName)
-                                        || lowerName.contains(waLower)) {
+                                // ИСПРАВЛЕНО: Строгое сравнение, чтобы не было чужих треков (шлака)
+                                if (waLower.equals(lowerName)) {
                                     foundHitmosUrl = wa.artistUrl;
                                     break;
                                 }
-                            }
-                            // Частичное: первый попавшийся
-                            if (foundHitmosUrl == null && !foundArtists.isEmpty()) {
-                                foundHitmosUrl = foundArtists.get(0).artistUrl;
                             }
                             if (foundHitmosUrl != null) break;
                         } catch (Exception e) {
@@ -4560,13 +4608,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
 
                     if (foundHitmosUrl != null) {
-                        // Нашли страницу артиста — грузим постранично (много треков)
                         final String finalUrl = foundHitmosUrl;
                         AndroidUtilities.runOnUIThread(() ->
                                 MusicWebSearcher.loadArtistProfile(finalUrl,
                                         createFallbackCallback(callback, targetUrl, artistName)));
                     } else if (deezerArtistId > 0) {
-                        // Hitmos не нашёл — используем полную Deezer дискографию
                         final long finalId = deezerArtistId;
                         MusicWebSearcher.loadAllArtistTracksDeezer(finalId, artistName, callback);
                     } else {
@@ -4578,6 +4624,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
             }).start();
         }
+
     }
 
     public class AlbumProfileFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
@@ -4638,7 +4685,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             } else {
                 menu.addItem(1, R.drawable.msg_add);
             }
-            menu.addItem(5, R.drawable.msg_download);
 
             actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
             actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
@@ -4660,19 +4706,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                 saveAlbumToChannel(title, albumUrl, coverUrl);
                                 menu.getItem(1).setIcon(R.drawable.msg_delete);
                                 Toast.makeText(getParentActivity(), getString(R.string.sg_album_saved), Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                    } else if (id == 5) {
-                        long messageIdToEdit = findMessageIdByAlbum(title);
-                        if (messageIdToEdit != 0) {
-                            String newText = "SG_ALBUM|||" + title + "|||" + albumUrl + "|||" + coverUrl + "\nDownload";
-                            TLRPC.TL_messages_editMessage req = new TLRPC.TL_messages_editMessage();
-                            req.peer = MessagesController.getInstance(currentAccount).getInputPeer(-getTargetChannelId());
-                            req.id = (int) messageIdToEdit;
-                            req.message = newText;
-                            req.flags |= 2048;
-                            ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
-                                startAlbumFilesDownload(title, playlistMessages);
                             });
                         }
                     }
