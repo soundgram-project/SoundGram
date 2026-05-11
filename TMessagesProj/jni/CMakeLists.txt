@@ -275,6 +275,10 @@ elseif(${ANDROID_ABI} STREQUAL "arm64-v8a")
             rlottie/src/vector/pixman/pixman-arma64-neon-asm.S)
 endif()
 
+#tgwsproxy
+# JNI bridge — НЕ линкуем с Go .so, используем dlopen/dlsym
+add_library(tgwsproxy_jni SHARED jni_bridge.c)
+target_link_libraries(tgwsproxy_jni log dl)
 
 #flac
 add_library(flac STATIC

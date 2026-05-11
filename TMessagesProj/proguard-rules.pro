@@ -252,3 +252,4 @@
 -keepattributes *Annotation*
 -dontoptimize
 -dontobfuscate
+

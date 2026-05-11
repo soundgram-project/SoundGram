@@ -173,6 +173,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private boolean isLyricsVisible = false;
     private ValueAnimator lyricsAnimator;
     private int currentLyricIndex = -1;
+    private boolean isFetchingLyrics = false;
 
     private View borderView; // <--- ДОБАВЬ ЭТУ СТРОКУ
 
@@ -1034,7 +1035,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         LinearLayout textLayout = new LinearLayout(context);
         textLayout.setOrientation(LinearLayout.VERTICAL);
-        textLayout.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.CENTER_VERTICAL);
+        textLayout.setGravity(Gravity.CENTER_HORIZONTAL);
 
         titleTextView = new ClippingTextViewSwitcher(context) {
             @Override protected TextView createTextView() {
@@ -1042,13 +1043,15 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 textView.setTextColor(Theme.getColor(Theme.key_player_actionBarTitle));
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
                 textView.setTypeface(AndroidUtilities.bold());
+                textView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
                 textView.setMarqueeRepeatLimit(-1);
                 textView.setSingleLine(true);
                 textView.setSelected(true);
                 textView.setFocusable(true);
                 textView.setFocusableInTouchMode(true);
                 textView.setHorizontallyScrolling(true);
-                textView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
+                // ИСПРАВЛЕНИЕ: CENTER_VERTICAL вместо CENTER — иначе marquee пропадает
+                textView.setGravity(Gravity.CENTER_VERTICAL);
                 return textView;
             }
         };
@@ -1057,7 +1060,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         authorTextView = new ClippingTextViewSwitcher(context) {
             @Override protected TextView createTextView() {
                 final TextView textView = new MarqueeTextView(context);
-                textView.setTextColor(ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_player_actionBarTitle), 180));
+                textView.setTextColor(0xAAFFFFFF);
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
                 textView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
                 textView.setMarqueeRepeatLimit(-1);
@@ -1066,7 +1069,8 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 textView.setFocusable(true);
                 textView.setFocusableInTouchMode(true);
                 textView.setHorizontallyScrolling(true);
-                textView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
+                // ИСПРАВЛЕНИЕ: CENTER_VERTICAL вместо CENTER
+                textView.setGravity(Gravity.CENTER_VERTICAL);
                 return textView;
             }
         };
@@ -2539,6 +2543,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
 
     private void updateHighlight(long currentMs) {
+        if (isFetchingLyrics) return;
         long adjustedMs = currentMs + 150;
 
         int newActiveIndex = 0;
@@ -3957,10 +3962,14 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     private static final java.util.HashMap<String, ArrayList<LrcLine>> lyricsInMemoryCache = new java.util.HashMap<>();
 
     private void fetchLyrics(MessageObject msg) {
+        isFetchingLyrics = true;
         lyricsLines.clear();
         lyricsLines.add(new LrcLine(0, getString(R.string.sg_lyrics_searching)));
-        if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
-        currentLyricIndex = -1;
+        currentLyricIndex = 0;
+        // ИСПРАВЛЕНИЕ: один invalidate без setActiveIndex (индекс уже 0, view не мигает)
+        if (lyricsView != null) {
+            lyricsView.jumpToIndex(0);
+        }
 
         String title = msg.getMusicTitle();
         String artist = msg.getMusicAuthor();
@@ -3974,9 +3983,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         if (lyricsInMemoryCache.containsKey(cacheKey)) {
             ArrayList<LrcLine> cached = lyricsInMemoryCache.get(cacheKey);
             AndroidUtilities.runOnUIThread(() -> {
+                isFetchingLyrics = false;
                 lyricsLines.clear();
                 lyricsLines.addAll(cached);
-                if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
+                // ИСПРАВЛЕНИЕ: jumpToCurrentLyric уже вызывает setActiveIndex(false) → invalidate()
                 jumpToCurrentLyric();
             });
             return;
@@ -4002,9 +4012,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         if (!parsed.isEmpty()) {
                             lyricsInMemoryCache.put(cacheKey, parsed);
                             AndroidUtilities.runOnUIThread(() -> {
+                                isFetchingLyrics = false;
                                 lyricsLines.clear();
                                 lyricsLines.addAll(parsed);
-                                if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
+                                // ИСПРАВЛЕНИЕ: jumpToCurrentLyric() уже вызывает setActiveIndex+invalidate
                                 jumpToCurrentLyric();
                             });
                             return;
@@ -4102,10 +4113,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 if (!result.isEmpty()) {
                     lyricsInMemoryCache.put(cacheKey, result);
                     AndroidUtilities.runOnUIThread(() -> {
+                        isFetchingLyrics = false;
                         lyricsLines.clear();
                         lyricsLines.addAll(result);
-                        if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
-                        // Сразу прыгаем к текущей строке без анимации
+                        // ИСПРАВЛЕНИЕ: jumpToCurrentLyric() уже вызывает setActiveIndex+invalidate
                         jumpToCurrentLyric();
                     });
                 } else {
@@ -4126,9 +4137,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
     private void showLyricsError() {
         AndroidUtilities.runOnUIThread(() -> {
+            isFetchingLyrics = false;
             lyricsLines.clear();
             lyricsLines.add(new LrcLine(0, getString(R.string.sg_lyrics_not_found)));
-            if (lyricsView != null) lyricsView.invalidate(); if (lyricsView != null) lyricsView.setActiveIndex(Math.max(0, currentLyricIndex), false);
+            currentLyricIndex = 0;
+            // ИСПРАВЛЕНИЕ: один чистый прыжок без мигания
+            if (lyricsView != null) lyricsView.jumpToIndex(0);
         });
     }
 
@@ -4182,7 +4196,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         // Текущее анимируемое смещение в пикселях (0 = активная строка в ACTIVE_Y)
         private float scrollOffset = 0f;
-        private ValueAnimator scrollAnim;
+        // ИСПРАВЛЕНИЕ: используем SpringAnimation для плавного физического скролла без рывков
+        private androidx.dynamicanimation.animation.SpringAnimation springAnim;
+        private final androidx.dynamicanimation.animation.FloatValueHolder scrollHolder =
+                new androidx.dynamicanimation.animation.FloatValueHolder(0f);
 
         // Индекс активной строки (целевой — после анимации)
         private int activeIndex = 0;
@@ -4206,35 +4223,49 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             glowPaint.setColor(0xFFFFFFFF);
             glowPaint.setMaskFilter(new android.graphics.BlurMaskFilter(
                     AndroidUtilities.dp(12), android.graphics.BlurMaskFilter.Blur.NORMAL));
+
+            // ИСПРАВЛЕНИЕ: создаём spring-анимацию один раз, переиспользуем
+            springAnim = new androidx.dynamicanimation.animation.SpringAnimation(scrollHolder)
+                    .setSpring(new androidx.dynamicanimation.animation.SpringForce(0f)
+                            .setStiffness(100f)         // мягче = плавнее (было бы 200+ — пружинит)
+                            .setDampingRatio(0.5f));    // критическое затухание без колебаний
+            springAnim.addUpdateListener((anim, value, velocity) -> {
+                scrollOffset = value;
+                invalidate();
+            });
         }
 
         /** Установить новый активный индекс с плавной прокруткой */
         public void setActiveIndex(int index, boolean animate) {
             if (index < 0 || lyricsLines.isEmpty()) return;
-            if (index == activeIndex) return; // уже на нужном индексе
-
-            if (scrollAnim != null) scrollAnim.cancel();
+            if (index == activeIndex && animate) return; // уже на нужном индексе, не прерываем
 
             if (!animate) {
+                // ИСПРАВЛЕНИЕ: останавливаем spring перед мгновенным прыжком
+                if (springAnim != null) springAnim.cancel();
                 activeIndex = index;
                 scrollOffset = 0f;
+                scrollHolder.setValue(0f);
                 invalidate();
                 return;
             }
 
-            // Вычисляем начальное смещение: сколько пикселей до старой позиции
-            float fromOffset = scrollOffset + (activeIndex - index) * ROW_HEIGHT;
+            // ИСПРАВЛЕНИЕ: вместо ValueAnimator используем SpringAnimation.
+            // При смене строки вычисляем новое стартовое смещение и запускаем spring к 0.
+            // Spring плавно "притягивает" к нулю — нет резких рывков при частых вызовах.
+            float currentVisualOffset = scrollOffset; // текущее визуальное положение
+            float shiftDue = (activeIndex - index) * (float) ROW_HEIGHT; // смещение из-за смены activeIndex
             activeIndex = index;
-            scrollOffset = fromOffset; // визуально оставляем на месте
 
-            scrollAnim = ValueAnimator.ofFloat(fromOffset, 0f);
-            scrollAnim.setDuration(450);
-            scrollAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f));
-            scrollAnim.addUpdateListener(a -> {
-                scrollOffset = (float) a.getAnimatedValue();
-                invalidate();
-            });
-            scrollAnim.start();
+            // Новое стартовое положение = текущий offset + смещение
+            float newFrom = currentVisualOffset + shiftDue;
+            scrollOffset = newFrom;
+            scrollHolder.setValue(newFrom);
+
+            if (springAnim != null) springAnim.cancel();
+            springAnim.getSpring().setFinalPosition(0f);
+            springAnim.setStartValue(newFrom);
+            springAnim.start();
         }
 
         /** Прыжок без анимации (при открытии лирики) */

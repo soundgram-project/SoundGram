@@ -58,6 +58,7 @@ import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 
 import tw.nekomimi.nekogram.NekoConfig;
+import tw.nekomimi.nekogram.wsproxy.TgWsProxyService;
 import xyz.nextalone.nagram.NaConfig;
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
@@ -319,6 +320,32 @@ public class ApplicationLoader extends Application {
         }
         SoundGramConfig.load();
         super.onCreate();
+// Автозапуск SoundGram Proxy
+new Thread(() -> {
+    try {
+        Thread.sleep(5000);
+        SharedPreferences prefs = getSharedPreferences("wsproxy", Context.MODE_PRIVATE);
+        if (prefs.getBoolean("wsproxy_enabled", false) && !TgWsProxyService.isRunning) {
+            Intent intent = new Intent(this, TgWsProxyService.class);
+            intent.setAction(TgWsProxyService.ACTION_START);
+            intent.putExtra(TgWsProxyService.EXTRA_PORT, prefs.getInt("wsproxy_port", 1443));
+            intent.putExtra(TgWsProxyService.EXTRA_SECRET, prefs.getString("wsproxy_secret", ""));
+            intent.putExtra(TgWsProxyService.EXTRA_POOL_SIZE, prefs.getInt("wsproxy_pool", 4));
+            intent.putExtra(TgWsProxyService.EXTRA_CF_ENABLED, prefs.getBoolean("wsproxy_cf", true));
+            intent.putExtra(TgWsProxyService.EXTRA_CF_DOMAIN, prefs.getString("wsproxy_cf_domain", ""));
+            intent.putExtra(TgWsProxyService.EXTRA_SPOOF_SNI, prefs.getBoolean("wsproxy_spoof", false));
+            intent.putExtra(TgWsProxyService.EXTRA_SPOOF_DOMAIN, prefs.getString("wsproxy_spoof_domain", "vk.com"));
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}).start();
 
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("app start time = " + (startTime = SystemClock.elapsedRealtime()));

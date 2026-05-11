@@ -235,17 +235,58 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         public void run() {
             if (!isWaitingForUpload) return;
             pollAttempts++;
-            // Останавливаемся если трек появился ИЛИ вышел таймаут
+            // Останавливаемся если трек/альбом появился ИЛИ вышел таймаут
             if (audioMessages.size() + savedAlbumMessages.size() > countBeforeUpload
                     || pollAttempts >= MAX_POLL_ATTEMPTS) {
                 isWaitingForUpload = false;
                 pollAttempts = 0;
                 return;
             }
-            loadMusicFromChannel();
+            // ИСПРАВЛЕНИЕ: Лёгкая проверка последних 10 сообщений вместо полной загрузки 3000.
+            // Полный loadMusicFromChannel() с limit=3000 на UI-потоке вызывал ANR.
+            pollCheckRecentMessages();
             AndroidUtilities.runOnUIThread(pollMessagesRunnable, 2000);
         }
     };
+
+    /** Лёгкая проверка: запрашиваем только последние 10 сообщений канала.
+     *  Если среди них появился новый альбом/трек — делаем полный reload. */
+    private void pollCheckRecentMessages() {
+        long targetId = getTargetChannelId();
+        if (targetId == 0) return;
+        TLRPC.TL_messages_search searchReq = new TLRPC.TL_messages_search();
+        TLRPC.TL_inputPeerChannel inputPeer = new TLRPC.TL_inputPeerChannel();
+        inputPeer.channel_id = targetId;
+        inputPeer.access_hash = musicChannelHash;
+        searchReq.peer = inputPeer;
+        searchReq.filter = new TLRPC.TL_inputMessagesFilterEmpty();
+        searchReq.q = "";
+        searchReq.limit = 10; // только последние 10 — не блокирует UI
+        org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount).sendRequest(searchReq, (response, error) -> {
+            if (error != null || !(response instanceof TLRPC.messages_Messages)) return;
+            TLRPC.messages_Messages messages = (TLRPC.messages_Messages) response;
+            int newAlbums = 0, newTracks = 0;
+            for (TLRPC.Message msg : messages.messages) {
+                if (msg.message != null) {
+                    if (msg.message.startsWith("SG_ALBUM|||")) newAlbums++;
+                    else if (msg.message.startsWith("SG_STREAM|||") || msg.message.startsWith("SG_STATS|||")) newTracks++;
+                } else {
+                    MessageObject mo = new MessageObject(currentAccount, msg, false, false);
+                    if (mo.isMusic()) newTracks++;
+                }
+            }
+            final int finalNewAlbums = newAlbums;
+            final int totalNew = newAlbums + newTracks;
+            AndroidUtilities.runOnUIThread(() -> {
+                if (totalNew > countBeforeUpload || (finalNewAlbums > 0 && savedAlbumMessages.size() == 0)
+                        || totalNew != audioMessages.size() + savedAlbumMessages.size()) {
+                    isWaitingForUpload = false;
+                    pollAttempts = 0;
+                    loadMusicFromChannel(); // полный reload только один раз когда данные пришли
+                }
+            });
+        });
+    }
 
     public void saveAlbumToChannel(String title, String url, String coverUrl) {
         long targetId = getTargetChannelId();

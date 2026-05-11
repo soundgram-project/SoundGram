@@ -215,11 +215,11 @@ public class MusicWebSearcher {
                             // ИСПРАВЛЕНИЕ: Жесткая проверка по строкам, чтобы не путать ремиксы и чужие треки
                             boolean titleMatch = wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase());
                             boolean artistMatch = wt.artist.toLowerCase().contains(artistName.toLowerCase()) || artistName.toLowerCase().contains(wt.artist.toLowerCase());
-
-                            if (titleMatch && artistMatch && Math.abs(hitmoDur - exactDuration) <= 15) {
+                            if (titleMatch && ((artistMatch && Math.abs(hitmoDur - exactDuration) <= 10) || Math.abs(hitmoDur - exactDuration) <= 2)) {
                                 bestMatch = wt;
                                 break;
                             }
+
                         }
 
                         if (bestMatch != null) {
@@ -1262,10 +1262,14 @@ public class MusicWebSearcher {
                                 } catch (Exception e) { FileLog.e(e); }
                             }
                             // Поиск только по названию без артиста убран — возвращает чужие треки
+                            // Поиск только по названию без артиста убран — возвращает чужие треки
                             if (!results.isEmpty()) {
-                                WebTrack best = findBestMatch(results, cleanTitle, artistName, duration, true);
+                                // Меняем strictArtist на false. Хелпер findBestMatch устроен так, что при false
+                                // он все равно пропустит трек чужого артиста, ТОЛЬКО если длительность совпадет тютелька в тютельку (наберет 45+ очков).
+                                WebTrack best = findBestMatch(results, cleanTitle, artistName, duration, false);
 
                                 if (best != null) {
+
                                     best.title  = trackTitle;
                                     best.artist = artistName;
                                     if (!cover.isEmpty()) best.coverUrl = cover;

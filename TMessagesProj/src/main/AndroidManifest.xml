@@ -85,6 +85,9 @@
     <uses-permission android:name="me.everything.badger.permission.BADGE_COUNT_WRITE"/>
     <uses-permission android:name="com.android.vending.BILLING"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -158,6 +161,17 @@
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
+    <activity
+        android:name="tw.nekomimi.nekogram.settings.NekoWsProxyActivity"
+        android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
+        android:windowSoftInputMode="adjustResize"
+        android:exported="false" />
+
+    <service
+        android:name="tw.nekomimi.nekogram.wsproxy.TgWsProxyService"
+        android:enabled="true"
+        android:exported="false"
+        android:foregroundServiceType="specialUse" />
 
         <activity-alias
             android:enabled="false"
