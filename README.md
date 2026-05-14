@@ -1,13 +1,3 @@
-# Nagram X
-[![Crowdin](https://badges.crowdin.net/NagramX/localized.svg)](https://crowdin.com/project/NagramX)  
-A variant of [Nagram](https://github.com/NextAlone/Nagram) with additional features.
-
-## Download
-
-Latest versions are available through:
-* [Telegram Channel](https://t.me/NagramX) (Latest Beta)
-* [GitHub Actions](https://github.com/risin42/NagramX/actions/workflows/staging.yml) (CI Artifacts)
-* [GitHub Releases](https://github.com/risin42/NagramX/releases) (Latest Stable)
 
 ## Compilation Guide
 
@@ -61,5 +51,6 @@ Latest versions are available through:
 - [Dr4iv3rNope](https://github.com/Dr4iv3rNope/NotSoAndroidAyuGram)
 - [exteraGram](https://github.com/exteraSquad/exteraGram)
 - [Nagram](https://github.com/NextAlone/Nagram)
+- [NagramX](https://github.com/risin42/NagramX)
 - [Nekogram](https://github.com/Nekogram/Nekogram)
 - [OctoGram](https://github.com/OctoGramApp/OctoGram)

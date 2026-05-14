@@ -81,6 +81,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     private int resetSettingsRow;
     private int appRestartRow;
     private int nSettingsEndRow;
+// 1. Добавьте поле
+private int wsProxyRow;
 
 
     private int aboutRow;
@@ -98,6 +100,10 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             passcodeRow = -1;
         }
         experimentRow = addRow();
+
+// 2. В updateRows() добавьте строку (например, после experimentRow)
+wsProxyRow = addRow();
+
         categoriesEndRow = addRow();
 
         importSettingsRow = addRow();
@@ -114,7 +120,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         View view = super.createView(context);
 
         ActionBarMenu menu = actionBar.createMenu();
-        menu.addItem(MENU_SEARCH, R.drawable.ic_ab_search, resourcesProvider);
+        menu.addItem(MENU_SEARCH, R.drawable.outline_header_search, resourcesProvider);
         menu.addItem(MENU_SYNC, R.drawable.cloud_sync, resourcesProvider);
 
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
@@ -189,7 +195,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             ImageView clearButton = new ImageView(parent);
             clearButton.setScaleType(ImageView.ScaleType.CENTER);
             clearButton.setImageResource(R.drawable.ic_close_white);
-            clearButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_actionBarWhiteSelector), Theme.RIPPLE_MASK_CIRCLE_20DP));
+            clearButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP));
             clearButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.MULTIPLY));
             clearButton.setLayoutParams(new FrameLayout.LayoutParams(clearSize, clearSize, Gravity.END | Gravity.CENTER_VERTICAL));
             searchFrame.addView(clearButton);
@@ -339,7 +345,10 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             presentFragment(new NekoPasscodeSettingsActivity());
         } else if (position == experimentRow) {
             presentFragment(new NekoExperimentalSettingsActivity());
-        } else if (position == translatorRow) {
+} else if (position == wsProxyRow) {
+    presentFragment(new NekoWsProxyActivity());
+ 
+}else if (position == translatorRow) {
             presentFragment(new NekoTranslatorSettingsActivity());
         } else if (position == aboutRow) {
             presentFragment(new NekoAboutActivity());
@@ -402,7 +411,11 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                         textCell.setTextAndIcon(getString(R.string.PasscodeNeko), R.drawable.msg_permissions, true);
                     } else if (position == experimentRow) {
                         textCell.setTextAndIcon(getString(R.string.Experimental), R.drawable.msg_fave, true);
-                    } else if (position == importSettingsRow) {
+// 4. В ListAdapter.onBindViewHolder() добавьте
+} else if (position == wsProxyRow) {
+    textCell.setTextAndIcon("Обход замедления", R.drawable.proxy_on_solar, true);
+                    
+} else if (position == importSettingsRow) {
                         textCell.setTextAndIcon(getString(R.string.ImportSettings), R.drawable.msg_photo_settings_solar, true);
                     } else if (position == exportSettingsRow) {
                         textCell.setTextAndIcon(getString(R.string.BackupSettings), R.drawable.msg_instant_link_solar, true);
@@ -423,7 +436,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         public int getItemViewType(int position) {
             if (position == categoriesEndRow || position == nSettingsEndRow) {
                 return TYPE_SHADOW;
-            } else if (position == chatRow || position == generalRow || position == passcodeRow || position == experimentRow || position == translatorRow ||
+            } else if (position == chatRow || position == generalRow || position == passcodeRow || position == experimentRow || position == wsProxyRow || position == translatorRow ||
                     position == importSettingsRow || position == exportSettingsRow || position == resetSettingsRow || position == appRestartRow ||
                     position == aboutRow) {
                 return TYPE_TEXT;

@@ -1,8 +1,14 @@
 package tw.nekomimi.nekogram.llm.utils
 
+import org.json.JSONObject
 import tw.nekomimi.nekogram.llm.preset.LlmPresetRegistry
 
 object LlmModelUtil {
+
+    private val gemma4ThoughtTagRegex = Regex(
+        "<thought>.*?</thought>",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
 
     @JvmStatic
     fun getBaseModelName(model: String?): String {
@@ -19,9 +25,21 @@ object LlmModelUtil {
     }
 
     @JvmStatic
+    fun isGemma4(model: String?): Boolean {
+        val base = getBaseModelName(model).lowercase()
+        return base.contains("gemma4") || base.contains("gemma-4")
+    }
+
+    @JvmStatic
     fun isCerebrasGlm(url: String?, model: String?): Boolean {
         val base = getBaseModelName(model).lowercase()
         return url == LlmPresetRegistry.getPresetBaseUrl(LlmPresetRegistry.CEREBRAS) && base == "zai-glm-4.7"
+    }
+
+    @JvmStatic
+    fun isDeepSeekV4(model: String?): Boolean {
+        val base = getBaseModelName(model).lowercase()
+        return base.startsWith("deepseek-v4")
     }
 
     @JvmStatic
@@ -40,6 +58,27 @@ object LlmModelUtil {
             base.startsWith("gpt-5.") -> "none"
             base.startsWith("gpt-5") -> "minimal"
             else -> "none"
+        }
+    }
+
+    @JvmStatic
+    fun applyReasoningParameters(requestJson: JSONObject, url: String?, model: String?) {
+        if (isReasoning(model)) {
+            requestJson.put("reasoning_effort", getReasoningEffort(model))
+        } else if (isCerebrasGlm(url, model)) {
+            requestJson.put("disable_reasoning", true)
+        } else if (isDeepSeekV4(model)) {
+            if (url == LlmPresetRegistry.getPresetBaseUrl(LlmPresetRegistry.VERCEL_AI_GATEWAY)) {
+                requestJson.put(
+                    "providerOptions",
+                    JSONObject().put(
+                        "deepseek",
+                        JSONObject().put("thinking", JSONObject().put("type", "disabled"))
+                    )
+                )
+            } else {
+                requestJson.put("thinking", JSONObject().put("type", "disabled"))
+            }
         }
     }
 
@@ -76,5 +115,17 @@ object LlmModelUtil {
             return false
         }
         return modelId.trim().endsWith(":free", ignoreCase = true)
+    }
+
+    @JvmStatic
+    fun sanitizeResponse(model: String?, content: String?): String {
+        if (content.isNullOrBlank()) {
+            return ""
+        }
+        var sanitized = content.trim()
+        if (isGemma4(model)) {
+            sanitized = gemma4ThoughtTagRegex.replace(sanitized, "").trim()
+        }
+        return sanitized
     }
 }

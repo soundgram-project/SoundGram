@@ -26,7 +26,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Base64;
-import android.util.Log;
 import android.util.LongSparseArray;
 import android.view.Surface;
 import android.view.SurfaceView;
@@ -70,15 +69,17 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride;
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters;
+import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.upstream.DataSpec;
 import com.google.android.exoplayer2.upstream.DefaultAllocator;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
+import com.google.android.exoplayer2.upstream.TransferListener;
 import com.google.android.exoplayer2.video.SurfaceNotValidException;
 import com.google.android.exoplayer2.video.VideoListener;
 import com.google.android.exoplayer2.video.VideoSize;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
-import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.DispatchQueue;
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.FileLog;
@@ -96,14 +97,26 @@ import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.Stories.recorder.StoryEntry;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 
 import xyz.nextalone.nagram.NaConfig;
 
@@ -193,6 +206,64 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         this(true, false);
     }
 
+    // ==========================================
+    // VPN FIX: SSL-tolerant DataSource factory
+    // ==========================================
+    private static SSLSocketFactory vpnSslSocketFactory;
+    private static X509TrustManager vpnTrustManager;
+
+    private static void ensureVpnSsl() {
+        if (vpnSslSocketFactory != null) return;
+        try {
+            vpnTrustManager = new X509TrustManager() {
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, new TrustManager[]{vpnTrustManager}, new SecureRandom());
+            vpnSslSocketFactory = sc.getSocketFactory();
+        } catch (Exception e) {
+            FileLog.e("VideoPlayer VPN SSL init: " + e);
+        }
+    }
+    private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent) {
+        ensureVpnSsl();
+        // ИСПРАВЛЕНИЕ: СТРОГО ЕДИНЫЙ USER-AGENT как в MusicWebSearcher для обхода защиты Cloudflare/Hitmos
+        String unifiedUserAgent = "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0";
+
+        com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory httpFactory = new com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory()
+                .setUserAgent(unifiedUserAgent)
+                .setConnectTimeoutMs(25000)
+                .setReadTimeoutMs(25000)
+                // setAllowCrossProtocolRedirects позволяет следовать редиректам http↔https И между разными хостами
+                // Критично при VPN: hitmos.me → eu.hitmoz.com или rus.hitmoz.org
+                .setAllowCrossProtocolRedirects(true);
+
+        java.util.Map<String, String> headers = new java.util.HashMap<>();
+        // Referer должен совпадать с ожиданием зеркальных серверов
+        // hitmos.me, eu.hitmoz.com и rus.hitmoz.org — одна экосистема, все принимают hitmos.me как Referer
+        headers.put("Referer", "https://hitmos.me/");
+        headers.put("Origin", "https://hitmos.me");
+        headers.put("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+        headers.put("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8");
+        headers.put("Connection", "keep-alive");
+        headers.put("Accept-Encoding", "identity"); // Критично для VPN, чтобы стрим не рвался
+        headers.put("Icy-MetaData", "1");
+        httpFactory.setDefaultRequestProperties(headers);
+
+        // Обходим TLS-проблемы при перехвате трафика VPN'ом (для зеркал с нестандартными сертификатами)
+        if (vpnSslSocketFactory != null) {
+            try {
+                javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(vpnSslSocketFactory);
+                javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+            } catch (Exception ignore) {}
+        }
+        return new com.google.android.exoplayer2.upstream.DefaultDataSource.Factory(
+                ApplicationLoader.applicationContext, httpFactory);
+    }
+
+
     static int playerCounter = 0;
     public VideoPlayer(boolean pauseOther, boolean audioDisabled) {
         this.audioDisabled = audioDisabled;
@@ -223,7 +294,17 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public void setLooper(Looper looper) {
         this.looper = looper;
     }
-
+    public void preparePlayerWithMediaItem(com.google.android.exoplayer2.MediaItem mediaItem, String type) {
+        try {
+            if (player != null) {
+                player.setMediaItem(mediaItem);
+                player.prepare();
+                player.setPlayWhenReady(true);
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
     private EGLContext eglParentContext;
     public void setEGLContext(EGLContext ctx) {
         eglParentContext = ctx;
@@ -281,6 +362,27 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
             player = builder.build();
 
+            // --- SOUNDGRAM FX: ПОДКЛЮЧАЕМ ЭФФЕКТЫ И ПИТЧ ---
+            try {
+                // Инициализируем FX (ExoPlayer сам свяжет сессии через AuxEffectInfo)
+                org.telegram.ui.SoundGramAudioFX.initFX(0);
+
+                // Направляем звук в реверберацию (1.0f - максимальный уровень отправки)
+                if (org.telegram.ui.SoundGramAudioFX.getReverbId() != 0) {
+                    com.google.android.exoplayer2.audio.AuxEffectInfo effectInfo =
+                            new com.google.android.exoplayer2.audio.AuxEffectInfo(org.telegram.ui.SoundGramAudioFX.getReverbId(), 1.0f);
+                    player.setAuxEffectInfo(effectInfo);
+                }
+
+                // Применяем сохраненную скорость и тон (Pitch) сразу при старте трека
+                player.setPlaybackParameters(new PlaybackParameters(
+                        org.telegram.ui.SoundGramAudioFX.getCurrentSpeed(),
+                        org.telegram.ui.SoundGramAudioFX.getCurrentPitch()
+                ));
+            } catch (Exception e) {
+                FileLog.e("SoundGram FX Init Error: " + e.getMessage());
+            }
+            // ----------------------------------------------
             player.addAnalyticsListener(this);
             player.addListener(this);
             player.addVideoListener(this);
@@ -297,7 +399,6 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         if (mixedAudio) {
             if (audioPlayer == null) {
                 audioPlayer = new ExoPlayer.Builder(ApplicationLoader.applicationContext)
-                        .setRenderersFactory(new DefaultRenderersFactory(ApplicationLoader.applicationContext).setExtensionRendererMode(getPlayerExtensionRendererMode()))
                         .setTrackSelector(trackSelector)
                         .setLoadControl(loadControl).buildSimpleExoPlayer();
                 audioPlayer.addListener(new Player.Listener() {
@@ -314,6 +415,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
         }
     }
+    public int getAudioSessionId() {
+        return player != null ? player.getAudioSessionId() : 0;
+    }
+
 
     public void preparePlayerLoop(Uri videoUri, String videoType, Uri audioUri, String audioType) {
         this.videoQualities = null;
@@ -341,7 +446,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 type = audioType;
                 uri = audioUri;
             }
-            mediaSource = mediaSourceFromUri(uri, type);
+            mediaSource = mediaSourceFromUri(uri, 0, type);
             mediaSource = new LoopingMediaSource(mediaSource);
             if (a == 0) {
                 mediaSource1 = mediaSource;
@@ -356,37 +461,40 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         activePlayers.add(playerId);
     }
 
-    private MediaSource mediaSourceFromUri(Uri uri, String type) {
-        MediaItem mediaItem = new MediaItem.Builder().setUri(uri).build();
+    private MediaSource mediaSourceFromUri(VideoUri videoUri, String type) {
+        return mediaSourceFromUri(videoUri.uri, videoUri.fileVideoOffset, type);
+    }
+
+    private MediaSource mediaSourceFromUri(Uri uri, long videoByteOffset, String type) {
+        final MediaItem mediaItem = new MediaItem.Builder().setUri(uri).build();
+        // VPN FIX: для HTTP/HTTPS стриминга используем SSL-tolerant фабрику
+        boolean isHttp = uri != null && (uri.getScheme() != null) &&
+                (uri.getScheme().startsWith("http"));
+        DataSource.Factory factory = isHttp
+                ? createVpnAwareDataSourceFactory("Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/47.0 (Chrome)")
+                : mediaDataSourceFactory;
+        if (videoByteOffset != 0) {
+            return new ProgressiveMediaSource.Factory(
+                () -> new OffsetDataSource(factory.createDataSource(), videoByteOffset)
+            ).createMediaSource(mediaItem);
+        }
         switch (type) {
             case "dash":
-                if (dashMediaSourceFactory == null) {
-                    dashMediaSourceFactory = new DashMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return dashMediaSourceFactory.createMediaSource(mediaItem);
+                return new DashMediaSource.Factory(factory).createMediaSource(mediaItem);
             case "hls":
-                if (hlsMediaSourceFactory == null) {
-                    hlsMediaSourceFactory = new HlsMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return hlsMediaSourceFactory.createMediaSource(mediaItem);
+                return new HlsMediaSource.Factory(factory).createMediaSource(mediaItem);
             case "ss":
-                if (ssMediaSourceFactory == null) {
-                    ssMediaSourceFactory = new SsMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return ssMediaSourceFactory.createMediaSource(mediaItem);
+                return new SsMediaSource.Factory(factory).createMediaSource(mediaItem);
             default:
-                if (progressiveMediaSourceFactory == null) {
-                    progressiveMediaSourceFactory = new ProgressiveMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return progressiveMediaSourceFactory.createMediaSource(mediaItem);
+                return new ProgressiveMediaSource.Factory(factory).createMediaSource(mediaItem);
         }
     }
 
     public void preparePlayer(Uri uri, String type) {
-        preparePlayer(uri, type, FileLoader.PRIORITY_HIGH);
+        preparePlayer(uri, type, FileLoader.PRIORITY_HIGH, 0);
     }
 
-    public void preparePlayer(Uri uri, String type, int priority) {
+    public void preparePlayer(Uri uri, String type, int priority, long videoByteOffset) {
         this.videoQualities = null;
         this.videoQualityToSelect = null;
         this.videoUri = uri;
@@ -403,7 +511,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         String scheme = uri != null ? uri.getScheme() : null;
         isStreaming = scheme != null && !scheme.startsWith("file");
         ensurePlayerCreated();
-        MediaSource mediaSource = mediaSourceFromUri(uri, type);
+        MediaSource mediaSource = mediaSourceFromUri(uri, videoByteOffset, type);
         player.setMediaSource(mediaSource, true);
         player.prepare();
     }
@@ -775,14 +883,14 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 autoIsOriginal = true;
                 quality = original;
                 videoQualityToSelect = quality;
-                player.setMediaSource(mediaSourceFromUri(quality.getDownloadUri().uri, "other"), false);
+                player.setMediaSource(mediaSourceFromUri(quality.getDownloadUri(), "other"), false);
                 reset = true;
             } else if (hlsManifest != null) {
                 autoIsOriginal = false;
                 trackSelector.setParameters(trackSelector.getParameters().buildUpon().clearOverrides().build());
                 if (!currentStreamIsHls) {
                     currentStreamIsHls = true;
-                    player.setMediaSource(mediaSourceFromUri(hlsManifest, "hls"), false);
+                    player.setMediaSource(mediaSourceFromUri(hlsManifest, 0, "hls"), false);
                     reset = true;
                 }
             } else {
@@ -792,7 +900,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 currentStreamIsHls = false;
                 videoQualityToSelect = quality;
                 autoIsOriginal = quality.original;
-                player.setMediaSource(mediaSourceFromUri(quality.getDownloadUri().uri, "other"), false);
+                player.setMediaSource(mediaSourceFromUri(quality.getDownloadUri(), "other"), false);
                 reset = true;
             }
         } else {
@@ -804,12 +912,12 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
             if (hlsManifest == null || quality.uris.size() == 1 || trackSelector.getCurrentMappedTrackInfo() == null) {
                 currentStreamIsHls = false;
-                player.setMediaSource(mediaSourceFromUri(quality.getDownloadUri().uri, "other"), false);
+                player.setMediaSource(mediaSourceFromUri(quality.getDownloadUri(), "other"), false);
                 reset = true;
             } else {
                 if (!currentStreamIsHls) {
                     currentStreamIsHls = true;
-                    player.setMediaSource(mediaSourceFromUri(hlsManifest, "hls"), false);
+                    player.setMediaSource(mediaSourceFromUri(hlsManifest, 0, "hls"), false);
                     reset = true;
                 }
                 TrackSelectionParameters.Builder selector = trackSelector.getParameters().buildUpon().clearOverrides();
@@ -1249,6 +1357,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         public Uri uri;
         public long manifestDocId;
         public Uri m3u8uri;
+        public long fileVideoOffset;
 
         public TLRPC.Document document;
         public TLRPC.Document manifestDocument;
@@ -1504,7 +1613,9 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public void setPlaybackSpeed(float speed) {
         try {
             if (player != null) {
-                player.setPlaybackParameters(new PlaybackParameters(speed, speed > 1.0f ? 0.98f : 1.0f));
+                // Меняем только скорость
+                PlaybackParameters param = new PlaybackParameters(speed, org.telegram.ui.SoundGramAudioFX.getCurrentPitch());
+                player.setPlaybackParameters(param);
             }
         } catch (Exception ignore) {}
     }
@@ -2075,6 +2186,45 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         }
 
         return builder.build();
+    }
+
+    public static class OffsetDataSource implements DataSource {
+        private final DataSource upstream;
+        private final long byteOffset;
+
+        public OffsetDataSource(DataSource upstream, long byteOffset) {
+            this.upstream = upstream;
+            this.byteOffset = byteOffset;
+        }
+
+        @Override
+        public void addTransferListener(TransferListener transferListener) {
+            upstream.addTransferListener(transferListener);
+        }
+
+        @Override
+        public long open(DataSpec dataSpec) throws IOException {
+            DataSpec offsetDataSpec = dataSpec.buildUpon()
+                .setPosition(dataSpec.position + byteOffset)
+                .build();
+            return upstream.open(offsetDataSpec);
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            return upstream.read(buffer, offset, length);
+        }
+
+        @Override
+        public Uri getUri() { return upstream.getUri(); }
+
+        @Override
+        public void close() throws IOException { upstream.close(); }
+
+        @Override
+        public Map<String, List<String>> getResponseHeaders() {
+            return upstream.getResponseHeaders();
+        }
     }
 
 }

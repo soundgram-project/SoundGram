@@ -1,21 +1,59 @@
 {
   "project_info": {
-    "project_number": "986979746546",
-    "project_id": "nagram-x",
-    "storage_bucket": "nagram-x.firebasestorage.app"
+    "project_number": "455772129657",
+    "project_id": "soundgram-messenger",
+    "storage_bucket": "soundgram-messenger.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:986979746546:android:f63a8620cbea5950dcc66b",
+        "mobilesdk_app_id": "1:455772129657:android:7dfc7f2ad0d325a73887a8",
         "android_client_info": {
-          "package_name": "nu.gpu.nagram"
+          "package_name": "org.soundgram.messenger"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAzMqM8tLgsWIvmEyfZRS95ubX-TXiNB3w"
+          "current_key": "AIzaSyBt2CUITgIlEiXapL3FpQm5VK_Fkxj_hCE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:455772129657:android:9ccb54a75728d1703887a8",
+        "android_client_info": {
+          "package_name": "org.telegram.messenger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBt2CUITgIlEiXapL3FpQm5VK_Fkxj_hCE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:455772129657:android:ec0de7f475d358ef3887a8",
+        "android_client_info": {
+          "package_name": "org.telegram.messenger.beta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBt2CUITgIlEiXapL3FpQm5VK_Fkxj_hCE"
         }
       ],
       "services": {

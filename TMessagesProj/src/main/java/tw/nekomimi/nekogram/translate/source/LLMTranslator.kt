@@ -221,11 +221,7 @@ object LLMTranslator : Translator {
             if (LlmModelUtil.supportsTemperature(model)) {
                 put("temperature", NaConfig.llmTemperature.Float())
             }
-            if (LlmModelUtil.isReasoning(model)) {
-                put("reasoning_effort", LlmModelUtil.getReasoningEffort(model))
-            } else if (LlmModelUtil.isCerebrasGlm(apiUrl, model)) {
-                put("disable_reasoning", true)
-            }
+            LlmModelUtil.applyReasoningParameters(this, apiUrl, model)
         }.toString()
 
         val response = OpenAICompatClient.chatCompletions(apiUrl, apiKey, requestJson)
@@ -242,7 +238,7 @@ object LLMTranslator : Translator {
         }
 
         return response.data()
-            ?.trim()
+            ?.let { LlmModelUtil.sanitizeResponse(model, it) }
             ?.takeIf { it.isNotEmpty() }
             ?: throw IOException("LLM API returned empty content")
     }

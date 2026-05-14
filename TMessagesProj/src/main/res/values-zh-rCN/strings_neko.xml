@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="NekoSettings">N-设置</string>
+    <string name="NekoSettings">SoundGram-设置</string>
     <string name="IPv6">偏好 IPv6</string>
     <string name="MessageMenu">消息菜单</string>
     <string name="HidePhone">隐藏手机号码</string>
@@ -73,7 +73,7 @@
     <string name="OfficialChannel">Nagram 频道</string>
     <string name="About">关于</string>
     <string name="IgnoreBlockedAbout">您将不会再看到被屏蔽的用户在群组中的消息。</string>
-    <string name="SourceCode">源代码</string>
+    <string name="SourceCode">Support</string>
     <string name="ResetStickerSize">重置贴纸大小</string>
     <string name="RestartAppToTakeEffect">重启应用以生效。</string>
     <string name="MediaPreview">聊天列表中的媒体预览</string>
@@ -89,7 +89,7 @@
     <string name="hideGroupSticker">隐藏群组贴纸</string>
     <string name="customGroupVoipAudioBitrate">群组通话音频比特率</string>
     <string name="maxRecentStickerCount">最近贴纸数量上限</string>
-    <string name="disableSwipeToNextChannel">禁用滑动到下个频道</string>
+    <string name="disableSwipeToNextChannel">禁用滑动切换到下一个频道</string>
     <string name="disableChoosingSticker">在选择贴纸时发送输入状态</string>
     <string name="hideSendAsChannel">隐藏以频道身份发送</string>
     <string name="showSpoilersDirectly">直接显示剧透信息</string>
@@ -112,10 +112,10 @@
     <string name="enhancedFileLoader">下载加速</string>
     <string name="mapDriftingFixForGoogleMaps">修复 Google 地图在中国的漂移问题</string>
     <string name="useOSMDroidMap">使用 OSMDroid 地图</string>
-    <string name="UnknownNekoSettingsOption">找不到这个 N-设置 选项。</string>
+    <string name="UnknownNekoSettingsOption">找不到这个 SoundGram-设置 选项。</string>
     <string name="PasscodeNeeded">您必须先启用密码锁</string>
     <string name="PasscodeNeko">锁定码</string>
-    <string name="PasscodeShowInSettings">在 N-设置 中显示</string>
+    <string name="PasscodeShowInSettings">在 SoundGram-设置 中显示</string>
     <string name="PasscodeShowInSettingsAbout">隐藏后，您**只能**通过该链接打开此页面：</string>
     <string name="PasscodeSet">设置锁定码</string>
     <string name="PasscodeEdit">更改锁定码</string>

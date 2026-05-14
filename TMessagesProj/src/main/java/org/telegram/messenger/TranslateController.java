@@ -283,8 +283,8 @@ public class TranslateController extends BaseController {
         return lang;
     }
 
-    private String currentLanguage() {
-        String lang = currentPluralLanguage();
+    public static String currentLanguage() {
+        String lang = LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode;
         if (lang != null) {
             lang = lang.split("_")[0];
         }
@@ -675,7 +675,11 @@ public class TranslateController extends BaseController {
         if (onScreen && isTranslatingDialog(dialogId)) {
             final MessageObject finalMessageObject = messageObject;
             if (finalMessageObject.messageOwner.summarizedOpen) {
-                if (finalMessageObject.messageOwner.translatedSummaryText == null || !language.equals(finalMessageObject.messageOwner.translatedSummaryLanguage)) {
+                if (
+                    finalMessageObject.messageOwner.translatedSummaryText == null ||
+                    MessageHelper.isLegacyTranslatedSummary(finalMessageObject.messageOwner.summaryText, finalMessageObject.messageOwner.translatedSummaryText) ||
+                    !language.equals(finalMessageObject.messageOwner.translatedSummaryLanguage)
+                ) {
                     pushToSummarize(finalMessageObject, language, text -> {
                         finalMessageObject.messageOwner.translatedSummaryLanguage = text != null ? language : null;
                         finalMessageObject.messageOwner.translatedSummaryText = text;

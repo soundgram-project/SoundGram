@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="NekoSettings">N-Ayarları</string>
+    <string name="NekoSettings">SoundGram-Ayarları</string>
     <string name="IPv6">IPv6\'yı Tercih Et</string>
     <string name="MessageMenu">Mesaj Menüsü</string>
     <string name="HidePhone">Telefon Numarasını Gizle</string>
@@ -73,7 +73,7 @@
     <string name="OfficialChannel">Nagram Kanalı</string>
     <string name="About">Hakkında</string>
     <string name="IgnoreBlockedAbout">Artık gruplarda engellenen kullanıcılardan gelen mesajları görmeyeceksiniz.</string>
-    <string name="SourceCode">Kaynak Kodu</string>
+    <string name="SourceCode">Support</string>
     <string name="ResetStickerSize">Çıkartma boyutunu sıfırla</string>
     <string name="RestartAppToTakeEffect">Değişiklikleri uygulamak için uygulamayı yeniden başlatın.</string>
     <string name="MediaPreview">Sohbet Listesinde Medya Önizlemesi</string>
@@ -112,10 +112,10 @@
     <string name="enhancedFileLoader">İndirme Hızı Artışı</string>
     <string name="mapDriftingFixForGoogleMaps">Çin\'de Google Haritalar Kaymasını Düzelt</string>
     <string name="useOSMDroidMap">OSMDroid Haritası Kullan</string>
-    <string name="UnknownNekoSettingsOption">Böyle bir N-Ayarları seçeneği yok.</string>
+    <string name="UnknownNekoSettingsOption">Böyle bir SoundGram-Ayarları seçeneği yok.</string>
     <string name="PasscodeNeeded">Önce parola kilidini etkinleştirmeniz gerekir</string>
     <string name="PasscodeNeko">Parola</string>
-    <string name="PasscodeShowInSettings">N-Ayarları\'nda Göster</string>
+    <string name="PasscodeShowInSettings">SoundGram-Ayarları\'nda Göster</string>
     <string name="PasscodeShowInSettingsAbout">Gizledikten sonra, bu sayfayı **SADECE** şu bağlantıyla açabilirsiniz:</string>
     <string name="PasscodeSet">Parola ayarla</string>
     <string name="PasscodeEdit">Parolayı değiştir</string>

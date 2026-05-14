@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="NekoSettings">Pengaturan-N</string>
+    <string name="NekoSettings">Pengaturan-SoundGram</string>
     <string name="IPv6">Lebih suka IPv6</string>
     <string name="MessageMenu">Menu Pesan</string>
     <string name="HidePhone">Sembunyikan Nomor Telepon</string>
@@ -73,7 +73,7 @@
     <string name="OfficialChannel">Saluran Nagram</string>
     <string name="About">Tentang</string>
     <string name="IgnoreBlockedAbout">Anda tidak akan lagi melihat pesan dari pengguna yang diblokir di grup.</string>
-    <string name="SourceCode">Kode Sumber</string>
+    <string name="SourceCode">Support</string>
     <string name="ResetStickerSize">Atur ulang ukuran stiker</string>
     <string name="RestartAppToTakeEffect">Mulai ulang aplikasi untuk menerapkan perubahan.</string>
     <string name="MediaPreview">Pratinjau Media di Daftar Obrolan</string>
@@ -112,10 +112,10 @@
     <string name="enhancedFileLoader">Peningkatan Kecepatan Unduhan</string>
     <string name="mapDriftingFixForGoogleMaps">Perbaiki Pergerakan Google Maps di China</string>
     <string name="useOSMDroidMap">Gunakan Peta OSMDroid</string>
-    <string name="UnknownNekoSettingsOption">Tidak ada pilihan Pengaturan-N tersebut.</string>
+    <string name="UnknownNekoSettingsOption">Tidak ada pilihan Pengaturan-SoundGram tersebut.</string>
     <string name="PasscodeNeeded">Anda harus mengaktifkan kode akses terlebih dahulu</string>
     <string name="PasscodeNeko">Kode akses</string>
-    <string name="PasscodeShowInSettings">Tampilkan di Pengaturan-N</string>
+    <string name="PasscodeShowInSettings">Tampilkan di Pengaturan-SoundGram</string>
     <string name="PasscodeShowInSettingsAbout">Setelah menyembunyikannya, Anda **HANYA** dapat membuka halaman ini melalui tautan:</string>
     <string name="PasscodeSet">Atur kode akses</string>
     <string name="PasscodeEdit">Ubah kode akses</string>

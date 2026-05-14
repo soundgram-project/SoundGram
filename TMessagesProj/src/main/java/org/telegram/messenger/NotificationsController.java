@@ -4223,7 +4223,7 @@ public class NotificationsController extends BaseController {
                         name = LocaleController.getString(R.string.NotificationHiddenName);
                     }
                 } else {
-                    name = LocaleController.getString(R.string.NagramX);
+                    name = LocaleController.getString(R.string.SoundGram);
                 }
                 replace = false;
             } else {
@@ -5767,7 +5767,7 @@ public class NotificationsController extends BaseController {
 
     public static Person.Builder loadRoundAvatar(long dialogId, File avatar, Person.Builder personBuilder) {
         if (dialogId == UserObject.OAUTH) {
-            personBuilder.setIcon(IconCompat.createWithResource(ApplicationLoader.applicationContext, R.drawable.ic_launcher_dr));
+            personBuilder.setIcon(IconCompat.createWithResource(ApplicationLoader.applicationContext, R.mipmap.ic_launcher));
             return personBuilder;
         }
         if (avatar != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

@@ -834,6 +834,20 @@ public class ChatAttachAlertDocumentLayout extends ChatAttachAlert.AttachAlertLa
         } else {
             return false;
         }
+
+        if (parentAlert.isPollAttach) {
+            if (selectedFiles.isEmpty() && selectedMessages.isEmpty() || delegate == null || sendPressed) {
+                return true;
+            }
+            final ArrayList<MessageObject> fmessages = new ArrayList<>();
+            for (FilteredSearchView.MessageHashId hashId : selectedMessages.keySet()) {
+                fmessages.add(selectedMessages.get(hashId));
+            }
+            final ArrayList<String> files = new ArrayList<>(selectedFilesOrder);
+            delegate.didSelectFiles(files, null, null, fmessages, false, 0, 0, 0, false, 0);
+            return true;
+        }
+
         if (view instanceof SharedDocumentCell) {
             ((SharedDocumentCell) view).setChecked(add, true);
         }
@@ -1253,7 +1267,7 @@ public class ChatAttachAlertDocumentLayout extends ChatAttachAlert.AttachAlertLa
     }
 
     private void showErrorBox(String error) {
-        new AlertDialog.Builder(getContext(), resourcesProvider).setTitle(LocaleController.getString(R.string.NagramX)).setMessage(error).setPositiveButton(LocaleController.getString(R.string.OK), null).show();
+        new AlertDialog.Builder(getContext(), resourcesProvider).setTitle(LocaleController.getString(R.string.SoundGram)).setMessage(error).setPositiveButton(LocaleController.getString(R.string.OK), null).show();
     }
 
     @SuppressLint("NewApi")
@@ -1366,8 +1380,7 @@ public class ChatAttachAlertDocumentLayout extends ChatAttachAlert.AttachAlertLa
             FileLog.e(e);
         }
 
-        if (!isSoundPicker && !isEmojiPicker) {
-
+        if (!isSoundPicker && !isEmojiPicker && (parentAlert == null || !parentAlert.isPollAttach)) {
             fs = new ListItem();
             fs.title = LocaleController.getString(R.string.Gallery);
             fs.subtitle = LocaleController.getString(R.string.GalleryInfo);

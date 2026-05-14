@@ -2166,7 +2166,7 @@ public class ChannelAdminLogActivity extends BaseFragment implements Notificatio
                                 return;
                             }
                             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-                            builder.setTitle(getString(R.string.NagramX));
+                            builder.setTitle(getString(R.string.SoundGram));
                             builder.setMessage(getString("IncorrectTheme", R.string.IncorrectTheme));
                             builder.setPositiveButton(getString("OK", R.string.OK), null);
                             showDialog(builder.create());
@@ -2181,7 +2181,7 @@ public class ChannelAdminLogActivity extends BaseFragment implements Notificatio
                                 return;
                             }
                             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-                            builder.setTitle(getString(R.string.NagramX));
+                            builder.setTitle(getString(R.string.SoundGram));
                             builder.setMessage(getString("IncorrectLocalization", R.string.IncorrectLocalization));
                             builder.setPositiveButton(getString("OK", R.string.OK), null);
                             showDialog(builder.create());
@@ -2770,7 +2770,7 @@ public class ChannelAdminLogActivity extends BaseFragment implements Notificatio
             return;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle(getString(R.string.NagramX));
+        builder.setTitle(getString(R.string.SoundGram));
         builder.setPositiveButton(getString("OK", R.string.OK), null);
         if (message.type == MessageObject.TYPE_VIDEO) {
             builder.setMessage(getString("NoPlayerInstalled", R.string.NoPlayerInstalled));

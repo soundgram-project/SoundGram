@@ -338,6 +338,7 @@ public class NotificationCenter {
     public static final int attachMenuBotsDidLoad = totalEvents++;
     public static final int chatAvailableReactionsUpdated = totalEvents++;
     public static final int dialogsUnreadReactionsCounterChanged = totalEvents++;
+    public static final int dialogsUnreadPollVotesCounterChanged = totalEvents++;
     public static final int onDatabaseOpened = totalEvents++;
     public static final int onDownloadingFilesChanged = totalEvents++;
     public static final int onActivityResultReceived = totalEvents++;
@@ -803,6 +804,10 @@ public class NotificationCenter {
     }
 
     public void doOnIdle(Runnable runnable) {
+        if (Thread.currentThread() != ApplicationLoader.applicationHandler.getLooper().getThread()) {
+            AndroidUtilities.runOnUIThread(() -> doOnIdle(runnable));
+            return;
+        }
         if (isAnimationInProgress()) {
             delayedRunnables.add(runnable);
         } else {
@@ -811,6 +816,10 @@ public class NotificationCenter {
     }
 
     public void removeDelayed(Runnable runnable) {
+        if (Thread.currentThread() != ApplicationLoader.applicationHandler.getLooper().getThread()) {
+            AndroidUtilities.runOnUIThread(() -> removeDelayed(runnable));
+            return;
+        }
         delayedRunnables.remove(runnable);
     }
 

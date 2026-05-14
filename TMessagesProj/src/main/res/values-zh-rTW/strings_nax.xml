@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="XChannel">Nagram X 頻道</string>
+    <string name="XChannel">SoundGram 頻道</string>
     <string name="EnableSaveDeletedMessages">儲存已刪除訊息</string>
     <string name="DeletedMessage">已刪除</string>
     <string name="EnableSaveEditsHistory">儲存編輯歷史</string>
@@ -71,6 +71,8 @@
     <string name="UnshadowBan">解除靜默封鎖</string>
     <string name="ShadowBanAdded">已新增到**使用者過濾器**。</string>
     <string name="ShadowBanRemoved">已從**使用者過濾器**中移除。</string>
+    <string name="ShadowBanChannelAdded">已新增至**頻道過濾器**。</string>
+    <string name="ShadowBanChannelRemoved">已從**頻道過濾器**中移除。</string>
     <string name="botCommandConfirmTitle">確認傳送</string>
     <string name="botCommandConfirmText">您確定要發送此指令嗎？\n\n%s</string>
     <string name="MessageSavingSaveMedia">儲存媒體</string>
@@ -81,10 +83,6 @@
     <string name="MessageSavingSaveMediaInPublicGroups">公開群組</string>
     <string name="MessageSavingSaveMediaInPrivateGroups">私有群組</string>
     <string name="TelegramUIAutoTranslate">自動翻譯</string>
-    <string name="TranslatorMode">手動翻譯顯示類型</string>
-    <string name="TranslatorModeAppend">追加</string>
-    <string name="TranslatorModeInline">替換</string>
-    <string name="TranslatorModePopup">彈窗</string>
     <string name="Translated">已翻譯</string>
     <string name="ProviderRealMicrosoftTranslator">微軟翻譯</string>
     <string name="TranslatorSettings">翻譯</string>
@@ -133,7 +131,7 @@
     <string name="DisableGhostMode">停用幽靈模式</string>
     <string name="GhostModeEnabled">幽靈模式已啟用</string>
     <string name="GhostModeDisabled">幽靈模式已停用</string>
-    <string name="GhostModeInDrawer">主頁快捷方式</string>
+    <string name="GhostModeInDrawer">捷徑</string>
     <string name="GhostModeStatusIndicator">幽靈模式指示器</string>
     <string name="DontSendReadMessagePackets">不顯示訊息已讀</string>
     <string name="DontReadStoriesPackets">不顯示動態已讀</string>
@@ -208,7 +206,6 @@
     <string name="NoCaptionForward">無說明轉發</string>
     <string name="PreferCommonGroupsTab">首選群組標籤</string>
     <string name="PreferCommonGroupsTabNotice">在個人資料頁面自動選擇“群組”標籤而不是“禮物”。</string>
-    <string name="SendHighQualityPhoto">傳送高品質圖片</string>
     <string name="GroupedMessageMenu">分組訊息選單</string>
     <string name="GroupedMessageMenuNotice">將主要操作選項移至訊息選單的底部。</string>
     <string name="CopySticker">複製貼圖</string>
@@ -321,4 +318,17 @@
     <string name="MainTabsHideContacts">隱藏聯絡人標籤頁</string>
     <string name="PasscodeShowMessagePreviewWhenLocked">顯示訊息預覽</string>
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">在密碼鎖定狀態下仍顯示通知內容。</string>
+    <string name="StickerSavedHint">貼圖已儲存至相冊</string>
+    <string name="StickerCopied">貼圖已複製到剪貼簿</string>
+    <string name="StrokeOnViews">眩光效果</string>
+    <string name="HideBottomNavigationBar">隱藏底部導覽列</string>
+    <string name="TranslatorMode">追加</string>
+    <string name="TranslatorWithOriginalTextOff">關閉</string>
+    <string name="TranslatorWithOriginalTextManualOnly">手動</string>
+    <string name="TranslatorWithOriginalTextOn">開啟</string>
+    <string name="CenterActionBarTitleOn">開啟</string>
+    <string name="CenterActionBarTitleOff">關閉</string>
+    <string name="TabletModeOn">開啟</string>
+    <string name="TabletModeOff">關閉</string>
+    <string name="HideDialogsSearchField">隱藏搜尋欄</string>
 </resources>

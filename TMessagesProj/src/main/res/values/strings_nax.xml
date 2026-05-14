@@ -1,7 +1,156 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="NagramX" translatable="false">Nagram X</string>
-    <string name="XChannel">Nagram X Channel</string>
+<string name="sg_source_library">Library</string>
+<string name="sg_source_wave">My Wave</string>
+<string name="sg_source_search">Search</string>
+<string name="sg_source_album">Album</string>
+<string name="sg_source_playlist">Playlist</string>
+<string name="sg_source_artist">Artist</string>
+<string name="sg_source_untitled">Untitled</string>
+<string name="sg_menu_equalizer">Equalizer</string>
+<string name="sg_menu_to_library">Add to library</string>
+<string name="sg_menu_share">Share</string>
+<string name="sg_menu_add_to_playlist">Add to playlist</string>
+<string name="sg_goto_artist">Go to artist</string>
+<string name="sg_downloading_track">Downloading track…</string>
+<string name="sg_download_error">Download failed</string>
+<string name="sg_open_music_first">Open Music section at least once</string>
+<string name="sg_saved_to_library">Saved to library</string>
+<string name="sg_track_added_to_profile">Track added to profile!</string>
+<string name="sg_playlists_not_found">No playlists found. Create them first in the Music section.</string>
+<string name="sg_added_to_playlist">Added to \"%s\"</string>
+<string name="sg_lyrics_searching">Searching lyrics…</string>
+<string name="sg_lyrics_not_found">Lyrics not found</string>
+
+<string name="sg_album_saved_to_library">Album saved to library</string>
+<string name="sg_wave_settings_title">Wave settings</string>
+<string name="sg_wave_genre_label">GENRE</string>
+<string name="sg_wave_apply">Apply</string>
+<string name="sg_wave_genre_title">Wave genre</string>
+<string name="sg_albums_tab">Albums</string>
+<string name="sg_track_loading">Track is loading, please wait</string>
+<string name="sg_track_title_unknown">Could not determine track name</string>
+<string name="sg_library_not_found">Library not found</string>
+<string name="sg_added_to_library">Added to library</string>
+<string name="sg_no_connection_track_not_downloaded">No connection. Track not downloaded.</string>
+<string name="sg_delete_playlist_confirm">Are you sure you want to delete this playlist?</string>
+<string name="sg_delete_playlist">Delete</string>
+<string name="sg_popular_releases">Popular releases</string>
+<string name="sg_popular_tracks">Popular tracks</string>
+<string name="sg_tracks_loading">Tracks loading…</string>
+<string name="sg_tracks_not_found">Tracks not found</string>
+<string name="sg_loading_error">Load error</string>
+<string name="sg_album_not_found">Album not found</string>
+<string name="sg_album_deleted">Album deleted</string>
+<string name="sg_album_saved">Album saved</string>
+<string name="sg_album_deleted_confirm">Are you sure you want to delete this playlist?</string>
+<string name="sg_wave_generating">Generating wave…</string>
+<string name="sg_wave_error">Error</string>
+<string name="sg_wave_error_load_tracks">Could not load tracks</string>
+<string name="sg_album_downloading">Downloading album: %s</string>
+<string name="sg_album_downloaded">Album \"%s\" downloaded!</string>
+<string name="sg_unknown_artist">Unknown</string>
+<string name="sg_channel_not_found">Channel not found</string>
+<string name="sg_no_tracks_found">No tracks found</string>
+
+<string name="sg_eq_title">AudioFX &amp; Pitch</string>
+<string name="sg_eq_reset">RESET</string>
+<string name="sg_eq_equalizer">Equalizer</string>
+<string name="sg_eq_bassboost">BassBoost</string>
+<string name="sg_eq_speed">Speed: %.1fx</string>
+<string name="sg_eq_pitch">Pitch: %.1fx</string>
+
+<string name="sg_style_title">Appearance</string>
+<string name="sg_style_section_stats">STATISTICS</string>
+<string name="sg_style_section_glass">LIQUID GLASS STYLE</string>
+<string name="sg_style_tracks_title">Tracks</string>
+<string name="sg_style_tracks_subtitle">Library, playlists, albums</string>
+<string name="sg_style_albums_title">Albums</string>
+<string name="sg_style_albums_subtitle">Grid cards</string>
+<string name="sg_style_wave_title">My Wave</string>
+<string name="sg_style_wave_subtitle">Widget and buttons</string>
+<string name="sg_style_playlists_title">Playlists</string>
+<string name="sg_style_playlists_subtitle">Horizontal list</string>
+<string name="sg_style_player_title">Audio Player</string>
+<string name="sg_style_player_subtitle">Full-screen player</string>
+<string name="sg_style_mini_title">Mini Player</string>
+<string name="sg_style_mini_subtitle">Floating bottom panel</string>
+<string name="sg_style_artist_title">Artist Profile</string>
+<string name="sg_style_artist_subtitle">Header and artist tracks</string>
+<string name="sg_style_eq_title">Equalizer</string>
+<string name="sg_style_eq_subtitle">AudioFX &amp; Pitch</string>
+<string name="sg_color_pick_title">Color — %s</string>
+<string name="sg_color_for_glass">For glass</string>
+<string name="sg_color_for_stroke">For stroke</string>
+<string name="sg_color_reset">Reset</string>
+<string name="sg_color_done">Done</string>
+<string name="sg_stats_tracks_label">tracks</string>
+<string name="sg_stats_time_label">time</string>
+<string name="sg_opacity_opaque">◼</string>
+<string name="sg_opacity_transparent">◻</string>
+<string name="sg_menu_add_to_profile">Add to profile</string>
+
+    <string name="livewall">Live Wallpapers in chat</string>
+    <string name="chlw">Change</string>
+    <string name="dlw">Delete</string>
+    <string name="backchatl">Background of the chat list</string>
+    <string name="cstm">Customization</string>
+    <string name="synctxt">Synchronous text not found</string>
+    <string name="mywave">My wave</string>
+    <string name="hear">To listen</string>
+    <string name="dlpl">Delete from playlist</string>
+    <string name="holdtrc">Hold track to sort</string>
+    <string name="addtrc">Add track</string>
+    <string name="cancel">Cancel</string>
+    <string name="create">Create</string>
+    <string name="enttit">Enter title</string>
+    <string name="nwpl">New playlist</string>
+    <string name="dl">Deleted</string>
+    <string name="dwld">Download:</string>
+    <string name="trconl">Track add library(online)</string>
+    <string name="searchtrc">Search track...</string>
+    <string name="trc">🎵 Tracks:</string>
+    <string name="tm">⏳ Time:</string>
+    <string name="sec">sec</string>
+    <string name="min">min</string>
+    <string name="day">days</string>
+    <string name="hour">h</string>
+    <string name="stat">SoundGram stat</string>
+    <string name="imports">Import Tracks</string>
+    <string name="im">Import (</string>
+    <string name="ims">Import to SoundGram</string>
+    <string name="src">Search</string>
+    <string name="chus">Enter channel @username</string>
+    <string name="imm">Import music from channel</string>
+    <string name="addin">Add in </string>
+    <string name="addpl">Add in playlist</string>
+    <string name="dll">Delete from library</string>
+    <string name="dwch">Download in channel</string>
+    <string name="addlb">Add to library</string>
+    <string name="trck">tracks •</string>
+    <string name="wvc">Wave Catch</string>
+    <string name="wvcr">Wave Crash</string>
+    <string name="crwv">Make wave from your tracks...🌊</string>
+    <string name="er">Error search. Check the internet</string>
+    <string name="zero">Select key for zerochat</string>
+    <string name="to">🚫Turn off</string>
+    <string name="hm">Hide message</string>
+    <string name="send">Send</string>
+    <string name="encr">New key encryption</string>
+    <string name="nm">Name</string>
+    <string name="scpw">Secret password</string>
+    <string name="dlk">Deleting key</string>
+    <string name="dlkk">Delete key </string>
+    <string name="encm">Encrypt messages</string>
+    <string name="encrypt">Encryption</string>
+    <string name="encp">You do not have any keys created yet. You need a key to encrypt and decrypt messages in chats.</string>
+    <string name="key">Key password: </string>
+    <string name="dlkey">Click on the key above to delete it.</string>
+    <string name="mkkey">Create new key encryption</string>
+    <string name="lib">Library</string>
+    <string name="wave_settings">Wave settings</string>
+    <string name="SoundGram" translatable="false">SoundGram</string>
+    <string name="XChannel">SoundGram Channel</string>
     <string name="EnableSaveDeletedMessages">Save Deleted Messages</string>
     <string name="DeletedMessage">deleted</string>
     <string name="EnableSaveEditsHistory">Save Edits History</string>
@@ -24,10 +173,10 @@
     <string name="LlmProviderOpenAIModel" translatable="false">gpt-5.4-nano</string>
     <string name="LlmProviderGeminiModel" translatable="false">gemini-flash-lite-latest</string>
     <string name="LlmProviderGroqModel" translatable="false">openai/gpt-oss-120b</string>
-    <string name="LlmProviderDeepSeekModel" translatable="false">deepseek-chat</string>
+    <string name="LlmProviderDeepSeekModel" translatable="false">deepseek-v4-flash</string>
     <string name="LlmProviderXAIModel" translatable="false">grok-4-1-fast-non-reasoning</string>
-    <string name="LlmProviderCerebrasModel" translatable="false">gpt-oss-120b</string>
-    <string name="LlmProviderOllamaCloudModel" translatable="false">gemma3:27b</string>
+    <string name="LlmProviderCerebrasModel" translatable="false">qwen-3-235b-a22b-instruct-2507</string>
+    <string name="LlmProviderOllamaCloudModel" translatable="false">gemma4:31b</string>
     <string name="LlmProviderOpenRouterModel" translatable="false">openrouter/free</string>
     <string name="LlmProviderVercelAIGatewayModel" translatable="false">xai/grok-4-1-fast-non-reasoning</string>
     <string name="LlmProviderPreset">Model Provider</string>
@@ -84,6 +233,8 @@
     <string name="UnshadowBan">Unshadow Ban</string>
     <string name="ShadowBanAdded">Added to **user filters**.</string>
     <string name="ShadowBanRemoved">Removed from **user filters**.</string>
+    <string name="ShadowBanChannelAdded">Added to **channel filters**.</string>
+    <string name="ShadowBanChannelRemoved">Removed from **channel filters**.</string>
     <string name="botCommandConfirmTitle">Send Command</string>
     <string name="botCommandConfirmText">Do you want to send this command?\n\n%s</string>
     <string name="MessageSavingSaveMedia">Save Media</string>
@@ -94,10 +245,6 @@
     <string name="MessageSavingSaveMediaInPublicGroups">… in Public Groups</string>
     <string name="MessageSavingSaveMediaInPrivateGroups">… in Private Groups</string>
     <string name="TelegramUIAutoTranslate">Translate Entire Chats</string>
-    <string name="TranslatorMode">Manual Translation Behavior</string>
-    <string name="TranslatorModeAppend">Append</string>
-    <string name="TranslatorModeInline">Replace</string>
-    <string name="TranslatorModePopup">Pop-up</string>
     <string name="Translated">translated</string>
     <string name="ProviderRealMicrosoftTranslator">Microsoft Translator</string>
     <string name="TranslatorSettings">Translator</string>
@@ -146,7 +293,7 @@
     <string name="DisableGhostMode">Disable Ghost</string>
     <string name="GhostModeEnabled">Ghost mode turned on</string>
     <string name="GhostModeDisabled">Ghost mode turned off</string>
-    <string name="GhostModeInDrawer">Main Tab Shortcut</string>
+    <string name="GhostModeInDrawer">Shortcuts</string>
     <string name="GhostModeStatusIndicator">Ghost Mode Indicator</string>
     <string name="DontSendReadMessagePackets">Don\'t Read Messages</string>
     <string name="DontReadStoriesPackets">Don\'t Read Stories</string>
@@ -219,9 +366,9 @@
     <string name="CreateCode">Create Code</string>
     <string name="CreateCodeLanguage">Language</string>
     <string name="NoCaptionForward">NoCaption forward</string>
+    <string name="NoCaptionForwardShort">NoCaption</string>
     <string name="PreferCommonGroupsTab">Prefer Groups Tab</string>
     <string name="PreferCommonGroupsTabNotice">Auto-select \"Groups\" tab instead of \"Gifts\" when possible.</string>
-    <string name="SendHighQualityPhoto">Send High Quality Photo</string>
     <string name="GroupedMessageMenu">Group Message Menu</string>
     <string name="GroupedMessageMenuNotice">Grouping moves the main actions to the bottom of the message menu.</string>
     <string name="CopySticker">Copy Sticker</string>
@@ -337,4 +484,15 @@
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">Shows notification content even when passcode lock is active.</string>
     <string name="StickerSavedHint">Sticker saved to gallery.</string>
     <string name="StickerCopied">Sticker copied to clipboard.</string>
+    <string name="StrokeOnViews">Glare effects</string>
+    <string name="HideBottomNavigationBar">Hide Bottom Navigation Bar</string>
+    <string name="TranslatorMode">With Original Text</string>
+    <string name="TranslatorWithOriginalTextOff">Off</string>
+    <string name="TranslatorWithOriginalTextManualOnly">Manual Only</string>
+    <string name="TranslatorWithOriginalTextOn">On</string>
+    <string name="CenterActionBarTitleOn">On</string>
+    <string name="CenterActionBarTitleOff">Off</string>
+    <string name="TabletModeOn">On</string>
+    <string name="TabletModeOff">Off</string>
+    <string name="HideDialogsSearchField">Hide Search Box</string>
 </resources>

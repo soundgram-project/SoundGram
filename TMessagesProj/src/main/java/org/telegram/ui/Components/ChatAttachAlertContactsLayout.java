@@ -360,7 +360,7 @@ public class ChatAttachAlertContactsLayout extends ChatAttachAlert.AttachAlertLa
 
         searchAdapter = new ShareSearchAdapter(context);
 
-        fadeView = new ChatAttachAlert.SearchFadeView(context, resourcesProvider);
+        fadeView = new ChatAttachAlert.SearchFadeView(context, Theme.key_windowBackgroundWhite, resourcesProvider);
         fadeView.setVisibility(INVISIBLE);
 
         frameLayout = new FrameLayout(context);
@@ -560,7 +560,7 @@ public class ChatAttachAlertContactsLayout extends ChatAttachAlert.AttachAlertLa
     }
 
     private void showErrorBox(String error) {
-        new AlertDialog.Builder(getContext(), resourcesProvider).setTitle(LocaleController.getString(R.string.NagramX)).setMessage(error).setPositiveButton(LocaleController.getString(R.string.OK), null).show();
+        new AlertDialog.Builder(getContext(), resourcesProvider).setTitle(LocaleController.getString(R.string.SoundGram)).setMessage(error).setPositiveButton(LocaleController.getString(R.string.OK), null).show();
     }
 
     private TLRPC.User prepareContact(Object object) {

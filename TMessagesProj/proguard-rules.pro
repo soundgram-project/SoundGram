@@ -216,7 +216,17 @@
 -dontwarn org.osmdroid.tileprovider.modules.NetworkAvailabliltyCheck
 # Osmdroid
 -dontwarn org.osmdroid.**
+# re2j (required by jsoup via NewPipeExtractor)
+-dontwarn com.google.re2j.**
+-keep class com.google.re2j.** { *; }
 
+# jsoup
+-dontwarn org.jsoup.**
+-keep class org.jsoup.** { *; }
+
+# Rhino script engine
+-dontwarn javax.script.**
+-dontwarn com.sun.script.**
 # dnsjava
 -dontwarn java.net.spi.InetAddressResolverProvider
 -dontwarn org.xbill.DNS.spi.DnsjavaInetAddressResolverProvider
@@ -242,3 +252,4 @@
 -keepattributes *Annotation*
 -dontoptimize
 -dontobfuscate
+

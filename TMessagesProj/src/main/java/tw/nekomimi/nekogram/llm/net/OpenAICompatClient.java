@@ -97,16 +97,21 @@ public final class OpenAICompatClient {
             requestJson = new JSONObject()
                     .put("model", modelName)
                     .put("messages", messages);
-            if (LlmModelUtil.isReasoning(modelName)) {
-                requestJson.put("reasoning_effort", LlmModelUtil.getReasoningEffort(modelName));
-            } else if (LlmModelUtil.isCerebrasGlm(baseUrl, modelName)) {
-                requestJson.put("disable_reasoning", true);
-            }
+            LlmModelUtil.applyReasoningParameters(requestJson, baseUrl, modelName);
         } catch (Exception e) {
             return new LlmResponse<>(null, e.toString(), 0, 0);
         }
 
-        return chatCompletions(baseUrl, apiKey, requestJson.toString(), testHttpClient);
+        LlmResponse<String> response = chatCompletions(baseUrl, apiKey, requestJson.toString(), testHttpClient);
+        if (!response.isSuccess()) {
+            return response;
+        }
+        return new LlmResponse<>(
+                LlmModelUtil.sanitizeResponse(modelName, response.data()),
+                null,
+                response.durationMs(),
+                response.httpCode()
+        );
     }
 
     public static LlmResponse<String> chatCompletions(String baseUrl, String apiKey, String requestJson) {

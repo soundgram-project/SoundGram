@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="XChannel">Канал Nagram X</string>
+    <string name="XChannel">Канал SoundGram</string>
     <string name="EnableSaveDeletedMessages">Зберігати видаленні повідомлення</string>
     <string name="DeletedMessage">видалено</string>
     <string name="EnableSaveEditsHistory">Зберегти історію змін</string>
@@ -81,10 +81,6 @@
     <string name="MessageSavingSaveMediaInPublicGroups">… у публічних групах</string>
     <string name="MessageSavingSaveMediaInPrivateGroups">… у приватних групах</string>
     <string name="TelegramUIAutoTranslate">Перекласти весь чат</string>
-    <string name="TranslatorMode">Режим ручного перекладу</string>
-    <string name="TranslatorModeAppend">Додати</string>
-    <string name="TranslatorModeInline">Замінити</string>
-    <string name="TranslatorModePopup">Спливаюче вікно</string>
     <string name="Translated">перекладено</string>
     <string name="ProviderRealMicrosoftTranslator">Перекладач Microsoft</string>
     <string name="TranslatorSettings">Перекладач</string>
@@ -133,6 +129,7 @@
     <string name="DisableGhostMode">Вимкнути привида</string>
     <string name="GhostModeEnabled">Режим \"привид\" увімкнено</string>
     <string name="GhostModeDisabled">Режим \"привид\" вимкнено</string>
+    <string name="GhostModeInDrawer">Швидкий доступ</string>
     <string name="GhostModeStatusIndicator">Індикатор режиму «привид»</string>
     <string name="DontSendReadMessagePackets">Не читати повідомлення</string>
     <string name="DontReadStoriesPackets">Не читати історії</string>
@@ -207,7 +204,6 @@
     <string name="NoCaptionForward">Переслати без підпису</string>
     <string name="PreferCommonGroupsTab">Перевага вкладці \"Групи”</string>
     <string name="PreferCommonGroupsTabNotice">Автоматично вибирати вкладку «Групи» замість «Подарунки», коли це можливо.</string>
-    <string name="SendHighQualityPhoto">Надсилати фото у високій якості</string>
     <string name="GroupedMessageMenu">Згрупувати меню повідомлення</string>
     <string name="GroupedMessageMenuNotice">Групування переміщує основні дії в нижню частину меню повідомлення.</string>
     <string name="CopySticker">Копіювати наліпку</string>
@@ -322,4 +318,15 @@
     <string name="PasscodeShowMessagePreviewWhenLockedAbout">Показувати вміст сповіщень навіть під час блокування паролем.</string>
     <string name="StickerSavedHint">Стікер збережено в галереї.</string>
     <string name="StickerCopied">Стікер скопійовано в буфер обміну.</string>
+    <string name="StrokeOnViews">Ефекти відблисків</string>
+    <string name="HideBottomNavigationBar">Приховати нижню панель навігації</string>
+    <string name="TranslatorMode">З оригінальним текстом</string>
+    <string name="TranslatorWithOriginalTextOff">Вимкнено</string>
+    <string name="TranslatorWithOriginalTextManualOnly">Тільки вручну</string>
+    <string name="TranslatorWithOriginalTextOn">Увімкнено</string>
+    <string name="CenterActionBarTitleOn">Увімкнено</string>
+    <string name="CenterActionBarTitleOff">Вимкнено</string>
+    <string name="TabletModeOn">Увімкнено</string>
+    <string name="TabletModeOff">Вимкнено</string>
+    <string name="HideDialogsSearchField">Приховати поле пошуку</string>
 </resources>
