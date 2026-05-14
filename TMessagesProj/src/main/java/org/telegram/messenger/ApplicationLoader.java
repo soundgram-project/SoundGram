@@ -333,8 +333,6 @@ new Thread(() -> {
             intent.putExtra(TgWsProxyService.EXTRA_POOL_SIZE, prefs.getInt("wsproxy_pool", 4));
             intent.putExtra(TgWsProxyService.EXTRA_CF_ENABLED, prefs.getBoolean("wsproxy_cf", true));
             intent.putExtra(TgWsProxyService.EXTRA_CF_DOMAIN, prefs.getString("wsproxy_cf_domain", ""));
-            intent.putExtra(TgWsProxyService.EXTRA_SPOOF_SNI, prefs.getBoolean("wsproxy_spoof", false));
-            intent.putExtra(TgWsProxyService.EXTRA_SPOOF_DOMAIN, prefs.getString("wsproxy_spoof_domain", "vk.com"));
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(intent);

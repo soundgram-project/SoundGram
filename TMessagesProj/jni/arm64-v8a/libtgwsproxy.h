@@ -101,12 +101,13 @@ extern "C" {
 extern int StartProxy(char* cHost, int port, char* cDcIps, char* cSecret, int verbose);
 extern int StopProxy(void);
 extern void SetPoolSize(int size);
+extern void SetRecvBuffer(int size);
+extern void SetSendBuffer(int size);
 extern void SetCfProxyCacheDir(char* cCacheDir);
 extern void SetCfProxyConfig(int enabled, int priority, char* cUserDomain);
 extern void SetSecret(char* cSecret);
 extern char* GetStats(void);
 extern void SetFakeTls(int enabled, char* cDomain);
-extern void SetSpoofSni(int enabled, char* cDomain);
 extern char* GetSecretWithPrefix(void);
 extern void FreeString(char* p);
 

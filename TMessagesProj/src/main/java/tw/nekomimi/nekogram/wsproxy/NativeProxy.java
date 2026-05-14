@@ -6,24 +6,21 @@ public class NativeProxy {
 
     static {
         try {
-            // Сначала Go .so (содержит StartProxy, SetPoolSize и т.д.)
+            // Load Go .so first (contains StartProxy, SetPoolSize, etc.)
             System.loadLibrary("tgwsproxy");
-            // Потом JNI bridge (использует dlopen для поиска символов из Go .so)
+            // Then JNI bridge (uses dlopen to find symbols from Go .so)
             System.loadLibrary("tgwsproxy_jni");
             Log.i("NativeProxy", "All libraries loaded");
         } catch (UnsatisfiedLinkError e) {
             Log.e("NativeProxy", "Failed to load libraries", e);
         }
     }
-public static native void SetSpoofSni(int enabled, String domain);
-
-public static void setSpoofSni(boolean enabled, String domain) {
-    SetSpoofSni(enabled ? 1 : 0, domain != null ? domain : "vk.com");
-}
 
     public static native int StartProxy(String host, int port, String dcIps, String secret, int verbose);
     public static native int StopProxy();
     public static native void SetPoolSize(int size);
+    public static native void SetRecvBuffer(int size);
+    public static native void SetSendBuffer(int size);
     public static native void SetCfProxyCacheDir(String cacheDir);
     public static native void SetCfProxyConfig(int enabled, int priority, String userDomain);
     public static native void SetFakeTls(int enabled, String domain);
@@ -41,6 +38,14 @@ public static void setSpoofSni(boolean enabled, String domain) {
 
     public static void setPoolSize(int size) {
         SetPoolSize(size);
+    }
+
+    public static void setRecvBuffer(int size) {
+        SetRecvBuffer(size);
+    }
+
+    public static void setSendBuffer(int size) {
+        SetSendBuffer(size);
     }
 
     public static void setCfProxyCacheDir(String cacheDir) {
