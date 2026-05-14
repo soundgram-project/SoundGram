@@ -1,0 +1,10 @@
+    sudo dnf install libxcrypt-compat
+[sudo] пароль для lastsuns1ne: 
+Обновление и загрузка репозиториев:
+ Terra 43                                                                                                                         100% | 200.0   B/s |   1.5 KiB |  00m08s
+ Terra 43 (Mesa) - Source                                                                                                         100% | 244.0   B/s |   1.4 KiB |  00m06s
+ Fedora 43 - x86_64 - Updates                                                                                                     100% |   3.4 KiB/s |  16.8 KiB |  00m05s
+ Terra 43 (Mesa)                                                                                                                  100% |   2.0 KiB/s |   1.5 KiB |  00m01s
+Failed to download metadata (metalink: "https://tetsudou.fyralabs.com/metalink?repo=terra43&arch=x86_64") for repository "terra": repomd.xml GPG signature verification error: Bad PGP signature: Verifying a signature using certificate 47F7A5060E38FC07F674D11BE43DBFE05C4F92A3 (Terra 43 <security@fyralabs.com>):
+  Signature 3d3b created at Wed May  6 11:41:23 2026 invalid: signature is not alive
+      because: Not live until 2026-05-06T11:36:23Z
