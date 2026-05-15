@@ -1,7 +1,5 @@
 package tw.nekomimi.nekogram.settings;
 
-import static org.telegram.messenger.AndroidUtilities.getCacheDir;
-
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -11,9 +9,7 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.text.InputType;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -24,7 +20,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.LocaleController;
-import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.tgnet.ConnectionsManager;
@@ -46,13 +41,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import tw.nekomimi.nekogram.wsproxy.NativeProxy;
 import tw.nekomimi.nekogram.wsproxy.TgWsProxyService;
 
-public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements NotificationCenter.NotificationCenterDelegate {
+public class NekoWsProxyActivity extends BaseNekoSettingsActivity {
 
     private static final int TYPE_HEADER      = 0;
     private static final int TYPE_SHADOW      = 1;
@@ -75,33 +68,37 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
 
     // Row indices
     private int statusRow, enableRow, pingRow, smartConfigRow,
-            autoStartRow, advancedToggleRow, shadowAdvRow,
-            connectionHeaderRow, portRow, modeRow, poolRow, bufferRow,
-            shadow2Row,
-            securityHeaderRow, secretRow, fakeTlsRow, fakeDomainRow,
-            shadow3Row,
-            cfHeaderRow, cfEnabledRow, cfDomainRow,
-            shadow4Row, advancedHeaderRow,
-            logLevelRow, dcIpsRow, shadow5Row,
-            infoRow;
+                autoStartRow, advancedToggleRow, shadowAdvRow,
+                connectionHeaderRow, portRow, modeRow, poolRow, bufferRow,
+                shadow2Row,
+                securityHeaderRow, secretRow, fakeTlsRow, fakeDomainRow,
+                shadow3Row,
+                cfHeaderRow, cfEnabledRow, cfDomainRow,
+                shadow4Row, advancedHeaderRow,
+                logLevelRow, dcIpsRow, shadow5Row,
+                infoRow;
 
     private BroadcastReceiver statusReceiver;
     private final Handler pingHandler = new Handler(Looper.getMainLooper());
 
-    // Ping: -2 = checking, -1 = no data, >=0 = ms
+    // *** FIX: cache last ping value, updated from background thread ***
     private volatile int lastPingMs = -1;
 
     private final Runnable pingRunnable = new Runnable() {
         @Override
         public void run() {
-            checkProxyPingFromList();
-            triggerProxyCheckIfNeeded();
-            AndroidUtilities.runOnUIThread(() -> {
-                if (listAdapter != null && pingRow >= 0) {
-                    listAdapter.notifyItemChanged(pingRow);
-                }
-            });
-            pingHandler.postDelayed(this, 3000);
+            int port = getPrefs().getInt("port", DEFAULT_PORT);
+            // Run the blocking socket check off the UI thread
+            new Thread(() -> {
+                int ping = TgWsProxyService.getPingMs(port);
+                lastPingMs = ping;
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (listAdapter != null && pingRow >= 0) {
+                        listAdapter.notifyItemChanged(pingRow);
+                    }
+                });
+            }, "proxy-ping").start();
+            pingHandler.postDelayed(this, 2000);
         }
     };
 
@@ -124,7 +121,6 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
         } else {
             getParentActivity().registerReceiver(statusReceiver, filter);
         }
-        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.proxyCheckDone);
         pingHandler.post(pingRunnable);
     }
 
@@ -135,70 +131,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
             getParentActivity().unregisterReceiver(statusReceiver);
             statusReceiver = null;
         }
-        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxyCheckDone);
         pingHandler.removeCallbacks(pingRunnable);
-    }
-
-    @Override
-    public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.proxyCheckDone) {
-            AndroidUtilities.runOnUIThread(() -> {
-                checkProxyPingFromList();
-                if (listAdapter != null && pingRow >= 0) {
-                    listAdapter.notifyItemChanged(pingRow);
-                }
-            });
-        }
-    }
-
-    private void checkProxyPingFromList() {
-        int port = getPrefs().getInt("port", DEFAULT_PORT);
-        SharedConfig.ProxyInfo target = null;
-        for (SharedConfig.ProxyInfo info : SharedConfig.proxyList) {
-            if ("127.0.0.1".equals(info.address) && info.port == port) {
-                target = info;
-                break;
-            }
-        }
-        if (target == null) {
-            lastPingMs = -1;
-            return;
-        }
-        if (target.checking) {
-            lastPingMs = -2;
-        } else if (target.available) {
-            lastPingMs = Math.toIntExact(target.ping);
-        } else {
-            lastPingMs = -1;
-        }
-    }
-
-    private void triggerProxyCheckIfNeeded() {
-        int port = getPrefs().getInt("port", DEFAULT_PORT);
-        for (SharedConfig.ProxyInfo info : SharedConfig.proxyList) {
-            if ("127.0.0.1".equals(info.address) && info.port == port) {
-                if (!info.checking && SystemClock.elapsedRealtime() - info.availableCheckTime > 5000) {
-                    info.checking = true;
-                    info.proxyCheckPingId = ConnectionsManager.getInstance(currentAccount).checkProxy(
-                            info.address, info.port, info.username, info.password, info.secret,
-                            time -> AndroidUtilities.runOnUIThread(() -> {
-                                info.availableCheckTime = SystemClock.elapsedRealtime();
-                                info.checking = false;
-                                if (time == -1) {
-                                    info.available = false;
-                                    info.ping = 0;
-                                } else {
-                                    info.ping = time;
-                                    info.available = true;
-                                }
-                                NotificationCenter.getGlobalInstance().postNotificationName(
-                                        NotificationCenter.proxyCheckDone, info);
-                            })
-                    );
-                }
-                break;
-            }
-        }
     }
 
     @Override
@@ -209,6 +142,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
         enableRow         = row++;
         pingRow           = row++;
         smartConfigRow    = row++;
+        // *** copyLinkRow and actionRow REMOVED — auto-applied ***
         autoStartRow      = row++;
         advancedToggleRow = row++;
         shadowAdvRow      = row++;
@@ -409,6 +343,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
                 getPrefs().edit().putString("secret", secret).commit();
             }
             startProxyService();
+            // Auto-apply proxy to Telegram after proxy is ready
             AndroidUtilities.runOnUIThread(this::autoApplyProxy, 3500);
         } else {
             ctx.startService(new Intent(ctx, TgWsProxyService.class)
@@ -515,7 +450,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
     }
 
     // -------------------------------------------------------------------------
-    // Smart Config — Full 336 combinations with progress & cancel
+    // Smart Config
     // -------------------------------------------------------------------------
 
     private static class TestConfig {
@@ -543,6 +478,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
         TestConfig config;
         boolean portOpened;
         int pingMs = -1;
+        int wsConnections = 0;
         int errors = 0;
         long testTimeMs;
         int score() {
@@ -552,22 +488,6 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
             s += (int)(testTimeMs / 10);
             return s;
         }
-    }
-
-    // Heuristic: higher = test earlier (more likely to work)
-    private int scoreLikelihood(TestConfig cfg, SharedPreferences prefs) {
-        int score = 0;
-        if (cfg.mode == prefs.getInt("mode", DEFAULT_MODE)) score += 10;
-        if (cfg.fakeTls == prefs.getBoolean("fake_tls", DEFAULT_FAKE_TLS)) score += 10;
-        if (cfg.cfEnabled == prefs.getBoolean("cf_enabled", DEFAULT_CF_ENABLED)) score += 10;
-        if (cfg.poolSize == prefs.getInt("pool_size", DEFAULT_POOL_SIZE)) score += 5;
-        if (cfg.buffer == prefs.getInt("buffer", DEFAULT_BUFFER)) score += 5;
-        if (cfg.mode == 1) score += 4;
-        if (cfg.cfEnabled) score += 3;
-        if (cfg.fakeTls) score += 2;
-        if (cfg.poolSize >= 4 && cfg.poolSize <= 8) score += 1;
-        if (cfg.buffer >= 128 && cfg.buffer <= 256) score += 1;
-        return score;
     }
 
     @SuppressLint("ApplySharedPref")
@@ -584,220 +504,99 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
             return;
         }
 
-        // Generate all 336 combinations
-        List<TestConfig> allConfigs = new ArrayList<>();
-        int[] modes = {0, 1, 2};
-        boolean[] tlsOpts = {true, false};
-        boolean[] cfOpts = {true, false};
-        int[] pools = {2, 4, 6, 8, 10, 12, 16};
-        int[] buffers = {64, 128, 256, 512};
-
-        for (int m : modes) {
-            for (boolean tls : tlsOpts) {
-                for (boolean cf : cfOpts) {
-                    for (int p : pools) {
-                        for (int b : buffers) {
-                            TestConfig cfg = new TestConfig();
-                            cfg.mode = m; cfg.fakeTls = tls; cfg.cfEnabled = cf;
-                            cfg.poolSize = p; cfg.buffer = b; cfg.port = wasPort;
-                            allConfigs.add(cfg);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Sort by likelihood
-        Collections.sort(allConfigs, (a, b) -> Integer.compare(scoreLikelihood(b, prefs), scoreLikelihood(a, prefs)));
-
-        final int total = allConfigs.size();
-        final AtomicInteger progress = new AtomicInteger(0);
-        final AtomicBoolean cancelled = new AtomicBoolean(false);
-
-        // Progress UI — стандартный Android Dialog
-        android.widget.LinearLayout ll = new android.widget.LinearLayout(ctx);
-        ll.setOrientation(android.widget.LinearLayout.VERTICAL);
-        ll.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(16), AndroidUtilities.dp(24), AndroidUtilities.dp(16));
-
-        android.widget.TextView title = new android.widget.TextView(ctx);
-        title.setText("Smart Config");
-        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 20);
-        title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-        ll.addView(title);
-
-        android.widget.TextView status = new android.widget.TextView(ctx);
-        status.setText("Preparing…");
-        status.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14);
-        status.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2));
-        status.setPadding(0, AndroidUtilities.dp(8), 0, 0);
-        ll.addView(status);
-
-        android.widget.ProgressBar bar = new android.widget.ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal);
-        bar.setMax(total);
-        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(4));
-        lp.topMargin = AndroidUtilities.dp(12);
-        ll.addView(bar, lp);
-
-        // Cancel button
-        android.widget.TextView cancelBtn = new android.widget.TextView(ctx);
-        cancelBtn.setText("Cancel");
-        cancelBtn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 16);
-        cancelBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
-        cancelBtn.setPadding(0, AndroidUtilities.dp(16), 0, 0);
-        cancelBtn.setGravity(Gravity.CENTER);
-        ll.addView(cancelBtn);
-
-        android.app.Dialog progressDialog = new android.app.Dialog(ctx, R.style.Theme_TMessages);
-        progressDialog.setContentView(ll);
-        progressDialog.setCancelable(false);
+        AlertDialog progressDialog = new AlertDialog(ctx, AlertDialog.ALERT_TYPE_SPINNER);
+        progressDialog.setMessage("Smart Config: testing base modes…");
+        progressDialog.setCanCancel(false);
         progressDialog.show();
 
-        cancelBtn.setOnClickListener(v -> {
-            cancelled.set(true);
-            progressDialog.dismiss();
-        });
-
-        // Background testing
         new Thread(() -> {
             List<TestResult> results = new ArrayList<>();
 
-            for (TestConfig cfg : allConfigs) {
-                if (cancelled.get()) break;
+            int[] modes = {1, 0};
+            boolean[] tlsOpts  = {true, false};
+            boolean[] cfOpts   = {true, false};
 
-                int cur = progress.incrementAndGet();
-                AndroidUtilities.runOnUIThread(() -> {
-                    if (progressDialog.isShowing()) {
-                        bar.setProgress(cur);
-                        status.setText(String.format(Locale.US, "Testing %d/%d\n%s", cur, total, cfg.label()));
+            outer:
+            for (int m : modes) {
+                for (boolean tls : tlsOpts) {
+                    for (boolean cf : cfOpts) {
+                        if (isCancelled(progressDialog)) break outer;
+                        TestConfig cfg = new TestConfig();
+                        cfg.mode = m; cfg.fakeTls = tls; cfg.cfEnabled = cf;
+                        cfg.poolSize = DEFAULT_POOL_SIZE; cfg.buffer = DEFAULT_BUFFER; cfg.port = wasPort;
+                        AndroidUtilities.runOnUIThread(() ->
+                                progressDialog.setMessage("Testing: " + cfg.label()));
+                        results.add(testConfiguration(cfg, wasPort, 2500));
                     }
-                });
-
-                TestResult r = testConfigurationFast(cfg, wasPort, 1500);
-                if (r.portOpened) {
-                    results.add(r);
                 }
             }
 
-            AndroidUtilities.runOnUIThread(() -> {
-                if (progressDialog.isShowing()) progressDialog.dismiss();
-            });
-
-            if (cancelled.get()) {
-                showToast("Smart Config cancelled");
-                if (wasEnabled) {
-                    AndroidUtilities.runOnUIThread(this::restartProxy);
-                }
-                return;
-            }
             if (results.isEmpty()) {
-                showToast("No working configuration found");
-                if (wasEnabled) {
-                    AndroidUtilities.runOnUIThread(this::restartProxy);
-                }
+                AndroidUtilities.runOnUIThread(() -> {
+                    progressDialog.dismiss();
+                    showToast("No working configuration found");
+                });
                 return;
             }
 
             Collections.sort(results, Comparator.comparingInt(TestResult::score));
-            TestResult best = results.get(0);
+            TestResult bestBase = results.get(0);
+            if (!bestBase.portOpened) {
+                AndroidUtilities.runOnUIThread(() -> {
+                    progressDialog.dismiss();
+                    showToast("No working base configuration found");
+                });
+                return;
+            }
+
+            List<TestResult> fineResults = new ArrayList<>();
+            int[] pools   = {2, 4, 6, 8, 12, 16};
+            int[] buffers = {64, 128, 256, 512};
+
+            outer2:
+            for (int p : pools) {
+                for (int b : buffers) {
+                    if (isCancelled(progressDialog)) break outer2;
+                    TestConfig cfg = new TestConfig();
+                    cfg.mode = bestBase.config.mode;
+                    cfg.fakeTls = bestBase.config.fakeTls;
+                    cfg.cfEnabled = bestBase.config.cfEnabled;
+                    cfg.poolSize = p; cfg.buffer = b; cfg.port = wasPort;
+                    AndroidUtilities.runOnUIThread(() ->
+                            progressDialog.setMessage("Tuning: pool=" + p + " buf=" + b + " KB"));
+                    fineResults.add(testConfiguration(cfg, wasPort, 2000));
+                }
+            }
+
+            Collections.sort(fineResults, Comparator.comparingInt(TestResult::score));
+            TestResult best = fineResults.isEmpty() ? bestBase : fineResults.get(0);
 
             SharedPreferences.Editor ed = prefs.edit();
             best.config.apply(ed, wasPort);
             ed.commit();
 
-            AndroidUtilities.runOnUIThread(() -> {
-                updateRows();
-                if (wasEnabled) {
+            if (wasEnabled) {
+                AndroidUtilities.runOnUIThread(() -> {
+                    progressDialog.dismiss();
                     restartProxy();
-                    showToast(String.format(Locale.US, "Best: %s • ping=%dms", best.config.label(), best.pingMs));
-                } else {
-                    showToast(String.format(Locale.US, "Best config: %s • ping=%dms (enable to use)", best.config.label(), best.pingMs));
-                }
-            });
+                    updateRows();
+                    showToast(String.format(Locale.US,
+                            "Best: %s ping=%dms", best.config.label(), best.pingMs));
+                });
+            } else {
+                AndroidUtilities.runOnUIThread(() -> {
+                    progressDialog.dismiss();
+                    updateRows();
+                    showToast(String.format(Locale.US,
+                            "Best config found: %s ping=%dms (enable to use)",
+                            best.config.label(), best.pingMs));
+                });
+            }
         }).start();
     }
 
-
-    // Fast test via direct JNI calls (no Android Service overhead)
-    private TestResult testConfigurationFast(TestConfig cfg, int port, int maxWaitMs) {
-        TestResult result = new TestResult();
-        result.config = cfg;
-
-        // 1. Stop any running proxy
-        NativeProxy.stopProxy();
-        for (int i = 0; i < 8; i++) {
-            if (!TgWsProxyService.isPortOpen("127.0.0.1", port, 100)) break;
-            try { Thread.sleep(100); } catch (Exception ignored) {}
-        }
-
-        // 2. Apply params
-        SharedPreferences prefs = getPrefs();
-        SharedPreferences.Editor ed = prefs.edit();
-        cfg.apply(ed, port);
-        ed.commit();
-
-        NativeProxy.setPoolSize(cfg.poolSize);
-        NativeProxy.setRecvBuffer(cfg.buffer);
-        NativeProxy.setSendBuffer(cfg.buffer);
-        NativeProxy.setCfProxyCacheDir(getCacheDir().getAbsolutePath());
-        NativeProxy.setCfProxyConfig(cfg.cfEnabled, true, prefs.getString("cf_domain", ""));
-        NativeProxy.setFakeTls(cfg.fakeTls, prefs.getString("fake_domain", "google.com"));
-
-        // 3. Start
-        int startRes = NativeProxy.startProxy("127.0.0.1", port,
-                prefs.getString("dc_ips", ""), prefs.getString("secret", ""), 0);
-        if (startRes != 0) {
-            NativeProxy.stopProxy();
-            return result;
-        }
-
-        // 4. Wait for port (max 1.5s)
-        long t0 = System.currentTimeMillis();
-        boolean opened = false;
-        for (int i = 0; i < 15; i++) {
-            if (TgWsProxyService.isPortOpen("127.0.0.1", port, 200)) {
-                opened = true;
-                break;
-            }
-            try { Thread.sleep(100); } catch (Exception ignored) {}
-            if (System.currentTimeMillis() - t0 > maxWaitMs) break;
-        }
-
-        result.portOpened = opened;
-        result.testTimeMs = System.currentTimeMillis() - t0;
-
-        if (opened) {
-            int[] pings = new int[3];
-            for (int i = 0; i < 3; i++) {
-                long s = System.currentTimeMillis();
-                if (TgWsProxyService.isPortOpen("127.0.0.1", port, 300)) {
-                    pings[i] = (int)(System.currentTimeMillis() - s);
-                } else {
-                    pings[i] = -1;
-                }
-                try { Thread.sleep(100); } catch (Exception ignored) {}
-            }
-            java.util.Arrays.sort(pings);
-            result.pingMs = (pings[1] >= 0) ? pings[1] : (pings[0] >= 0 ? pings[0] : -1);
-
-            try {
-                String st = NativeProxy.getStats();
-                if (st != null && st.contains("err=")) {
-                    int idx = st.indexOf("err=");
-                    int end = st.indexOf(" ", idx);
-                    if (end < 0) end = st.length();
-                    result.errors = Integer.parseInt(st.substring(idx + 4, end));
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 5. Cleanup
-        NativeProxy.stopProxy();
-        for (int i = 0; i < 8; i++) {
-            if (!TgWsProxyService.isPortOpen("127.0.0.1", port, 100)) break;
-            try { Thread.sleep(100); } catch (Exception ignored) {}
-        }
-        return result;
+    private boolean isCancelled(AlertDialog dialog) {
+        return dialog == null || !dialog.isShowing();
     }
 
     private void showToast(String text) {
@@ -806,6 +605,108 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
             if (c == null) return;
             android.widget.Toast.makeText(c, text, android.widget.Toast.LENGTH_LONG).show();
         });
+    }
+
+    /**
+     * Test one configuration — runs on a background thread (called from SmartConfig thread).
+     * *** FIX: wait for stop to complete before sending START to avoid main thread blocking ***
+     */
+    private TestResult testConfiguration(TestConfig cfg, int port, int maxWaitMs) {
+        TestResult result = new TestResult();
+        result.config = cfg;
+        Context ctx = ApplicationLoader.applicationContext;
+
+        // Stop current proxy
+        ctx.startService(new Intent(ctx, TgWsProxyService.class)
+                .setAction(TgWsProxyService.ACTION_STOP));
+
+        // *** FIX: wait for both isRunning=false AND stopInProgress=false ***
+        for (int i = 0; i < 40; i++) {
+            if (!TgWsProxyService.isRunning && !TgWsProxyService.isStopInProgress()) break;
+            try { Thread.sleep(150); } catch (Exception ignored) {}
+        }
+        try { Thread.sleep(200); } catch (Exception ignored) {}
+
+        SharedPreferences prefs = getPrefs();
+        SharedPreferences.Editor ed = prefs.edit();
+        cfg.apply(ed, port);
+        ed.commit();
+
+        Intent intent = new Intent(ctx, TgWsProxyService.class);
+        intent.setAction(TgWsProxyService.ACTION_START);
+        intent.putExtra(TgWsProxyService.EXTRA_PORT,        port);
+        intent.putExtra(TgWsProxyService.EXTRA_SECRET,      prefs.getString("secret", ""));
+        intent.putExtra(TgWsProxyService.EXTRA_POOL_SIZE,   cfg.poolSize);
+        intent.putExtra(TgWsProxyService.EXTRA_RECV_BUF,    cfg.buffer);
+        intent.putExtra(TgWsProxyService.EXTRA_SEND_BUF,    cfg.buffer);
+        intent.putExtra(TgWsProxyService.EXTRA_CF_ENABLED,  cfg.cfEnabled);
+        intent.putExtra(TgWsProxyService.EXTRA_CF_DOMAIN,   prefs.getString("cf_domain", ""));
+        intent.putExtra(TgWsProxyService.EXTRA_FAKE_TLS,    cfg.fakeTls);
+        intent.putExtra(TgWsProxyService.EXTRA_FAKE_DOMAIN, prefs.getString("fake_domain", "google.com"));
+        intent.putExtra(TgWsProxyService.EXTRA_VERBOSE,     0);
+        intent.putExtra(TgWsProxyService.EXTRA_DC_IPS,      prefs.getString("dc_ips", ""));
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ctx.startForegroundService(intent);
+        } else {
+            ctx.startService(intent);
+        }
+
+        long startTime = System.currentTimeMillis();
+        boolean opened = false;
+        for (int i = 0; i < 15; i++) {
+            if (TgWsProxyService.isPortOpen("127.0.0.1", port, 500)) {
+                opened = true;
+                break;
+            }
+            try { Thread.sleep(150); } catch (Exception ignored) {}
+            if (System.currentTimeMillis() - startTime > maxWaitMs) break;
+        }
+
+        result.portOpened = opened;
+        result.testTimeMs = System.currentTimeMillis() - startTime;
+
+        if (opened) {
+            int[] pings = new int[3];
+            for (int i = 0; i < 3; i++) {
+                pings[i] = TgWsProxyService.getPingMs(port);
+                try { Thread.sleep(150); } catch (Exception ignored) {}
+            }
+            java.util.Arrays.sort(pings);
+            result.pingMs = pings[1];
+
+            try {
+                String stats = NativeProxy.getStats();
+                if (stats != null) {
+                    if (stats.contains("ws=")) {
+                        int idx = stats.indexOf("ws=");
+                        int end = stats.indexOf(" ", idx);
+                        if (end < 0) end = stats.length();
+                        try { result.wsConnections = Integer.parseInt(stats.substring(idx + 3, end)); }
+                        catch (Exception ignored) {}
+                    }
+                    if (stats.contains("err=")) {
+                        int idx = stats.indexOf("err=");
+                        int end = stats.indexOf(" ", idx);
+                        if (end < 0) end = stats.length();
+                        try { result.errors = Integer.parseInt(stats.substring(idx + 4, end)); }
+                        catch (Exception ignored) {}
+                    }
+                }
+            } catch (Exception ignored) {}
+            try { Thread.sleep(500); } catch (Exception ignored) {}
+        }
+
+        ctx.startService(new Intent(ctx, TgWsProxyService.class)
+                .setAction(TgWsProxyService.ACTION_STOP));
+        // Wait for stop before next iteration
+        for (int i = 0; i < 30; i++) {
+            if (!TgWsProxyService.isRunning && !TgWsProxyService.isStopInProgress()) break;
+            try { Thread.sleep(150); } catch (Exception ignored) {}
+        }
+        try { Thread.sleep(200); } catch (Exception ignored) {}
+
+        return result;
     }
 
     // -------------------------------------------------------------------------
@@ -840,7 +741,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
     // -------------------------------------------------------------------------
 
     private void showInputDialog(String title, String current,
-                                 int inputType, OnValueSet listener) {
+            int inputType, OnValueSet listener) {
         Context c = getParentActivity();
         if (c == null) return;
         AlertDialog.Builder b = new AlertDialog.Builder(c, resourceProvider);
@@ -883,7 +784,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder,
-                                     int position, boolean partial) {
+                int position, boolean partial) {
             int viewType = holder.getItemViewType();
             SharedPreferences prefs = getPrefs();
 
@@ -933,27 +834,21 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
                     String s = prefs.getString("secret", "");
                     cell.setTextAndValue("Secret Key",
                             s.isEmpty() ? "Not set (auto-generated)"
-                                    : "****" + s.substring(Math.max(0, s.length() - 4)),
+                                        : "****" + s.substring(Math.max(0, s.length() - 4)),
                             true);
                 } else if (position == pingRow) {
+                    // *** FIX: use cached value — set by background thread ***
                     int ping = lastPingMs;
-                    String value;
-                    int colorKey;
-                    if (ping == -2) {
-                        value = "Checking…";
-                        colorKey = Theme.key_windowBackgroundWhiteGrayText2;
-                    } else if (ping >= 0) {
-                        value = ping + " ms";
-                        colorKey = Theme.key_windowBackgroundWhiteGreenText;
-                    } else {
-                        value = "—";
-                        colorKey = Theme.key_windowBackgroundWhiteGrayText2;
-                    }
+                    String value = ping >= 0 ? ping + " ms" : "—";
                     cell.setTextAndValue("Ping", value, true);
                     if (cell.getChildCount() > 1) {
                         View child = cell.getChildAt(1);
                         if (child instanceof android.widget.TextView) {
-                            ((android.widget.TextView) child).setTextColor(Theme.getColor(colorKey));
+                            int colorKey = ping >= 0
+                                    ? Theme.key_windowBackgroundWhiteGreenText
+                                    : Theme.key_windowBackgroundWhiteGrayText2;
+                            ((android.widget.TextView) child)
+                                    .setTextColor(Theme.getColor(colorKey));
                         }
                     }
                 }
