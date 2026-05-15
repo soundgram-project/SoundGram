@@ -60,6 +60,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
     private static final int TYPE_TEXT_DETAIL = 3;
     private static final int TYPE_TEXT        = 4;
     private static final int TYPE_INFO        = 5;
+    private static final int TYPE_CONSOLE     = 6;
 
     private static final int     DEFAULT_PORT        = 1443;
     private static final int     DEFAULT_MODE        = 1;
@@ -74,7 +75,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
     private static final String  DEFAULT_DC_IPS      = "";
 
     // Row indices
-    private int statusRow, enableRow, pingRow, smartConfigRow,
+    private int statusRow, enableRow, pingRow, smartConfigRow, consoleRow,
             autoStartRow, advancedToggleRow, shadowAdvRow,
             connectionHeaderRow, portRow, modeRow, poolRow, bufferRow,
             shadow2Row,
@@ -87,6 +88,12 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
 
     private BroadcastReceiver statusReceiver;
     private final Handler pingHandler = new Handler(Looper.getMainLooper());
+
+    // Smart Config inline console
+    private boolean isSmartConfigRunning = false;
+    private final List<String[]> smartConfigLogs = new ArrayList<>(); // {label, pingText}
+    private java.lang.ref.WeakReference<ConsoleCell> consoleCellRef;
+    private AtomicBoolean smartConfigCancelled;
 
     // Ping: -2 = checking, -1 = no data, >=0 = ms
     private volatile int lastPingMs = -1;
@@ -209,6 +216,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
         enableRow         = row++;
         pingRow           = row++;
         smartConfigRow    = row++;
+        consoleRow        = isSmartConfigRunning ? row++ : -1;
         autoStartRow      = row++;
         advancedToggleRow = row++;
         shadowAdvRow      = row++;
@@ -528,7 +536,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
         void apply(SharedPreferences.Editor ed, int port) {
             ed.putInt("mode", mode);
             ed.putBoolean("fake_tls", fakeTls);
-            ed.putBoolean("cf_enabled", cfEnabled);
+            ed.putBoolean("cf_enabled", true); // CF CDN is always enabled — never varied
             ed.putInt("pool_size", poolSize);
             ed.putInt("buffer", buffer);
             ed.putInt("port", port);
@@ -555,15 +563,14 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
     }
 
     // Heuristic: higher = test earlier (more likely to work)
+    // CF is always enabled — not included as a variable here
     private int scoreLikelihood(TestConfig cfg, SharedPreferences prefs) {
         int score = 0;
         if (cfg.mode == prefs.getInt("mode", DEFAULT_MODE)) score += 10;
         if (cfg.fakeTls == prefs.getBoolean("fake_tls", DEFAULT_FAKE_TLS)) score += 10;
-        if (cfg.cfEnabled == prefs.getBoolean("cf_enabled", DEFAULT_CF_ENABLED)) score += 10;
         if (cfg.poolSize == prefs.getInt("pool_size", DEFAULT_POOL_SIZE)) score += 5;
         if (cfg.buffer == prefs.getInt("buffer", DEFAULT_BUFFER)) score += 5;
         if (cfg.mode == 1) score += 4;
-        if (cfg.cfEnabled) score += 3;
         if (cfg.fakeTls) score += 2;
         if (cfg.poolSize >= 4 && cfg.poolSize <= 8) score += 1;
         if (cfg.buffer >= 128 && cfg.buffer <= 256) score += 1;
@@ -584,24 +591,26 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
             return;
         }
 
-        // Generate all 336 combinations
+        // Show inline console panel
+        smartConfigLogs.clear();
+        isSmartConfigRunning = true;
+        AndroidUtilities.runOnUIThread(this::updateRows);
+
+        // Generate all 168 combinations (CF is always enabled — not varied)
         List<TestConfig> allConfigs = new ArrayList<>();
         int[] modes = {0, 1, 2};
         boolean[] tlsOpts = {true, false};
-        boolean[] cfOpts = {true, false};
         int[] pools = {2, 4, 6, 8, 10, 12, 16};
         int[] buffers = {64, 128, 256, 512};
 
         for (int m : modes) {
             for (boolean tls : tlsOpts) {
-                for (boolean cf : cfOpts) {
-                    for (int p : pools) {
-                        for (int b : buffers) {
-                            TestConfig cfg = new TestConfig();
-                            cfg.mode = m; cfg.fakeTls = tls; cfg.cfEnabled = cf;
-                            cfg.poolSize = p; cfg.buffer = b; cfg.port = wasPort;
-                            allConfigs.add(cfg);
-                        }
+                for (int p : pools) {
+                    for (int b : buffers) {
+                        TestConfig cfg = new TestConfig();
+                        cfg.mode = m; cfg.fakeTls = tls; cfg.cfEnabled = true; // CF always on
+                        cfg.poolSize = p; cfg.buffer = b; cfg.port = wasPort;
+                        allConfigs.add(cfg);
                     }
                 }
             }
@@ -614,49 +623,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
         final AtomicInteger progress = new AtomicInteger(0);
         final AtomicBoolean cancelled = new AtomicBoolean(false);
 
-        // Progress UI — стандартный Android Dialog
-        android.widget.LinearLayout ll = new android.widget.LinearLayout(ctx);
-        ll.setOrientation(android.widget.LinearLayout.VERTICAL);
-        ll.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(16), AndroidUtilities.dp(24), AndroidUtilities.dp(16));
-
-        android.widget.TextView title = new android.widget.TextView(ctx);
-        title.setText("Smart Config");
-        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 20);
-        title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-        ll.addView(title);
-
-        android.widget.TextView status = new android.widget.TextView(ctx);
-        status.setText("Preparing…");
-        status.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14);
-        status.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2));
-        status.setPadding(0, AndroidUtilities.dp(8), 0, 0);
-        ll.addView(status);
-
-        android.widget.ProgressBar bar = new android.widget.ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal);
-        bar.setMax(total);
-        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(4));
-        lp.topMargin = AndroidUtilities.dp(12);
-        ll.addView(bar, lp);
-
-        // Cancel button
-        android.widget.TextView cancelBtn = new android.widget.TextView(ctx);
-        cancelBtn.setText("Cancel");
-        cancelBtn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 16);
-        cancelBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
-        cancelBtn.setPadding(0, AndroidUtilities.dp(16), 0, 0);
-        cancelBtn.setGravity(Gravity.CENTER);
-        ll.addView(cancelBtn);
-
-        android.app.Dialog progressDialog = new android.app.Dialog(ctx, R.style.Theme_TMessages);
-        progressDialog.setContentView(ll);
-        progressDialog.setCancelable(false);
-        progressDialog.show();
-
-        cancelBtn.setOnClickListener(v -> {
-            cancelled.set(true);
-            progressDialog.dismiss();
-        });
+        smartConfigCancelled = cancelled;
 
         // Background testing
         new Thread(() -> {
@@ -667,21 +634,31 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
 
                 int cur = progress.incrementAndGet();
                 AndroidUtilities.runOnUIThread(() -> {
-                    if (progressDialog.isShowing()) {
-                        bar.setProgress(cur);
-                        status.setText(String.format(Locale.US, "Testing %d/%d\n%s", cur, total, cfg.label()));
-                    }
+                    ConsoleCell cell = consoleCellRef != null ? consoleCellRef.get() : null;
+                    if (cell != null) cell.setProgress(cur, total);
                 });
 
                 TestResult r = testConfigurationFast(cfg, wasPort, 1500);
+                final String pingText;
+                if (!r.portOpened) {
+                    pingText = "—";
+                } else if (r.pingMs >= 0) {
+                    pingText = r.pingMs + " ms";
+                } else {
+                    pingText = "ok";
+                }
+                final String[] logEntry = {cfg.label(), pingText};
+                AndroidUtilities.runOnUIThread(() -> {
+                    smartConfigLogs.add(logEntry);
+                    ConsoleCell cell = consoleCellRef != null ? consoleCellRef.get() : null;
+                    if (cell != null) cell.addLogLine(logEntry[0], logEntry[1]);
+                });
                 if (r.portOpened) {
                     results.add(r);
                 }
             }
 
-            AndroidUtilities.runOnUIThread(() -> {
-                if (progressDialog.isShowing()) progressDialog.dismiss();
-            });
+            AndroidUtilities.runOnUIThread(this::hideConsole);
 
             if (cancelled.get()) {
                 showToast("Smart Config cancelled");
@@ -800,6 +777,26 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
         return result;
     }
 
+    private void hideConsole() {
+        ConsoleCell cell = consoleCellRef != null ? consoleCellRef.get() : null;
+        if (cell != null && cell.isAttachedToWindow()) {
+            cell.animate()
+                    .alpha(0f)
+                    .translationY(-AndroidUtilities.dp(16))
+                    .setDuration(250)
+                    .withEndAction(() -> {
+                        isSmartConfigRunning = false;
+                        consoleCellRef = null;
+                        updateRows();
+                    })
+                    .start();
+        } else {
+            isSmartConfigRunning = false;
+            consoleCellRef = null;
+            updateRows();
+        }
+    }
+
     private void showToast(String text) {
         AndroidUtilities.runOnUIThread(() -> {
             Context c = getParentActivity();
@@ -868,6 +865,185 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
     }
 
     private interface OnValueSet { void onValue(String v); }
+
+    // -------------------------------------------------------------------------
+    // ConsoleCell — inline Smart Config log panel
+    // -------------------------------------------------------------------------
+
+    private class ConsoleCell extends FrameLayout {
+        private final android.widget.LinearLayout logContainer;
+        private final android.widget.ScrollView   scrollView;
+        private final android.widget.TextView     progressTv;
+        private final android.widget.ProgressBar  progressBar;
+        private static final int   MAX_VISIBLE_LINES = 5;
+        private static final float LINE_HEIGHT_DP    = 22f;
+
+        ConsoleCell(Context context) {
+            super(context);
+
+            int padH = AndroidUtilities.dp(14);
+            int padV = AndroidUtilities.dp(10);
+            setPadding(padH, padV, padH, padV);
+
+            // Terminal-style dark background with green border
+            android.graphics.drawable.GradientDrawable bg =
+                    new android.graphics.drawable.GradientDrawable();
+            bg.setColor(0xFF0D1117);
+            bg.setStroke(AndroidUtilities.dp(1), 0xFF238636);
+            bg.setCornerRadius(AndroidUtilities.dp(8));
+            setBackground(bg);
+
+            android.widget.LinearLayout root = new android.widget.LinearLayout(context);
+            root.setOrientation(android.widget.LinearLayout.VERTICAL);
+
+            // ── Header row: "Smart Config  X/Y" + [Отмена] ──
+            android.widget.LinearLayout header = new android.widget.LinearLayout(context);
+            header.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            android.widget.LinearLayout.LayoutParams headerLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            AndroidUtilities.dp(28));
+            root.addView(header, headerLp);
+
+            progressTv = new android.widget.TextView(context);
+            progressTv.setText("Smart Config  0 / …");
+            progressTv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 11);
+            progressTv.setTextColor(0xFF8B949E);
+            progressTv.setTypeface(android.graphics.Typeface.MONOSPACE);
+            progressTv.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            header.addView(progressTv, new android.widget.LinearLayout.LayoutParams(
+                    0, android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+
+            android.widget.TextView cancelBtn = new android.widget.TextView(context);
+            cancelBtn.setText("Отмена");
+            cancelBtn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 11);
+            cancelBtn.setTextColor(0xFFE05555);
+            cancelBtn.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            cancelBtn.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            cancelBtn.setPadding(AndroidUtilities.dp(12), 0, 0, 0);
+            cancelBtn.setOnClickListener(v -> {
+                if (smartConfigCancelled != null) smartConfigCancelled.set(true);
+                hideConsole();
+            });
+            header.addView(cancelBtn, new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT));
+
+            // ── Thin progress bar ──
+            progressBar = new android.widget.ProgressBar(
+                    context, null, android.R.attr.progressBarStyleHorizontal);
+            progressBar.setMax(1000);
+            progressBar.setProgress(0);
+            android.widget.LinearLayout.LayoutParams barLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            AndroidUtilities.dp(2));
+            barLp.topMargin    = AndroidUtilities.dp(4);
+            barLp.bottomMargin = AndroidUtilities.dp(6);
+            root.addView(progressBar, barLp);
+
+            // ── Scrollable log area (5 lines tall) ──
+            logContainer = new android.widget.LinearLayout(context);
+            logContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
+
+            scrollView = new android.widget.ScrollView(context);
+            scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            scrollView.setVerticalScrollBarEnabled(false);
+            scrollView.addView(logContainer,
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+
+            int scrollH = AndroidUtilities.dp(MAX_VISIBLE_LINES * LINE_HEIGHT_DP);
+            root.addView(scrollView, new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT, scrollH));
+
+            addView(root, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT));
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            setAlpha(0f);
+            setTranslationY(-AndroidUtilities.dp(14));
+            animate().alpha(1f).translationY(0f).setDuration(220).start();
+        }
+
+        /** Update counter label + progress bar. */
+        void setProgress(int cur, int total) {
+            progressTv.setText(String.format(Locale.US, "Smart Config  %d / %d", cur, total));
+            if (total > 0) progressBar.setProgress(cur * 1000 / total);
+        }
+
+        /** Called live from the background test loop — adds one row at a time. */
+        void addLogLine(String configLabel, String pingText) {
+            logContainer.addView(buildRow(configLabel, pingText));
+            scrollView.post(() -> scrollView.fullScroll(android.widget.ScrollView.FOCUS_DOWN));
+        }
+
+        /** Called from onBindViewHolder to restore full log state after RecyclerView rebind. */
+        void rebindLogs(List<String[]> logs) {
+            logContainer.removeAllViews();
+            for (String[] entry : logs) {
+                logContainer.addView(buildRow(entry[0], entry[1]));
+            }
+            if (!logs.isEmpty()) {
+                scrollView.post(() -> scrollView.fullScroll(android.widget.ScrollView.FOCUS_DOWN));
+            }
+        }
+
+        private android.widget.LinearLayout buildRow(String configLabel, String pingText) {
+            Context ctx = getContext();
+            int lineH = AndroidUtilities.dp(LINE_HEIGHT_DP);
+
+            android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
+            row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            row.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT, lineH));
+
+            // Config label — left, flexible width
+            android.widget.TextView labelTv = new android.widget.TextView(ctx);
+            labelTv.setText(configLabel);
+            labelTv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 10);
+            labelTv.setTextColor(0xFFADBBCC);
+            labelTv.setTypeface(android.graphics.Typeface.MONOSPACE);
+            labelTv.setSingleLine(true);
+            labelTv.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            labelTv.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.addView(labelTv, new android.widget.LinearLayout.LayoutParams(
+                    0, android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+
+            // Ping — right, colored
+            android.widget.TextView pingTv = new android.widget.TextView(ctx);
+            pingTv.setText(pingText);
+            pingTv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 10);
+            pingTv.setTypeface(android.graphics.Typeface.MONOSPACE);
+            pingTv.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            int pingColor;
+            if ("—".equals(pingText) || "fail".equals(pingText)) {
+                pingColor = 0xFF6E7681;
+            } else {
+                try {
+                    int ms = Integer.parseInt(pingText.replace(" ms", "").trim());
+                    pingColor = ms < 100 ? 0xFF39D353 : ms < 300 ? 0xFFFFAA33 : 0xFFE05555;
+                } catch (Exception ignored) {
+                    pingColor = 0xFF39D353;
+                }
+            }
+            pingTv.setTextColor(pingColor);
+            android.widget.LinearLayout.LayoutParams pingLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT);
+            pingLp.leftMargin = AndroidUtilities.dp(8);
+            row.addView(pingTv, pingLp);
+
+            return row;
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Adapter
@@ -1004,6 +1180,10 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
                             + "find the fastest working settings. Disables automatically when "
                             + "a VPN is active.");
                 }
+            } else if (viewType == TYPE_CONSOLE) {
+                ConsoleCell cell = (ConsoleCell) holder.itemView;
+                consoleCellRef = new java.lang.ref.WeakReference<>(cell);
+                cell.rebindLogs(smartConfigLogs);
             }
         }
 
@@ -1021,6 +1201,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
                     || position == shadow4Row || position == shadow5Row)
                 return TYPE_SHADOW;
             if (position == infoRow) return TYPE_INFO;
+            if (position == consoleRow) return TYPE_CONSOLE;
             return TYPE_TEXT;
         }
 
@@ -1034,6 +1215,7 @@ public class NekoWsProxyActivity extends BaseNekoSettingsActivity implements Not
             else if (viewType == TYPE_TEXT_DETAIL) view = new TextDetailSettingsCell(mContext);
             else if (viewType == TYPE_SHADOW)      view = new ShadowSectionCell(mContext);
             else if (viewType == TYPE_INFO)        view = new TextInfoPrivacyCell(mContext);
+            else if (viewType == TYPE_CONSOLE)     view = new ConsoleCell(mContext);
             else                                   view = new TextCell(mContext);
             view.setLayoutParams(new RecyclerView.LayoutParams(
                     RecyclerView.LayoutParams.MATCH_PARENT,
