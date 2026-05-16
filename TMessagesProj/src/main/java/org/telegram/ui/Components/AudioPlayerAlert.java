@@ -2217,7 +2217,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             return;
         }
         if (playlist == null || playlist.isEmpty()) {
-            Toast.makeText(ctx, getString(R.string.NoAudio), Toast.LENGTH_SHORT).show();
+            Toast.makeText(ctx, getString(R.string.NoAudioFound), Toast.LENGTH_SHORT).show();
             return;
         }
         final BottomSheet[] queueSheetRef = new BottomSheet[1];
@@ -2227,7 +2227,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         container.setPadding(0, dp(8), 0, dp(12));
 
         TextView title = new TextView(ctx);
-        title.setText(getString(R.string.AccDescrPlayer));
+        title.setText(getString(R.string.AudioUnknownTitle));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         title.setTypeface(AndroidUtilities.bold());
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
