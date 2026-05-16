@@ -45470,30 +45470,71 @@ public class ChatActivity extends BaseFragment implements
         if (messages == null || messages.isEmpty()) {
             return;
         }
-        long targetId = MessagesController.getNotificationsSettings(currentAccount).getLong("music_channel_id", 0);
-        if (targetId == 0) {
-            try {
-                java.io.File dir = ApplicationLoader.applicationContext.getExternalFilesDir(null);
-                if (dir != null) {
-                    java.io.File f = new java.io.File(dir, "music_channel_id.txt");
-                    if (f.exists()) {
-                        java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(f));
-                        String line = r.readLine();
-                        r.close();
-                        if (line != null && !line.trim().isEmpty()) {
-                            targetId = Long.parseLong(line.trim());
-                            MessagesController.getNotificationsSettings(currentAccount).edit().putLong("music_channel_id", targetId).apply();
-                        }
-                    }
-                }
-            } catch (Exception ignore) {}
-        }
+        long targetId = getMusicChannelIdOrZero();
         if (targetId == 0) {
             AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_open_music_first), Toast.LENGTH_LONG).show());
             return;
         }
-        SendMessagesHelper.getInstance(currentAccount).sendMessage(messages, -targetId, false, false, true, 0, 0);
-        AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show());
+        final long fTargetId = targetId;
+        boolean hasStream = false;
+        ArrayList<MessageObject> telegramMusic = new ArrayList<>();
+        for (MessageObject mo : messages) {
+            if (mo == null || mo.messageOwner == null) continue;
+            String text = mo.messageOwner.message;
+            if (text != null && text.startsWith("SG_STREAM|||")) {
+                hasStream = true;
+                String[] parts = text.split("\\|\\|\\|");
+                String t = parts.length > 1 ? parts[1] : "Unknown";
+                String a = parts.length > 2 ? parts[2] : "Unknown";
+                String u = parts.length > 3 ? parts[3] : "";
+                if (TextUtils.isEmpty(u)) {
+                    SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -fTargetId,
+                            null, null, null, true, null, null, null, true, 0, 0, null, false);
+                    continue;
+                }
+                new Thread(() -> {
+                    File dest = ChannelMusicFragment.getLocalTrackFile(a, t);
+                    boolean ok = dest.exists() && dest.length() > 1024;
+                    if (!ok) {
+                        ok = MusicWebSearcher.downloadTrackToExactFileSync(u, dest);
+                    }
+                    if (ok && dest.exists() && dest.length() > 1024) {
+                        ChannelMusicFragment.sendLocalAudioFileToChannel(dest, t, a, fTargetId, currentAccount);
+                    } else {
+                        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -fTargetId,
+                                null, null, null, true, null, null, null, true, 0, 0, null, false);
+                    }
+                }).start();
+            } else if (mo.isMusic()) {
+                telegramMusic.add(mo);
+            }
+        }
+        if (!telegramMusic.isEmpty()) {
+            SendMessagesHelper.getInstance(currentAccount).sendMessage(telegramMusic, -fTargetId, false, false, true, 0, 0);
+        }
+        if (hasStream || !telegramMusic.isEmpty()) {
+            AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show());
+        }
+    }
+
+    private long getMusicChannelIdOrZero() {
+        long targetId = MessagesController.getNotificationsSettings(currentAccount).getLong("music_channel_id", 0);
+        if (targetId != 0) return targetId;
+        try {
+            java.io.File dir = ApplicationLoader.applicationContext.getExternalFilesDir(null);
+            if (dir == null) return 0;
+            java.io.File f = new java.io.File(dir, "music_channel_id.txt");
+            if (!f.exists()) return 0;
+            java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(f));
+            String line = r.readLine();
+            r.close();
+            if (line == null || line.trim().isEmpty()) return 0;
+            targetId = Long.parseLong(line.trim());
+            MessagesController.getNotificationsSettings(currentAccount).edit().putLong("music_channel_id", targetId).apply();
+            return targetId;
+        } catch (Exception ignore) {
+            return 0;
+        }
     }
 
     private void nkbtn_onclick(int id) {
