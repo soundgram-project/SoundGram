@@ -102,12 +102,19 @@ public class SmartRadioEngine {
     private static final CopyOnWriteArrayList<MessageObject> lastGeneratedBatch = new CopyOnWriteArrayList<>();
 
     private static final ConcurrentHashMap<String, float[]> vectorCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Long, Integer> albumYearCache = new ConcurrentHashMap<>();
     private static volatile NeuroRanker neuroRanker;
     private static final Object neuroLock = new Object();
 
     // FIX #4: снижен порог + мягкий порог
-    private static final float SIMILARITY_THRESHOLD = 0.40f;
-    private static final float SOFT_THRESHOLD = 0.22f;
+    private static final float SIMILARITY_THRESHOLD = 0.50f;
+    private static final float SOFT_THRESHOLD = 0.34f;
+    private static final HashSet<String> waveSeedKeys = new HashSet<>();
+    private static final ArrayList<String> recentArtistsWindow = new ArrayList<>();
+    private static final ArrayList<String> recentTitlesWindow = new ArrayList<>();
+    private static final HashMap<String, Integer> artistStreakCounter = new HashMap<>();
+    private static final int RECENT_ARTISTS_WINDOW_SIZE = 12;
+    private static final int RECENT_TITLES_WINDOW_SIZE = 20;
 
     // Кешированный seed-вектор между рефиллами
     private static volatile float[] cachedSeedVector = null;
@@ -150,12 +157,21 @@ public class SmartRadioEngine {
         currentGenreSeedPool = new ArrayList<>();
 
         synchronized (historyLock) { globalPlayHistory.clear(); }
+        synchronized (waveSeedKeys) { waveSeedKeys.clear(); }
+        synchronized (recentArtistsWindow) { recentArtistsWindow.clear(); }
+        synchronized (recentTitlesWindow) { recentTitlesWindow.clear(); }
+        synchronized (artistStreakCounter) { artistStreakCounter.clear(); }
 
         // Даем потокам миллисекунды, чтобы они успели увидеть cancelFlag = true и отвалиться
         try { Thread.sleep(50); } catch (InterruptedException ignored) {}
 
         cancelFlag.set(false);
         isWaveActive = true;
+    }
+
+    private static String normalizeSeedKey(String artist, String title) {
+        return ((artist == null ? "" : artist) + "|" + (title == null ? "" : title))
+                .toLowerCase().replaceAll("[^a-zа-яё0-9|]", "");
     }
 
     private static String performGetRequest(String urlStr) throws Exception {
@@ -343,6 +359,12 @@ public class SmartRadioEngine {
             try {
                 ArrayList<MessageObject> ctx;
                 synchronized (basePlaylistContext) { ctx = new ArrayList<>(basePlaylistContext); }
+                synchronized (waveSeedKeys) {
+                    waveSeedKeys.clear();
+                    for (MessageObject s : ctx) {
+                        waveSeedKeys.add(normalizeSeedKey(s.getMusicAuthor(), s.getMusicTitle()));
+                    }
+                }
                 if (ctx.isEmpty()) throw new Exception("Плейлист пуст");
 
                 int seedCount = Math.min(3, ctx.size());
@@ -395,6 +417,10 @@ public class SmartRadioEngine {
 
         backgroundExecutor.execute(() -> {
             try {
+                synchronized (waveSeedKeys) {
+                    waveSeedKeys.clear();
+                    waveSeedKeys.add(normalizeSeedKey(artistName, ""));
+                }
                 ArrayList<String> initial = new ArrayList<>();
                 initial.addAll(getDeezerArtistMix(artistName, 5));
                 if (initial.size() < 5) initial.addAll(getDeepSimilarTracks(artistName, 8 - initial.size()));
@@ -438,6 +464,10 @@ public class SmartRadioEngine {
                 String safeArtist = (artistName == null || artistName.isEmpty()) ? "Unknown Artist" : artistName;
                 String safeAlbum  = (albumName  == null || albumName.isEmpty())  ? "" : albumName;
                 currentConfig.query = safeArtist;
+                synchronized (waveSeedKeys) {
+                    waveSeedKeys.clear();
+                    waveSeedKeys.add(normalizeSeedKey(safeArtist, safeAlbum));
+                }
 
                 ArrayList<String> initial = new ArrayList<>();
                 if (!safeAlbum.isEmpty()) initial.addAll(getTracksFromAlbum(safeArtist, safeAlbum, 5));
@@ -711,6 +741,51 @@ public class SmartRadioEngine {
                     if (!isWaveActive || cancelFlag.get()) break;
 
                     ArrayList<String> candidates = supplier.get();
+                    // Усиление соответствия источнику волны в бесконечном рефилле
+                    if (currentWaveMode == 3) { // playlist wave
+                        ArrayList<String> playlistCandidates = new ArrayList<>();
+                        synchronized (basePlaylistContext) {
+                            for (MessageObject seed : basePlaylistContext) {
+                                if (seed == null || seed.getMusicAuthor() == null) continue;
+                                try {
+                                    playlistCandidates.addAll(getDeezerTrackRadio(seed.getMusicAuthor(), seed.getMusicTitle(), 3));
+                                } catch (Exception ignore) {}
+                            }
+                        }
+                        playlistCandidates.addAll(candidates);
+                        candidates = playlistCandidates;
+                    } else if (currentWaveMode == 2) { // album wave
+                        ArrayList<String> albumCandidates = new ArrayList<>();
+                        String q = currentConfig.query != null ? currentConfig.query : "";
+                        String[] parts = q.split(" - ", 2);
+                        String albumArtist = parts.length > 0 ? parts[0].trim() : "";
+                        String albumName = parts.length > 1 ? parts[1].trim() : "";
+                        try {
+                            if (!albumArtist.isEmpty() && !albumName.isEmpty()) {
+                                albumCandidates.addAll(getTracksFromAlbum(albumArtist, albumName, 20));
+                            }
+                        } catch (Exception ignore) {}
+                        albumCandidates.addAll(candidates);
+                        candidates = albumCandidates;
+                    } else if (currentWaveMode == 1) { // artist wave
+                        ArrayList<String> artistCandidates = new ArrayList<>();
+                        String artist = currentConfig.query != null ? currentConfig.query.trim() : "";
+                        try {
+                            if (!artist.isEmpty()) {
+                                artistCandidates.addAll(getDeezerArtistMix(artist, 20));
+                                artistCandidates.addAll(getDeepSimilarTracks(artist, 15));
+                            }
+                        } catch (Exception ignore) {}
+                        artistCandidates.addAll(candidates);
+                        candidates = artistCandidates;
+                    } else if (currentWaveMode == 0) { // genre wave
+                        String gq = getDeezerSearchQuery(currentConfig.query);
+                        try {
+                            ArrayList<String> strictGenre = getTracksFromDynamicPlaylists(gq, 25, random.nextInt(700));
+                            strictGenre.addAll(candidates);
+                            candidates = strictGenre;
+                        } catch (Exception ignore) {}
+                    }
                     if (candidates.isEmpty()) continue;
 
                     float[] vec = cachedSeedVector;
@@ -949,6 +1024,52 @@ public class SmartRadioEngine {
                     // Нормализованный ключ для дедупа
                     String dedupeKey = (artist + title).toLowerCase().replaceAll("[^a-zа-яё0-9]", "");
                     if (!batchSeen.add(dedupeKey)) return;
+                    synchronized (recentArtistsWindow) {
+                        String artistKey = artist == null ? "" : artist.toLowerCase().trim();
+                        if (!artistKey.isEmpty() && recentArtistsWindow.contains(artistKey)) {
+                            return; // не даём артистам крутиться слишком часто в соседних пачках
+                        }
+                    }
+                    synchronized (artistStreakCounter) {
+                        String artistKey = artist == null ? "" : artist.toLowerCase().trim();
+                        if (!artistKey.isEmpty()) {
+                            int streak = artistStreakCounter.getOrDefault(artistKey, 0);
+                            if (streak >= 2) {
+                                return; // жёстко рубим длинные серии одного артиста
+                            }
+                        }
+                    }
+                    synchronized (recentTitlesWindow) {
+                        String titleKey = title == null ? "" : title.toLowerCase().trim();
+                        if (!titleKey.isEmpty() && recentTitlesWindow.contains(titleKey)) {
+                            return; // и не крутим одинаковые тайтлы в соседних пачках
+                        }
+                    }
+                    String seedKey = normalizeSeedKey(artist, title);
+                    synchronized (waveSeedKeys) {
+                        boolean artistSeedMatch = false;
+                        if (currentWaveMode == 1) {
+                            String artistPrefix = normalizeSeedKey(artist, "");
+                            for (String key : waveSeedKeys) {
+                                if (!artistPrefix.isEmpty() && key.startsWith(artistPrefix)) {
+                                    artistSeedMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (isInitial && waveSeedKeys.contains(seedKey)) {
+                            return; // seed-треки не должны попадать в первую пачку
+                        }
+                        if (isInitial && artistSeedMatch) {
+                            return; // artist-wave: первая пачка без seed-артиста
+                        }
+                        if (!isInitial && waveSeedKeys.contains(seedKey) && random.nextInt(100) >= 10) {
+                            return; // дальше могут попадать, но редко (~10%)
+                        }
+                        if (!isInitial && artistSeedMatch && random.nextInt(100) >= 18) {
+                            return; // artist-wave: сид-артист в последующих пачках нечасто
+                        }
+                    }
 
                     // Строгий поиск: находим трек с проверкой совпадения артиста и названия
                     MusicWebSearcher.WebTrack wt = MusicWebSearcher.searchTrackStrict(artist, title, 0);
@@ -960,6 +1081,37 @@ public class SmartRadioEngine {
                             -(long) wt.downloadUrl.hashCode(), wt.coverUrl);
 
                     lastGeneratedBatch.add(msg);
+                    synchronized (recentArtistsWindow) {
+                        String artistKey = wt.artist == null ? "" : wt.artist.toLowerCase().trim();
+                        if (!artistKey.isEmpty()) {
+                            recentArtistsWindow.add(artistKey);
+                            if (recentArtistsWindow.size() > RECENT_ARTISTS_WINDOW_SIZE) {
+                                recentArtistsWindow.remove(0);
+                            }
+                        }
+                    }
+                    synchronized (artistStreakCounter) {
+                        String currentArtist = wt.artist == null ? "" : wt.artist.toLowerCase().trim();
+                        if (!currentArtist.isEmpty()) {
+                            for (String key : new ArrayList<>(artistStreakCounter.keySet())) {
+                                if (!key.equals(currentArtist)) {
+                                    int v = artistStreakCounter.getOrDefault(key, 0) - 1;
+                                    if (v <= 0) artistStreakCounter.remove(key);
+                                    else artistStreakCounter.put(key, v);
+                                }
+                            }
+                            artistStreakCounter.put(currentArtist, artistStreakCounter.getOrDefault(currentArtist, 0) + 1);
+                        }
+                    }
+                    synchronized (recentTitlesWindow) {
+                        String titleKey = wt.title == null ? "" : wt.title.toLowerCase().trim();
+                        if (!titleKey.isEmpty()) {
+                            recentTitlesWindow.add(titleKey);
+                            if (recentTitlesWindow.size() > RECENT_TITLES_WINDOW_SIZE) {
+                                recentTitlesWindow.remove(0);
+                            }
+                        }
+                    }
 
                     AndroidUtilities.runOnUIThread(() -> {
                         ArrayList<MessageObject> single = new ArrayList<>();
@@ -1032,6 +1184,30 @@ public class SmartRadioEngine {
                 int trackYear = 0;
                 if (t.has("release_date") && !t.getString("release_date").isEmpty()) {
                     try { trackYear = Integer.parseInt(t.getString("release_date").substring(0, 4)); } catch (Exception ignored) {}
+                }
+                // Deezer playlist-tracks часто не содержит release_date — добираем год из album/{id} с кешем
+                if (trackYear == 0 && t.has("album")) {
+                    try {
+                        long albumId = t.getJSONObject("album").optLong("id", 0);
+                        if (albumId > 0) {
+                            Integer cachedYear = albumYearCache.get(albumId);
+                            if (cachedYear != null) {
+                                trackYear = cachedYear;
+                            } else {
+                                String aResp = performGetRequest("https://api.deezer.com/album/" + albumId);
+                                if (!aResp.isEmpty()) {
+                                    JSONObject aObj = new JSONObject(aResp);
+                                    String rd = aObj.optString("release_date", "");
+                                    int parsed = 0;
+                                    if (rd != null && rd.length() >= 4) {
+                                        try { parsed = Integer.parseInt(rd.substring(0, 4)); } catch (Exception ignore) {}
+                                    }
+                                    albumYearCache.put(albumId, parsed);
+                                    trackYear = parsed;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
                 }
                 if (trackYear >= MIN_RECENT_YEAR || trackYear == 0) {
                     res.add(candidate);
