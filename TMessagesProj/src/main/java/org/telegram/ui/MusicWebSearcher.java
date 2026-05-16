@@ -26,6 +26,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MusicWebSearcher {
+    private static String transliterate(String input) {
+        if (input == null) return "";
+        return input.toLowerCase()
+                .replace('ё', 'е')
+                .replace('а', 'a').replace('б', 'b').replace('в', 'v').replace('г', 'g')
+                .replace('д', 'd').replace('е', 'e').replace('ж', 'z').replace('з', 'z')
+                .replace('и', 'i').replace('й', 'i').replace('к', 'k').replace('л', 'l')
+                .replace('м', 'm').replace('н', 'n').replace('о', 'o').replace('п', 'p')
+                .replace('р', 'r').replace('с', 's').replace('т', 't').replace('у', 'u')
+                .replace('ф', 'f').replace('х', 'h').replace('ц', 'c').replace('ч', 'c')
+                .replace('ш', 's').replace('щ', 's').replace('ы', 'y').replace('э', 'e')
+                .replace('ю', 'u').replace('я', 'a');
+    }
 
     public static class WebTrack {
         public String title;
