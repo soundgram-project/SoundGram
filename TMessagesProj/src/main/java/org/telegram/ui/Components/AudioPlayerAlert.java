@@ -4161,7 +4161,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         String cleanTitle  = title.replaceAll("(?i)(\\(.*?\\)|\\[.*?\\]|-.*?(remix|edit|mix)).*$", "").trim();
         if (TextUtils.isEmpty(cleanArtist)) cleanArtist = artist;
         if (TextUtils.isEmpty(cleanTitle)) cleanTitle = title;
-        String cacheKey = (cleanArtist + "|" + cleanTitle).toLowerCase();
+
+        final String finalCleanArtist = cleanArtist;
+        final String finalCleanTitle = cleanTitle;
+        String cacheKey = (finalCleanArtist + "|" + finalCleanTitle).toLowerCase();
 
         // 1. In-memory cache
         if (lyricsInMemoryCache.containsKey(cacheKey)) {
@@ -4181,7 +4184,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 // 2. Файловый кэш
                 File textDir = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null), "Texts");
                 if (!textDir.exists()) textDir.mkdirs();
-                File lyricsFile = new File(textDir, cleanArtist + " - " + cleanTitle + ".lrc");
+                File lyricsFile = new File(textDir, finalCleanArtist + " - " + finalCleanTitle + ".lrc");
 
                 if (lyricsFile.exists()) {
                     StringBuilder sb = new StringBuilder();
@@ -4208,20 +4211,20 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 }
 
                 // 3. Сетевой запрос — пробуем несколько вариантов (как старт улучшения lyric-поиска)
-                String altTitle = cleanTitle.replaceAll("(?i)\\s+-\\s+.*$", "").trim();
-                String altArtist = cleanArtist.replaceAll("(?i)\\s+and\\s+.*$", "").trim();
+                String altTitle = finalCleanTitle.replaceAll("(?i)\\s+-\\s+.*$", "").trim();
+                String altArtist = finalCleanArtist.replaceAll("(?i)\\s+and\\s+.*$", "").trim();
                 java.util.LinkedHashSet<String> queries = new java.util.LinkedHashSet<>();
-                queries.add(cleanTitle + " " + cleanArtist);
-                if (!altTitle.equals(cleanTitle)) queries.add(altTitle + " " + cleanArtist);
-                if (!altArtist.equals(cleanArtist)) queries.add(cleanTitle + " " + altArtist);
-                queries.add(cleanTitle);
-                if (!TextUtils.isEmpty(cleanArtist)) queries.add(cleanArtist + " " + cleanTitle);
+                queries.add(finalCleanTitle + " " + finalCleanArtist);
+                if (!altTitle.equals(finalCleanTitle)) queries.add(altTitle + " " + finalCleanArtist);
+                if (!altArtist.equals(finalCleanArtist)) queries.add(finalCleanTitle + " " + altArtist);
+                queries.add(finalCleanTitle);
+                if (!TextUtils.isEmpty(finalCleanArtist)) queries.add(finalCleanArtist + " " + finalCleanTitle);
 
                 String foundSynced = "";
                 String foundPlain = "";
                 int bestScore = -1;
                 for (String query : queries) {
-                    LyricsSearchResult r = requestLyricsFromLrcLib(query, cleanTitle, cleanArtist);
+                    LyricsSearchResult r = requestLyricsFromLrcLib(query, finalCleanTitle, finalCleanArtist);
                     if (r == null) continue;
                     if (!TextUtils.isEmpty(r.synced) && !"null".equals(r.synced) && r.score > bestScore) {
                         foundSynced = r.synced;
