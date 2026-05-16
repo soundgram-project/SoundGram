@@ -2004,10 +2004,88 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         } else if (id == 100) { // В плейлист
             showPlaylistSelectorFromDialog(messageObject);
         } else if (id == 7) { // В профиль
+            boolean isSGStream = messageObject.messageOwner != null
+                    && messageObject.messageOwner.message != null
+                    && messageObject.messageOwner.message.startsWith("SG_STREAM|||");
+            if (isSGStream) {
+                long targetId = MessagesController.getNotificationsSettings(currentAccount).getLong("music_channel_id", 0);
+                if (targetId == 0) {
+                    Toast.makeText(getContext(), getString(R.string.sg_open_music_first), Toast.LENGTH_LONG).show();
+                    dismiss();
+                    return;
+                }
+                String[] sgParts = messageObject.messageOwner.message.split("\\|\\|\\|");
+                String sgTitle  = sgParts.length > 1 ? sgParts[1] : "Unknown";
+                String sgArtist = sgParts.length > 2 ? sgParts[2] : "Unknown";
+                String sgUrl    = sgParts.length > 3 ? sgParts[3] : "";
+                AlertDialog prog = new AlertDialog(getContext(), 3);
+                prog.setMessage(getString(R.string.sg_downloading_track));
+                prog.show();
+                final long fTargetId = targetId;
+                new Thread(() -> {
+                    File destFile = org.telegram.ui.ChannelMusicFragment.getLocalTrackFile(sgArtist, sgTitle);
+                    boolean ok = destFile.exists() && destFile.length() > 1024;
+                    if (!ok) {
+                        ok = MusicWebSearcher.downloadTrackToExactFileSync(sgUrl, destFile);
+                    }
+                    final boolean finalOk = ok;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        prog.dismiss();
+                        if (finalOk && destFile.exists() && destFile.length() > 1024) {
+                            org.telegram.ui.ChannelMusicFragment.sendLocalAudioFileToChannel(
+                                    destFile, sgTitle, sgArtist, fTargetId, currentAccount);
+                            Toast.makeText(getContext(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
+                            saveLatestLibraryTrackToProfile(fTargetId, sgTitle, sgArtist);
+                        } else {
+                            Toast.makeText(getContext(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }).start();
+                dismiss();
+                return;
+            }
             saveToProfile(messageObject, true, () ->
                     Toast.makeText(getContext(), getString(R.string.sg_track_added_to_profile), Toast.LENGTH_SHORT).show(), false);
             dismiss();
         }
+    }
+
+    private void saveLatestLibraryTrackToProfile(long targetId, String title, String artist) {
+        AndroidUtilities.runOnUIThread(() -> {
+            final TLRPC.TL_messages_search req = new TLRPC.TL_messages_search();
+            req.peer = MessagesController.getInstance(currentAccount).getInputPeer(-targetId);
+            req.limit = 20;
+            req.q = "";
+            req.filter = new TLRPC.TL_inputMessagesFilterMusic();
+            req.offset_id = 0;
+            req.add_offset = 0;
+            req.max_id = 0;
+            req.min_id = 0;
+            req.hash = 0;
+            ConnectionsManager.getInstance(currentAccount).sendRequest(req, (res, err) -> {
+                if (!(res instanceof TLRPC.messages_Messages)) {
+                    return;
+                }
+                TLRPC.messages_Messages mm = (TLRPC.messages_Messages) res;
+                MessageObject candidate = null;
+                for (int i = 0; i < mm.messages.size(); i++) {
+                    MessageObject mo = new MessageObject(currentAccount, mm.messages.get(i), false, true);
+                    if (!mo.isMusic()) continue;
+                    String t = mo.getMusicTitle() != null ? mo.getMusicTitle() : "";
+                    String a = mo.getMusicAuthor() != null ? mo.getMusicAuthor() : "";
+                    if (t.equalsIgnoreCase(title) || a.equalsIgnoreCase(artist) || (t.toLowerCase().contains(title.toLowerCase()) && a.toLowerCase().contains(artist.toLowerCase()))) {
+                        candidate = mo;
+                        break;
+                    }
+                    if (candidate == null) candidate = mo;
+                }
+                if (candidate != null) {
+                    MessageObject finalCandidate = candidate;
+                    AndroidUtilities.runOnUIThread(() -> saveToProfile(finalCandidate, true, () ->
+                            Toast.makeText(getContext(), getString(R.string.sg_track_added_to_profile), Toast.LENGTH_SHORT).show(), false));
+                }
+            });
+        }, 1500);
     }
     private void showPlaylistSelectorFromDialog(MessageObject msg) {
         File dir = org.telegram.ui.ChannelMusicFragment.getPlaylistsDir();
@@ -2637,7 +2715,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 optionsButton.setAdditionalYOffset(-dp(157 + 40 + 48));
             }
             optionsButton.setSubItemShown(4, messageObject.getId() > 0);
-            optionsButton.setSubItemShown(7, isMyList());
+            optionsButton.setSubItemShown(7, messageObject != null && (messageObject.isMusic() || messageObject.isVoice() || messageObject.isRoundVideo()));
 
             checkIfMusicDownloaded(messageObject);
             updateProgress(messageObject, !sameMessageObject);

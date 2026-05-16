@@ -439,6 +439,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int nkbtn_translate = 2008;
     private final static int nkbtn_hide = 2009;
     private final static int nkbtn_savemessage = 2010;
+    private final static int nkbtn_add_to_library = 20101;
     private final static int nkbtn_forward_noquote = 2011;
     private final static int nkbtn_sharemessage = 2030;
 
@@ -45335,6 +45336,8 @@ public class ChatActivity extends BaseFragment implements
             ArrayList<MessageObject> messages = getSelectedMessages();
             forwardMessages(messages, false, false, true, 0, UserConfig.getInstance(currentAccount).getClientUserId(), 0);
             undoView.showWithAction(getUserConfig().getClientUserId(), UndoView.ACTION_FWD_MESSAGES, messages.size());
+        } else if (id == nkbtn_add_to_library) {
+            addMessagesToMusicLibrary(getSelectedMessages());
         } else if (id == nkbtn_hide) {
             ArrayList<MessageObject> messages = getSelectedMessages();
             for (MessageObject message : messages) {
@@ -45463,6 +45466,36 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
+    private void addMessagesToMusicLibrary(ArrayList<MessageObject> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
+        long targetId = MessagesController.getNotificationsSettings(currentAccount).getLong("music_channel_id", 0);
+        if (targetId == 0) {
+            try {
+                java.io.File dir = ApplicationLoader.applicationContext.getExternalFilesDir(null);
+                if (dir != null) {
+                    java.io.File f = new java.io.File(dir, "music_channel_id.txt");
+                    if (f.exists()) {
+                        java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(f));
+                        String line = r.readLine();
+                        r.close();
+                        if (line != null && !line.trim().isEmpty()) {
+                            targetId = Long.parseLong(line.trim());
+                            MessagesController.getNotificationsSettings(currentAccount).edit().putLong("music_channel_id", targetId).apply();
+                        }
+                    }
+                }
+            } catch (Exception ignore) {}
+        }
+        if (targetId == 0) {
+            AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_open_music_first), Toast.LENGTH_LONG).show());
+            return;
+        }
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(messages, -targetId, false, false, true, 0, 0);
+        AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show());
+    }
+
     private void nkbtn_onclick(int id) {
         // from "items"
         createUndoView();
@@ -45516,6 +45549,16 @@ public class ChatActivity extends BaseFragment implements
                 }
                 forwardMessages(messages, false, false, true, 0, getUserConfig().getClientUserId(), 0);
                 undoView.showWithAction(getUserConfig().getClientUserId(), UndoView.ACTION_FWD_MESSAGES, messages.size());
+                break;
+            }
+            case nkbtn_add_to_library: {
+                ArrayList<MessageObject> messages = new ArrayList<>();
+                if (selectedObjectGroup != null) {
+                    messages.addAll(selectedObjectGroup.messages);
+                } else if (selectedObject != null) {
+                    messages.add(selectedObject);
+                }
+                addMessagesToMusicLibrary(messages);
                 break;
             }
             case nkbtn_bookmark: {
@@ -47795,6 +47838,11 @@ public class ChatActivity extends BaseFragment implements
                     if (NekoConfig.showAddToSavedMessages.Bool() && !UserObject.isUserSelf(currentUser) && !noforwards && selectedObject.canForwardMessage()) {
                         items.add(getString(R.string.AddToSavedMessages));
                         options.add(nkbtn_savemessage);
+                        icons.add(R.drawable.msg_saved);
+                    }
+                    if (selectedObject != null && selectedObject.isMusic()) {
+                        items.add(getString(R.string.addlb));
+                        options.add(nkbtn_add_to_library);
                         icons.add(R.drawable.msg_saved);
                     }
                     if (NaConfig.INSTANCE.getShowAddToBookmark().Bool() && selectedObject != null && !selectedObject.isAnyKindOfSticker()) {

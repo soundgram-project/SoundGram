@@ -2213,7 +2213,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             final long finalContextId = contextId;
                             final String originalUrl = streamUrl;
 
-                            // ИСПРАВЛЕНИЕ VPN: Передаём оригинальный hitmos.me URL напрямую в ExoPlayer.
+                            // ИСПРАВЛЕНИЕ VPN: Передаём оригинальный URL напрямую в ExoPlayer.
                             // ExoPlayer с setAllowCrossProtocolRedirects(true) и правильными заголовками
                             // (Referer, User-Agent) сам пройдёт все редиректы через VPN TUN-интерфейс
                             // в момент воспроизведения — это надёжнее чем резолв заранее,
@@ -3409,6 +3409,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 builder.getDismissRunnable().run();
                 showSelectPlaylistBottomSheet(fragment, msg);
             }));
+            container.addView(createGlassMenuOption(context, getString(R.string.addlb), R.drawable.msg_saved, () -> {
+                builder.getDismissRunnable().run();
+                addTelegramTrackToLibrary(msg);
+            }));
         }
 
         String deleteText = isInsidePlaylist ? getString(R.string.dlpl) : getString(R.string.dll);
@@ -3419,6 +3423,36 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         builder.setCustomView(container);
         fragment.showDialog(builder.create());
+    }
+
+    private void addTelegramTrackToLibrary(MessageObject msg) {
+        long targetId = MessagesController.getNotificationsSettings(currentAccount).getLong("music_channel_id", 0);
+        if (targetId == 0) {
+            try {
+                File dir = ApplicationLoader.applicationContext.getExternalFilesDir(null);
+                if (dir != null) {
+                    File f = new File(dir, "music_channel_id.txt");
+                    if (f.exists()) {
+                        BufferedReader r = new BufferedReader(new FileReader(f));
+                        String line = r.readLine();
+                        r.close();
+                        if (line != null && !line.trim().isEmpty()) {
+                            targetId = Long.parseLong(line.trim());
+                            MessagesController.getNotificationsSettings(currentAccount).edit()
+                                    .putLong("music_channel_id", targetId).apply();
+                        }
+                    }
+                }
+            } catch (Exception ignore) {}
+        }
+        if (targetId == 0) {
+            Toast.makeText(getParentActivity(), getString(R.string.sg_open_music_first), Toast.LENGTH_LONG).show();
+            return;
+        }
+        ArrayList<MessageObject> fmessages = new ArrayList<>();
+        fmessages.add(msg);
+        SendMessagesHelper.getInstance(currentAccount).sendMessage(fmessages, -targetId, false, false, true, 0, 0);
+        Toast.makeText(getParentActivity(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
     }
 
 
@@ -4433,22 +4467,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     });
 
             if (artistUrl != null && !artistUrl.isEmpty()) {
-                fetchTracksFromHitmos(artistUrl, context);
+                fetchTracksFromDeezer(artistUrl, context);
             } else {
                 MusicWebSearcher.search(artistName, (tracks, artists, albums) -> {
-                    String hitmosUrl = null;
+                    String deezerArtistUrl = null;
                     if (artists != null && !artists.isEmpty()) {
                         for (MusicWebSearcher.WebArtist a : artists) {
                             if (a.name.equalsIgnoreCase(artistName)) {
-                                hitmosUrl = a.artistUrl; break;
+                                deezerArtistUrl = a.artistUrl; break;
                             }
                         }
-                        if (hitmosUrl == null) hitmosUrl = artists.get(0).artistUrl;
+                        if (deezerArtistUrl == null) deezerArtistUrl = artists.get(0).artistUrl;
                     }
-                    if (hitmosUrl != null) {
-                        artistUrl = hitmosUrl;
+                    if (deezerArtistUrl != null) {
+                        artistUrl = deezerArtistUrl;
                         AndroidUtilities.runOnUIThread(
-                                () -> fetchTracksFromHitmos(artistUrl, context));
+                                () -> fetchTracksFromDeezer(artistUrl, context));
                     } else {
                         AndroidUtilities.runOnUIThread(() ->
                                 Toast.makeText(context, getString(R.string.sg_tracks_not_found),
@@ -4472,7 +4506,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 public void onFailed() {
                     if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
                         long deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
-                        MusicWebSearcher.loadArtistTracksDeezer(deezerArtistId, artistName, original);
+                        MusicWebSearcher.loadAllArtistTracksDeezer(deezerArtistId, artistName, original);
                     } else {
                         original.onFailed();
                     }
@@ -4480,7 +4514,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             };
         }
 
-        private void fetchTracksFromHitmos(String targetUrl, Context context) {
+        private void fetchTracksFromDeezer(String targetUrl, Context context) {
             queue.clear();
             tracksContainer.removeAllViews();
 
@@ -4601,69 +4635,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
             };
 
-            if (targetUrl != null && !targetUrl.isEmpty() && !targetUrl.startsWith("DEEZER_ARTIST:")) {
-                MusicWebSearcher.loadArtistProfile(targetUrl,
-                        createFallbackCallback(callback, targetUrl, artistName));
+            if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
+                MusicWebSearcher.loadArtistProfile(targetUrl, createFallbackCallback(callback, targetUrl, artistName));
                 return;
             }
-
-            new Thread(() -> {
-                try {
-                    long deezerArtistId = -1;
-                    if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
-                        try {
-                            deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
-                        } catch (NumberFormatException ignored) {}
-                    }
-
-                    String foundHitmosUrl = null;
-                    String[] queriesToTry = {
-                            artistName,
-                            MusicWebSearcher.transliteratePublic(artistName)
-                    };
-
-                    for (String q : queriesToTry) {
-                        if (q == null || q.isEmpty()) continue;
-                        try {
-                            String searchHtml = MusicWebSearcher.fetchHtml(
-                                    "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q, "UTF-8"));
-                            if (searchHtml == null || searchHtml.isEmpty()) continue;
-
-                            ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
-                            MusicWebSearcher.parseHtmlToResults(searchHtml,
-                                    new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
-
-                            String lowerName = artistName.toLowerCase();
-                            for (MusicWebSearcher.WebArtist wa : foundArtists) {
-                                String waLower = wa.name.toLowerCase();
-                                // ИСПРАВЛЕНО: Строгое сравнение, чтобы не было чужих треков (шлака)
-                                if (waLower.equals(lowerName)) {
-                                    foundHitmosUrl = wa.artistUrl;
-                                    break;
-                                }
-                            }
-                            if (foundHitmosUrl != null) break;
-                        } catch (Exception e) {
-                            FileLog.e(e);
-                        }
-                    }
-
-                    if (foundHitmosUrl != null) {
-                        final String finalUrl = foundHitmosUrl;
-                        AndroidUtilities.runOnUIThread(() ->
-                                MusicWebSearcher.loadArtistProfile(finalUrl,
-                                        createFallbackCallback(callback, targetUrl, artistName)));
-                    } else if (deezerArtistId > 0) {
-                        final long finalId = deezerArtistId;
-                        MusicWebSearcher.loadAllArtistTracksDeezer(finalId, artistName, callback);
-                    } else {
-                        AndroidUtilities.runOnUIThread(callback::onFailed);
-                    }
-                } catch (Exception e) {
-                    FileLog.e(e);
-                    AndroidUtilities.runOnUIThread(callback::onFailed);
-                }
-            }).start();
+            AndroidUtilities.runOnUIThread(callback::onFailed);
         }
 
     }
@@ -4796,10 +4772,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         private void loadAlbumData() {
-            if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
-                String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
-                String aTitle = parts[0];
-                String aArtist = parts.length > 1 ? parts[1] : "";
+            if (albumUrl != null && (albumUrl.startsWith("SEARCH_ALBUM:") || albumUrl.startsWith("DEEZER_ALBUM:"))) {
+                String aTitle;
+                String aArtist;
+                if (albumUrl.startsWith("DEEZER_ALBUM:")) {
+                    String[] parts = albumUrl.replace("DEEZER_ALBUM:", "").split("::::", 2);
+                    aArtist = parts.length > 1 ? parts[1] : "";
+                    aTitle = title;
+                } else {
+                    String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
+                    aTitle = parts[0];
+                    aArtist = parts.length > 1 ? parts[1] : "";
+                }
 
                 playlistMessages.clear();
                 MusicWebSearcher.loadAlbumWithDeezerFallback(aTitle, aArtist, new MusicWebSearcher.ArtistProfileCallback() {
@@ -4844,6 +4828,24 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private void fetchRealAlbum(String realUrl) {
             playlistMessages.clear();
+            if (realUrl != null && realUrl.startsWith("DEEZER_ALBUM:")) {
+                String[] parts = realUrl.replace("DEEZER_ALBUM:", "").split("::::", 2);
+                String albumArtist = parts.length > 1 ? parts[1] : "";
+                MusicWebSearcher.loadAlbumWithDeezerFallback(title, albumArtist, new MusicWebSearcher.ArtistProfileCallback() {
+                    @Override public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
+                        safeNotifyAdapter(adapter, listView);
+                    }
+                    @Override public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
+                        MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl);
+                        playlistMessages.add(msgObj);
+                        safeNotifyAdapter(adapter, listView);
+                    }
+                    @Override public void onFailed() {
+                        Toast.makeText(getParentActivity(), getString(R.string.sg_loading_error), Toast.LENGTH_SHORT).show();
+                    }
+                });
+                return;
+            }
             MusicWebSearcher.loadArtistProfile(realUrl, new MusicWebSearcher.ArtistProfileCallback() {
                 @Override public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
                     safeNotifyAdapter(adapter, listView);
