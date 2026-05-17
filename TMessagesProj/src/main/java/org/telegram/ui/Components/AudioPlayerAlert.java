@@ -11,6 +11,8 @@ package org.telegram.ui.Components;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.formatString;
 import static org.telegram.messenger.LocaleController.getString;
+import static org.telegram.ui.ChannelMusicFragment.setAudioCover;
+
 import org.telegram.ui.SoundGramStyleManager;
 import org.telegram.ui.SoundGramStyleSettingsFragment;
 import android.Manifest;
@@ -405,13 +407,16 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 onSubItemClick(5);
             }));
             card.addView(buildMenuDivider2(getContext()));
-
-            card.addView(buildMenuRow2(getContext(), getString(R.string.sg_menu_add_to_profile), R.drawable.msg_saved, false, () -> {
-                if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
-                onSubItemClick(7);
-            }));
-            card.addView(buildMenuDivider2(getContext()));
         }
+
+        // ИСПРАВЛЕНИЕ: кнопка "добавить в профиль" всегда видна (встроенная ТГ функция)
+        // Если трек стримится - скачается, добавится в библиотеку и прикрепится в профиль
+        // Если трек из ТГ - просто прикрепится в профиль
+        card.addView(buildMenuRow2(getContext(), getString(R.string.sg_menu_add_to_profile), R.drawable.msg_saved, false, () -> {
+            if (menuDialogRef[0] != null) menuDialogRef[0].dismiss();
+            onSubItemClick(7);
+        }));
+        card.addView(buildMenuDivider2(getContext()));
 
         // 3. Поделиться
         card.addView(buildMenuRow2(getContext(), getString(R.string.sg_menu_share), R.drawable.msg_shareout, false, () -> {
@@ -2234,37 +2239,164 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         title.setPadding(dp(18), dp(8), dp(18), dp(8));
         container.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        ScrollView sv = new ScrollView(ctx);
-        LinearLayout rows = new LinearLayout(ctx);
-        rows.setOrientation(LinearLayout.VERTICAL);
-        for (int i = 0; i < playlist.size(); i++) {
-            final int index = i;
-            final MessageObject mo = playlist.get(i);
-            TextView row = new TextView(ctx);
-            String t = mo.getMusicTitle();
-            String a = mo.getMusicAuthor();
-            if (TextUtils.isEmpty(t)) t = getString(R.string.UnknownError);
-            if (TextUtils.isEmpty(a)) a = "Unknown";
-            row.setText((i + 1) + ". " + t + " — " + a);
-            row.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-            row.setTextColor(Theme.getColor(i == MediaController.getInstance().getPlayingMessageObjectNum()
-                    ? Theme.key_featuredStickers_addButton
-                    : Theme.key_dialogTextBlack));
-            row.setPadding(dp(18), dp(10), dp(18), dp(10));
-            row.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
-            row.setOnClickListener(v -> {
-                MediaController.getInstance().playMessage(mo);
-                if (queueSheetRef[0] != null) {
-                    queueSheetRef[0].dismiss();
-                }
-            });
-            rows.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        }
-        sv.addView(rows);
-        container.addView(sv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(360)));
+        // ИСПРАВЛЕНИЕ: используем RecyclerView с QueueAdapter вместо простого ScrollView
+        RecyclerListView queueListView = new RecyclerListView(ctx);
+        queueListView.setLayoutManager(new LinearLayoutManager(ctx));
+        QueueAdapter queueAdapter = new QueueAdapter(ctx, playlist, queueSheetRef);
+        queueListView.setAdapter(queueAdapter);
+        
+        container.addView(queueListView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(360)));
+        
         builder.setCustomView(container);
         queueSheetRef[0] = builder.create();
         queueSheetRef[0].show();
+    }
+
+    // ИСПРАВЛЕНИЕ: внутренний адаптер для очереди, использующий SpotifyTrackCell
+    private class QueueAdapter extends RecyclerListView.SelectionAdapter {
+        private Context context;
+        private ArrayList<MessageObject> queueTracks;
+        private BottomSheet[] bottomSheetRef;
+
+        public QueueAdapter(Context context, ArrayList<MessageObject> tracks, BottomSheet[] sheetRef) {
+            this.context = context;
+            this.queueTracks = tracks;
+            this.bottomSheetRef = sheetRef;
+        }
+
+        @Override
+        public boolean isEnabled(RecyclerView.ViewHolder holder) {
+            return true;
+        }
+
+        @Override
+        public int getItemCount() {
+            return queueTracks.size();
+        }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            // Используем SpotifyTrackCell из ChannelMusicFragment
+            return new RecyclerListView.Holder(new QueueTrackCell(context));
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            QueueTrackCell cell = (QueueTrackCell) holder.itemView;
+            MessageObject msg = queueTracks.get(position);
+            cell.setMessageObject(msg);
+            
+            // Обработка клика на трек
+            cell.setOnClickListener(v -> {
+                MediaController.getInstance().playMessage(msg);
+                if (bottomSheetRef[0] != null) {
+                    bottomSheetRef[0].dismiss();
+                }
+            });
+        }
+    }
+
+    // ИСПРАВЛЕНИЕ: копия SpotifyTrackCell из ChannelMusicFragment, адаптированная для очереди
+    private class QueueTrackCell extends FrameLayout {
+        public BackupImageView coverImage;
+        public TextView titleTextView;
+        public TextView artistTextView;
+        public ImageView playingIndicator;
+        private MessageObject currentMessageObject;
+
+        public QueueTrackCell(Context context) {
+            super(context);
+            
+            setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    AndroidUtilities.dp(72)));
+            setHasTransientState(true);
+
+            // Простой фон без "жидкого стекла" для очереди
+            setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+
+            FrameLayout coverFrame = new FrameLayout(context);
+            coverImage = new BackupImageView(context);
+            coverImage.setRoundRadius(AndroidUtilities.dp(8));
+            coverFrame.addView(coverImage, LayoutHelper.createFrame(52, 52));
+
+            playingIndicator = new ImageView(context);
+            playingIndicator.setScaleType(ImageView.ScaleType.CENTER);
+            playingIndicator.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
+            GradientDrawable indicatorBg = new GradientDrawable();
+            indicatorBg.setColor(0xCC000000);
+            indicatorBg.setCornerRadius(AndroidUtilities.dp(8));
+            playingIndicator.setBackground(indicatorBg);
+            playingIndicator.setVisibility(View.GONE);
+            coverFrame.addView(playingIndicator, LayoutHelper.createFrame(52, 52));
+
+            addView(coverFrame, LayoutHelper.createFrame(52, 52, Gravity.LEFT | Gravity.CENTER_VERTICAL, 16, 0, 0, 0));
+
+            LinearLayout textLayout = new LinearLayout(context);
+            textLayout.setOrientation(LinearLayout.VERTICAL);
+            textLayout.setGravity(Gravity.CENTER_VERTICAL);
+
+            titleTextView = new TextView(context);
+            titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+            titleTextView.setTypeface(AndroidUtilities.bold());
+            titleTextView.setSingleLine(true);
+            titleTextView.setEllipsize(TextUtils.TruncateAt.END);
+            titleTextView.setHasTransientState(true);
+
+            artistTextView = new TextView(context);
+            artistTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            artistTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            artistTextView.setSingleLine(true);
+            artistTextView.setEllipsize(TextUtils.TruncateAt.END);
+
+            textLayout.addView(titleTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            textLayout.addView(artistTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
+
+            addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 82, 0, 16, 0));
+
+            setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
+        }
+
+        public void setMessageObject(MessageObject msg) {
+            this.currentMessageObject = msg;
+            if (msg == null) return;
+            
+            titleTextView.setText(msg.getMusicTitle());
+            artistTextView.setText(msg.getMusicAuthor());
+
+            MessageObject playingMsg = MediaController.getInstance().getPlayingMessageObject();
+            boolean isPlaying = playingMsg != null && playingMsg.getId() == msg.getId() && msg.getId() != 0;
+
+            int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
+
+            if (isPlaying) {
+                titleTextView.setTextColor(accentColor);
+                playingIndicator.setVisibility(View.VISIBLE);
+                
+                // Пульсирующая анимация обложки текущего трека
+                ValueAnimator pulseAnim = ValueAnimator.ofFloat(1f, 1.04f, 1f);
+                pulseAnim.setDuration(1200);
+                pulseAnim.setRepeatCount(ValueAnimator.INFINITE);
+                pulseAnim.setRepeatMode(ValueAnimator.RESTART);
+                pulseAnim.addUpdateListener(anim -> {
+                    float val = (float) anim.getAnimatedValue();
+                    coverImage.setScaleX(val);
+                    coverImage.setScaleY(val);
+                });
+                coverImage.setTag(pulseAnim);
+                pulseAnim.start();
+            } else {
+                titleTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                playingIndicator.setVisibility(View.GONE);
+                Object tag = coverImage.getTag();
+                if (tag instanceof ValueAnimator) ((ValueAnimator) tag).cancel();
+                coverImage.setScaleX(1f);
+                coverImage.setScaleY(1f);
+            }
+
+            // Загружаем обложку трека
+            setAudioCover(coverImage, msg, "50_50", 8);
+        }
     }
 
     private void showAlbumCover(boolean show, boolean animated) {
@@ -4566,9 +4698,9 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 canvas.restore();
             }
 
-            // Мягкий fade сверху/снизу как в современных lyric-view
-            canvas.drawRect(0, 0, getWidth(), AndroidUtilities.dp(88), fadeTopPaint);
-            canvas.drawRect(0, getHeight() - AndroidUtilities.dp(120), getWidth(), getHeight(), fadeBottomPaint);
+            // ИСПРАВЛЕНИЕ: убираем затемнения сверху/снизу
+            // canvas.drawRect(0, 0, getWidth(), AndroidUtilities.dp(88), fadeTopPaint);
+            // canvas.drawRect(0, getHeight() - AndroidUtilities.dp(120), getWidth(), getHeight(), fadeBottomPaint);
         }
 
         /** Рисует текст с переносом по ширине, центрируя блок по Y.

@@ -3788,7 +3788,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     private android.os.Bundle buildStreamHeaders() {
         android.os.Bundle headers = new android.os.Bundle();
         headers.putString("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
-        headers.putString("Referer", "https://www.deezer.com/");
+        headers.putString("Referer", "https://hitmos.me/");
         headers.putString("Accept", "*/*");
         return headers;
     }

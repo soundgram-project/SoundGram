@@ -229,7 +229,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
     private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent) {
         ensureVpnSsl();
-        // ИСПРАВЛЕНИЕ: СТРОГО ЕДИНЫЙ USER-AGENT как в MusicWebSearcher
+        // ИСПРАВЛЕНИЕ: СТРОГО ЕДИНЫЙ USER-AGENT как в MusicWebSearcher для обхода защиты Cloudflare/Hitmos
         String unifiedUserAgent = "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0";
 
         com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory httpFactory = new com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory()
@@ -237,12 +237,14 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 .setConnectTimeoutMs(25000)
                 .setReadTimeoutMs(25000)
                 // setAllowCrossProtocolRedirects позволяет следовать редиректам http↔https И между разными хостами
-                // Критично при VPN: разрешаем междоменные редиректы
+                // Критично при VPN: hitmos.me → eu.hitmoz.com или rus.hitmoz.org
                 .setAllowCrossProtocolRedirects(true);
 
         java.util.Map<String, String> headers = new java.util.HashMap<>();
-        headers.put("Referer", "https://www.deezer.com/");
-        headers.put("Origin", "https://www.deezer.com");
+        // Referer должен совпадать с ожиданием зеркальных серверов
+        // hitmos.me, eu.hitmoz.com и rus.hitmoz.org — одна экосистема, все принимают hitmos.me как Referer
+        headers.put("Referer", "https://hitmos.me/");
+        headers.put("Origin", "https://hitmos.me");
         headers.put("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
         headers.put("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8");
         headers.put("Connection", "keep-alive");

@@ -420,6 +420,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             waveWidget.startAnimation();
             AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
             AudioPlayerAlert.currentSourceLabel = "";
+            // ИСПРАВЛЕНИЕ: остановить предыдущую волну перед запуском новой
+            SmartRadioEngine.stopWaveSession();
             SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                 @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                     if (!tracks.isEmpty()) {
@@ -2977,6 +2979,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         if (playlistMessages.isEmpty()) return;
                         Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                         ArrayList<MessageObject> originalList = new ArrayList<>(playlistMessages);
+                        // ИСПРАВЛЕНИЕ: остановить предыдущую волну перед запуском новой
+                        SmartRadioEngine.stopWaveSession();
                         SmartRadioEngine.generateWaveByPlaylist(originalList, currentAccount,
                                 new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> waveQueue) {
@@ -3408,10 +3412,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             container.addView(createGlassMenuOption(context, getString(R.string.addpl), R.drawable.msg_add, () -> {
                 builder.getDismissRunnable().run();
                 showSelectPlaylistBottomSheet(fragment, msg);
-            }));
-            container.addView(createGlassMenuOption(context, getString(R.string.addlb), R.drawable.msg_saved, () -> {
-                builder.getDismissRunnable().run();
-                addTelegramTrackToLibrary(msg);
             }));
         }
 
@@ -4301,6 +4301,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     AndroidUtilities.runOnUIThread(() -> {
                         String savedQuery = SmartRadioEngine.currentConfig.query;
                         SmartRadioEngine.currentConfig.query = genreQuery;
+                        // ИСПРАВЛЕНИЕ: остановить предыдущую волну перед запуском новой
+                        SmartRadioEngine.stopWaveSession();
                         SmartRadioEngine.generateWaveByArtist(artistName, currentAccount,
                                 new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
@@ -4467,22 +4469,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     });
 
             if (artistUrl != null && !artistUrl.isEmpty()) {
-                fetchTracksFromDeezer(artistUrl, context);
+                fetchTracksFromHitmos(artistUrl, context);
             } else {
                 MusicWebSearcher.search(artistName, (tracks, artists, albums) -> {
-                    String deezerArtistUrl = null;
+                    String hitmosUrl = null;
                     if (artists != null && !artists.isEmpty()) {
                         for (MusicWebSearcher.WebArtist a : artists) {
                             if (a.name.equalsIgnoreCase(artistName)) {
-                                deezerArtistUrl = a.artistUrl; break;
+                                hitmosUrl = a.artistUrl; break;
                             }
                         }
-                        if (deezerArtistUrl == null) deezerArtistUrl = artists.get(0).artistUrl;
+                        if (hitmosUrl == null) hitmosUrl = artists.get(0).artistUrl;
                     }
-                    if (deezerArtistUrl != null) {
-                        artistUrl = deezerArtistUrl;
+                    if (hitmosUrl != null) {
+                        artistUrl = hitmosUrl;
                         AndroidUtilities.runOnUIThread(
-                                () -> fetchTracksFromDeezer(artistUrl, context));
+                                () -> fetchTracksFromHitmos(artistUrl, context));
                     } else {
                         AndroidUtilities.runOnUIThread(() ->
                                 Toast.makeText(context, getString(R.string.sg_tracks_not_found),
@@ -4506,7 +4508,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 public void onFailed() {
                     if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
                         long deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
-                        MusicWebSearcher.loadAllArtistTracksDeezer(deezerArtistId, artistName, original);
+                        MusicWebSearcher.loadArtistTracksDeezer(deezerArtistId, artistName, original);
                     } else {
                         original.onFailed();
                     }
@@ -4514,7 +4516,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             };
         }
 
-        private void fetchTracksFromDeezer(String targetUrl, Context context) {
+        private void fetchTracksFromHitmos(String targetUrl, Context context) {
             queue.clear();
             tracksContainer.removeAllViews();
 
@@ -4635,11 +4637,69 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
             };
 
-            if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
-                MusicWebSearcher.loadArtistProfile(targetUrl, createFallbackCallback(callback, targetUrl, artistName));
+            if (targetUrl != null && !targetUrl.isEmpty() && !targetUrl.startsWith("DEEZER_ARTIST:")) {
+                MusicWebSearcher.loadArtistProfile(targetUrl,
+                        createFallbackCallback(callback, targetUrl, artistName));
                 return;
             }
-            AndroidUtilities.runOnUIThread(callback::onFailed);
+
+            new Thread(() -> {
+                try {
+                    long deezerArtistId = -1;
+                    if (targetUrl != null && targetUrl.startsWith("DEEZER_ARTIST:")) {
+                        try {
+                            deezerArtistId = Long.parseLong(targetUrl.replace("DEEZER_ARTIST:", "").trim());
+                        } catch (NumberFormatException ignored) {}
+                    }
+
+                    String foundHitmosUrl = null;
+                    String[] queriesToTry = {
+                            artistName,
+                            MusicWebSearcher.transliteratePublic(artistName)
+                    };
+
+                    for (String q : queriesToTry) {
+                        if (q == null || q.isEmpty()) continue;
+                        try {
+                            String searchHtml = MusicWebSearcher.fetchHtml(
+                                    "https://eu.hitmoz.com/search?q=" + URLEncoder.encode(q, "UTF-8"));
+                            if (searchHtml == null || searchHtml.isEmpty()) continue;
+
+                            ArrayList<MusicWebSearcher.WebArtist> foundArtists = new ArrayList<>();
+                            MusicWebSearcher.parseHtmlToResults(searchHtml,
+                                    new ArrayList<>(), foundArtists, new ArrayList<>(), new HashSet<>());
+
+                            String lowerName = artistName.toLowerCase();
+                            for (MusicWebSearcher.WebArtist wa : foundArtists) {
+                                String waLower = wa.name.toLowerCase();
+                                // ИСПРАВЛЕНО: Строгое сравнение, чтобы не было чужих треков (шлака)
+                                if (waLower.equals(lowerName)) {
+                                    foundHitmosUrl = wa.artistUrl;
+                                    break;
+                                }
+                            }
+                            if (foundHitmosUrl != null) break;
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        }
+                    }
+
+                    if (foundHitmosUrl != null) {
+                        final String finalUrl = foundHitmosUrl;
+                        AndroidUtilities.runOnUIThread(() ->
+                                MusicWebSearcher.loadArtistProfile(finalUrl,
+                                        createFallbackCallback(callback, targetUrl, artistName)));
+                    } else if (deezerArtistId > 0) {
+                        final long finalId = deezerArtistId;
+                        MusicWebSearcher.loadAllArtistTracksDeezer(finalId, artistName, callback);
+                    } else {
+                        AndroidUtilities.runOnUIThread(callback::onFailed);
+                    }
+                } catch (Exception e) {
+                    FileLog.e(e);
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                }
+            }).start();
         }
 
     }
@@ -4772,18 +4832,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         private void loadAlbumData() {
-            if (albumUrl != null && (albumUrl.startsWith("SEARCH_ALBUM:") || albumUrl.startsWith("DEEZER_ALBUM:"))) {
-                String aTitle;
-                String aArtist;
-                if (albumUrl.startsWith("DEEZER_ALBUM:")) {
-                    String[] parts = albumUrl.replace("DEEZER_ALBUM:", "").split("::::", 2);
-                    aArtist = parts.length > 1 ? parts[1] : "";
-                    aTitle = title;
-                } else {
-                    String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
-                    aTitle = parts[0];
-                    aArtist = parts.length > 1 ? parts[1] : "";
-                }
+            if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
+                String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
+                String aTitle = parts[0];
+                String aArtist = parts.length > 1 ? parts[1] : "";
 
                 playlistMessages.clear();
                 MusicWebSearcher.loadAlbumWithDeezerFallback(aTitle, aArtist, new MusicWebSearcher.ArtistProfileCallback() {
@@ -4828,24 +4880,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private void fetchRealAlbum(String realUrl) {
             playlistMessages.clear();
-            if (realUrl != null && realUrl.startsWith("DEEZER_ALBUM:")) {
-                String[] parts = realUrl.replace("DEEZER_ALBUM:", "").split("::::", 2);
-                String albumArtist = parts.length > 1 ? parts[1] : "";
-                MusicWebSearcher.loadAlbumWithDeezerFallback(title, albumArtist, new MusicWebSearcher.ArtistProfileCallback() {
-                    @Override public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
-                        safeNotifyAdapter(adapter, listView);
-                    }
-                    @Override public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
-                        MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long)wt.downloadUrl.hashCode(), wt.coverUrl);
-                        playlistMessages.add(msgObj);
-                        safeNotifyAdapter(adapter, listView);
-                    }
-                    @Override public void onFailed() {
-                        Toast.makeText(getParentActivity(), getString(R.string.sg_loading_error), Toast.LENGTH_SHORT).show();
-                    }
-                });
-                return;
-            }
             MusicWebSearcher.loadArtistProfile(realUrl, new MusicWebSearcher.ArtistProfileCallback() {
                 @Override public void onResult(ArrayList<MusicWebSearcher.WebAlbum> albums, ArrayList<MusicWebSearcher.WebTrack> tracks) {
                     safeNotifyAdapter(adapter, listView);
@@ -5071,6 +5105,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             AndroidUtilities.runOnUIThread(() -> {
                                 String savedQ = SmartRadioEngine.currentConfig.query;
                                 SmartRadioEngine.currentConfig.query = genreQuery;
+                                // ИСПРАВЛЕНИЕ: остановить предыдущую волну перед запуском новой
+                                SmartRadioEngine.stopWaveSession();
                                 SmartRadioEngine.generateWaveByAlbum(finalArtist, title,
                                         currentAccount, new SmartRadioEngine.WaveCallback() {
                                             @Override public void onTracksFound(ArrayList<MessageObject> tracks) {

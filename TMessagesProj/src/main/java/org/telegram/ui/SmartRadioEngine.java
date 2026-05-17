@@ -169,6 +169,15 @@ public class SmartRadioEngine {
         isWaveActive = true;
     }
 
+    // ИСПРАВЛЕНИЕ: добавляем метод для полного завершения волны
+    public static void stopWaveSession() {
+        isWaveActive = false;
+        isLoading = false;
+        cancelFlag.set(true);
+        try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+        cancelFlag.set(false);
+    }
+
     private static String normalizeSeedKey(String artist, String title) {
         return ((artist == null ? "" : artist) + "|" + (title == null ? "" : title))
                 .toLowerCase().replaceAll("[^a-zа-яё0-9|]", "");

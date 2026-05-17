@@ -45471,50 +45471,27 @@ public class ChatActivity extends BaseFragment implements
         if (messages == null || messages.isEmpty()) {
             return;
         }
-        long targetId = getMusicChannelIdOrZero();
-        if (targetId == 0) {
-            AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_open_music_first), Toast.LENGTH_LONG).show());
-            return;
-        }
-        final long fTargetId = targetId;
-        boolean hasStream = false;
-        ArrayList<MessageObject> telegramMusic = new ArrayList<>();
+        
+        // Отправляем только музыку, без обработки потоков/streams
+        // Канал хранилища: userID_soundgram
+        long userId = getUserConfig().getClientUserId();
+        long targetId = userId;
+        
+        ArrayList<MessageObject> musicMessages = new ArrayList<>();
+        
         for (MessageObject mo : messages) {
             if (mo == null || mo.messageOwner == null) continue;
-            String text = mo.messageOwner.message;
-            if (text != null && text.startsWith("SG_STREAM|||")) {
-                hasStream = true;
-                String[] parts = text.split("\\|\\|\\|");
-                String t = parts.length > 1 ? parts[1] : "Unknown";
-                String a = parts.length > 2 ? parts[2] : "Unknown";
-                String u = parts.length > 3 ? parts[3] : "";
-                if (TextUtils.isEmpty(u)) {
-                    SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -fTargetId,
-                            null, null, null, true, null, null, null, true, 0, 0, null, false);
-                    continue;
-                }
-                new Thread(() -> {
-                    File dest = ChannelMusicFragment.getLocalTrackFile(a, t);
-                    boolean ok = dest.exists() && dest.length() > 1024;
-                    if (!ok) {
-                        ok = MusicWebSearcher.downloadTrackToExactFileSync(u, dest);
-                    }
-                    if (ok && dest.exists() && dest.length() > 1024) {
-                        ChannelMusicFragment.sendLocalAudioFileToChannel(dest, t, a, fTargetId, currentAccount);
-                    } else {
-                        SendMessagesHelper.getInstance(currentAccount).sendMessage(text, -fTargetId,
-                                null, null, null, true, null, null, null, true, 0, 0, null, false);
-                    }
-                }).start();
-            } else if (mo.isMusic()) {
-                telegramMusic.add(mo);
+            if (mo.isMusic()) {
+                musicMessages.add(mo);
             }
         }
-        if (!telegramMusic.isEmpty()) {
-            SendMessagesHelper.getInstance(currentAccount).sendMessage(telegramMusic, -fTargetId, false, false, true, 0, 0);
-        }
-        if (hasStream || !telegramMusic.isEmpty()) {
+        
+        // Отправляем только музыку в канал хранилище
+        if (!musicMessages.isEmpty()) {
+            SendMessagesHelper.getInstance(currentAccount).sendMessage(musicMessages, -targetId, false, false, true, 0, 0);
             AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show());
+        } else {
+            AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_tracks_not_found), Toast.LENGTH_SHORT).show());
         }
     }
 
@@ -47880,11 +47857,6 @@ public class ChatActivity extends BaseFragment implements
                     if (NekoConfig.showAddToSavedMessages.Bool() && !UserObject.isUserSelf(currentUser) && !noforwards && selectedObject.canForwardMessage()) {
                         items.add(getString(R.string.AddToSavedMessages));
                         options.add(nkbtn_savemessage);
-                        icons.add(R.drawable.msg_saved);
-                    }
-                    if (selectedObject != null && selectedObject.isMusic()) {
-                        items.add(getString(R.string.addlb));
-                        options.add(nkbtn_add_to_library);
                         icons.add(R.drawable.msg_saved);
                     }
                     if (NaConfig.INSTANCE.getShowAddToBookmark().Bool() && selectedObject != null && !selectedObject.isAnyKindOfSticker()) {

@@ -355,12 +355,12 @@ public class TgWsProxyService extends Service {
             intent.putExtra(EXTRA_FROM_WORKER,  true);
             intent.putExtra(EXTRA_PORT,         prefs.getInt("port",           1443));
             intent.putExtra(EXTRA_SECRET,        prefs.getString("secret",      ""));
-            intent.putExtra(EXTRA_POOL_SIZE,    prefs.getInt("pool_size",       6));
+            intent.putExtra(EXTRA_POOL_SIZE,    prefs.getInt("pool_size",       4));
             intent.putExtra(EXTRA_RECV_BUF,     prefs.getInt("buffer",         256));
             intent.putExtra(EXTRA_SEND_BUF,     prefs.getInt("buffer",         256));
             intent.putExtra(EXTRA_CF_ENABLED,   prefs.getBoolean("cf_enabled", true));
             intent.putExtra(EXTRA_CF_DOMAIN,     prefs.getString("cf_domain",   ""));
-            intent.putExtra(EXTRA_FAKE_TLS,     prefs.getBoolean("fake_tls",   true));
+            intent.putExtra(EXTRA_FAKE_TLS,     prefs.getBoolean("fake_tls",   false));
             intent.putExtra(EXTRA_FAKE_DOMAIN,   prefs.getString("fake_domain", "google.com"));
             intent.putExtra(EXTRA_VERBOSE,      prefs.getInt("verbose",         0));
             intent.putExtra(EXTRA_DC_IPS,        prefs.getString("dc_ips",      ""));
@@ -405,7 +405,7 @@ public class TgWsProxyService extends Service {
                 }
                 int port         = intent.getIntExtra(EXTRA_PORT, 1443);
                 String secret    = intent.getStringExtra(EXTRA_SECRET);
-                int pool         = intent.getIntExtra(EXTRA_POOL_SIZE, 6);
+                int pool         = intent.getIntExtra(EXTRA_POOL_SIZE, 4);
                 int recvBuf      = intent.getIntExtra(EXTRA_RECV_BUF, 256);
                 int sendBuf      = intent.getIntExtra(EXTRA_SEND_BUF, 256);
                 boolean cf       = intent.getBooleanExtra(EXTRA_CF_ENABLED, true);
@@ -652,11 +652,11 @@ public class TgWsProxyService extends Service {
         if (secret.isEmpty()) return;
 
         int port       = prefs.getInt("port", 1443);
-        int pool       = prefs.getInt("pool_size", 6);
+        int pool       = prefs.getInt("pool_size", 4);
         int buf        = prefs.getInt("buffer", 256);
         boolean cf     = prefs.getBoolean("cf_enabled", true);
         String cfDomain  = prefs.getString("cf_domain", "");
-        boolean fakeTls  = prefs.getBoolean("fake_tls", true);
+        boolean fakeTls  = prefs.getBoolean("fake_tls", false);
         String fakeDomain = prefs.getString("fake_domain", "google.com");
         int verbose    = prefs.getInt("verbose", 0);
         String dcIps   = prefs.getString("dc_ips", "");
