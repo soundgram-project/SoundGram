@@ -359,16 +359,6 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         subtitleTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         textCol.addView(subtitleTv);
         row.addView(textCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-
-        // Switch
-        Switch toggle = new Switch(ctx);
-        toggle.setChecked(ChannelStorageManager.isLibraryPublic(selfId));
-        toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            String username = isChecked ? selfId + "_soundgram" : "";
-            ChannelStorageManager.setLibraryPublic(selfId, isChecked, username);
-        });
-        row.addView(toggle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
         card.addView(row, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         return card;
     }
