@@ -995,13 +995,15 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         topOptionsBtn.addSubItem(201, R.drawable.msg_customize, getString(R.string.sg_menu_equalizer));
         topOptionsBtn.addSubItem(202, R.drawable.msg_shareout, getString(R.string.sg_menu_share));
         topOptionsBtn.addSubItem(203, R.drawable.msg_add, getString(R.string.sg_menu_add_to_playlist));
-        topOptionsBtn.addSubItem(5, R.drawable.msg_download, getString(R.string.sg_menu_to_library)); // <-- ДОБАВЛЕНО
+        topOptionsBtn.addSubItem(205, R.drawable.msg_openprofile, getString(R.string.sg_menu_add_to_profile));
+        topOptionsBtn.addSubItem(5, R.drawable.msg_download, getString(R.string.sg_menu_to_library));
         topOptionsBtn.setOnClickListener(v -> topOptionsBtn.toggleSubMenu());
         topOptionsBtn.setDelegate(id -> {
             if (id == 201) { if (parentActivity != null) new SoundGramEQAlert(parentActivity).show(); }
             else if (id == 202) onSubItemClick(1);
             else if (id == 203) onSubItemClick(100);
-            else if (id == 5) onSubItemClick(5); // <-- ДОБАВЛЕНО
+            else if (id == 205) onSubItemClick(7);
+            else if (id == 5) onSubItemClick(5);
         });
         // ...
 
@@ -1147,7 +1149,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         // Кнопка лирики (иконка сообщения) — справа от названия
         ImageView lyricsButton = new ImageView(context);
-        lyricsButton.setImageResource(R.drawable.msg_message);
+        lyricsButton.setImageResource(R.drawable.msg_photo_text_solar);
         lyricsButton.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.MULTIPLY);
         lyricsButton.setScaleType(ImageView.ScaleType.CENTER);
         if (Build.VERSION.SDK_INT >= 21) lyricsButton.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
@@ -1341,7 +1343,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         buttons[1] = queueButton = new RLottieImageView(context);
         queueButton.setScaleType(ImageView.ScaleType.CENTER);
-        queueButton.setImageResource(R.drawable.msg_addfolder);
+        queueButton.setImageResource(R.drawable.menu_intro);
         queueButton.setColorFilter(new PorterDuffColorFilter(iconColor, PorterDuff.Mode.SRC_IN));
         if (Build.VERSION.SDK_INT >= 21) queueButton.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
         queueButton.setOnClickListener(v -> showQueueSheet());
@@ -2239,24 +2241,53 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         title.setPadding(dp(18), dp(8), dp(18), dp(8));
         container.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // ИСПРАВЛЕНИЕ: используем RecyclerView с QueueAdapter вместо простого ScrollView
+        // RecyclerView с QueueAdapter — высота адаптивная (макс 70% экрана)
         RecyclerListView queueListView = new RecyclerListView(ctx);
-        queueListView.setLayoutManager(new LinearLayoutManager(ctx));
+        LinearLayoutManager queueLlm = new LinearLayoutManager(ctx);
+        queueListView.setLayoutManager(queueLlm);
+        queueListView.setNestedScrollingEnabled(true);
+        queueListView.setHasFixedSize(false);
         QueueAdapter queueAdapter = new QueueAdapter(ctx, playlist, queueSheetRef);
         queueListView.setAdapter(queueAdapter);
-        
-        container.addView(queueListView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, dp(360)));
+        // Фикс: при скролле вверх BottomSheet не должна перехватывать жест и закрываться.
+        // Если список можно скроллить вверх (не в начале) — запрещаем родителю перехватывать касание.
+        queueListView.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
+            @Override
+            public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+                int action = e.getActionMasked();
+                if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_MOVE) {
+                    if (rv.getParent() != null) {
+                        rv.getParent().requestDisallowInterceptTouchEvent(rv.canScrollVertically(-1));
+                    }
+                }
+                return false;
+            }
+        });
+        // Скроллить к текущему треку
+        int queueCurrentPos = 0;
+        MessageObject queuePlayingNow = MediaController.getInstance().getPlayingMessageObject();
+        if (queuePlayingNow != null) {
+            for (int qi = 0; qi < playlist.size(); qi++) {
+                if (playlist.get(qi).getId() == queuePlayingNow.getId()) { queueCurrentPos = qi; break; }
+            }
+        }
+        queueLlm.scrollToPositionWithOffset(Math.max(0, queueCurrentPos - 2), 0);
+        // Высота: min(70% экрана, кол-во треков * 72dp), но не меньше 200dp
+        int queueTrackH = AndroidUtilities.dp(72);
+        int queueMaxH   = (int)(AndroidUtilities.displaySize.y * 0.70f);
+        int queueListH  = Math.min(queueMaxH, Math.max(AndroidUtilities.dp(200), playlist.size() * queueTrackH));
+        container.addView(queueListView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, (int)(queueListH / AndroidUtilities.density)));
         
         builder.setCustomView(container);
         queueSheetRef[0] = builder.create();
         queueSheetRef[0].show();
     }
 
-    // ИСПРАВЛЕНИЕ: внутренний адаптер для очереди, использующий SpotifyTrackCell
+    // Адаптер очереди воспроизведения
     private class QueueAdapter extends RecyclerListView.SelectionAdapter {
-        private Context context;
-        private ArrayList<MessageObject> queueTracks;
-        private BottomSheet[] bottomSheetRef;
+        private final Context context;
+        private final ArrayList<MessageObject> queueTracks;
+        private final BottomSheet[] bottomSheetRef;
 
         public QueueAdapter(Context context, ArrayList<MessageObject> tracks, BottomSheet[] sheetRef) {
             this.context = context;
@@ -2264,39 +2295,30 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             this.bottomSheetRef = sheetRef;
         }
 
-        @Override
-        public boolean isEnabled(RecyclerView.ViewHolder holder) {
-            return true;
-        }
-
-        @Override
-        public int getItemCount() {
-            return queueTracks.size();
-        }
+        @Override public boolean isEnabled(RecyclerView.ViewHolder holder) { return true; }
+        @Override public int getItemCount() { return queueTracks.size(); }
 
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            // Используем SpotifyTrackCell из ChannelMusicFragment
-            return new RecyclerListView.Holder(new QueueTrackCell(context));
+            QueueTrackCell cell = new QueueTrackCell(context);
+            // Создаём holder здесь, чтобы захватить в lambda — getAdapterPosition() всегда актуален
+            RecyclerListView.Holder holder = new RecyclerListView.Holder(cell);
+            cell.setOnClickListener(v -> {
+                int pos = holder.getAdapterPosition();
+                if (pos < 0 || pos >= queueTracks.size()) return;
+                MediaController.getInstance().playMessage(queueTracks.get(pos));
+                if (bottomSheetRef[0] != null) bottomSheetRef[0].dismiss();
+            });
+            return holder;
         }
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-            QueueTrackCell cell = (QueueTrackCell) holder.itemView;
-            MessageObject msg = queueTracks.get(position);
-            cell.setMessageObject(msg);
-            
-            // Обработка клика на трек
-            cell.setOnClickListener(v -> {
-                MediaController.getInstance().playMessage(msg);
-                if (bottomSheetRef[0] != null) {
-                    bottomSheetRef[0].dismiss();
-                }
-            });
+            ((QueueTrackCell) holder.itemView).setMessageObject(queueTracks.get(position));
         }
     }
 
-    // ИСПРАВЛЕНИЕ: копия SpotifyTrackCell из ChannelMusicFragment, адаптированная для очереди
+    // Ячейка очереди — вся строка кликабельна
     private class QueueTrackCell extends FrameLayout {
         public BackupImageView coverImage;
         public TextView titleTextView;
@@ -2306,74 +2328,86 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         public QueueTrackCell(Context context) {
             super(context);
-            
+
             setLayoutParams(new RecyclerView.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    AndroidUtilities.dp(72)));
-            setHasTransientState(true);
+                    ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(72)));
+            // Клики перехватывает сам FrameLayout, дочерние — нет
+            setClickable(true);
+            setFocusable(true);
+            setDescendantFocusability(FOCUS_BLOCK_DESCENDANTS);
+            setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
 
-            // Простой фон без "жидкого стекла" для очереди
-            setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
-
+            // Обложка
             FrameLayout coverFrame = new FrameLayout(context);
             coverImage = new BackupImageView(context);
             coverImage.setRoundRadius(AndroidUtilities.dp(8));
+            // Не перехватывать клики
+            coverImage.setClickable(false);
+            coverImage.setFocusable(false);
             coverFrame.addView(coverImage, LayoutHelper.createFrame(52, 52));
 
+            // Индикатор воспроизведения (поверх обложки)
             playingIndicator = new ImageView(context);
             playingIndicator.setScaleType(ImageView.ScaleType.CENTER);
             playingIndicator.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
             GradientDrawable indicatorBg = new GradientDrawable();
             indicatorBg.setColor(0xCC000000);
-            indicatorBg.setCornerRadius(AndroidUtilities.dp(8));
+            indicatorBg.setCornerRadius(AndroidUtilities.dp(26));
             playingIndicator.setBackground(indicatorBg);
             playingIndicator.setVisibility(View.GONE);
+            playingIndicator.setClickable(false);
             coverFrame.addView(playingIndicator, LayoutHelper.createFrame(52, 52));
 
             addView(coverFrame, LayoutHelper.createFrame(52, 52, Gravity.LEFT | Gravity.CENTER_VERTICAL, 16, 0, 0, 0));
 
+            // Текст — занимает всё оставшееся пространство
             LinearLayout textLayout = new LinearLayout(context);
             textLayout.setOrientation(LinearLayout.VERTICAL);
             textLayout.setGravity(Gravity.CENTER_VERTICAL);
+            textLayout.setClickable(false);
+            textLayout.setFocusable(false);
 
             titleTextView = new TextView(context);
             titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
             titleTextView.setTypeface(AndroidUtilities.bold());
             titleTextView.setSingleLine(true);
             titleTextView.setEllipsize(TextUtils.TruncateAt.END);
-            titleTextView.setHasTransientState(true);
+            titleTextView.setClickable(false);
 
             artistTextView = new TextView(context);
             artistTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             artistTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             artistTextView.setSingleLine(true);
             artistTextView.setEllipsize(TextUtils.TruncateAt.END);
+            artistTextView.setClickable(false);
 
             textLayout.addView(titleTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
             textLayout.addView(artistTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
 
+            // Правый отступ 16dp, чтобы текст не упирался в край
             addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 82, 0, 16, 0));
 
-            setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 0));
+            // Разделитель снизу
+            View divider = new View(context);
+            divider.setBackgroundColor(Theme.getColor(Theme.key_divider));
+            divider.setClickable(false);
+            addView(divider, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1f / AndroidUtilities.density, Gravity.BOTTOM | Gravity.LEFT, 82, 0, 0, 0));
         }
 
         public void setMessageObject(MessageObject msg) {
             this.currentMessageObject = msg;
             if (msg == null) return;
-            
+
             titleTextView.setText(msg.getMusicTitle());
             artistTextView.setText(msg.getMusicAuthor());
 
             MessageObject playingMsg = MediaController.getInstance().getPlayingMessageObject();
             boolean isPlaying = playingMsg != null && playingMsg.getId() == msg.getId() && msg.getId() != 0;
-
             int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
 
             if (isPlaying) {
                 titleTextView.setTextColor(accentColor);
                 playingIndicator.setVisibility(View.VISIBLE);
-                
-                // Пульсирующая анимация обложки текущего трека
                 ValueAnimator pulseAnim = ValueAnimator.ofFloat(1f, 1.04f, 1f);
                 pulseAnim.setDuration(1200);
                 pulseAnim.setRepeatCount(ValueAnimator.INFINITE);
@@ -2383,6 +2417,8 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                     coverImage.setScaleX(val);
                     coverImage.setScaleY(val);
                 });
+                Object oldAnim = coverImage.getTag();
+                if (oldAnim instanceof ValueAnimator) ((ValueAnimator) oldAnim).cancel();
                 coverImage.setTag(pulseAnim);
                 pulseAnim.start();
             } else {
@@ -2394,7 +2430,6 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 coverImage.setScaleY(1f);
             }
 
-            // Загружаем обложку трека
             setAudioCover(coverImage, msg, "50_50", 8);
         }
     }

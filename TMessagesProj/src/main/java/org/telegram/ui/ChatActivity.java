@@ -34620,15 +34620,55 @@ public class ChatActivity extends BaseFragment implements
                         messageObjects = new ArrayList<>();
                         messageObjects.add(selectedObject);
                     }
-                    final boolean isMusicFinal = isMusic;
-                    MediaController.saveFilesFromMessages(getParentActivity(), getAccountInstance(), messageObjects, (count) -> {
-                        if (getParentActivity() == null) {
-                            return;
+                    if (isMusic) {
+                        // Пересылаем все музыкальные треки из сообщения в канал-хранилище вкладки "Музыка"
+                        long targetChannelId = MessagesController.getNotificationsSettings(currentAccount).getLong("music_channel_id", 0);
+                        if (targetChannelId == 0) {
+                            try {
+                                File sgDir = ApplicationLoader.applicationContext.getExternalFilesDir(null);
+                                if (sgDir != null) {
+                                    File sgFile = new File(sgDir, "music_channel_id.txt");
+                                    if (sgFile.exists()) {
+                                        java.io.BufferedReader sgReader = new java.io.BufferedReader(new java.io.FileReader(sgFile));
+                                        String sgLine = sgReader.readLine();
+                                        sgReader.close();
+                                        if (sgLine != null && !sgLine.trim().isEmpty()) {
+                                            targetChannelId = Long.parseLong(sgLine.trim());
+                                            MessagesController.getNotificationsSettings(currentAccount).edit()
+                                                    .putLong("music_channel_id", targetChannelId).apply();
+                                        }
+                                    }
+                                }
+                            } catch (Exception ignored) {}
                         }
-                        if (count > 0) {
-                            BulletinFactory.of(this).createDownloadBulletin(isMusicFinal ? BulletinFactory.FileType.AUDIOS : BulletinFactory.FileType.UNKNOWNS, count, themeDelegate).show();
+                        if (targetChannelId == 0) {
+                            Toast.makeText(getParentActivity(), LocaleController.getString(R.string.sg_open_music_first), Toast.LENGTH_LONG).show();
+                        } else {
+                            // Фильтруем только треки isMusic() из группы (если группа смешанная)
+                            ArrayList<MessageObject> musicObjects = new ArrayList<>();
+                            for (MessageObject mo : messageObjects) {
+                                if (mo.isMusic()) musicObjects.add(mo);
+                            }
+                            if (musicObjects.isEmpty()) musicObjects.addAll(messageObjects);
+                            final long finalTargetChannelId = targetChannelId;
+                            final ArrayList<MessageObject> finalMusicObjects = musicObjects;
+                            SendMessagesHelper.getInstance(currentAccount).sendMessage(
+                                    finalMusicObjects, -finalTargetChannelId, false, false, true, 0, 0);
+                            BulletinFactory.of(this).createSimpleBulletin(
+                                    R.drawable.ic_ab_done,
+                                    LocaleController.getString(R.string.sg_saved_to_library)).show();
                         }
-                    });
+                    } else {
+                        final boolean isMusicFinal = false;
+                        MediaController.saveFilesFromMessages(getParentActivity(), getAccountInstance(), messageObjects, (count) -> {
+                            if (getParentActivity() == null) {
+                                return;
+                            }
+                            if (count > 0) {
+                                BulletinFactory.of(this).createDownloadBulletin(BulletinFactory.FileType.UNKNOWNS, count, themeDelegate).show();
+                            }
+                        });
+                    }
                 } else {
                     boolean video = selectedObject.isVideo();
                     boolean photo = selectedObject.isPhoto();

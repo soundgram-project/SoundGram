@@ -215,11 +215,28 @@ public class MusicWebSearcher {
                             // ИСПРАВЛЕНИЕ: Жесткая проверка по строкам, чтобы не путать ремиксы и чужие треки
                             boolean titleMatch = wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase());
                             boolean artistMatch = wt.artist.toLowerCase().contains(artistName.toLowerCase()) || artistName.toLowerCase().contains(wt.artist.toLowerCase());
+                            boolean durMatch = Math.abs(hitmoDur - exactDuration) <= 15;
 
-                            if (titleMatch && artistMatch && Math.abs(hitmoDur - exactDuration) <= 15) {
+                            // Приоритет 1: название + артист + длительность (строгий)
+                            if (titleMatch && artistMatch && durMatch) {
                                 bestMatch = wt;
                                 break;
                             }
+                            // Приоритет 2: название + длительность (без проверки артиста)
+                            if (bestMatch == null && titleMatch && durMatch) {
+                                bestMatch = wt;
+                            }
+                        }
+                        // Приоритет 3: только совпадение по названию (без длительности и артиста)
+                        if (bestMatch == null) {
+                            for (WebTrack wt : searchTracks) {
+                                boolean titleMatch = wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase());
+                                if (titleMatch) { bestMatch = wt; break; }
+                            }
+                        }
+                        // Приоритет 4: обычный первый результат поиска
+                        if (bestMatch == null && !searchTracks.isEmpty()) {
+                            bestMatch = searchTracks.get(0);
                         }
 
                         if (bestMatch != null) {
@@ -1297,6 +1314,79 @@ public class MusicWebSearcher {
                     });
                 }
 
+            } catch (Exception e) {
+                FileLog.e(e);
+                AndroidUtilities.runOnUIThread(callback::onFailed);
+            }
+        }).start();
+    }
+
+    /**
+     * Ищет треки исполнителя напрямую на Hitmos через текстовый поиск.
+     * Принимает только треки, у которых поле artist совпадает с artistName 1 в 1
+     * (без учёта регистра). Результаты отдаются через onTrackLoaded в реальном времени.
+     * Используется когда у исполнителя нет страницы-профиля на Hitmos,
+     * но он есть на Deezer.
+     */
+    public static void loadArtistTracksFromHitmosSearch(String artistName, ArtistProfileCallback callback) {
+        new Thread(() -> {
+            try {
+                ArrayList<WebTrack> allFound = new ArrayList<>();
+                HashSet<String> seen = new HashSet<>();
+                String normalArtist = artistName.trim();
+                String translit = transliterate(normalArtist);
+
+                // Формируем список запросов: оригинал + транслит (если отличается)
+                ArrayList<String> queries = new ArrayList<>();
+                queries.add(normalArtist);
+                if (!translit.equalsIgnoreCase(normalArtist)) {
+                    queries.add(translit);
+                }
+
+                for (String q : queries) {
+                    for (int page = 1; page <= 15; page++) {
+                        String searchUrl;
+                        if (page == 1) {
+                            searchUrl = "https://hitmos.me/search?q=" + URLEncoder.encode(q, "UTF-8");
+                        } else {
+                            searchUrl = "https://hitmos.me/search/page/" + page + "/?q=" + URLEncoder.encode(q, "UTF-8");
+                        }
+                        String html = fetchHtml(searchUrl);
+                        if (html == null || html.isEmpty()) break;
+
+                        ArrayList<WebTrack> pageResults = new ArrayList<>();
+                        parseHtmlToResults(html, pageResults, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                        if (pageResults.isEmpty()) break;
+
+                        boolean foundOnPage = false;
+                        for (WebTrack wt : pageResults) {
+                            // Точное совпадение имени исполнителя (без учёта регистра)
+                            String wtArtist = wt.artist.trim();
+                            boolean matches = wtArtist.equalsIgnoreCase(normalArtist)
+                                    || wtArtist.equalsIgnoreCase(translit);
+                            if (!matches) continue;
+
+                            String dedupeKey = (wtArtist + "|" + wt.title).toLowerCase();
+                            if (seen.contains(dedupeKey)) continue;
+                            seen.add(dedupeKey);
+
+                            wt.artist = normalArtist; // нормализуем имя к оригиналу
+                            allFound.add(wt);
+                            final WebTrack ft = wt;
+                            AndroidUtilities.runOnUIThread(() -> callback.onTrackLoaded(ft));
+                            foundOnPage = true;
+                        }
+
+                        // Если на трёх страницах подряд нет нужного артиста — прекращаем
+                        if (!foundOnPage && page >= 3) break;
+                    }
+                }
+
+                if (allFound.isEmpty()) {
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                } else {
+                    AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(), allFound));
+                }
             } catch (Exception e) {
                 FileLog.e(e);
                 AndroidUtilities.runOnUIThread(callback::onFailed);

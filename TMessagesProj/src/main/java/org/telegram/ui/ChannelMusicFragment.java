@@ -4,6 +4,9 @@ import static org.telegram.messenger.LocaleController.getString;
 import static org.telegram.messenger.LocaleController.getStringResId;
 import static org.telegram.ui.MusicWebSearcher.loadArtistTracksDeezer;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -1603,7 +1606,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             combined.addAll(loadedAlbums);
             combined.addAll(loadedPlaylists);
             if (globalStatsMessage != null) combined.add(globalStatsMessage);
-            saveMessagesToCache(combined);
+            // Сохраняем кэш в фоне — НЕ блокируем UI поток (при 3000 треков сериализация тяжёлая)
+            final ArrayList<MessageObject> combinedSnapshot = new ArrayList<>(combined);
+            new Thread(() -> saveMessagesToCache(combinedSnapshot)).start();
 
             AndroidUtilities.runOnUIThread(() -> {
                 audioMessages.clear();
@@ -4632,8 +4637,26 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
                 @Override
                 public void onFailed() {
-                    AndroidUtilities.runOnUIThread(() ->
-                            Toast.makeText(context, getString(R.string.sg_wave_error_load_tracks), Toast.LENGTH_SHORT).show());
+                    // Пробуем найти артиста на Deezer прежде чем показывать ошибку
+                    new Thread(() -> {
+                        try {
+                            String deezerSearchUrl = "https://api.deezer.com/search/artist?q="
+                                    + URLEncoder.encode(artistName, "UTF-8") + "&limit=1";
+                            String deezerResp = MusicWebSearcher.fetchHtml(deezerSearchUrl);
+                            if (deezerResp != null && !deezerResp.isEmpty()) {
+                                JSONObject deezerJson = new JSONObject(deezerResp);
+                                if (deezerJson.has("data") && deezerJson.getJSONArray("data").length() > 0) {
+                                    long foundId = deezerJson.getJSONArray("data").getJSONObject(0).getLong("id");
+                                    MusicWebSearcher.loadAllArtistTracksDeezer(foundId, artistName, this);
+                                    return;
+                                }
+                            }
+                        } catch (Exception eDeezer) {
+                            FileLog.e(eDeezer);
+                        }
+                        AndroidUtilities.runOnUIThread(() ->
+                                Toast.makeText(context, getString(R.string.sg_wave_error_load_tracks), Toast.LENGTH_SHORT).show());
+                    }).start();
                 }
             };
 
@@ -4689,11 +4712,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         AndroidUtilities.runOnUIThread(() ->
                                 MusicWebSearcher.loadArtistProfile(finalUrl,
                                         createFallbackCallback(callback, targetUrl, artistName)));
-                    } else if (deezerArtistId > 0) {
-                        final long finalId = deezerArtistId;
-                        MusicWebSearcher.loadAllArtistTracksDeezer(finalId, artistName, callback);
                     } else {
-                        AndroidUtilities.runOnUIThread(callback::onFailed);
+                        // Страница артиста не найдена на Hitmos — ищем напрямую через поиск:
+                        // берём треки у которых имя артиста совпадает 1 в 1 (без учёта регистра)
+                        MusicWebSearcher.loadArtistTracksFromHitmosSearch(artistName, callback);
                     }
                 } catch (Exception e) {
                     FileLog.e(e);
