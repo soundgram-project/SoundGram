@@ -1149,7 +1149,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         // Кнопка лирики (иконка сообщения) — справа от названия
         ImageView lyricsButton = new ImageView(context);
-        lyricsButton.setImageResource(R.drawable.msg_photo_text_solar);
+        lyricsButton.setImageResource(R.drawable.msg_message);
         lyricsButton.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.MULTIPLY);
         lyricsButton.setScaleType(ImageView.ScaleType.CENTER);
         if (Build.VERSION.SDK_INT >= 21) lyricsButton.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
@@ -1343,7 +1343,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         buttons[1] = queueButton = new RLottieImageView(context);
         queueButton.setScaleType(ImageView.ScaleType.CENTER);
-        queueButton.setImageResource(R.drawable.menu_intro);
+        queueButton.setImageResource(R.drawable.msg_addfolder);
         queueButton.setColorFilter(new PorterDuffColorFilter(iconColor, PorterDuff.Mode.SRC_IN));
         if (Build.VERSION.SDK_INT >= 21) queueButton.setBackgroundDrawable(Theme.createSelectorDrawable(0x33FFFFFF, 1, dp(24)));
         queueButton.setOnClickListener(v -> showQueueSheet());
@@ -2241,16 +2241,25 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         title.setPadding(dp(18), dp(8), dp(18), dp(8));
         container.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
+        // Если порядок обратный — показываем очередь тоже в обратном порядке,
+        // чтобы она совпадала с тем, что видит MediaController.
+        ArrayList<MessageObject> displayList;
+        if (SharedConfig.playOrderReversed) {
+            displayList = new ArrayList<>(playlist);
+            java.util.Collections.reverse(displayList);
+        } else {
+            displayList = playlist;
+        }
+
         // RecyclerView с QueueAdapter — высота адаптивная (макс 70% экрана)
         RecyclerListView queueListView = new RecyclerListView(ctx);
         LinearLayoutManager queueLlm = new LinearLayoutManager(ctx);
         queueListView.setLayoutManager(queueLlm);
         queueListView.setNestedScrollingEnabled(true);
         queueListView.setHasFixedSize(false);
-        QueueAdapter queueAdapter = new QueueAdapter(ctx, playlist, queueSheetRef);
+        QueueAdapter queueAdapter = new QueueAdapter(ctx, displayList, queueSheetRef);
         queueListView.setAdapter(queueAdapter);
         // Фикс: при скролле вверх BottomSheet не должна перехватывать жест и закрываться.
-        // Если список можно скроллить вверх (не в начале) — запрещаем родителю перехватывать касание.
         queueListView.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
             @Override
             public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
@@ -2267,15 +2276,15 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         int queueCurrentPos = 0;
         MessageObject queuePlayingNow = MediaController.getInstance().getPlayingMessageObject();
         if (queuePlayingNow != null) {
-            for (int qi = 0; qi < playlist.size(); qi++) {
-                if (playlist.get(qi).getId() == queuePlayingNow.getId()) { queueCurrentPos = qi; break; }
+            for (int qi = 0; qi < displayList.size(); qi++) {
+                if (displayList.get(qi).getId() == queuePlayingNow.getId()) { queueCurrentPos = qi; break; }
             }
         }
         queueLlm.scrollToPositionWithOffset(Math.max(0, queueCurrentPos - 2), 0);
         // Высота: min(70% экрана, кол-во треков * 72dp), но не меньше 200dp
         int queueTrackH = AndroidUtilities.dp(72);
         int queueMaxH   = (int)(AndroidUtilities.displaySize.y * 0.70f);
-        int queueListH  = Math.min(queueMaxH, Math.max(AndroidUtilities.dp(200), playlist.size() * queueTrackH));
+        int queueListH  = Math.min(queueMaxH, Math.max(AndroidUtilities.dp(200), displayList.size() * queueTrackH));
         container.addView(queueListView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, (int)(queueListH / AndroidUtilities.density)));
         
         builder.setCustomView(container);

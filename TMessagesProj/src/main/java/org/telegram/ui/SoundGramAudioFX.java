@@ -25,7 +25,9 @@ public class SoundGramAudioFX {
     private static short savedReverbPreset = 0;
     private static short savedBassLevel = 0;
 
-    // Инициализируем SharedPreferences для SoundGram
+    // ── Флаг включения эквалайзера ──────────────────────────────────────────
+    private static boolean equalizerEnabled = true;
+
     private static SharedPreferences getPrefs() {
         return ApplicationLoader.applicationContext.getSharedPreferences("soundgram_fx", Context.MODE_PRIVATE);
     }
@@ -39,39 +41,80 @@ public class SoundGramAudioFX {
                 currentSessionId = audioSessionId;
             }
 
-            // Читаем сохраненные настройки
-            savedReverbPreset = (short) getPrefs().getInt("reverb", 0);
-            savedBassLevel = (short) getPrefs().getInt("bass", 0);
-            currentSpeed = getPrefs().getFloat("speed", 1.0f);
-            currentPitch = getPrefs().getFloat("pitch", 1.0f);
+            SharedPreferences prefs = getPrefs();
+            equalizerEnabled = prefs.getBoolean("eq_enabled", true); // читаем сохранённый флаг
+            savedReverbPreset = (short) prefs.getInt("reverb", 0);
+            savedBassLevel = (short) prefs.getInt("bass", 0);
+            currentSpeed = prefs.getFloat("speed", 1.0f);
+            currentPitch = prefs.getFloat("pitch", 1.0f);
 
             if (equalizer == null) {
                 equalizer = new Equalizer(0, audioSessionId);
-                equalizer.setEnabled(true);
-                // Восстанавливаем ползунки эквалайзера
+                equalizer.setEnabled(equalizerEnabled); // используем флаг
                 for (short i = 0; i < equalizer.getNumberOfBands(); i++) {
-                    equalizer.setBandLevel(i, (short) getPrefs().getInt("band_" + i, 0));
+                    equalizer.setBandLevel(i, (short) prefs.getInt("band_" + i, 0));
                 }
             }
             if (bassBoost == null) {
                 bassBoost = new BassBoost(0, audioSessionId);
                 if (bassBoost.getStrengthSupported()) bassBoost.setStrength(savedBassLevel);
-                bassBoost.setEnabled(true);
+                bassBoost.setEnabled(equalizerEnabled); // используем флаг
             }
             if (reverb == null) {
                 reverb = new PresetReverb(0, audioSessionId);
                 reverb.setPreset(savedReverbPreset);
-                reverb.setEnabled(savedReverbPreset != PresetReverb.PRESET_NONE);
+                reverb.setEnabled(equalizerEnabled && savedReverbPreset != PresetReverb.PRESET_NONE);
             }
         } catch (Exception e) {
             FileLog.e("SoundGram AudioFX Error: " + e.getMessage());
         }
     }
 
+    // ── Управление состоянием эквалайзера ────────────────────────────────────
+
+    /** Возвращает текущее состояние эквалайзера (включён/отключён). */
+    public static boolean isEqualizerEnabled() {
+        return getPrefs().getBoolean("eq_enabled", true);
+    }
+
+    /**
+     * Включает или отключает эквалайзер, бас-буст и ревербератор.
+     * @param enabled true = включить, false = отключить
+     */
+    public static void setEqualizerEnabled(boolean enabled) {
+        getPrefs().edit().putBoolean("eq_enabled", enabled).apply();
+        equalizerEnabled = enabled;
+        applyEqualizerState(enabled);
+    }
+
+    /** Применяет флаг ко всем аудио-эффектам. */
+    private static void applyEqualizerState(boolean enabled) {
+        try {
+            if (equalizer != null) {
+                equalizer.setEnabled(enabled);
+            }
+            if (bassBoost != null) {
+                bassBoost.setEnabled(enabled);
+            }
+            if (reverb != null) {
+                if (enabled) {
+                    reverb.setEnabled(savedReverbPreset != PresetReverb.PRESET_NONE);
+                } else {
+                    reverb.setEnabled(false);
+                }
+            }
+            FileLog.d("SoundGram EQ state changed to: " + enabled);
+        } catch (Exception e) {
+            FileLog.e("Failed to apply EQ state: " + e.getMessage());
+        }
+    }
+
+    // ── Существующие методы ───────────────────────────────────────────────────
+
     public static void setReverbPreset(short preset) {
         savedReverbPreset = preset;
         getPrefs().edit().putInt("reverb", preset).apply();
-        if (reverb != null) {
+        if (reverb != null && equalizerEnabled) {
             reverb.setPreset(preset);
             reverb.setEnabled(preset != PresetReverb.PRESET_NONE);
         }
@@ -81,7 +124,9 @@ public class SoundGramAudioFX {
     public static void setBassLevel(short level) {
         savedBassLevel = level;
         getPrefs().edit().putInt("bass", level).apply();
-        if (bassBoost != null && bassBoost.getStrengthSupported()) bassBoost.setStrength(level);
+        if (bassBoost != null && bassBoost.getStrengthSupported() && equalizerEnabled) {
+            bassBoost.setStrength(level);
+        }
     }
 
     public static float getCurrentSpeed() { return currentSpeed; }
@@ -97,11 +142,13 @@ public class SoundGramAudioFX {
     }
 
     public static int getReverbId() { return reverb != null ? reverb.getId() : 0; }
-    public static short getBassLevel() { return bassBoost != null && bassBoost.getStrengthSupported() ? bassBoost.getRoundedStrength() : 0; }
+    public static short getBassLevel() {
+        return bassBoost != null && bassBoost.getStrengthSupported() ? bassBoost.getRoundedStrength() : 0;
+    }
 
     public static void setBandLevel(short band, short level) {
         getPrefs().edit().putInt("band_" + band, level).apply();
-        if (equalizer != null) equalizer.setBandLevel(band, level);
+        if (equalizer != null && equalizerEnabled) equalizer.setBandLevel(band, level);
     }
     public static short getBandLevel(short band) { return equalizer != null ? equalizer.getBandLevel(band) : 0; }
     public static short getBandsCount() { return equalizer != null ? equalizer.getNumberOfBands() : 0; }
@@ -123,7 +170,9 @@ public class SoundGramAudioFX {
         sleepTimerEndTime = System.currentTimeMillis() + (minutes * 60 * 1000L);
         sleepTimerRunnable = () -> {
             MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-            if (playing != null && !MediaController.getInstance().isMessagePaused()) MediaController.getInstance().pauseMessage(playing);
+            if (playing != null && !MediaController.getInstance().isMessagePaused()) {
+                MediaController.getInstance().pauseMessage(playing);
+            }
             sleepTimerEndTime = 0;
         };
         AndroidUtilities.runOnUIThread(sleepTimerRunnable, minutes * 60 * 1000L);

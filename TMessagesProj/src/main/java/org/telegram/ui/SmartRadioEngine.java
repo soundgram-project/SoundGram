@@ -1,14 +1,19 @@
 package org.telegram.ui;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.media.MediaExtractor;
+import android.os.AsyncTask;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MessageObject;
+import org.telegram.messenger.UserConfig;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -747,6 +752,13 @@ public class SmartRadioEngine {
                     long delay = Math.min(4000L + round * 500L, 10000L);
                     Thread.sleep(delay);
 
+                    if (!isWaveActive || cancelFlag.get()) break;
+
+                    // ── ПАУЗА: не генерировать треки пока воспроизведение на паузе ──
+                    while (isWaveActive && !cancelFlag.get()
+                            && MediaController.getInstance().isMessagePaused()) {
+                        Thread.sleep(500);
+                    }
                     if (!isWaveActive || cancelFlag.get()) break;
 
                     ArrayList<String> candidates = supplier.get();
