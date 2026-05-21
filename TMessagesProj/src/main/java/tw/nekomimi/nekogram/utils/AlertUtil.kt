@@ -80,7 +80,7 @@ object AlertUtil {
         if (ctx == null) return@Runnable
 
         val builder = AlertDialog.Builder(ctx)
-        builder.setTitle(title ?: getString(R.string.SoundGram))
+        builder.setTitle(title ?: getString((R.string.SoundGram)))
         builder.setMessage(text)
 
         builder.setPositiveButton(getString(R.string.OK)) { _, _ ->

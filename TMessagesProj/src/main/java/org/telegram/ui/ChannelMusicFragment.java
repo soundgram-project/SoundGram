@@ -1894,7 +1894,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         headerTitle.setLetterSpacing(-0.02f);
 
         searchIconBtn = new ImageView(context);
-        searchIconBtn.setImageResource(R.drawable.ic_ab_search);
+        searchIconBtn.setImageResource(R.drawable.msg_search);
         searchIconBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN);
         searchIconBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
         searchIconBtn.setScaleType(ImageView.ScaleType.CENTER);
@@ -1942,7 +1942,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchFieldContainer.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(6), AndroidUtilities.dp(12), AndroidUtilities.dp(6));
 
         ImageView searchInnerIcon = new ImageView(context);
-        searchInnerIcon.setImageResource(R.drawable.ic_ab_search);
+        searchInnerIcon.setImageResource(R.drawable.msg_search);
         searchInnerIcon.setColorFilter(new PorterDuffColorFilter(accentColor, PorterDuff.Mode.SRC_IN));
         searchFieldContainer.addView(searchInnerIcon, LayoutHelper.createFrame(18, 18, Gravity.LEFT | Gravity.CENTER_VERTICAL));
 

@@ -69,10 +69,9 @@ const (
 	poolMaintainInterval = 5
 
 	// Bridge read deadlines
-	bridgeReadTimeout  = 2 * time.Minute
-	bridgePingInterval = 10 * time.Second // БЫЛО 30, СТАЛО 10 (критично для вечера)
+	bridgeReadTimeout  = 90 * time.Second
+	bridgePingInterval = 20 * time.Second
 	wsWriteTimeout     = 5 * time.Second
-
 	wsControlTimeout   = 2 * time.Second
 	wsPoolProbeTimeout = 1200 * time.Millisecond
 	wsPoolProbeAfter   = 8.0
@@ -156,11 +155,27 @@ var (
 	}
 )
 
+// wsPaths is the ordered list of WebSocket endpoint paths tried on each domain.
+// Rotating paths makes it harder for DPI to match on a single URI signature.
+var wsPaths = []string{"/apiws", "/api/ws", "/tg/ws", "/ws"}
+
 func connectOneWS(ctx context.Context, ip string, domains []string) *RawWebSocket {
 	for _, d := range domains {
-		ws, err := wsConnect(ctx, ip, d, "/apiws", 5.0)
-		if err == nil {
-			return ws
+		for _, path := range wsPaths {
+			ws, err := wsConnect(ctx, ip, d, path, 5.0)
+			if err == nil {
+				return ws
+			}
+			// Network-level error: no point trying other paths on this domain.
+			var wsErr *WsHandshakeError
+			if !errors.As(err, &wsErr) {
+				break
+			}
+			// HTTP redirect: domain-level issue, skip remaining paths.
+			if wsErr.IsRedirect() {
+				break
+			}
+			// HTTP error (403/503/etc): ISP may be blocking this path — try next one.
 		}
 	}
 	return nil
@@ -539,46 +554,6 @@ func setActiveCfproxyDomainLocked(preferred string) {
 	activeCfDomain = cfproxyDomains[0]
 }
 
-// rotateCfDomain помечает текущий домен как плохой и переключается на следующий.
-// Вызывается из Java-watchdog при обнаружении потери соединения.
-func rotateCfDomain(badDomain string) string {
-	cfproxyMu.Lock()
-	defer cfproxyMu.Unlock()
-
-	if len(cfproxyDomains) == 0 {
-		return ""
-	}
-
-	badDomain = normalizeCfDomain(badDomain)
-	if badDomain == "" {
-		badDomain = activeCfDomain
-	}
-
-	// Найти следующий домен после плохого
-	found := false
-	for _, d := range cfproxyDomains {
-		if found && d != badDomain {
-			activeCfDomain = d
-			logInfo.Printf(" CF domain rotated: %s → %s", badDomain, d)
-			return d
-		}
-		if d == badDomain {
-			found = true
-		}
-	}
-
-	// wrap-around: берём первый не-плохой
-	for _, d := range cfproxyDomains {
-		if d != badDomain {
-			activeCfDomain = d
-			logInfo.Printf(" CF domain rotated (wrap): %s → %s", badDomain, d)
-			return d
-		}
-	}
-	return activeCfDomain
-}
-
-
 func initCfproxyDomains() {
 	defaults := defaultCfproxyDomains()
 	cached := loadCfproxyDomainsFromCache()
@@ -606,29 +581,22 @@ func startCfproxyRefresh(ctx context.Context) {
 		logDebug.Printf(" CF: cache is fresh, skipping refresh")
 		return
 	}
+
 	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(3 * time.Second):
+		for i := 0; i < 3; i++ {
+			if tryRefreshCfproxyDomains(ctx) {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(10 * time.Second):
+				continue
+			}
 		}
-		tryRefreshCfproxyDomains(ctx)
+		logDebug.Printf(" CF: failed to refresh domain list, using cache/builtin")
 	}()
 }
-
-// randomPadding генерирует случайную строку длиной [min, max) символов.
-// Используется как мусорный заголовок для ломки DPI-эвристики.
-func randomPadding(min, max int) string {
-	if max <= min {
-		max = min + 1
-	}
-	rangeSz := max - min
-	b := make([]byte, max)
-	_, _ = rand.Read(b)
-	length := min + int(b[0])%rangeSz
-	return base64.RawURLEncoding.EncodeToString(b)[:length]
-}
-
 
 func tryRefreshCfproxyDomains(ctx context.Context) bool {
 	cfproxyMu.RLock()
@@ -642,9 +610,7 @@ func tryRefreshCfproxyDomains(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0")
-	req.Header.Set("Accept-Language", "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3")
-	req.Header.Set("X-Track-Id", randomPadding(20, 60))
+	req.Header.Set("User-Agent", "Mozilla/5.0 tg-ws-proxy-android")
 
 	resp, err := githubClient.Do(req)
 	if err != nil {
@@ -717,11 +683,55 @@ var (
 	wsBlackMu   sync.RWMutex
 	wsBlacklist = make(map[[2]int]bool)
 
-	dcFailMu    sync.RWMutex
-	dcFailUntil = make(map[[2]int]float64)
+	dcFailMu      sync.RWMutex
+	dcFailUntil   = make(map[[2]int]float64)
+	dcFailStrikes = make(map[[2]int]int) // exponential backoff strike counter
 
 	zero64 = make([]byte, 64)
 )
+
+// ---------------------------------------------------------------------------
+// Pool slot registry — tracks which DC slots have been used so the background
+// maintainer can proactively refill them without waiting for a Get() call.
+// ---------------------------------------------------------------------------
+
+type poolSlotInfo struct {
+	targetIP string
+	domains  []string
+}
+
+var poolKnownSlots sync.Map // map[dcSlot]poolSlotInfo
+
+func registerPoolSlot(slot dcSlot, targetIP string, domains []string) {
+	poolKnownSlots.Store(slot, poolSlotInfo{targetIP: targetIP, domains: domains})
+}
+
+// startPoolMaintainer runs a periodic goroutine that proactively refills all
+// known DC pool slots. This ensures connections are ready before peak-hour bursts
+// and recovers from silent connection deaths faster than lazy Get() refills.
+func startPoolMaintainer(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(poolMaintainInterval * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				poolKnownSlots.Range(func(k, v interface{}) bool {
+					slot := k.(dcSlot)
+					info := v.(poolSlotInfo)
+					q, s := wsPool.getQueue(slot)
+					needed := int(poolSize.Load()) - len(q)
+					if needed > 0 && s.CompareAndSwap(0, 1) {
+						go wsPool.refill(ctx, slot, q, s, info.targetIP, info.domains)
+					}
+					return true
+				})
+			}
+		}
+	}()
+}
 
 // ---------------------------------------------------------------------------
 // Stats
@@ -789,35 +799,6 @@ func (s *Stats) Reset() {
 }
 
 var stats Stats
-
-// ---------------------------------------------------------------------------
-// Connection health tracking
-// ---------------------------------------------------------------------------
-
-var (
-	// Unix-наносекунды последнего успешного получения данных от TG-сервера
-	lastDataTimeNs    atomic.Int64
-	// Хотя бы один bridge был запущен после старта прокси
-	bridgeEverStarted atomic.Bool
-)
-
-func touchLastDataTime() {
-	lastDataTimeNs.Store(time.Now().UnixNano())
-}
-
-// getDataIdleSecs — сколько секунд нет входящих данных от TG.
-// Возвращает -1 если bridge ни разу не стартовал.
-func getDataIdleSecs() float64 {
-	if !bridgeEverStarted.Load() {
-		return -1
-	}
-	t := lastDataTimeNs.Load()
-	if t == 0 {
-		return -1
-	}
-	return float64(time.Now().UnixNano()-t) / 1e9
-}
-
 
 func humanBytes(n int64) string {
 	units := []string{"B", "KB", "MB", "GB", "TB"}
@@ -980,13 +961,12 @@ func resolveDoH(ctx context.Context, domain string) string {
 		}(srv)
 	}
 
-		endpoints := []string{
-		"https://dns.yandex.ru/dns-query", // Добавлен локальный резолвер для РФ
+	endpoints := []string{
 		"https://cloudflare-dns.com/dns-query",
 		"https://dns.google/dns-query",
+		"https://dns.quad9.net/dns-query",
 		"https://dns.adguard-dns.com/dns-query",
 	}
-
 
 	for _, url := range endpoints {
 		go func(u string) {
@@ -1113,31 +1093,17 @@ func wsConnectOnce(ctx context.Context, dialAddr, domain, path string, timeout t
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
-	
+
 	tlsCfg := tlsConfigPool.Clone()
 	tlsCfg.ServerName = domain
 	tlsCfg.InsecureSkipVerify = true
-	
-	// --- НАЧАЛО ИНЖЕКЦИИ АНТИ-ДПИ ---
-	// Маскируемся под современный браузер
-	tlsCfg.NextProtos = []string{"h2", "http/1.1"}
-	tlsCfg.MinVersion = tls.VersionTLS12
-	tlsCfg.MaxVersion = tls.VersionTLS13
-	tlsCfg.CurvePreferences = []tls.CurveID{tls.CurveP256, tls.X25519}
-	tlsCfg.CipherSuites = []uint16{
-		tls.TLS_AES_128_GCM_SHA256,
-		tls.TLS_AES_256_GCM_SHA384,
-		tls.TLS_CHACHA20_POLY1305_SHA256,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-	}
-	// --- КОНЕЦ ИНЖЕКЦИИ ---
 
 	targetAddr := net.JoinHostPort(dialAddr, "443")
 	rawConn, err := dialer.DialContext(ctx, "tcp", targetAddr)
 	if err != nil {
 		return nil, err
 	}
+
 	setSockOpts(rawConn)
 
 	tlsConn := tls.Client(rawConn, tlsCfg)
@@ -1180,7 +1146,7 @@ func wsConnectOnce(ctx context.Context, dialAddr, domain, path string, timeout t
 
 	bufReader := bufio.NewReaderSize(rawConn, 4096)
 	_ = rawConn.SetReadDeadline(time.Now().Add(timeout))
-	
+
 	var responseLines []string
 	for {
 		line, err := bufReader.ReadString('\n')
@@ -1322,6 +1288,10 @@ func connectDirectWS(ctx context.Context, target string, domains []string, timeo
 				wsFailedRedirect = true
 			} else {
 				allRedirects = false
+				// HTTP error (not redirect): try one alternative path before giving up.
+				if ws2, err2 := wsConnect(ctx, target, dom, "/api/ws", timeout); err2 == nil {
+					return ws2, wsFailedRedirect, false
+				}
 			}
 		} else {
 			allRedirects = false
@@ -1970,10 +1940,6 @@ func bridgeWS(ctx context.Context, conn net.Conn, ws *RawWebSocket,
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Отмечаем что bridge реально запустился и инициализируем таймер
-	bridgeEverStarted.Store(true)
-	touchLastDataTime()
-
 	go func() {
 		<-ctx2.Done()
 		SafeClose(conn)
@@ -2081,9 +2047,6 @@ func bridgeWS(ctx context.Context, conn net.Conn, ws *RawWebSocket,
 			activityMu.Lock()
 			lastActivity = time.Now()
 			activityMu.Unlock()
-
-			// Обновляем глобальный watchdog-таймер здоровья соединения
-			touchLastDataTime()
 
 			tgDec.XORKeyStream(data, data)
 			cltEnc.XORKeyStream(data, data)
@@ -2746,6 +2709,11 @@ func handleClient(ctx context.Context, conn net.Conn) {
 		return
 	}
 
+	// Register this slot so the background pool maintainer can keep it warm.
+	domains := wsDomains(dc, isMedia)
+	slot := dcSlot{dc, isMediaInt(isMedia)}
+	registerPoolSlot(slot, target, domains)
+
 	dcFailMu.RLock()
 	failUntil := dcFailUntil[dcKey]
 	dcFailMu.RUnlock()
@@ -2755,7 +2723,6 @@ func handleClient(ctx context.Context, conn net.Conn) {
 		wsTimeout = wsFailTimeout
 	}
 
-	domains := wsDomains(dc, isMedia)
 	ws, wsFailedRedirect, allRedirects := connectDirectWS(ctx, target, domains, wsTimeout)
 
 	if ws == nil {
@@ -2767,7 +2734,11 @@ func handleClient(ctx context.Context, conn net.Conn) {
 			logWarn.Printf(" DC%d%s blacklisted (302)", dc, mTag)
 		} else {
 			dcFailMu.Lock()
-			dcFailUntil[dcKey] = now + dcFailCooldown
+			strikes := dcFailStrikes[dcKey] + 1
+			dcFailStrikes[dcKey] = strikes
+			// Exponential backoff: 3s, 6s, 12s, 24s, max 60s
+			backoff := math.Min(3.0*math.Pow(2, float64(strikes-1)), 60.0)
+			dcFailUntil[dcKey] = now + backoff
 			dcFailMu.Unlock()
 		}
 
@@ -2820,6 +2791,7 @@ func handleClient(ctx context.Context, conn net.Conn) {
 
 	dcFailMu.Lock()
 	delete(dcFailUntil, dcKey)
+	delete(dcFailStrikes, dcKey)
 	dcFailMu.Unlock()
 
 	stats.connectionsWs.Add(1)
@@ -2850,6 +2822,7 @@ func runProxy(ctx context.Context, host string, port int, dcOptMap map[int]strin
 	defer srvCancel()
 
 	startCfproxyRefresh(srvCtx)
+	startPoolMaintainer(srvCtx)
 
 	logInfo.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	logInfo.Println("  TG WS Proxy started")
@@ -3017,17 +2990,19 @@ func StopProxy() C.int {
 
 	stats.Reset()
 
-	// Сбросить watchdog-таймеры чтобы при следующем старте не было ложных срабатываний
-	lastDataTimeNs.Store(0)
-	bridgeEverStarted.Store(false)
-
 	wsBlackMu.Lock()
 	wsBlacklist = make(map[[2]int]bool)
 	wsBlackMu.Unlock()
 
 	dcFailMu.Lock()
 	dcFailUntil = make(map[[2]int]float64)
+	dcFailStrikes = make(map[[2]int]int)
 	dcFailMu.Unlock()
+
+	poolKnownSlots.Range(func(k, _ interface{}) bool {
+		poolKnownSlots.Delete(k)
+		return true
+	})
 
 	clearCfproxy429Cooldowns()
 
@@ -3144,31 +3119,49 @@ func GetSecretWithPrefix() *C.char {
 	return C.CString(result)
 }
 
-//export GetConnectionStatus
-func GetConnectionStatus() *C.char {
-	idle := getDataIdleSecs()
-	cfproxyMu.RLock()
-	domain := activeCfDomain
-	cfproxyMu.RUnlock()
-	active := stats.connectionsActive.Load()
-	result := fmt.Sprintf(`{"idle_secs":%.2f,"active_connections":%d,"cf_domain":"%s"}`,
-		idle, active, domain)
-	return C.CString(result)
-}
-
-//export RotateCfDomain
-func RotateCfDomain() *C.char {
-	cfproxyMu.RLock()
-	current := activeCfDomain
-	cfproxyMu.RUnlock()
-	newDomain := rotateCfDomain(current)
-	saveActiveCfproxyDomain(newDomain)
-	return C.CString(newDomain)
-}
-
 //export FreeString
 func FreeString(p *C.char) {
 	C.free(unsafe.Pointer(p))
+}
+
+// ResetForNetworkChange resets all connection state when the Android network
+// interface changes (WiFi ↔ LTE). Pool connections are bound to the old
+// interface and will silently fail; this flushes them immediately so new
+// connections are established on the correct interface without a full restart.
+//
+//export ResetForNetworkChange
+func ResetForNetworkChange() {
+	globalMu.Lock()
+	running := globalCancel != nil
+	globalMu.Unlock()
+	if !running {
+		return
+	}
+
+	// Close all pooled WebSocket connections — they are bound to the old interface.
+	wsPool.CloseAll()
+
+	// Clear DC fail cooldowns so the new interface gets a fresh attempt.
+	dcFailMu.Lock()
+	dcFailUntil = make(map[[2]int]float64)
+	dcFailStrikes = make(map[[2]int]int)
+	dcFailMu.Unlock()
+
+	// Clear the WS blacklist — redirects may behave differently on the new network.
+	wsBlackMu.Lock()
+	wsBlacklist = make(map[[2]int]bool)
+	wsBlackMu.Unlock()
+
+	// Clear CF 429 cooldowns — rate limits are per-IP and the IP just changed.
+	clearCfproxy429Cooldowns()
+
+	// Invalidate DoH cache — resolved IPs may differ on the new network.
+	dohCache.Range(func(key, _ interface{}) bool {
+		dohCache.Delete(key)
+		return true
+	})
+
+	logInfo.Println(" Network change: pool flushed, cooldowns cleared")
 }
 
 func main() {

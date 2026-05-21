@@ -678,7 +678,7 @@ public class AlertsCreator {
             return null;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(LocaleController.getString(R.string.NagramX));
+        builder.setTitle(LocaleController.getString(((R.string.SoundGram))));
         builder.setMessage(text);
         builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
         /*if (updateApp) {
@@ -845,7 +845,7 @@ public class AlertsCreator {
             return null;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(context, resourcesProvider);
-        builder.setTitle(title == null ? LocaleController.getString(R.string.NagramX) : title);
+        builder.setTitle(title == null ? LocaleController.getString(((R.string.SoundGram))) : title);
         builder.setMessage(text);
         if (positiveButton == null) {
             builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
@@ -6423,7 +6423,7 @@ public class AlertsCreator {
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getParentActivity());
-        builder.setTitle(LocaleController.getString(R.string.NagramX));
+        builder.setTitle(LocaleController.getString(((R.string.SoundGram))));
         builder.setMessage(LocaleController.formatString("FloodWaitTime", R.string.FloodWaitTime, timeString));
         builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
         fragment.showDialog(builder.create(), true, null);
@@ -6494,7 +6494,7 @@ public class AlertsCreator {
             return;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getParentActivity());
-        builder.setTitle(LocaleController.getString(R.string.NagramX));
+        builder.setTitle(LocaleController.getString(((R.string.SoundGram))));
         switch (error.text) {
             case "PEER_FLOOD":
                 builder.setMessage(LocaleController.getString(R.string.NobodyLikesSpam2));

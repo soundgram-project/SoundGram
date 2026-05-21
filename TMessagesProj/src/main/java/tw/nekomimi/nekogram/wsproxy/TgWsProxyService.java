@@ -75,6 +75,13 @@ public class TgWsProxyService extends Service {
     private volatile boolean userStopped = false;
     private volatile boolean destroyed = false;
 
+    // Health watchdog: probes the local port and auto-restarts if the native
+    // engine becomes unresponsive (e.g. after aggressive OS memory reclaim).
+    private volatile int watchdogFailCount = 0;
+    private static final int WATCHDOG_MAX_FAILS   = 3;
+    private static final int WATCHDOG_INTERVAL_MS = 10_000;
+    private Thread watchdogThread;
+
     // Single shared lock for start/stop serialization
     private final Object proxyLock = new Object();
 
@@ -171,9 +178,19 @@ public class TgWsProxyService extends Service {
                 int currentTransport = hasWifi ? 1 : (hasCell ? 2 : 0);
                 if (currentTransport != 0 && lastNetworkTransport != 0
                         && currentTransport != lastNetworkTransport) {
-                    Log.i(TAG, "Network changed → restarting proxy");
+                    Log.i(TAG, "Network changed → resetting pool, restarting proxy");
                     lastNetworkTransport = currentTransport;
-                    if (isRunning) scheduleRestart(2000);
+                    if (isRunning) {
+                        // Fast path: flush pool & cooldowns without a full service restart.
+                        // The service is still running; new connections will use the new interface.
+                        new Thread(() -> {
+                            NativeProxy.resetForNetworkChange();
+                            // Give the new interface 1 s to stabilise, then do a full restart
+                            // so the listener socket also re-binds cleanly.
+                            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                            scheduleRestart(4000);
+                        }, "proxy-net-reset").start();
+                    }
                 } else if (currentTransport != 0) {
                     lastNetworkTransport = currentTransport;
                 }
@@ -296,19 +313,11 @@ public class TgWsProxyService extends Service {
     private void scheduleRestart(long delayMs) {
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
             if (!vpnActive && !sStopInProgress.get() && !destroyed) {
-                // Захватываем короткий wakelock, чтобы система не уснула во время рестарта
-                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                PowerManager.WakeLock tempLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TGWS:Restart");
-                tempLock.acquire(5000); // Держим 5 секунд
-
-                new Thread(() -> {
-                    restartFromPrefs();
-                    if (tempLock.isHeld()) tempLock.release();
-                }, "proxy-restart").start();
+                // Run blocking restartFromPrefs on a background thread
+                new Thread(this::restartFromPrefs, "proxy-restart").start();
             }
         }, delayMs);
     }
-
 
     private void scheduleServiceRestart(long delayMs) {
         try {
@@ -331,6 +340,32 @@ public class TgWsProxyService extends Service {
             scheduleWorkManagerRestart(delayMs);
         } catch (Exception e) {
             Log.e(TAG, "scheduleServiceRestart failed", e);
+        }
+    }
+
+    /** Schedules a periodic liveness alarm every 5 minutes.
+     *  Even if the watchdog thread is killed by the OS, AlarmManager will fire
+     *  and onStartCommand → tryAutoStart will revive the service. */
+    private void schedulePeriodicHeartbeat() {
+        try {
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            Intent intent = new Intent(this, TgWsProxyService.class);
+            // ACTION_START with no extras → onStartCommand falls through to tryAutoStart
+            intent.setAction(ACTION_START);
+            PendingIntent pi = PendingIntent.getService(this, 1, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            if (am != null && pi != null) {
+                long intervalMs = 5 * 60 * 1000L;
+                long triggerAt  = SystemClock.elapsedRealtime() + intervalMs;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi);
+                } else {
+                    am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                            triggerAt, intervalMs, pi);
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "schedulePeriodicHeartbeat failed", e);
         }
     }
 
@@ -466,8 +501,8 @@ public class TgWsProxyService extends Service {
     // -------------------------------------------------------------------------
 
     private void startProxy(int port, String secret, int poolSize, int recvBuf, int sendBuf,
-                            boolean cfEnabled, String cfDomain, boolean fakeTls, String fakeDomain,
-                            int verbose, String dcIps) {
+            boolean cfEnabled, String cfDomain, boolean fakeTls, String fakeDomain,
+            int verbose, String dcIps) {
 
         synchronized (proxyLock) {
             if (isRunning || sStopInProgress.get() || destroyed) return;
@@ -581,6 +616,10 @@ public class TgWsProxyService extends Service {
                         return;
                     }
 
+                    // Start the health watchdog now that the port is confirmed open.
+                    startWatchdog(port);
+                    schedulePeriodicHeartbeat();
+
                     // Re-apply TG proxy settings after VPN recovery
                     if (fApply) {
                         applyTelegramProxySettings();
@@ -621,6 +660,8 @@ public class TgWsProxyService extends Service {
             isRunning = false;
             currentPort = 0;
             sendStateBroadcast(); // immediate UI update
+
+            stopWatchdog();
 
             final CountDownLatch latch = new CountDownLatch(1);
 
@@ -682,10 +723,11 @@ public class TgWsProxyService extends Service {
     // -------------------------------------------------------------------------
 
     private void saveCurrentParams(int port, String secret, int pool,
-                                   int recvBuf, int sendBuf, boolean cf, String cfDomain,
-                                   boolean fakeTls, String fakeDomain, int verbose, String dcIps) {
+            int recvBuf, int sendBuf, boolean cf, String cfDomain,
+            boolean fakeTls, String fakeDomain, int verbose, String dcIps) {
         getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE)
                 .edit()
+                .putBoolean("enabled", true)   // ensures BootReceiver / watchdog can restart
                 .putInt("port", port)
                 .putString("secret", secret)
                 .putInt("pool_size", pool)
@@ -709,6 +751,57 @@ public class TgWsProxyService extends Service {
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Health watchdog
+    // -------------------------------------------------------------------------
+
+    /** Starts a background thread that probes the proxy port every WATCHDOG_INTERVAL_MS.
+     *  After WATCHDOG_MAX_FAILS consecutive probe failures it triggers a full restart.
+     *  This catches cases where the Go native engine silently dies (OOM, deadlock)
+     *  while the Java service object is still alive. */
+    private void startWatchdog(int port) {
+        stopWatchdog();
+        watchdogFailCount = 0;
+        watchdogThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted() && isRunning && !destroyed) {
+                try {
+                    Thread.sleep(WATCHDOG_INTERVAL_MS);
+                } catch (InterruptedException e) {
+                    break;
+                }
+                if (!isRunning || destroyed) break;
+
+                boolean alive = isPortOpen("127.0.0.1", port, 600);
+                if (alive) {
+                    watchdogFailCount = 0;
+                } else {
+                    watchdogFailCount++;
+                    Log.w(TAG, "Watchdog probe fail " + watchdogFailCount + "/" + WATCHDOG_MAX_FAILS);
+                    if (watchdogFailCount >= WATCHDOG_MAX_FAILS) {
+                        Log.e(TAG, "Watchdog: native proxy unresponsive — restarting");
+                        watchdogFailCount = 0;
+                        new Thread(() -> {
+                            stopProxyInternal();
+                            if (!destroyed && !userStopped) {
+                                restartFromPrefs();
+                            }
+                        }, "proxy-watchdog-restart").start();
+                        break;
+                    }
+                }
+            }
+        }, "proxy-watchdog");
+        watchdogThread.setDaemon(true);
+        watchdogThread.start();
+    }
+
+    private void stopWatchdog() {
+        if (watchdogThread != null) {
+            watchdogThread.interrupt();
+            watchdogThread = null;
         }
     }
 
@@ -749,6 +842,7 @@ public class TgWsProxyService extends Service {
     @Override
     public void onDestroy() {
         destroyed = true;
+        stopWatchdog();
         unregisterNetworkCallback();
         if (!userStopped) {
             scheduleServiceRestart(3000);

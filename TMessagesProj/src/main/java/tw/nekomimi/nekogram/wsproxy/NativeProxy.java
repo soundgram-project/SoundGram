@@ -27,6 +27,7 @@ public class NativeProxy {
     public static native String GetSecretWithPrefix();
     public static native String GetStats();
     public static native void FreeString(String p);
+    public static native void ResetForNetworkChange();
 
     public static int startProxy(String host, int port, String dcIps, String secret, int verbose) {
         return StartProxy(host, port, dcIps, secret, verbose);
@@ -66,5 +67,11 @@ public class NativeProxy {
 
     public static String getStats() {
         return GetStats();
+    }
+
+    /** Called by the service when the network interface changes (WiFi ↔ LTE).
+     *  Flushes the WS pool and all fail-cooldowns without restarting the proxy. */
+    public static void resetForNetworkChange() {
+        try { ResetForNetworkChange(); } catch (Throwable ignored) {}
     }
 }

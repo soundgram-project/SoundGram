@@ -109,9 +109,8 @@ extern void SetSecret(char* cSecret);
 extern char* GetStats(void);
 extern void SetFakeTls(int enabled, char* cDomain);
 extern char* GetSecretWithPrefix(void);
-extern char* GetConnectionStatus(void);
-extern char* RotateCfDomain(void);
 extern void FreeString(char* p);
+extern void ResetForNetworkChange(void);
 
 #ifdef __cplusplus
 }

@@ -22,6 +22,7 @@ typedef void (*fn_SetFakeTls)(int, const char*);
 typedef char*(*fn_GetSecretWithPrefix)(void);
 typedef char*(*fn_GetStats)(void);
 typedef void (*fn_FreeString)(char*);
+typedef void (*fn_ResetForNetworkChange)(void);
 
 // Function pointers
 static fn_StartProxy         pStartProxy = NULL;
@@ -35,6 +36,7 @@ static fn_SetFakeTls         pSetFakeTls = NULL;
 static fn_GetSecretWithPrefix pGetSecretWithPrefix = NULL;
 static fn_GetStats           pGetStats = NULL;
 static fn_FreeString         pFreeString = NULL;
+static fn_ResetForNetworkChange pResetForNetworkChange = NULL;
 
 __attribute__((constructor))
 void init_bridge() {
@@ -55,6 +57,7 @@ void init_bridge() {
     pGetSecretWithPrefix= (fn_GetSecretWithPrefix)dlsym(go_handle, "GetSecretWithPrefix");
     pGetStats           = (fn_GetStats)          dlsym(go_handle, "GetStats");
     pFreeString         = (fn_FreeString)        dlsym(go_handle, "FreeString");
+    pResetForNetworkChange = (fn_ResetForNetworkChange)dlsym(go_handle, "ResetForNetworkChange");
 
     if (!pStartProxy) LOGE("dlsym StartProxy failed: %s", dlerror());
 }
@@ -155,4 +158,10 @@ JNIEXPORT void JNICALL
 Java_tw_nekomimi_nekogram_wsproxy_NativeProxy_FreeString(
     JNIEnv* env, jclass cls, jstring str) {
     // Not used — freeing done in GetSecretWithPrefix/GetStats
+}
+
+JNIEXPORT void JNICALL
+Java_tw_nekomimi_nekogram_wsproxy_NativeProxy_ResetForNetworkChange(
+    JNIEnv* env, jclass cls) {
+    if (pResetForNetworkChange) pResetForNetworkChange();
 }

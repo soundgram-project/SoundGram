@@ -136,6 +136,7 @@ import androidx.recyclerview.widget.LinearSmoothScroller;
 
 public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.NotificationCenterDelegate, DownloadController.FileDownloadProgressListener {
     public static final int PLAY_ONCE = 3;
+    public static AudioPlayerAlert instance;
 
     private TextView forwardButton;
     private TextView backwardButton;
@@ -627,6 +628,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     }
     public AudioPlayerAlert(final Context context, Theme.ResourcesProvider resourcesProvider) {
         super(context, true, resourcesProvider);
+        instance = this;
         fixNavigationBar();
 
         try {
@@ -2724,6 +2726,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
     @Override
     public void dismiss() {
+        instance = null;
         super.dismiss();
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
@@ -2798,7 +2801,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         modeMenuButton.setIconColor(isActive ? getThemedColor(Theme.key_player_buttonActive) : 0xFFFFFFFF);
     }
 
-    private void updateRepeatButton() {
+    public void updateRepeatButton() {
         int mode = SharedConfig.repeatMode;
         if (mode == 0 || mode == 1) {
             if (SharedConfig.shuffleMusic) {
