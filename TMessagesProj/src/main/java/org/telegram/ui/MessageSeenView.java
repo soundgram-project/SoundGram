@@ -51,6 +51,8 @@ import org.telegram.ui.Components.StatusBadgeComponent;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import tw.nekomimi.nekogram.filters.ReactionFilter;
+
 public class MessageSeenView extends FrameLayout {
 
     ArrayList<Long> peerIds = new ArrayList<>();
@@ -120,6 +122,9 @@ public class MessageSeenView extends FrameLayout {
                         if (finalFromId == peerId) {
                             continue;
                         }
+                        if (ReactionFilter.isBlockedPeer(currentAccount, messageObject.getDialogId(), peerId)) {
+                            continue;
+                        }
                         TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(peerId);
                         allPeers.add(new Pair<>(peerId, date));
                         if (true || user == null) {
@@ -130,6 +135,9 @@ public class MessageSeenView extends FrameLayout {
                     } else if (object instanceof Long) {
                         Long peerId = (Long) object;
                         if (finalFromId == peerId) {
+                            continue;
+                        }
+                        if (ReactionFilter.isBlockedPeer(currentAccount, messageObject.getDialogId(), peerId)) {
                             continue;
                         }
                         if (peerId > 0) {
@@ -408,7 +416,7 @@ public class MessageSeenView extends FrameLayout {
 
             if (object != null) {
                 avatarDrawable.setInfo(currentAccount, object);
-                ImageLocation imageLocation = ImageLocation.getForUserOrChat(object, ImageLocation.TYPE_SMALL);
+                ImageLocation imageLocation = ImageLocation.getForUserOrChat(currentAccount, object, ImageLocation.TYPE_SMALL);
                 avatarImageView.setImage(imageLocation, "50_50", avatarDrawable, object);
                 nameView.setText(ContactsController.formatName(object));
             }

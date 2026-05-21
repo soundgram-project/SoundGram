@@ -49,7 +49,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -966,9 +965,9 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
         zoomControlView.setTranslationY(zoomControlCenterY);
     }
 
-    public Rect getCameraRect() {
+    public RectOld getCameraRect() {
         cameraContainer.getLocationOnScreen(position);
-        return new Rect(position[0], position[1], cameraContainer.getWidth(), cameraContainer.getHeight());
+        return new RectOld(position[0], position[1], cameraContainer.getWidth(), cameraContainer.getHeight());
     }
 
     public void changeVideoPreviewState(int state, float progress) {
@@ -2386,9 +2385,10 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
 
             keyframeThumbs.clear();
             frameCount = 0;
-            if (generateKeyframeThumbsQueue != null) {
-                generateKeyframeThumbsQueue.cleanupQueue();
-                generateKeyframeThumbsQueue.recycle();
+            DispatchQueue queue = generateKeyframeThumbsQueue;
+            if (queue != null) {
+                queue.cleanupQueue();
+                queue.recycle();
             }
             generateKeyframeThumbsQueue = new DispatchQueue("keyframes_thumb_queue");
             handler.sendMessage(handler.obtainMessage(MSG_START_RECORDING));
@@ -2733,9 +2733,10 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
         }
 
         private void createKeyframeThumb() {
-            if (generateKeyframeThumbsQueue != null && SharedConfig.getDevicePerformanceClass() == SharedConfig.PERFORMANCE_CLASS_HIGH && frameCount % 33 == 0) {
+            DispatchQueue queue = generateKeyframeThumbsQueue;
+            if (queue != null && SharedConfig.getDevicePerformanceClass() == SharedConfig.PERFORMANCE_CLASS_HIGH && frameCount % 33 == 0) {
                 GenerateKeyframeThumbTask task = new GenerateKeyframeThumbTask();
-                generateKeyframeThumbsQueue.postRunnable(task);
+                queue.postRunnable(task);
             }
         }
 
@@ -3038,9 +3039,10 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                 }
             }
             if (send != 2) {
-                if (generateKeyframeThumbsQueue != null) {
-                    generateKeyframeThumbsQueue.cleanupQueue();
-                    generateKeyframeThumbsQueue.recycle();
+                DispatchQueue queue = generateKeyframeThumbsQueue;
+                if (queue != null) {
+                    queue.cleanupQueue();
+                    queue.recycle();
                     generateKeyframeThumbsQueue = null;
                 }
             }

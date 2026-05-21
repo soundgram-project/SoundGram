@@ -204,6 +204,7 @@
     <string name="CreateCode">Buat Kode</string>
     <string name="CreateCodeLanguage">Bahasa</string>
     <string name="NoCaptionForward">Teruskan Tanpa Teks</string>
+    <string name="NoCaptionForwardShort">Tanpa Teks</string>
     <string name="PreferCommonGroupsTab">Lebih suka Tab Grup</string>
     <string name="PreferCommonGroupsTabNotice">Pilih otomatis tab \"Grup\" alih-alih \"Hadiah\" bila memungkinkan.</string>
     <string name="GroupedMessageMenu">Menu Pesan Grup</string>
@@ -331,4 +332,6 @@
     <string name="TabletModeOn">Nyala</string>
     <string name="TabletModeOff">Mati</string>
     <string name="HideDialogsSearchField">Sembunyikan Kotak Pencarian</string>
+    <string name="DeepLTranslateKey">Kunci API DeepL</string>
+    <string name="DeepLTranslateKeyNotice">Konfigurasikan Kunci API DeepL, biarkan kosong untuk menggunakan kredensial bawaan.</string>
 </resources>

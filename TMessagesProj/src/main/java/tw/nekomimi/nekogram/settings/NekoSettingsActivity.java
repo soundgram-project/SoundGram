@@ -176,7 +176,7 @@ wsProxyRow = addRow();
 
             ImageView searchIcon = new ImageView(parent);
             searchIcon.setScaleType(ImageView.ScaleType.CENTER);
-            searchIcon.setImageResource(R.drawable.ic_ab_search);
+            searchIcon.setImageResource(R.drawable.ic_ab_search_solar);
             searchIcon.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.MULTIPLY));
             searchFrame.addView(searchIcon, LayoutHelper.createFrame(48, 48, Gravity.LEFT | Gravity.CENTER_VERTICAL));
 
