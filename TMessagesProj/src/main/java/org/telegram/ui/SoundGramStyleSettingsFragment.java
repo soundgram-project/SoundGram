@@ -298,11 +298,6 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
         root.addView(makeLabel(ctx, getString(R.string.sg_style_section_glass)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-        // ── SoundGram: тумблер «Публичная библиотека» ──────────────────────────
-        root.addView(buildPublicLibraryToggle(ctx),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
-
         return root;
     }
 
@@ -320,48 +315,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
      * SoundGram: карточка с тумблером «Сделать библиотеку публичной».
      * При включении сохраняет флаг через ChannelStorageManager.
      */
-    private View buildPublicLibraryToggle(Context ctx) {
-        long selfId = org.telegram.messenger.UserConfig
-                .getInstance(org.telegram.messenger.UserConfig.selectedAccount)
-                .getClientUserId();
 
-        FrameLayout card = new FrameLayout(ctx);
-        GradientDrawable cardBg = new GradientDrawable();
-        cardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        cardBg.setCornerRadius(AndroidUtilities.dp(16));
-        card.setBackground(cardBg);
-        if (Build.VERSION.SDK_INT >= 21) card.setElevation(AndroidUtilities.dp(2));
-
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(14),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(14));
-
-        // Иконка
-        TextView icon = new TextView(ctx);
-        icon.setText("🌐");
-        icon.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
-        row.addView(icon, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 12, 0));
-
-        // Текст
-        LinearLayout textCol = new LinearLayout(ctx);
-        textCol.setOrientation(LinearLayout.VERTICAL);
-        TextView titleTv = new TextView(ctx);
-        titleTv.setText("Публичная библиотека");
-        titleTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        titleTv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        titleTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-        textCol.addView(titleTv);
-        TextView subtitleTv = new TextView(ctx);
-        subtitleTv.setText("Другие смогут видеть вашу музыку в профиле");
-        subtitleTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        subtitleTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        textCol.addView(subtitleTv);
-        row.addView(textCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-        card.addView(row, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        return card;
-    }
 
     private View makeStatPill(Context ctx, String emoji, String value, String label, int accent) {
         LinearLayout p = new LinearLayout(ctx);

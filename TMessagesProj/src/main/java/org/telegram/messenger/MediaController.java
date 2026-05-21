@@ -3453,9 +3453,29 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 .putFloat(music ? "musicPlaybackSpeed" : "playbackSpeed", speed)
                 .putFloat(music ? "fastMusicPlaybackSpeed" : "fastPlaybackSpeed", music ? fastMusicPlaybackSpeed : fastPlaybackSpeed)
                 .commit();
-        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.messagePlayingSpeedChanged);
-        if (!ignorePlayerUpdate) {
-            CastSync.setSpeed(speed);
+    }
+    public void applyMusicPlaybackParams(float speed, float pitch) {
+        if (playingMessageObject == null || !playingMessageObject.isMusic()) return;
+        try {
+            if (audioPlayer != null) {
+                audioPlayer.setPlaybackSpeed(Math.round(speed * 10f) / 10f);
+                // pitch применяем напрямую через PlaybackParameters
+                com.google.android.exoplayer2.PlaybackParameters params =
+                        new com.google.android.exoplayer2.PlaybackParameters(
+                                Math.round(speed * 10f) / 10f, pitch);
+                if (audioPlayer.player != null) {
+                    audioPlayer.player.setPlaybackParameters(params);
+                }
+            } else if (videoPlayer != null) {
+                com.google.android.exoplayer2.PlaybackParameters params =
+                        new com.google.android.exoplayer2.PlaybackParameters(
+                                Math.round(speed * 10f) / 10f, pitch);
+                if (videoPlayer.player != null) {
+                    videoPlayer.player.setPlaybackParameters(params);
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e("SoundGram applyMusicPlaybackParams error: " + e.getMessage());
         }
     }
 
@@ -4086,6 +4106,12 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                             lastProgress = seekTo;
                             seekToProgressPending = 0;
                         }
+                        // Применяем EQ / скорость / тон когда ExoPlayer готов:
+                        // только тут getAudioSessionId() возвращает реальный ID,
+                        // а до STATE_READY он равен 0 → Equalizer привязывался к системе
+                        if (playbackState == ExoPlayer.STATE_READY) {
+                            org.telegram.ui.SoundGramAudioFX.applyFXForCurrentMessage();
+                        }
                         if (audioPlayer != null && CastSync.isActive()) {
                             audioPlayer.setMute(true);
                         }
@@ -4267,6 +4293,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         isPaused = false;
         lastProgress = 0;
         playingMessageObject = messageObject;
+        // Применяем/снимаем EQ-эффекты в зависимости от типа нового трека
+        // (для ГС и видеосообщений эффекты не применяются)
+        org.telegram.ui.SoundGramAudioFX.applyFXForCurrentMessage();
         if (!SharedConfig.enabledRaiseTo(true)) {
             startRaiseToEarSensors(raiseChat);
         }

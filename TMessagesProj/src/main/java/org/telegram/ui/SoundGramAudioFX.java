@@ -33,6 +33,7 @@ public class SoundGramAudioFX {
     }
 
     public static void initFX(int audioSessionId) {
+        if (audioSessionId <= 0) return; // нет сессии — не инициализируем, иначе создастся системный эффект
         try {
             if (currentSessionId != audioSessionId) {
                 if (equalizer != null) { equalizer.release(); equalizer = null; }
@@ -42,31 +43,71 @@ public class SoundGramAudioFX {
             }
 
             SharedPreferences prefs = getPrefs();
-            equalizerEnabled = prefs.getBoolean("eq_enabled", true); // читаем сохранённый флаг
+            equalizerEnabled = prefs.getBoolean("eq_enabled", true);
             savedReverbPreset = (short) prefs.getInt("reverb", 0);
             savedBassLevel = (short) prefs.getInt("bass", 0);
             currentSpeed = prefs.getFloat("speed", 1.0f);
             currentPitch = prefs.getFloat("pitch", 1.0f);
 
+            // Эффекты применяются только если играет музыка (не ГС, не видеосообщение)
+            boolean musicPlaying = isMusicPlaying();
+
             if (equalizer == null) {
                 equalizer = new Equalizer(0, audioSessionId);
-                equalizer.setEnabled(equalizerEnabled); // используем флаг
                 for (short i = 0; i < equalizer.getNumberOfBands(); i++) {
                     equalizer.setBandLevel(i, (short) prefs.getInt("band_" + i, 0));
                 }
             }
+            equalizer.setEnabled(equalizerEnabled && musicPlaying);
+
             if (bassBoost == null) {
                 bassBoost = new BassBoost(0, audioSessionId);
                 if (bassBoost.getStrengthSupported()) bassBoost.setStrength(savedBassLevel);
-                bassBoost.setEnabled(equalizerEnabled); // используем флаг
             }
+            bassBoost.setEnabled(equalizerEnabled && musicPlaying);
+
             if (reverb == null) {
                 reverb = new PresetReverb(0, audioSessionId);
                 reverb.setPreset(savedReverbPreset);
-                reverb.setEnabled(equalizerEnabled && savedReverbPreset != PresetReverb.PRESET_NONE);
             }
+            reverb.setEnabled(equalizerEnabled && musicPlaying && savedReverbPreset != PresetReverb.PRESET_NONE);
         } catch (Exception e) {
             FileLog.e("SoundGram AudioFX Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Проверяет, играет ли сейчас музыка (не ГС и не видеосообщение).
+     * Используется для определения, надо ли применять эффекты.
+     */
+    public static boolean isMusicPlaying() {
+        try {
+            MessageObject mo = MediaController.getInstance().getPlayingMessageObject();
+            return mo != null && mo.isMusic();
+        } catch (Exception e) {
+            return true; // При ошибке не блокируем эффекты
+        }
+    }
+
+    /**
+     * Вызывается из MediaController при смене трека — включает/отключает
+     * эффекты в зависимости от типа нового трека (музыка vs ГС/видео).
+     * Для музыки также применяет скорость и тон из эквалайзера к плееру.
+     */
+    public static void applyFXForCurrentMessage() {
+        try {
+            // Переинициализируем с реальным session ID — он доступен только когда
+            // ExoPlayer в STATE_READY. Если вызов преждевременный (ID=0), initFX сам вернётся.
+            int sessionId = MediaController.getInstance().getAudioSessionId();
+            if (sessionId > 0 && sessionId != currentSessionId) {
+                currentSessionId = -1; // принудительно пересоздать объекты эффектов
+                initFX(sessionId);
+            }
+        } catch (Exception ignored) {}
+        applyEqualizerState(equalizerEnabled);
+        // Применяем скорость и тон только для музыки
+        if (isMusicPlaying()) {
+            MediaController.getInstance().applyMusicPlaybackParams(currentSpeed, currentPitch);
         }
     }
 
@@ -79,31 +120,44 @@ public class SoundGramAudioFX {
 
     /**
      * Включает или отключает эквалайзер, бас-буст и ревербератор.
+     * При включении принудительно переинициализирует FX с реальным session ID,
+     * чтобы эффекты применились к активному потоку (не только к паузированному).
      * @param enabled true = включить, false = отключить
      */
     public static void setEqualizerEnabled(boolean enabled) {
         getPrefs().edit().putBoolean("eq_enabled", enabled).apply();
         equalizerEnabled = enabled;
-        applyEqualizerState(enabled);
+        if (enabled) {
+            // При включении — переинициализируем с реальным audio session ID.
+            // Это нужно, потому что Equalizer.setEnabled(true) на активном потоке
+            // на многих устройствах не срабатывает без пересоздания объекта.
+            try {
+                int sessionId = MediaController.getInstance().getAudioSessionId();
+                currentSessionId = -1; // Сбрасываем, чтобы initFX пересоздал объекты
+                initFX(sessionId);
+            } catch (Exception e) {
+                applyEqualizerState(true);
+            }
+        } else {
+            applyEqualizerState(false);
+        }
     }
 
-    /** Применяет флаг ко всем аудио-эффектам. */
+    /** Применяет флаг ко всем аудио-эффектам. Эффекты применяются только для музыки. */
     private static void applyEqualizerState(boolean enabled) {
         try {
+            // Если играет не музыка (ГС / видеосообщение) — эффекты отключаем принудительно
+            boolean effectiveEnabled = enabled && isMusicPlaying();
             if (equalizer != null) {
-                equalizer.setEnabled(enabled);
+                equalizer.setEnabled(effectiveEnabled);
             }
             if (bassBoost != null) {
-                bassBoost.setEnabled(enabled);
+                bassBoost.setEnabled(effectiveEnabled);
             }
             if (reverb != null) {
-                if (enabled) {
-                    reverb.setEnabled(savedReverbPreset != PresetReverb.PRESET_NONE);
-                } else {
-                    reverb.setEnabled(false);
-                }
+                reverb.setEnabled(effectiveEnabled && savedReverbPreset != PresetReverb.PRESET_NONE);
             }
-            FileLog.d("SoundGram EQ state changed to: " + enabled);
+            FileLog.d("SoundGram EQ state changed to: " + effectiveEnabled + " (equalizerEnabled=" + enabled + ", isMusicPlaying=" + isMusicPlaying() + ")");
         } catch (Exception e) {
             FileLog.e("Failed to apply EQ state: " + e.getMessage());
         }

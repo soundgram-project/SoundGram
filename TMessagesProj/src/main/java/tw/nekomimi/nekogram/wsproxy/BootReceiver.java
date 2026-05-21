@@ -30,7 +30,7 @@ public class BootReceiver extends BroadcastReceiver {
         serviceIntent.putExtra(TgWsProxyService.EXTRA_CF_ENABLED,  prefs.getBoolean("cf_enabled",  true));
         serviceIntent.putExtra(TgWsProxyService.EXTRA_CF_DOMAIN,   prefs.getString("cf_domain",    ""));
         serviceIntent.putExtra(TgWsProxyService.EXTRA_FAKE_TLS,    prefs.getBoolean("fake_tls",    false));
-        serviceIntent.putExtra(TgWsProxyService.EXTRA_FAKE_DOMAIN, prefs.getString("fake_domain",  "google.com"));
+        serviceIntent.putExtra(TgWsProxyService.EXTRA_FAKE_DOMAIN, prefs.getString("fake_domain", "sso.pass.rzd.ru")); 
         serviceIntent.putExtra(TgWsProxyService.EXTRA_VERBOSE,     prefs.getInt("verbose",         0));
         serviceIntent.putExtra(TgWsProxyService.EXTRA_DC_IPS,      prefs.getString("dc_ips",       ""));
 

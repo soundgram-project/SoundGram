@@ -1666,23 +1666,24 @@ public class SmartRadioEngine {
         switch (g) {
             case "поп":
                 list = new ArrayList<>(java.util.Arrays.asList(
-                        "Anna Asti - Царица", "Zivert - Wake Up", "JONY - Комета", "Люся Чеботина - Солнце Монако",
-                        "Мари Краймбрери - Иди танцуй", "Клава Кока - Покинула чат", "Artik & Asti - Гармония",
-                        "Niletto - Любимка", "Леша Свик - Хит", "Моя Мишель - Зима в сердце",
-                        "Miley Cyrus - Flowers", "Dua Lipa - Houdini", "Taylor Swift - Anti-Hero",
+                        "Anna Asti - Царица", "Zivert - Credo", "JONY - Комета",
+                        "Люся Чеботина - Солнце Монако", "Мари Краймбрери - Иди танцуй", "Клава Кока - Покинула чат",
+                        "Niletto - Любимка", "Artik & Asti - Гармония",
+                        "Miley Cyrus - Flowers", "Dua Lipa - Houdini", "Taylor Swift - Cruel Summer",
                         "The Weeknd - Blinding Lights", "Olivia Rodrigo - vampire", "Billie Eilish - What Was I Made For?",
-                        "Harry Styles - As It Was", "Sabrina Carpenter - Espresso", "Doja Cat - Paint The Town Red", "Tyla - Water"
+                        "Harry Styles - As It Was", "Sabrina Carpenter - Espresso", "Charli XCX - Apple", "Chappell Roan - Good Luck Babe",
+                        "Benson Boone - Beautiful Things", "Tyla - Water"
                 ));
                 break;
             case "хип-хоп":
             case "хип хоп":
                 list = new ArrayList<>(java.util.Arrays.asList(
                         "Kendrick Lamar - Not Like Us", "Drake - First Person Shooter", "Travis Scott - FE!N",
-                        "Future - Like That", "21 Savage - redrum", "Gunna - fukumean", "Playboi Carti - 2024",
-                        "Lil Uzi Vert - Just Wanna Rock", "J. Cole - No Role Modelz", "A$AP Rocky - Praise The Lord",
+                        "Future - Like That", "21 Savage - redrum", "Gunna - fukumean",
+                        "Lil Uzi Vert - Just Wanna Rock", "J. Cole - No Role Modelz", "A$AP Rocky - Praise The Lord", "Playboi Carti - WHOLE LOTTA RED",
                         "Скриптонит - Цепи", "Miyagi & Andy Panda - Minor", "Big Baby Tape - Gimme The Loot",
-                        "Boulevard Depo - Кащенко", "Oxxxymiron - Оябун", "Баста - Сансара",
-                        "Kizaru - Дежавю", "Macan - Юг", "Friendly Thug 52 Ngg - Arrivederci", "Saluki - ОГНЕЙ"
+                        "Boulevard Depo - Кащенко", "Oxxxymiron - Оябун", "PHARAOH - Грязь",
+                        "Kizaru - Дежавю", "Saluki - ОГНЕЙ", "Хаски - Пуля", "Friendly Thug 52 Ngg - Arrivederci"
                 ));
                 break;
             case "рок":
@@ -1721,9 +1722,9 @@ public class SmartRadioEngine {
                         "100 gecs - Hollywood Baby", "Charli XCX - Von dutch", "SOPHIE - Its Okay to Cry",
                         "Dorian Electra - Flamboyant", "Rico Nasty - IPHONE", "Glaive - astrid", "ericdoa - fawnboy",
                         "midwxst - trying", "Brakence - dropout", "ElyOtto - SugarCrash",
-                        "Lida - Девочка с концерта", "GSPD - Евродэнс", "Мейби Бэйби - Ахегао", "Дора - Втюрилась",
-                        "CMH - PAYDAY", "Sqwoz Bab - ОЙ", "Slava Marlow - Ты горишь как огонь", "Эльдар Джарахов - Я в моменте",
-                        "Morgenstern - Cristal MOET", "Instasamka - За деньги да"
+                        "Lida - Девочка с концерта", "GSPD - Евродэнс", "Мейби Бэйби - Ахегао",
+                        "Дора - Втюрилась", "CMH - PAYDAY", "Sqwoz Bab - ОЙ",
+                        "Slava Marlow - Ты горишь как огонь", "Morgenstern - Cristal MOET", "Instasamka - За деньги да", "Kate WT - Ванна"
                 ));
                 break;
             case "пост-панк":
@@ -1784,9 +1785,9 @@ public class SmartRadioEngine {
                         "Laufey - From The Start", "Samara Joy - Tight", "Kamasi Washington - Street Fighter Mas",
                         "Gregory Porter - Liquid Spirit", "Norah Jones - Don't Know Why", "Michael Bublé - Sway",
                         "Esperanza Spalding - I Know You Know", "Snarky Puppy - Lingus", "Jacob Collier - In My Room", "Jon Batiste - FREEDOM",
-                        "Игорь Бутман - Nostalgia", "Therr Maitz - Future Is Bright", "LRK Trio - The Tides",
-                        "Zventa Sventana - Мужа дома нету", "Антон Беляев - Fly Me To The Moon", "Леонид Агутин - Включите свет",
-                        "Sirotkin - Планы на это лето", "Олег Аккуратов - Nature Boy", "Polina Gagarina - Колыбельная (Jazz Version)", "Евгений Побожий - Elements"
+                        "Игорь Бутман - Nostalgia", "Олег Аккуратов - Nature Boy", "LRK Trio - The Tides",
+                        "Zventa Sventana - Мужа дома нету", "Антон Беляев - Fly Me To The Moon", "Кешью - Синяя птица",
+                        "Jazz Parking - Осень в городе", "Therr Maitz - Future Is Bright", "Sirotkin - Планы на это лето", "Евгений Побожий - Elements"
                 ));
                 break;
             case "блюз":
@@ -1802,21 +1803,21 @@ public class SmartRadioEngine {
             case "классика":
                 list = new ArrayList<>(java.util.Arrays.asList(
                         "Ludovico Einaudi - Experience", "Max Richter - On the Nature of Daylight", "Hans Zimmer - Time",
-                        "Olafur Arnalds - saman", "Nils Frahm - Ambre", "Hania Rani - Glass",
-                        "Yann Tiersen - Comptine d'un autre ete", "Philip Glass - Metamorphosis 1", "Joep Beving - Ab Ovo", "Dustin O'Halloran - Opus 23",
-                        "Denis Stelmakh - Afraid of Destiny", "Кирилл Рихтер - Mechanims", "Misha Mishenko - Decadence",
-                        "Ilya Beshevli - Night Forest", "Neoclassica - Winter", "Evgeny Grinko - Valse",
-                        "Polina Nazaykinskaya - Winter Bells", "Nikola Melnikov - Flight", "Gleb Kolyadin - The Room", "Arseny Trofim - The Flow"
+                        "Olafur Arnalds - Near Light", "Nils Frahm - Says", "Hania Rani - Glass",
+                        "Yann Tiersen - Comptine d'un autre ete", "Philip Glass - Metamorphosis 1", "Johann Johannsson - The Sun's Gone Dim", "Dustin O'Halloran - Opus 23",
+                        "Кирилл Рихтер - Mechanisms", "Ilya Beshevli - Night Forest", "Evgeny Grinko - Valse",
+                        "Gleb Kolyadin - The Room", "Polina Nazaykinskaya - Winter Bells", "Nikola Melnikov - Flight",
+                        "Пётр Налич - Зима", "Аигел - Пыяла (Piano)", "Антон Беляев - Nostalgia", "Олег Аккуратов - Firefly"
                 ));
                 break;
             case "электроника":
                 list = new ArrayList<>(java.util.Arrays.asList(
                         "Fred again.. - leavemealone", "Peggy Gou - (It Goes Like) Nanana", "Bicep - Glue",
-                        "Disclosure - Latch", "Flume - Never Be Like You", "Skrillex - Rumble",
-                        "Rufus Du Sol - Innerbloom", "Jamie xx - Gosh", "Overmono - Good Lies", "Four Tet - Baby",
-                        "IC3PEAK - Смерти Больше Нет", "Cream Soda - Плачу на техно", "GSPD - Некстген",
-                        "Dead Blonde - Мальчик на девятке", "XS Project - Бочка Басс Колбасер", "Hard Bass School - Narkotik Kal",
-                        "DJ Smash - Волна", "ЛУНА - Free Love", "Kedr Livanskiy - Ariadna", "Ishome - Kenotaf"
+                        "Disclosure - Latch", "Flume - Never Be Like You", "Overmono - Good Lies",
+                        "Rufus Du Sol - Innerbloom", "Jamie xx - Gosh", "Four Tet - Baby", "Floating Points - LesAlpx",
+                        "Kedr Livanskiy - Ariadna", "Ishome - Kenotaf", "IC3PEAK - Смерти Больше Нет",
+                        "Cream Soda - Плачу на техно", "GSPD - Некстген", "Tesla Boy - Electronic Life",
+                        "Pompeya - Flood", "Аигел - Татарин", "ЛУНА - Free Love", "Motorama - Alps"
                 ));
                 break;
             case "дабстеп":
@@ -1824,9 +1825,9 @@ public class SmartRadioEngine {
                         "Skrillex - Bangarang", "Excision - Throwin' Elbows", "Zeds Dead - Rumble In The Jungle",
                         "Subtronics - Griztronics", "Virtual Riot - Energy Drink", "Flux Pavilion - I Can't Stop",
                         "Borgore - Decisions", "Nero - Promises", "Knife Party - Centipede", "Kill The Noise - Kill It 4 The Kids",
-                        "Miyagi & Andy Panda - I Got Love", "Элджей - Suzuki", "Oxxxymiron - Петелька",
-                        "Lida - ЧСВ", "GSPD - Электроклуб", "CMH - Быстрые",
-                        "Слава КПСС - Грустные танцы", "ATL - Танцуйте", "Morgenstern - ICE", "Slava Marlow - Быстро"
+                        "Жора Гудпай - Дабстеп в крови", "Бит Мэйкер - Drop It", "Bass Modulators - Lose My Mind",
+                        "Radical Redemption - Hard To The Core", "GSPD - Некстген", "ВТ - Электроклуб Reboot",
+                        "TNT - Wasted Land", "DJ Mexx - Destruction", "Noize Suppressor - Gods Of Noize", "Angerfist - Ready For War"
                 ));
                 break;
             case "панк-рок":
@@ -1845,30 +1846,30 @@ public class SmartRadioEngine {
                         "Kavinsky - Nightcall", "The Midnight - Sunset", "Timecop1983 - On the Run",
                         "Gunship - Tech Noir", "FM-84 - Running In The Night", "Lazerhawk - Overdrive",
                         "Miami Nights 1984 - Ocean Drive", "Carpenter Brut - Turbo Killer", "Perturbator - Future Club", "Dance With The Dead - Riot",
-                        "Электрофорез - Я ничего не могу с собою сделать", "Bi-2 - Депрессия", "Kino - Спокойная ночь",
-                        "Nautilus Pompilius - Взгляд с экрана", "Альянс - На заре", "Молчат Дома - Танцевать",
-                        "Увула - Дранк", "Свидание - Я и твой кот", "Пасош - Россия", "Буерак - Спортивные очки"
+                        "Молчат Дома - Танцевать", "Альянс - На заре", "Kino - Спокойная ночь",
+                        "Nautilus Pompilius - Взгляд с экрана", "Электрофорез - Я ничего не могу с собою сделать", "Свидание - Я и твой кот",
+                        "Увула - Дранк", "Пасош - Россия", "Буерак - Спортивные очки", "Mvsa - Neon"
                 ));
                 break;
             case "ло-фай":
             case "лофай":
                 list = new ArrayList<>(java.util.Arrays.asList(
-                        "Lofi Girl - aaru", "ChilledCow - 1 A.M Study Session", "Idealism - controlla",
-                        "Jinsang - affection", "Kupla - owls of the night", "bsd.u - french inhale",
-                        "Elijah Who - this girl", "Tomppabeats - monday Loop", "In Love With A Ghost - we've never met", "Nujabes - Aruarian Dance",
-                        "Скриптонит - Это любовь", "Мальбэк - Гипнозы", "Miyagi & Andy Panda - Патрон",
-                        "Баста - Выпускной (Медлячок)", "Feduk - Хлопья летят наверх", "Boulevard Depo - 5 минут назад",
-                        "Macan - Кино", "JONY - Аллея", "HammAli & Navai - Пустите меня на танцпол", "Ramil' - Сияй"
+                        "Lofi Girl - aaru", "Idealism - controlla", "Jinsang - affection",
+                        "Kupla - owls of the night", "bsd.u - french inhale", "Elijah Who - this girl",
+                        "Tomppabeats - monday Loop", "In Love With A Ghost - we've never met", "Nujabes - Aruarian Dance", "j'san - city lights",
+                        "Flovv - Грусть по пятницам", "Мой Микрорайон - Кассеты", "Flawed Mangoes - Апрель",
+                        "Øneheart - snowfall", "Tapecut - Мягко", "Pool Sounds - Тихо",
+                        "Mndsgn - Ode to the Mets (rus lofi rework)", "Sickboyrari - Осень", "Dvrst - Lofi Dreams", "Elusive - Ночной трамвай"
                 ));
                 break;
             case "эмбиент":
                 list = new ArrayList<>(java.util.Arrays.asList(
-                        "Brian Eno - An Ending (Ascent)", "Aphex Twin - #3", "Stars Of The Lid - Requiem For Dying Mothers",
+                        "Brian Eno - An Ending (Ascent)", "Aphex Twin - Rhubarb", "Stars Of The Lid - Requiem For Dying Mothers",
                         "William Basinski - The Disintegration Loops", "Tim Hecker - Chimeras", "Grouper - Heavy Water",
                         "Hammock - Breathturn", "A Winged Victory for the Sullen - Steep Hills of Vicodin Tears", "Bohren & der Club of Gore - Midnight Black Earth", "C418 - Sweden",
-                        "Solar Fields - Leaving Home", "Aes Dana - Lysergic", "Carbon Based Lifeforms - Photosynthesis",
-                        "Koan - Odysseus Under The Old Tree", "Astropilot - The Day When The Sun Went Out", "Zymosis - Zeta",
-                        "Suduaya - Snow and Stars", "Asura - Life2", "H.U.V.A. Network - Orientations", "Stellardrone - To The Great Attractor"
+                        "Koan - Odysseus Under The Old Tree", "Astropilot - The Day When The Sun Went Out", "Carbon Based Lifeforms - Photosynthesis",
+                        "Solar Fields - Leaving Home", "Zymosis - Zeta", "Suduaya - Snow and Stars",
+                        "Asura - Life2", "H.U.V.A. Network - Orientations", "Aes Dana - Lysergic", "Stellardrone - To The Great Attractor"
                 ));
                 break;
             case "trap":
@@ -1877,9 +1878,9 @@ public class SmartRadioEngine {
                         "Travis Scott - goosebumps", "Future - Mask Off", "Migos - Bad and Boujee",
                         "Lil Uzi Vert - XO Tour Llif3", "21 Savage - Bank Account", "Playboi Carti - Magnolia",
                         "Sheck Wes - Mo Bamba", "Roddy Ricch - The Box", "Polo G - RAPSTAR", "Lil Baby - Drip Too Hard",
-                        "Big Baby Tape - VLACO", "Kizaru - Narcos", "Oxxxymiron - Организация",
-                        "Скриптонит - Москва любит...", "Morgenstern - Cadillac", "Slava Marlow - Снова я напиваюсь",
-                        "Face - Бургер", "PHARAOH - 5 Минут Назад", "Boulevard Depo - OCB", "Платина - Санта Клаус"
+                        "Big Baby Tape - VLACO", "Kizaru - Narcos", "PHARAOH - 5 Минут Назад",
+                        "Скриптонит - Москва любит...", "Morgenstern - Cadillac", "Платина - Санта Клаус",
+                        "Face - Бургер", "Slava Marlow - Снова я напиваюсь", "Boulevard Depo - OCB", "GONE.Fludd - Futurum"
                 ));
                 break;
             case "r&b":
@@ -1890,9 +1891,9 @@ public class SmartRadioEngine {
                         "SZA - Kill Bill", "The Weeknd - Call Out My Name", "Frank Ocean - Pink + White",
                         "Brent Faiyaz - Trust", "Daniel Caesar - Get You", "H.E.R. - Best Part",
                         "Summer Walker - Playing Games", "Kehlani - Nights Like This", "Jhené Aiko - Sativa", "Giveon - Heartbreak Anniversary",
-                        "JONY - Комета", "Zivert - Credo", "Miyagi & Andy Panda - Утопия",
-                        "Andro - X.O", "Elman - Лети", "Мот - Капкан",
-                        "Seville (Artik & Asti) - Кукла", "Macan - ОСТАНЬСЯ", "Navai - Птичка", "HammAli & Navai - Девочка-война"
+                        "JONY - Комета", "Navai - Птичка", "HammAli & Navai - Девочка-война",
+                        "Andro - X.O", "Elman - Лети", "Macan - ОСТАНЬСЯ",
+                        "Rauf & Faik - Детство", "Miyagi & Andy Panda - Утопия", "Zivert - Credo", "Мот - Капкан"
                 ));
                 break;
             case "регги":
@@ -1900,9 +1901,9 @@ public class SmartRadioEngine {
                         "Bob Marley & The Wailers - Three Little Birds", "Damian Marley - Welcome To Jamrock", "Shaggy - It Wasn't Me",
                         "Sean Paul - Get Busy", "Koffee - Toast", "Chronixx - Skankin' Sweet",
                         "Protoje - Who Knows", "Buju Banton - Champion", "Beenie Man - Girls Dem Sugar", "Popcaan - Family",
-                        "Miyagi & Andy Panda - I Got Love", "Jah Khalib - Медина", "Alai Oli - Снег и Пепел",
-                        "Пятница - Солдат", "Lumen - Сид и Нэнси", "Бумбокс - Вахтёрам",
-                        "Макс Корж - Жить в кайф", "Noize MC - Из окна", "Баста - Моя игра", "Каста - Вокруг шум"
+                        "Jah Division - Острова", "Alai Oli - Снег и Пепел", "Банд'Эрос - Осколки",
+                        "Jah Khalib - Медина", "Макс Корж - Жить в кайф", "Noize MC - Из окна",
+                        "Каста - Вокруг шум", "Rasta Bastards - Дым", "Вавилон - Reggae Night", "Раставилль - Зеленый"
                 ));
                 break;
             case "фанк":
@@ -1910,19 +1911,19 @@ public class SmartRadioEngine {
                         "Bruno Mars - 24K Magic", "Daft Punk - Get Lucky", "Mark Ronson - Uptown Funk",
                         "Jamiroquai - Virtual Insanity", "Earth, Wind & Fire - September", "Stevie Wonder - Superstition",
                         "James Brown - I Got You (I Feel Good)", "Kool & The Gang - Get Down On It", "Rick James - Super Freak", "Prince - Kiss",
-                        "Zivert - Life", "Monatik - Кружит", "Иван Дорн - Стыцамэн",
-                        "Леонид Агутин - Хоп Хэй Лала Лэй", "Браво - Этот город", "Валерий Сюткин - 7 тысяч над землей",
-                        "Анжелика Варум - Городок", "Мумий Тролль - Владивосток 2000", "Сплин - Орбит без сахара", "Земфира - Ромашки"
+                        "Иван Дорн - Стыцамэн", "Иван Дорн - Бигуди", "Monatik - Кружит",
+                        "Therr Maitz - Changes", "Pompeya - Dollar", "Tesla Boy - Spirit",
+                        "Браво - Этот город", "Сергей Жуков - Ай-яй-яй", "Дискотека Авария - Пей до дна", "Мегаполис - Хорошие времена"
                 ));
                 break;
             case "кантри":
                 list = new ArrayList<>(java.util.Arrays.asList(
                         "Morgan Wallen - Last Night", "Luke Combs - Fast Car", "Zach Bryan - Something in the Orange",
-                        "Chris Stapleton - Tennessee Whiskey", "Kane Brown - Heaven", "Jason Aldean - Try That In A Small Town",
+                        "Chris Stapleton - Tennessee Whiskey", "Kane Brown - Heaven", "Tyler Childers - In Your Love",
                         "Luke Bryan - Play It Again", "Florida Georgia Line - Cruise", "Blake Shelton - God's Country", "Thomas Rhett - Die A Happy Man",
-                        "Гарик Сукачев - Моя бабушка курит трубку", "Чиж & Co - О любви", "Машина Времени - Поворот",
-                        "ДДТ - Что такое осень", "Любэ - Конь", "Сектор Газа - Пора домой",
-                        "Алиса - Небо славян", "Король и Шут - Кукла колдуна", "Чайф - Аргентина - Ямайка 5:0", "Ария - Беспечный ангел"
+                        "Гарик Сукачев - Моя бабушка курит трубку", "Любэ - Конь", "Чиж & Co - О любви",
+                        "Машина Времени - Поворот", "Ляпис Трубецкой - Грай", "Сектор Газа - Пора домой",
+                        "Ундервуд - Сан-Франциско", "Дмитрий Быков - Баллада", "Наутилус Помпилиус - Скованные одной цепью", "Чайф - Аргентина - Ямайка 5:0"
                 ));
                 break;
             default:

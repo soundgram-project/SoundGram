@@ -28,7 +28,14 @@ public class SoundGramEQAlert extends BottomSheet {
 
     public SoundGramEQAlert(Context context) {
         super(context, false);
-        SoundGramAudioFX.initFX(0);
+
+        // Инициализируем FX с реальным audio session ID текущего трека
+        int sessionId = 0;
+        try { sessionId = MediaController.getInstance().getAudioSessionId(); } catch (Exception ignored) {}
+        SoundGramAudioFX.initFX(sessionId);
+
+        // Определяем тип текущего медиа — эффекты только для музыки
+        boolean isMusicContext = SoundGramAudioFX.isMusicPlaying();
 
         // ── Корневой контейнер — жидкое стекло ────────────────────────────────
         LinearLayout container = new LinearLayout(context);
@@ -75,6 +82,29 @@ public class SoundGramEQAlert extends BottomSheet {
         title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         headerRow.addView(title,
                 LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+        // ── Тумблер ВКЛ/ВЫКЛ эквалайзера (стандартный TG Switch) ─────────────
+        android.widget.Switch eqSwitch = new android.widget.Switch(context);
+        eqSwitch.setChecked(SoundGramAudioFX.isEqualizerEnabled());
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
+            android.content.res.ColorStateList thumbCsl = new android.content.res.ColorStateList(
+                    new int[][]{ new int[]{ android.R.attr.state_checked }, new int[]{} },
+                    new int[]{ accent, 0xFFCCCCCC });
+            android.content.res.ColorStateList trackCsl = new android.content.res.ColorStateList(
+                    new int[][]{ new int[]{ android.R.attr.state_checked }, new int[]{} },
+                    new int[]{
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 120),
+                        0x44888888
+                    });
+            eqSwitch.setThumbTintList(thumbCsl);
+            eqSwitch.setTrackTintList(trackCsl);
+        }
+        eqSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
+                SoundGramAudioFX.setEqualizerEnabled(isChecked));
+        headerRow.addView(eqSwitch,
+                LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
+                        0, 0, 8, 0));
 
         // Кнопка СБРОС — жидкое стекло с красным оттенком
         TextView resetBtn = new TextView(context);
@@ -215,41 +245,60 @@ public class SoundGramEQAlert extends BottomSheet {
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                         0, 0, 0, 12));
 
-        // ── Скорость ──────────────────────────────────────────────────────────
-        final float[] speedHolder = {SoundGramAudioFX.getCurrentSpeed()};
-        container.addView(
-                makeGlassSliderCard(context,
-                        String.format(getString(R.string.sg_eq_speed), speedHolder[0]),
-                        19,
-                        Math.round((speedHolder[0] - 0.1f) / 0.1f),
-                        (label, p) -> {
-                            speedHolder[0] = 0.1f + (p * 0.1f);
-                            label.setText(String.format(getString(R.string.sg_eq_speed), speedHolder[0]));
-                            SoundGramAudioFX.setCurrentSpeed(speedHolder[0]);
-                            try { org.telegram.messenger.MediaController.getInstance()
-                                    .setPlaybackSpeed(false, speedHolder[0]); }
-                            catch (Exception ignored) {}
-                        }),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
-                        0, 0, 0, 12));
+        // ── Скорость и Тон — только для музыки ───────────────────────────────
+        if (isMusicContext) {
+            // ── Скорость ──────────────────────────────────────────────────────────
+            final float[] speedHolder = {SoundGramAudioFX.getCurrentSpeed()};
+            container.addView(
+                    makeGlassSliderCard(context,
+                            String.format(getString(R.string.sg_eq_speed), speedHolder[0]),
+                            19,
+                            Math.round((speedHolder[0] - 0.1f) / 0.1f),
+                            (label, p) -> {
+                                speedHolder[0] = 0.1f + (p * 0.1f);
+                                label.setText(String.format(getString(R.string.sg_eq_speed), speedHolder[0]));
+                                SoundGramAudioFX.setCurrentSpeed(speedHolder[0]);
+                                // applyMusicPlaybackParams проверяет isMusic() внутри →
+                                // скорость из EQ никогда не попадёт на ГС / видеосообщение
+                                try { org.telegram.messenger.MediaController.getInstance()
+                                        .applyMusicPlaybackParams(speedHolder[0], SoundGramAudioFX.getCurrentPitch()); }
+                                catch (Exception ignored) {}
+                            }),
+                    LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                            0, 0, 0, 12));
 
-        // ── Тон ───────────────────────────────────────────────────────────────
-        final float[] pitchHolder = {SoundGramAudioFX.getCurrentPitch()};
-        container.addView(
-                makeGlassSliderCard(context,
-                        String.format(getString(R.string.sg_eq_pitch), pitchHolder[0]),
-                        19,
-                        Math.round((pitchHolder[0] - 0.1f) / 0.1f),
-                        (label, p) -> {
-                            pitchHolder[0] = 0.1f + (p * 0.1f);
-                            label.setText(String.format(getString(R.string.sg_eq_pitch), pitchHolder[0]));
-                            SoundGramAudioFX.setCurrentPitch(pitchHolder[0]);
-                            try { org.telegram.messenger.MediaController.getInstance()
-                                    .setPlaybackSpeed(false, SoundGramAudioFX.getCurrentSpeed()); }
-                            catch (Exception ignored) {}
-                        }),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
-                        0, 0, 0, 4));
+            // ── Тон ───────────────────────────────────────────────────────────────
+            final float[] pitchHolder = {SoundGramAudioFX.getCurrentPitch()};
+            container.addView(
+                    makeGlassSliderCard(context,
+                            String.format(getString(R.string.sg_eq_pitch), pitchHolder[0]),
+                            19,
+                            Math.round((pitchHolder[0] - 0.1f) / 0.1f),
+                            (label, p) -> {
+                                pitchHolder[0] = 0.1f + (p * 0.1f);
+                                label.setText(String.format(getString(R.string.sg_eq_pitch), pitchHolder[0]));
+                                SoundGramAudioFX.setCurrentPitch(pitchHolder[0]);
+                                // Раньше здесь вызывался setPlaybackSpeed — он тон вообще не применяет!
+                                // PlaybackParameters с pitch передаётся только через applyMusicPlaybackParams
+                                try { org.telegram.messenger.MediaController.getInstance()
+                                        .applyMusicPlaybackParams(SoundGramAudioFX.getCurrentSpeed(), pitchHolder[0]); }
+                                catch (Exception ignored) {}
+                            }),
+                    LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                            0, 0, 0, 4));
+        } else {
+            // ── Заглушка для ГС и видеосообщений ─────────────────────────────────
+            TextView noticeView = new TextView(context);
+            noticeView.setText("⚡ Скорость, тон и эффекты применяются только к музыкальным трекам");
+            noticeView.setTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
+                    Theme.getColor(Theme.key_dialogTextBlack), 130));
+            noticeView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 13);
+            noticeView.setGravity(android.view.Gravity.CENTER);
+            noticeView.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(14),
+                    AndroidUtilities.dp(12), AndroidUtilities.dp(4));
+            container.addView(noticeView,
+                    LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        }
 
         android.widget.ScrollView scroll = new android.widget.ScrollView(context);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);

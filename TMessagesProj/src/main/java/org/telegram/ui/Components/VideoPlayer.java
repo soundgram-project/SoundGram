@@ -362,27 +362,29 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
             player = builder.build();
 
-            // --- SOUNDGRAM FX: ПОДКЛЮЧАЕМ ЭФФЕКТЫ И ПИТЧ ---
+            // --- SOUNDGRAM FX: EQ/REVERB только для музыки ---
+            // Скорость и тон из SoundGramAudioFX НЕ применяются здесь:
+            // VideoPlayer используется для ГС и кружков, где скорость управляется
+            // отдельно через setPlaybackSpeed(currentPlaybackSpeed) из MediaController.
             try {
                 // Инициализируем FX (ExoPlayer сам свяжет сессии через AuxEffectInfo)
                 org.telegram.ui.SoundGramAudioFX.initFX(0);
 
-                // Направляем звук в реверберацию (1.0f - максимальный уровень отправки)
-                if (org.telegram.ui.SoundGramAudioFX.getReverbId() != 0) {
+                // Реверберация — тоже только для музыки (isMusicPlaying проверяется внутри)
+                if (org.telegram.ui.SoundGramAudioFX.getReverbId() != 0
+                        && org.telegram.ui.SoundGramAudioFX.isMusicPlaying()) {
                     com.google.android.exoplayer2.audio.AuxEffectInfo effectInfo =
-                            new com.google.android.exoplayer2.audio.AuxEffectInfo(org.telegram.ui.SoundGramAudioFX.getReverbId(), 1.0f);
+                            new com.google.android.exoplayer2.audio.AuxEffectInfo(
+                                    org.telegram.ui.SoundGramAudioFX.getReverbId(), 1.0f);
                     player.setAuxEffectInfo(effectInfo);
                 }
-
-                // Применяем сохраненную скорость и тон (Pitch) сразу при старте трека
-                player.setPlaybackParameters(new PlaybackParameters(
-                        org.telegram.ui.SoundGramAudioFX.getCurrentSpeed(),
-                        org.telegram.ui.SoundGramAudioFX.getCurrentPitch()
-                ));
+                // Скорость и тон эквалайзера НЕ применяем при инициализации плеера:
+                // для музыки — MediaController вызовет applyFXForCurrentMessage() после старта,
+                // для ГС/кружков — MC выставит currentPlaybackSpeed через setPlaybackSpeed().
             } catch (Exception e) {
                 FileLog.e("SoundGram FX Init Error: " + e.getMessage());
             }
-            // ----------------------------------------------
+            // -------------------------------------------------
             player.addAnalyticsListener(this);
             player.addListener(this);
             player.addVideoListener(this);
@@ -1613,9 +1615,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public void setPlaybackSpeed(float speed) {
         try {
             if (player != null) {
-                // Меняем только скорость
-                PlaybackParameters param = new PlaybackParameters(speed, org.telegram.ui.SoundGramAudioFX.getCurrentPitch());
-                player.setPlaybackParameters(param);
+                // pitch = 1.0f: этот метод вызывается MediaController для ГС/кружков (currentPlaybackSpeed)
+                // и для музыки как base speed. Pitch из эквалайзера применяется отдельно
+                // через MediaController.applyMusicPlaybackParams() → applyFXForCurrentMessage().
+                player.setPlaybackParameters(new PlaybackParameters(speed, 1.0f));
             }
         } catch (Exception ignore) {}
     }

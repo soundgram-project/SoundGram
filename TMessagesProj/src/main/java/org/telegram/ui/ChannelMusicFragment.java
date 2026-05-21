@@ -740,7 +740,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         sheetBg.setStroke(AndroidUtilities.dp(1),
                 androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 40));
         container.setBackground(sheetBg);
-        container.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(32));
+        container.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(12));
 
         // ── Ручка drag ────────────────────────────────────────────────────────
         View handle = new View(context);
@@ -800,7 +800,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         ScrollView genreScroll = new ScrollView(context);
         genreScroll.addView(genreListView);
         container.addView(genreScroll, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, 300, 0, 0, 0, 20));
+                LayoutHelper.MATCH_PARENT, 340, 0, 0, 0, 14));
 
         // ── Кнопка «Применить» — градиентный фиолетовый ─────────────────────
         TextView applyBtn = new TextView(context);

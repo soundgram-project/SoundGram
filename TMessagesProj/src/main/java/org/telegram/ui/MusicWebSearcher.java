@@ -26,6 +26,34 @@ import java.util.regex.Pattern;
 
 public class MusicWebSearcher {
 
+    // ── Кэш результатов поиска (TTL 10 минут, до 200 записей) ─────────────────
+    private static final java.util.concurrent.ConcurrentHashMap<String, ArrayList<WebTrack>> searchResultCache
+            = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> searchCacheTime
+            = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long SEARCH_CACHE_TTL_MS = 10 * 60 * 1000L; // 10 минут
+    private static final int  SEARCH_CACHE_MAX    = 200;
+
+    private static ArrayList<WebTrack> getCachedSearch(String key) {
+        Long ts = searchCacheTime.get(key);
+        if (ts == null || System.currentTimeMillis() - ts > SEARCH_CACHE_TTL_MS) return null;
+        return searchResultCache.get(key);
+    }
+
+    private static void putCachedSearch(String key, ArrayList<WebTrack> tracks) {
+        if (searchResultCache.size() >= SEARCH_CACHE_MAX) {
+            // Выгоняем самую старую запись
+            String oldest = null; long minTs = Long.MAX_VALUE;
+            for (Map.Entry<String, Long> e : searchCacheTime.entrySet()) {
+                if (e.getValue() < minTs) { minTs = e.getValue(); oldest = e.getKey(); }
+            }
+            if (oldest != null) { searchResultCache.remove(oldest); searchCacheTime.remove(oldest); }
+        }
+        searchResultCache.put(key, new ArrayList<>(tracks));
+        searchCacheTime.put(key, System.currentTimeMillis());
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     public static class WebTrack {
         public String title;
         public String artist;
@@ -146,12 +174,18 @@ public class MusicWebSearcher {
 
     public static WebTrack resolveHitmosSync(String title, String artist) {
         try {
-            String query = artist + " " + title;
-            query = query.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
-            String html = fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(query, "UTF-8"));
-            ArrayList<WebTrack> tracks = new ArrayList<>();
-            parseHtmlToResults(html, tracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-            if (!tracks.isEmpty()) return tracks.get(0);
+            String query = (artist + " " + title)
+                    .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            String cacheKey = "hitmos:" + query.toLowerCase();
+
+            ArrayList<WebTrack> cached = getCachedSearch(cacheKey);
+            if (cached == null) {
+                String html = fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                cached = new ArrayList<>();
+                parseHtmlToResults(html, cached, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                putCachedSearch(cacheKey, cached);
+            }
+            if (!cached.isEmpty()) return cached.get(0);
         } catch (Exception e) { FileLog.e(e); }
         return null;
     }
@@ -264,22 +298,33 @@ public class MusicWebSearcher {
     }
 
     private static String transliterate(String input) {
-        String[] abcSearch = {"а","б","в","g","д","е","ё","ж","з","и","й","к","л","м","н","о","п","р","с","т","у","ф","х","ц","ч","ш","щ","ъ","ы","ь","э","ю","я","капсайз","мэдкид"};
-        String[] abcTrans = {"a","b","v","g","d","e","e","zh","z","i","y","k","l","m","n","o","p","r","s","t","u","f","h","ts","ch","sh","sh","","y","","e","yu","ya","cupsize","madk1d"};
+        // BUGFIX: was "g" (Latin) at index 3, must be "г" (Cyrillic)
+        String[] abcSearch = {"а","б","в","г","д","е","ё","ж","з","и","й","к","л","м","н","о","п","р","с","т","у","ф","х","ц","ч","ш","щ","ъ","ы","ь","э","ю","я","ё","капсайз","мэдкид"};
+        String[] abcTrans  = {"a","b","v","g","d","e","yo","zh","z","i","y","k","l","m","n","o","p","r","s","t","u","f","kh","ts","ch","sh","sh","","y","","e","yu","ya","yo","cupsize","madk1d"};
         StringBuilder builder = new StringBuilder();
         String lower = input.toLowerCase();
 
         for (int i = 0; i < lower.length(); i++) {
-            String s = lower.substring(i, i + 1);
+            // multi-char entries (капсайз, мэдкид) — check them first
             boolean found = false;
-            for (int j = 0; j < abcSearch.length; j++) {
-                if (abcSearch[j].equals(s)) {
-                    builder.append(abcTrans[j]);
-                    found = true;
-                    break;
+            for (int j = abcSearch.length - 1; j >= 0; j--) {
+                String src = abcSearch[j];
+                if (src.length() > 1) {
+                    if (i + src.length() <= lower.length() && lower.substring(i, i + src.length()).equals(src)) {
+                        builder.append(abcTrans[j]);
+                        i += src.length() - 1;
+                        found = true;
+                        break;
+                    }
+                } else {
+                    if (lower.substring(i, i + 1).equals(src)) {
+                        builder.append(abcTrans[j]);
+                        found = true;
+                        break;
+                    }
                 }
             }
-            if (!found) builder.append(s);
+            if (!found) builder.append(lower.charAt(i));
         }
         return builder.toString();
     }
@@ -1429,17 +1474,21 @@ public class MusicWebSearcher {
      */
     public static WebTrack searchTrackStrict(String artist, String title, int flags) {
         try {
-            String query = artist + " " + title;
-            query = query.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
-            String html = fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(query, "UTF-8"));
-            ArrayList<WebTrack> tracks = new ArrayList<>();
-            parseHtmlToResults(html, tracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-            if (!tracks.isEmpty()) {
-                // Пробуем найти лучшее совпадение с проверкой артиста и тайтла
-                WebTrack best = findBestMatch(tracks, title, artist, 0, false);
+            String query = (artist + " " + title)
+                    .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            String cacheKey = "strict:" + query.toLowerCase();
+
+            ArrayList<WebTrack> cached = getCachedSearch(cacheKey);
+            if (cached == null) {
+                String html = fetchHtml("https://hitmos.me/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                cached = new ArrayList<>();
+                parseHtmlToResults(html, cached, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                putCachedSearch(cacheKey, cached);
+            }
+            if (!cached.isEmpty()) {
+                WebTrack best = findBestMatch(cached, title, artist, 0, false);
                 if (best != null) return best;
-                // Фолбэк — первый результат
-                return tracks.get(0);
+                return cached.get(0);
             }
         } catch (Exception e) { FileLog.e(e); }
         return null;

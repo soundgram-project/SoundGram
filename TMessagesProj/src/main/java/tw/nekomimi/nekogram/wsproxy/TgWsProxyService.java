@@ -296,11 +296,19 @@ public class TgWsProxyService extends Service {
     private void scheduleRestart(long delayMs) {
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
             if (!vpnActive && !sStopInProgress.get() && !destroyed) {
-                // Run blocking restartFromPrefs on a background thread
-                new Thread(this::restartFromPrefs, "proxy-restart").start();
+                // Захватываем короткий wakelock, чтобы система не уснула во время рестарта
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                PowerManager.WakeLock tempLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TGWS:Restart");
+                tempLock.acquire(5000); // Держим 5 секунд
+
+                new Thread(() -> {
+                    restartFromPrefs();
+                    if (tempLock.isHeld()) tempLock.release();
+                }, "proxy-restart").start();
             }
         }, delayMs);
     }
+
 
     private void scheduleServiceRestart(long delayMs) {
         try {
@@ -458,8 +466,8 @@ public class TgWsProxyService extends Service {
     // -------------------------------------------------------------------------
 
     private void startProxy(int port, String secret, int poolSize, int recvBuf, int sendBuf,
-            boolean cfEnabled, String cfDomain, boolean fakeTls, String fakeDomain,
-            int verbose, String dcIps) {
+                            boolean cfEnabled, String cfDomain, boolean fakeTls, String fakeDomain,
+                            int verbose, String dcIps) {
 
         synchronized (proxyLock) {
             if (isRunning || sStopInProgress.get() || destroyed) return;
@@ -674,8 +682,8 @@ public class TgWsProxyService extends Service {
     // -------------------------------------------------------------------------
 
     private void saveCurrentParams(int port, String secret, int pool,
-            int recvBuf, int sendBuf, boolean cf, String cfDomain,
-            boolean fakeTls, String fakeDomain, int verbose, String dcIps) {
+                                   int recvBuf, int sendBuf, boolean cf, String cfDomain,
+                                   boolean fakeTls, String fakeDomain, int verbose, String dcIps) {
         getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE)
                 .edit()
                 .putInt("port", port)
