@@ -110,7 +110,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         void onPlaylistUpdated();
     }
     private ImageView playWaveBtn;
-    private WaveAnimatedWidget waveWidget; // Добавь в начало класса
+    private WaveGLSurfaceView waveWidget; // Добавь в начало класса
     // Глобальные списки (вставить в начало класса рядом с audioMessages)
     public static ArrayList<MessageObject> playlistMessagesList = new ArrayList<>();
     public static MessageObject globalStatsMessage = null;
@@ -197,7 +197,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
         if (waveWidget != null) {
-            waveWidget.stopAnimation();
+            waveWidget.releaseVisualizer();
         }
         isWaitingForUpload = false;
         AndroidUtilities.cancelRunOnUIThread(pollMessagesRunnable);
@@ -208,6 +208,50 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     }
 
+    private void setSphereVisible(boolean visible) {
+        if (waveWidget == null) return;
+        if (visible) {
+            waveWidget.setVisibility(View.VISIBLE);
+            waveWidget.animate().alpha(1f).setDuration(150).setListener(null).start();
+        } else {
+            waveWidget.animate().alpha(0f).setDuration(150).setListener(new android.animation.AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(android.animation.Animator animation) {
+                    waveWidget.setVisibility(View.GONE);
+                }
+            }).start();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (waveWidget != null) {
+            waveWidget.onPause();
+            setSphereVisible(false);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (waveWidget != null) {
+            waveWidget.onResume();
+            if (viewPager != null && viewPager.getCurrentItem() == 0) {
+                setSphereVisible(true);
+            }
+        }
+    }
+
+    @Override
+    public void onTransitionAnimationEnd(boolean isOpen, boolean backward) {
+        super.onTransitionAnimationEnd(isOpen, backward);
+        if (isOpen && waveWidget != null && viewPager != null && viewPager.getCurrentItem() == 0) {
+            setSphereVisible(true);
+        } else if (!isOpen && waveWidget != null) {
+            setSphereVisible(false);
+        }
+    }
 
     @Override
     public boolean onBackPressed(boolean force) {
@@ -387,98 +431,106 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // ── Градиентный фон ───────────────────────────────────────────────────
-        View bgGrad = new View(context);
-        GradientDrawable bgDraw = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF2A0060, 255),
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF0D0020, 255),
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF000010, 255),
-                });
-        bgGrad.setBackground(bgDraw);
-        root.addView(bgGrad, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // ── Фон не задаем, чтобы WaveGLSurfaceView (MediaOverlay) был виден сквозь него ──
 
-        // ── WaveAnimatedWidget на весь экран — свечение и частицы не обрезаются
-        waveWidget = new WaveAnimatedWidget(context);
-        // Занимаем весь экран чтобы свечение и кольца не обрезались
-        root.addView(waveWidget, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // ── WaveGLSurfaceView теперь добавляется в content (на весь экран), чтобы лучи заходили за заголовок
 
-        // ── Кнопка Play поверх шара — по центру экрана ───────────────────────
+        // ── Центральный блок поверх шара ───────────────────────────────
+        LinearLayout centerBlock = new LinearLayout(context);
+        centerBlock.setOrientation(LinearLayout.VERTICAL);
+        centerBlock.setGravity(Gravity.CENTER);
+
+        // -- Верхний ряд: [Play/Pause] Моя волна
+        LinearLayout titleRow = new LinearLayout(context);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER);
+        
         ImageView playBtn = new ImageView(context);
-        playBtn.setImageResource(R.drawable.ic_play);
-        playBtn.setScaleType(ImageView.ScaleType.CENTER);
+        playBtn.setImageResource(R.drawable.ic_pause);
+        playBtn.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         playBtn.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
-        {
-            GradientDrawable pBg = new GradientDrawable();
-            pBg.setColor(0x55000000);
-            pBg.setShape(GradientDrawable.OVAL);
-            pBg.setStroke(AndroidUtilities.dp(2), 0xAAFFFFFF);
-            playBtn.setBackground(pBg);
-        }
-        playBtn.setOnClickListener(v -> {
-            applySpringClick(v);
-            waveWidget.startAnimation();
-            AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
-            AudioPlayerAlert.currentSourceLabel = "";
-            // ИСПРАВЛЕНИЕ: остановить предыдущую волну перед запуском новой
-            SmartRadioEngine.stopWaveSession();
-            SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
-                @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
-                    if (!tracks.isEmpty()) {
-                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
-                        MediaController.getInstance().playMessage(tracks.get(0));
-                    }
-                }
-                @Override public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {
-                    MediaController.getInstance().addTracksToPlaylist(tracks);
-                }
-                @Override public void onError() {
-                }
-            });
-        });
-        // Кнопка чуть выше центра — чтобы совпадала с центром шара (размер уменьшен для горизонтального ряда)
+        
+        TextView waveTitle = new TextView(context);
+        waveTitle.setText("Моя волна");
+        waveTitle.setTextColor(0xFFFFFFFF);
+        waveTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 30);
+        waveTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        
+        titleRow.addView(playBtn, LayoutHelper.createLinear(36, 36));
+        titleRow.addView(waveTitle, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 8, 0, 0, 0));
 
-        // ── Кнопка «Жанр ▾» — снизу по центру ───────────────────────────────
+        // Инициализация состояния кнопки Play
+        boolean isPlayingWave = AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE &&
+                MediaController.getInstance().getPlayingMessageObject() != null &&
+                !MediaController.getInstance().isMessagePaused();
+        playBtn.setImageResource(isPlayingWave ? R.drawable.ic_pause : R.drawable.ic_play);
+
+        titleRow.setOnClickListener(v -> {
+            applySpringClick(v);
+            MessageObject playingMsg = MediaController.getInstance().getPlayingMessageObject();
+            if (AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE && playingMsg != null) {
+                if (MediaController.getInstance().isMessagePaused()) {
+                    MediaController.getInstance().playMessage(playingMsg);
+                    playBtn.setImageResource(R.drawable.ic_pause);
+                } else {
+                    MediaController.getInstance().pauseMessage(playingMsg);
+                    playBtn.setImageResource(R.drawable.ic_play);
+                }
+            } else {
+                playBtn.setImageResource(R.drawable.ic_pause);
+                waveWidget.startAnimation();
+                AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
+                AudioPlayerAlert.currentSourceLabel = "";
+                SmartRadioEngine.stopWaveSession();
+                SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
+                    @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
+                        if (!tracks.isEmpty()) {
+                            MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                            MediaController.getInstance().playMessage(tracks.get(0));
+                        }
+                    }
+                    @Override public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {
+                        MediaController.getInstance().addTracksToPlaylist(tracks);
+                    }
+                    @Override public void onError() {
+                    }
+                });
+            }
+        });
+
+        // -- Кнопка Настроить
         TextView genreDropBtn = new TextView(context);
         genreDropBtn.setGravity(Gravity.CENTER);
-        genreDropBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        genreDropBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         genreDropBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         genreDropBtn.setTextColor(0xFFFFFFFF);
-        genreDropBtn.setText("✦  " + SmartRadioEngine.currentConfig.query + "  ▾");
+        genreDropBtn.setText("≡  Настроить");
+        
         {
             GradientDrawable gBg = new GradientDrawable();
-            gBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF000000, 120));
+            gBg.setColor(0x22FFFFFF); // Полупрозрачное стекло
             gBg.setCornerRadius(AndroidUtilities.dp(24));
-            gBg.setStroke(AndroidUtilities.dp(1),
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 90));
             genreDropBtn.setBackground(gBg);
         }
         genreDropBtn.setPadding(
-                AndroidUtilities.dp(28), AndroidUtilities.dp(12),
-                AndroidUtilities.dp(28), AndroidUtilities.dp(12));
+                AndroidUtilities.dp(20), AndroidUtilities.dp(10),
+                AndroidUtilities.dp(20), AndroidUtilities.dp(10));
         genreDropBtn.setOnClickListener(v -> {
             applySpringClick(v);
             showWaveGenreSheet(context, genreDropBtn);
         });
 
-        // ── Горизонтальный ряд: [▶] [Жанр ▾] — оба отцентрированы снизу ──────
-        LinearLayout bottomRow = new LinearLayout(context);
-        bottomRow.setOrientation(LinearLayout.HORIZONTAL);
-        bottomRow.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams playLp = new LinearLayout.LayoutParams(
-                AndroidUtilities.dp(52), AndroidUtilities.dp(52));
-        playLp.rightMargin = AndroidUtilities.dp(12);
-        bottomRow.addView(playBtn, playLp);
-        bottomRow.addView(genreDropBtn, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        centerBlock.addView(titleRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
 
-        root.addView(bottomRow, LayoutHelper.createFrame(
+        root.addView(centerBlock, LayoutHelper.createFrame(
+                LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
+                Gravity.CENTER,
+                0, 0, 0, 75)); // Компенсация сдвига ViewPager, чтобы попасть ровно в центр экрана
+
+        root.addView(genreDropBtn, LayoutHelper.createFrame(
                 LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL,
-                0, 0, 0, 168)); // поднято выше — 64dp миниплеер + 104dp отступ
+                0, 0, 0, 165)); // Под сферой (внизу экрана)
 
         return root;
     }
@@ -486,6 +538,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     @Override
     public View createView(Context context) {
         actionBar.setAddToContainer(false);
+        actionBar.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        actionBar.setItemsBackgroundColor(android.graphics.Color.TRANSPARENT, false);
 
         // Корневой контейнер с фоном в стиле Яндекс Музыки
         SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context) {
@@ -495,9 +549,28 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             protected void onDraw(Canvas canvas) {
                 int bgColor = Theme.getColor(Theme.key_windowBackgroundWhite);
                 bgPaint.setColor(bgColor);
+                
+                // Плавно скрываем фон приложения, чтобы показать WaveGLSurfaceView (MediaOverlay) под ним
+                if (waveWidget != null && waveWidget.getVisibility() == View.VISIBLE) {
+                    float waveAlpha = waveWidget.getAlpha();
+                    bgPaint.setAlpha(Math.max(0, 255 - (int)(waveAlpha * 255)));
+                } else {
+                    bgPaint.setAlpha(255);
+                }
+                
                 canvas.drawRect(0, 0, getWidth(), getHeight(), bgPaint);
+                
+                if (waveWidget != null && waveWidget.getVisibility() == View.VISIBLE && waveWidget.getAlpha() > 0f && waveWidget.getAlpha() < 1f) {
+                    invalidate();
+                }
             }
         };
+        
+        // ── Инициализация WaveGLSurfaceView на ВЕСЬ ЭКРАН ──
+        waveWidget = new WaveGLSurfaceView(context);
+        waveWidget.setVisibility(View.GONE);
+        content.addView(waveWidget, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
         fragmentView = content;
 
         LinearLayout mainColumn = new LinearLayout(context);
@@ -509,11 +582,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         headerContainer.setClickable(true);
         headerContainer.setPadding(0, AndroidUtilities.statusBarHeight, 0, 0);
 
-        // Стеклянный фон хедера
-        GradientDrawable headerBg = new GradientDrawable();
-        int headerBgColor = Theme.getColor(Theme.key_windowBackgroundWhite);
-        headerBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(headerBgColor, 230));
-        headerContainer.setBackground(headerBg);
+        // Стеклянный фон хедера убран по просьбе
+        headerContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT);
 
         artistRecyclerView = new RecyclerListView(context);
         artistRecyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
@@ -661,8 +731,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 animateTabSwitch(waveTabBtn, position == 0, accentColor, inactiveColor, activeTextColor);
                 animateTabSwitch(libraryTabBtn, position == 1, accentColor, inactiveColor, activeTextColor);
                 animateTabSwitch(albumsTabBtn, position == 2, accentColor, inactiveColor, activeTextColor);
-                if (position == 0 && waveWidget != null) waveWidget.startAnimation();
-                else if (waveWidget != null) waveWidget.stopAnimation();
+                if (position == 0 && waveWidget != null) {
+                    setSphereVisible(true);
+                    waveWidget.startAnimation();
+                } else if (waveWidget != null) {
+                    setSphereVisible(false);
+                    waveWidget.stopAnimation();
+                }
             }
         });
 
@@ -677,18 +752,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── MINI PLAYER ───────────────────────────────────────────────────────
         MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
-        SoundGramStyleManager.applyGlass(
-                miniPlayerView,
-                SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
-                SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
-                SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
-                22f,
-                () -> miniPlayerView.invalidate());
+        int playerWidth = tw.nekomimi.nekogram.helpers.MainTabsHelper.getTabsViewWidth() - tw.nekomimi.nekogram.helpers.MainTabsHelper.getMainTabsMargin() * 2;
+        int playerHeight = tw.nekomimi.nekogram.helpers.MainTabsHelper.getMainTabsHeight();
         int tgBottomMenu = AndroidUtilities.dp(60);
         int sysNavBar = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
-        FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM);
-        playerParams.setMargins(AndroidUtilities.dp(8), 0, AndroidUtilities.dp(8), sysNavBar + tgBottomMenu + AndroidUtilities.dp(8));
+        FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(playerWidth, playerHeight, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        playerParams.setMargins(0, 0, 0, sysNavBar + tgBottomMenu + AndroidUtilities.dp(8));
         content.addView(miniPlayerView, playerParams);
 
         listView.setPadding(0, 0, 0, AndroidUtilities.dp(90));
@@ -1882,6 +1951,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         statsBtn.setScaleType(ImageView.ScaleType.CENTER);
         statsBtn.setOnClickListener(v -> {
             applySpringClick(v);
+            setSphereVisible(false);
             // Показываем ПОЛНЫЙ ЭКРАН (не боттом-шит!)
             presentFragment(new SoundGramStyleSettingsFragment());
         });
@@ -2562,16 +2632,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
 
-            SoundGramStyleManager.applyGlass(
-                    miniPlayerView,
-                    SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
-                    SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
-                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
-                    22f,
-                    () -> miniPlayerView.invalidate()
-            );
-            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM));
+            int playerWidth = tw.nekomimi.nekogram.helpers.MainTabsHelper.getTabsViewWidth() - tw.nekomimi.nekogram.helpers.MainTabsHelper.getMainTabsMargin() * 2;
+            int playerHeight = tw.nekomimi.nekogram.helpers.MainTabsHelper.getMainTabsHeight();
+            FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(playerWidth, playerHeight, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            playerParams.setMargins(0, 0, 0, AndroidUtilities.dp(8));
+            content.addView(miniPlayerView, playerParams);
             ItemTouchHelper touchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
                 @Override
                 public boolean isLongPressDragEnabled() {
@@ -3807,21 +3872,45 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
             int bgColor = Theme.getColor(Theme.key_dialogBackground);
 
-            // ЖИДКОЕ СТЕКЛО
-            setBackground(SoundGramStyleManager.buildGlassDrawable(
-                    SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
-                    SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
-                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
-                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
-                    20f));
+            int playerHeight = tw.nekomimi.nekogram.helpers.MainTabsHelper.getMainTabsHeight();
+            
+            org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode blurSource = null;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S && fragment.fragmentView != null) {
+                blurSource = new org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode(null);
+                blurSource.setupRenderer(new org.telegram.ui.Components.blur3.RenderNodeWithHash.Renderer() {
+                    @Override
+                    public void renderNodeCalculateHash(org.telegram.ui.Components.blur3.capture.IBlur3Hash hash) {}
+                    @Override
+                    public void renderNodeUpdateDisplayList(android.graphics.Canvas canvas) {
+                        if (fragment.fragmentView != null) {
+                            int oldVisibility = getVisibility();
+                            setVisibility(INVISIBLE);
+                            fragment.fragmentView.draw(canvas);
+                            setVisibility(oldVisibility);
+                        }
+                    }
+                });
+            }
+
+            org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory iBlur3FactoryGlass = new org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory(blurSource != null ? blurSource : new org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor());
+            if (fragment.fragmentView != null) {
+                org.telegram.ui.Components.chat.ViewPositionWatcher viewPositionWatcher = new org.telegram.ui.Components.chat.ViewPositionWatcher(fragment.fragmentView);
+                iBlur3FactoryGlass.setSourceRootView(viewPositionWatcher, (android.view.ViewGroup) fragment.fragmentView);
+            }
+            iBlur3FactoryGlass.setLiquidGlassEffectAllowed(org.telegram.messenger.LiteMode.isEnabled(org.telegram.messenger.LiteMode.FLAG_LIQUID_GLASS));
+            
+            org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable tabsViewBackground = iBlur3FactoryGlass.create(this, org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl.mainTabs(fragment.getResourceProvider()));
+            tabsViewBackground.setRadius(AndroidUtilities.dp(playerHeight / 2f));
+            setBackground(tabsViewBackground);
+
             if (Build.VERSION.SDK_INT >= 21) {
                 setElevation(AndroidUtilities.dp(8));
             }
             setClickable(true);
             setVisibility(View.GONE);
             coverImage = new BackupImageView(context);
-            coverImage.setRoundRadius(AndroidUtilities.dp(12));
-            addView(coverImage, LayoutHelper.createFrame(46, 46, Gravity.LEFT | Gravity.CENTER_VERTICAL, 12, 0, 0, 0));
+            coverImage.setRoundRadius(AndroidUtilities.dp(10));
+            addView(coverImage, LayoutHelper.createFrame(40, 40, Gravity.LEFT | Gravity.CENTER_VERTICAL, 12, 0, 0, 0));
 
             LinearLayout textLayout = new LinearLayout(context);
             textLayout.setOrientation(LinearLayout.VERTICAL);
@@ -3844,7 +3933,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             textLayout.addView(titleTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
             textLayout.addView(artistTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-            addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 70, 0, 148, 0));
+            addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 64, 0, 148, 0));
 
             ImageView prevBtn = new ImageView(context);
             prevBtn.setImageResource(R.drawable.baseline_skip_previous_24_white);

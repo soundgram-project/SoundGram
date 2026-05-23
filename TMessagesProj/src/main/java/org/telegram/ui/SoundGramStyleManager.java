@@ -58,7 +58,7 @@ public class SoundGramStyleManager {
         SharedPreferences p = ApplicationLoader.applicationContext
                 .getSharedPreferences(SoundGramStyleSettingsFragment.PREFS_NAME, Context.MODE_PRIVATE);
 
-        boolean strokeOn = p.getBoolean(keySwitch, true);
+        boolean strokeOn = p.getBoolean(keySwitch, false);
         int alpha        = p.getInt(keyAlpha, 180);
 
         int bgColor = p.getInt(keyBgColor, -1);
@@ -88,7 +88,7 @@ public class SoundGramStyleManager {
         SharedPreferences p = ApplicationLoader.applicationContext
                 .getSharedPreferences(SoundGramStyleSettingsFragment.PREFS_NAME, Context.MODE_PRIVATE);
 
-        boolean strokeOn = p.getBoolean(keySwitch, true);
+        boolean strokeOn = p.getBoolean(keySwitch, false);
         int alpha        = p.getInt(keyAlpha, 180);
         int bgColor      = Theme.getColor(Theme.key_dialogBackground);
 

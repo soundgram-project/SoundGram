@@ -4196,7 +4196,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
                     @Override
                     public boolean needUpdate() {
-                        return Theme.getCurrentAudiVisualizerDrawable().getParentView() != null;
+                        return Theme.getCurrentAudiVisualizerDrawable().getParentView() != null || org.telegram.ui.Components.AudioVisualizerDrawable.hasGlobalListener();
                     }
                 });
                 if (isDirectStream) {

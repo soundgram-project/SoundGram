@@ -109,6 +109,9 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
     public static final String KEY_COLOR_STROKE_ARTIST    = "cs_artist";
     public static final String KEY_COLOR_STROKE_EQ        = "cs_eq";
 
+    public static final String KEY_WAVE_RAYS              = "wave_rays";
+    public static final String KEY_WAVE_SPHERE_SIZE       = "wave_sphere_size";
+
     public static final int NOTIFICATION_STYLE_CHANGED = -700;
 
     // ── Статические хелперы ────────────────────────────────────────────────────
@@ -117,9 +120,17 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
                 .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
+    public static float getWaveRaysMultiplier() {
+        return prefs().getInt(KEY_WAVE_RAYS, 100) / 100f;
+    }
+
+    public static float getWaveSphereSizeMultiplier() {
+        return prefs().getInt(KEY_WAVE_SPHERE_SIZE, 100) / 100f;
+    }
+
     /** Stroke (обводка) включена? */
     public static boolean isStrokeEnabled(String keySwitch) {
-        return prefs().getBoolean(keySwitch, true);
+        return prefs().getBoolean(keySwitch, false);
     }
 
     /** Glass (стекло/подложка) включено? Проверяет по булевому ключу (по умолч. true) */
@@ -196,8 +207,19 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         actionBar.setOccupyStatusBar(true);
         actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
-            @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
+            @Override public void onItemClick(int id) { 
+                if (id == -1) {
+                    finishFragment(); 
+                } else if (id == 1) {
+                    prefs().edit().clear().apply();
+                    notifyStyleChanged();
+                    presentFragment(new SoundGramStyleSettingsFragment(), true);
+                }
+            }
         });
+
+        org.telegram.ui.ActionBar.ActionBarMenu menu = actionBar.createMenu();
+        menu.addItem(1, "СБРОС");
 
         SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context) {
             @Override protected void onDraw(Canvas c) {
@@ -296,6 +318,101 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         root.addView(card, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
+        // Rays count setting
+        root.addView(makeLabel(ctx, "НАСТРОЙКИ СФЕРЫ"),
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+
+        FrameLayout raysCard = new FrameLayout(ctx);
+        GradientDrawable raysCardBg = new GradientDrawable();
+        raysCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        raysCardBg.setCornerRadius(AndroidUtilities.dp(20));
+        raysCard.setBackground(raysCardBg);
+        if (Build.VERSION.SDK_INT >= 21) raysCard.setElevation(AndroidUtilities.dp(2));
+
+        LinearLayout raysRow = new LinearLayout(ctx);
+        raysRow.setOrientation(LinearLayout.VERTICAL);
+        raysRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
+                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        TextView raysTitle = new TextView(ctx);
+        raysTitle.setText("Количество лучей сферы");
+        raysTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        raysTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        raysTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        raysRow.addView(raysTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        TextView raysSub = new TextView(ctx);
+        raysSub.setText("Определяет плотность лучей при проигрывании музыки");
+        raysSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        raysSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        raysRow.addView(raysSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 10));
+
+        SeekBar raysSeek = new SeekBar(ctx);
+        raysSeek.setMax(200); // 0 to 200 => 100 to 300 (1x to 3x)
+        raysSeek.setProgress(prefs().getInt(KEY_WAVE_RAYS, 100) - 100);
+        raysSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
+        raysSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
+        raysSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                if (fromUser) {
+                    prefs().edit().putInt(KEY_WAVE_RAYS, 100 + progress).apply();
+                }
+            }
+        });
+        raysRow.addView(raysSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        
+        raysCard.addView(raysRow);
+        root.addView(raysCard, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+
+        // Sphere size setting
+        FrameLayout sizeCard = new FrameLayout(ctx);
+        GradientDrawable sizeCardBg = new GradientDrawable();
+        sizeCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        sizeCardBg.setCornerRadius(AndroidUtilities.dp(20));
+        sizeCard.setBackground(sizeCardBg);
+        if (Build.VERSION.SDK_INT >= 21) sizeCard.setElevation(AndroidUtilities.dp(2));
+
+        LinearLayout sizeRow = new LinearLayout(ctx);
+        sizeRow.setOrientation(LinearLayout.VERTICAL);
+        sizeRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
+                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        TextView sizeTitle = new TextView(ctx);
+        sizeTitle.setText("Размер сферы");
+        sizeTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        sizeTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        sizeTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        sizeRow.addView(sizeTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        TextView sizeSub = new TextView(ctx);
+        sizeSub.setText("Определяет размер визуализации волны (сферы)");
+        sizeSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        sizeSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        sizeRow.addView(sizeSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 10));
+
+        SeekBar sizeSeek = new SeekBar(ctx);
+        sizeSeek.setMax(100); // 0 to 100 => 70 to 170 (0.7x to 1.7x)
+        sizeSeek.setProgress(prefs().getInt(KEY_WAVE_SPHERE_SIZE, 100) - 70);
+        sizeSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
+        sizeSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
+        sizeSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                if (fromUser) {
+                    prefs().edit().putInt(KEY_WAVE_SPHERE_SIZE, 70 + progress).apply();
+                }
+            }
+        });
+        sizeRow.addView(sizeSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        
+        sizeCard.addView(sizeRow);
+        root.addView(sizeCard, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+
         root.addView(makeLabel(ctx, getString(R.string.sg_style_section_glass)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         return root;
@@ -334,8 +451,12 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             tv.setText(td[0]);
             tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, Float.parseFloat(td[1]));
             tv.setGravity(Gravity.CENTER);
-            if (!td[2].isEmpty()) tv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            else tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            if (!td[2].isEmpty()) {
+                tv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            } else {
+                tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            }
             p.addView(tv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
         }
         return p;
