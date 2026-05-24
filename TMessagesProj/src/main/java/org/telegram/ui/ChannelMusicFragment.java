@@ -3868,6 +3868,79 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             super(context);
             this.parentContext = context;
             setHasTransientState(true);
+            init(context, fragment);
+        }
+
+        private float swipeStartX;
+        private float swipeStartY;
+        private boolean isSwipingHorizontal;
+        private int touchSlop;
+        private boolean startDisallowed;
+
+        @Override
+        public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+            super.requestDisallowInterceptTouchEvent(disallowIntercept);
+            startDisallowed = disallowIntercept;
+        }
+
+        @Override
+        public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+            if (touchSlop == 0) {
+                touchSlop = android.view.ViewConfiguration.get(getContext()).getScaledTouchSlop();
+            }
+            int action = ev.getActionMasked();
+            float absX = ev.getRawX();
+            float absY = ev.getRawY();
+
+            if (action == android.view.MotionEvent.ACTION_DOWN) {
+                swipeStartX = absX;
+                swipeStartY = absY;
+                isSwipingHorizontal = false;
+                startDisallowed = false;
+            } else if (action == android.view.MotionEvent.ACTION_MOVE && !isSwipingHorizontal && !startDisallowed) {
+                float dx = absX - swipeStartX;
+                float dy = absY - swipeStartY;
+                if (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy)) {
+                    isSwipingHorizontal = true;
+                    android.view.MotionEvent cancel = android.view.MotionEvent.obtain(ev);
+                    cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);
+                    super.dispatchTouchEvent(cancel);
+                    cancel.recycle();
+                    if (getParent() != null) {
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                }
+            }
+
+            if (isSwipingHorizontal) {
+                float dx = absX - swipeStartX;
+                if (action == android.view.MotionEvent.ACTION_MOVE) {
+                    setTranslationX(dx);
+                    setAlpha(1.0f - Math.min(1f, Math.abs(dx) / (float) getMeasuredWidth()));
+                } else if (action == android.view.MotionEvent.ACTION_UP || action == android.view.MotionEvent.ACTION_CANCEL) {
+                    if (Math.abs(dx) > getMeasuredWidth() / 3f) {
+                        MediaController.getInstance().cleanupPlayer(true, true);
+                        postDelayed(() -> {
+                            setTranslationX(0);
+                            setAlpha(1.0f);
+                        }, 300);
+                    } else {
+                        animate().translationX(0).alpha(1.0f).setDuration(200).start();
+                    }
+                    isSwipingHorizontal = false;
+                }
+                return true;
+            }
+
+            boolean handled = super.dispatchTouchEvent(ev);
+            if (action == android.view.MotionEvent.ACTION_DOWN && !handled) {
+                handled = true;
+            }
+            return handled;
+        }
+
+        private void init(Context context, BaseFragment fragment) {
+
 
             int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
             int bgColor = Theme.getColor(Theme.key_dialogBackground);

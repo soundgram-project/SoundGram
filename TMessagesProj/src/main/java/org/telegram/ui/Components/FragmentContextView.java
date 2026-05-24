@@ -262,6 +262,138 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
         }
     }
 
+    private float swipeStartX;
+    private float swipeStartY;
+    private boolean isSwiping;
+    private boolean isSwipingHorizontal;
+
+    private int touchSlop;
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (currentStyle == STYLE_AUDIO_PLAYER) {
+            if (touchSlop == 0) {
+                touchSlop = android.view.ViewConfiguration.get(getContext()).getScaledTouchSlop();
+            }
+            int action = ev.getActionMasked();
+            
+            float absX = ev.getX() + getTranslationX();
+            float absY = ev.getY() + getTranslationY();
+            
+            if (action == MotionEvent.ACTION_DOWN) {
+                swipeStartX = absX;
+                swipeStartY = absY;
+                isSwiping = false;
+            } else if (action == MotionEvent.ACTION_MOVE && !isSwiping) {
+                float dx = absX - swipeStartX;
+                float dy = absY - swipeStartY;
+                if (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop) {
+                    isSwiping = true;
+                    isSwipingHorizontal = Math.abs(dx) >= Math.abs(dy);
+                    
+                    MotionEvent cancel = MotionEvent.obtain(ev);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    super.dispatchTouchEvent(cancel);
+                    cancel.recycle();
+                    
+                    if (getParent() != null) {
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                }
+            } else if (action == MotionEvent.ACTION_UP && !isSwiping) {
+                float dx = absX - swipeStartX;
+                float dy = absY - swipeStartY;
+                if (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop) {
+                    isSwiping = true;
+                    isSwipingHorizontal = Math.abs(dx) >= Math.abs(dy);
+                    
+                    MotionEvent cancel = MotionEvent.obtain(ev);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    super.dispatchTouchEvent(cancel);
+                    cancel.recycle();
+                }
+            }
+            
+            if (isSwiping) {
+                float dx = absX - swipeStartX;
+                float dy = absY - swipeStartY;
+                if (action == MotionEvent.ACTION_MOVE) {
+                    if (isSwipingHorizontal) {
+                        setTranslationX(dx);
+                        setAlpha(1.0f - Math.min(1f, Math.abs(dx) / (float) getMeasuredWidth()));
+                    } else {
+                        setTranslationY(dy);
+                        setAlpha(1.0f - Math.min(1f, Math.abs(dy) / (float) getMeasuredHeight()));
+                    }
+                } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    boolean close = false;
+                    if (isSwipingHorizontal) {
+                        if (Math.abs(dx) > getMeasuredWidth() / 3f) {
+                            close = true;
+                        }
+                    } else {
+                        if (Math.abs(dy) > getMeasuredHeight() / 3f) {
+                            close = true;
+                        }
+                    }
+                    
+                    if (close) {
+                        MediaController.getInstance().cleanupPlayer(true, true);
+                        setTranslationX(0);
+                        setTranslationY(0);
+                        setAlpha(1.0f);
+                    } else {
+                        animate().translationX(0).translationY(0).alpha(1.0f).setDuration(200).start();
+                    }
+                    isSwiping = false;
+                }
+                return true;
+            }
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent ev) {
+        if (currentStyle == STYLE_AUDIO_PLAYER) {
+            if (ev.getActionMasked() == MotionEvent.ACTION_UP && !isSwiping) {
+                MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
+                if (fragment != null && messageObject != null) {
+                    if (messageObject.isMusic() || messageObject.isVoice()) {
+                        final android.app.Activity activity = AndroidUtilities.findActivity(getContext());
+                        if (activity instanceof LaunchActivity) {
+                            new AudioPlayerAlert(activity, resourcesProvider).show();
+                        } else if (AndroidUtilities.isContextSafe(LaunchActivity.instance)) {
+                            new AudioPlayerAlert(LaunchActivity.instance, resourcesProvider).show();
+                        }
+                    } else {
+                        long dialogId = 0;
+                        if (chatActivity != null) {
+                            dialogId = chatActivity.getDialogId();
+                        }
+                        if (messageObject.getDialogId() == dialogId) {
+                            chatActivity.scrollToMessageId(messageObject.getId(), 0, false, 0, true, 0);
+                        } else {
+                            dialogId = messageObject.getDialogId();
+                            android.os.Bundle args = new android.os.Bundle();
+                            if (DialogObject.isEncryptedDialog(dialogId)) {
+                                args.putInt("enc_id", DialogObject.getEncryptedChatId(dialogId));
+                            } else if (DialogObject.isUserDialog(dialogId)) {
+                                args.putLong("user_id", dialogId);
+                            } else {
+                                args.putLong("chat_id", -dialogId);
+                            }
+                            args.putInt("message_id", messageObject.getId());
+                            fragment.presentFragment(new ChatActivity(args), fragment instanceof ChatActivity);
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+        return super.onTouchEvent(ev);
+    }
+
     public boolean drawOverlayed() {
         return currentStyle == STYLE_ACTIVE_GROUP_CALL;
     }
@@ -769,38 +901,6 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 if (story != null) {
                     story.dialogId = player.dialogId;
                     lastFragment.getOrCreateStoryViewer(player.currentAccount).open(player.currentAccount, getContext(), story, null);
-                }
-            } else if (currentStyle == STYLE_AUDIO_PLAYER) {
-                MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
-                if (fragment != null && messageObject != null) {
-                    if (messageObject.isMusic() || messageObject.isVoice()) {
-                        final Activity activity = AndroidUtilities.findActivity(getContext());
-                        if (activity instanceof LaunchActivity) {
-                            new AudioPlayerAlert(activity, resourcesProvider).show();
-                        } else if (AndroidUtilities.isContextSafe(LaunchActivity.instance)) {
-                            new AudioPlayerAlert(LaunchActivity.instance, resourcesProvider).show();
-                        }
-                    } else {
-                        long dialogId = 0;
-                        if (chatActivity != null) {
-                            dialogId = chatActivity.getDialogId();
-                        }
-                        if (messageObject.getDialogId() == dialogId) {
-                            chatActivity.scrollToMessageId(messageObject.getId(), 0, false, 0, true, 0);
-                        } else {
-                            dialogId = messageObject.getDialogId();
-                            Bundle args = new Bundle();
-                            if (DialogObject.isEncryptedDialog(dialogId)) {
-                                args.putInt("enc_id", DialogObject.getEncryptedChatId(dialogId));
-                            } else if (DialogObject.isUserDialog(dialogId)) {
-                                args.putLong("user_id", dialogId);
-                            } else {
-                                args.putLong("chat_id", -dialogId);
-                            }
-                            args.putInt("message_id", messageObject.getId());
-                            fragment.presentFragment(new ChatActivity(args), fragment instanceof ChatActivity);
-                        }
-                    }
                 }
             } else if (currentStyle == STYLE_CONNECTING_GROUP_CALL) {
                 Intent intent = new Intent(getContext(), LaunchActivity.class).setAction("voip");
