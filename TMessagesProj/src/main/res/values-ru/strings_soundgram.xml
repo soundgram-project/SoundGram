@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SoundGram Core -->
+    <string name="SoundGram">SoundGram</string>
+    <string name="SoundGramSubtitle">Мобильный клиент с премиальным звуком</string>
+    <string name="SoundGramStyle">Стиль и Эффекты SoundGram</string>
+
+    <!-- Equalizer & Audio FX -->
+    <string name="SoundGramEqualizer">DSP Эквалайзер SoundGram</string>
+    <string name="SoundGramEQGraph">🎛️ График АЧХ</string>
+    <string name="SoundGramEQEffects">✨ Эффекты и Тон</string>
+    <string name="SoundGramPresetFlat">Плоский</string>
+    <string name="SoundGramPresetBass">Усиление басов</string>
+    <string name="SoundGramPresetVocal">Усиление вокала</string>
+
+    <!-- WS Proxy -->
+    <string name="WsProxy">WebSocket Прокси</string>
+    <string name="WsProxyEnable">Включить WS Прокси</string>
+    <string name="WsProxyPort">Порт Прокси</string>
+    <string name="BypassNetwork">Обход блокировок</string>
+    <string name="BypassNetworkSubtitle">Встроенный быстрый WebSocket-прокси</string>
+
+    <!-- Icon Packs -->
+    <string name="IconPacks">Пакеты иконок</string>
+    <string name="CreateIconPack">Создать пакет иконок</string>
+
+    <!-- Text Animations -->
+    <string name="TextAnimations">Анимация текста</string>
+    <string name="TextAnimationsEnable">Включить анимацию текста</string>
+    <string name="TextAnimation">Анимация текста</string>
+    <string name="TextAnimationSubtitle">Частицы и эффекты при вводе текста</string>
+
+    <!-- Wallpapers -->
+    <string name="ChatListWallpaperImage">Обои в списке чатов (фото)</string>
+    <string name="ChatListWallpaperVideo">Живые обои в списке чатов (видео)</string>
+    <string name="ChatListWallpaperDimming">Затемнение обоев списка чатов</string>
+    <string name="ChatWallpaperVideo">Живые обои в чатах (видео)</string>
+    <string name="ResetWallpaper">Сбросить обои</string>
+    <string name="ChooseFromGallery">Выбрать из галереи</string>
+</resources>

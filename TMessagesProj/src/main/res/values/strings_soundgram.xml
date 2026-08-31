@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    
+    <string name="SoundGram">SoundGram</string>
+    <string name="SoundGramSubtitle">Modern Audio Experience Client</string>
+    <string name="SoundGramStyle">SoundGram Style &amp; Audio FX</string>
+
+    
+    <string name="SoundGramEqualizer">SoundGram DSP Equalizer</string>
+    <string name="SoundGramEQGraph">🎛️ Equalizer Graph</string>
+    <string name="SoundGramEQEffects">✨ Effects &amp; Tone</string>
+    <string name="SoundGramPresetFlat">Flat</string>
+    <string name="SoundGramPresetBass">Bass Boost</string>
+    <string name="SoundGramPresetVocal">Vocal Boost</string>
+
+    
+    <string name="WsProxy">WebSocket Proxy</string>
+    <string name="WsProxyEnable">Enable WS Proxy</string>
+    <string name="WsProxyPort">Proxy Port</string>
+    <string name="BypassNetwork">Bypass Restrictions</string>
+    <string name="BypassNetworkSubtitle">Built-in high-speed WebSocket Proxy</string>
+
+    
+    <string name="CreateIconPack">Create Icon Pack</string>
+
+    
+    <string name="TextAnimations">Text Animations</string>
+    <string name="TextAnimationsEnable">Enable Text Particle Animation</string>
+    <string name="TextAnimation">Text Animation</string>
+    <string name="TextAnimationSubtitle">Particle and glowing text input effects</string>
+
+    
+    <string name="ChatListWallpaperImage">Chat List Wallpaper (Photo)</string>
+    <string name="ChatListWallpaperVideo">Chat List Live Wallpaper (Video)</string>
+    <string name="ChatListWallpaperDimming">Chat List Wallpaper Dimming</string>
+    <string name="ChatWallpaperVideo">Chat Live Wallpaper (Video)</string>
+    <string name="ResetWallpaper">Reset Wallpaper</string>
+    </resources>

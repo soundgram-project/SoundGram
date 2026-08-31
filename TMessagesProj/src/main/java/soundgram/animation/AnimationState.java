@@ -1,0 +1,58 @@
+package soundgram.animation;
+
+import android.graphics.Paint;
+import android.graphics.RectF;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class AnimationState {
+    public Paint cursorPaint;
+    public RectF cursorRect;
+    public Map<Integer, Object> hiddenSpans;
+    public Paint particleGlowPaint;
+    public Paint particlePaint;
+    public Paint particleStrokePaint;
+    public Paint particleTextPaint;
+    public Paint selectionPaint;
+    public RectF selectionRect;
+    public Paint sharedPaint;
+    public String prevText = "";
+    public int prevLen = 0;
+    public int prevLastLineStart = 0;
+    public final Map<Integer, CharAnimData> charStartTimes = new HashMap<>();
+    public final List<Particle> particles = new ArrayList<>();
+    public boolean hasAnimatingChars = false;
+    public boolean animationRunning = false;
+    public boolean heartbeatRunning = false;
+    public boolean originalCursorVisible = true;
+    public boolean hasOriginalCursorVisible = false;
+    public float cursorX = -1.0f;
+    public float cursorY = -1.0f;
+    public float cursorMotion = 0.0f;
+    public float spaceJumpX = -1.0f;
+    public float spaceJumpY = -1.0f;
+    public long spaceJumpStartTime = 0;
+    public long enterDiveStartTime = 0;
+    public long backspacePulseStartTime = 0;
+    public long selectionStretchStartTime = 0;
+    public float selectionStretchBoost = 0.0f;
+    public int lastSelectionOffset = -1;
+    public int lastSelectionStart = -1;
+    public int lastSelectionEnd = -1;
+    public long selectionEffectStartTime = 0;
+    public float selectionStartX = -1.0f;
+    public float selectionStartY = -1.0f;
+    public float selectionEndX = -1.0f;
+    public float selectionEndY = -1.0f;
+    public float selectionStartSnap = 0.0f;
+    public float selectionEndSnap = 0.0f;
+    public long lastCursorDrawTime = 0;
+    public int drawingDepth = 0;
+    public long lastParticleUpdateTime = 0;
+    public float lastCursorX = -1.0f;
+    public float lastCursorY = -1.0f;
+    public long lastCursorMoveTime = 0;
+    public android.graphics.drawable.Drawable transparentHandleDrawable;
+}
