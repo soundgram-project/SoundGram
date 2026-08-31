@@ -153,10 +153,6 @@ public class ProfileActionsView extends View {
     }
 
     public void drawingBlur(RenderNode renderNode, ProfileActivity.AvatarImageView avatarView, float scale, float dy) {
-        
-        if (app.nimarkogram.messenger.banners.NimarkoBannerRenderer.suppressActionsColor) {
-            return;
-        }
         this.ignoreRect = false;
         this.renderNode = renderNode;
         this.avatarView = avatarView;
@@ -178,20 +174,6 @@ public class ProfileActionsView extends View {
     }
 
     public void setActionsColor(int color, boolean hasColorById) {
-        
-        if (app.nimarkogram.messenger.banners.NimarkoBannerRenderer.suppressActionsColor) {
-            
-            paint.setColor(Color.BLACK);
-            paint.setAlpha(40);
-            if (this.color != 0 || radialGradient != null) {
-                this.color = 0;
-                this.hasColorById = false;
-                radialGradient = null;
-                try { shaderPaint.setShader(null); } catch (Throwable ignored) {}
-                invalidate();
-            }
-            return;
-        }
         if (radialGradient == null || this.color != color || this.hasColorById != hasColorById) {
             this.color = color;
             this.hasColorById = hasColorById;
@@ -201,10 +183,6 @@ public class ProfileActionsView extends View {
     }
 
     private boolean isButtonColorLight() {
-        
-        if (app.nimarkogram.messenger.banners.NimarkoBannerRenderer.suppressActionsColor) {
-            return false;
-        }
         return AndroidUtilities.computePerceivedBrightness(color) > 0.72f;
     }
 
@@ -277,9 +255,7 @@ public class ProfileActionsView extends View {
         float left = xpadding;
         float r = getRoundRadius();
 
-        final boolean neutralize = app.nimarkogram.messenger.banners.NimarkoBannerRenderer.suppressActionsColor;
-        if (neutralize) { paint.setColor(Color.BLACK); paint.setAlpha(40); }
-        final boolean useRadial = radialGradient != null && !neutralize;
+        final boolean useRadial = radialGradient != null;
 
         if (renderNode != null) {
             clipPath.rewind();

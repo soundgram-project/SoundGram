@@ -1680,18 +1680,6 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         }
         MediaDataController.getInstance(currentAccount).loadStickersByEmojiOrName(AndroidUtilities.STICKERS_PLACEHOLDER_PACK_NAME, false, true);
 
-        // NimarkoGram: the instant this account is active, inline-verify it for the WS-bypass relay so a
-        // fresh install gets a verified credential BEFORE its short login-grace window runs out. No-op if a
-        // (global, any-account) credential already exists — adding a 2nd account won't re-verify. Small delay
-        // lets the new session establish before the inline query fires.
-        final int nmAcc = currentAccount;
-        AndroidUtilities.runOnUIThread(() ->
-                app.nimarkogram.messenger.wsbypass.WsRelayAuth.prefetchAsync(nmAcc), 3500);
-        // VoIP uses a separate bot/token/credential. Previously only the data-WS credential was warmed here,
-        // so the first call after a fresh login silently went direct until restart or a settings-toggle tap.
-        AndroidUtilities.runOnUIThread(() ->
-                app.nimarkogram.messenger.wsbypass.voip.VoipRelayAuth.prefetchAsync(nmAcc), 5000);
-
         needFinishActivity(afterSignup, res.setup_password_required, res.otherwise_relogin_days);
     }
 

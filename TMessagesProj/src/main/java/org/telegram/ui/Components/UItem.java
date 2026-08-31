@@ -68,9 +68,6 @@ public class UItem extends AdapterWithDiffUtils.Item {
     private transient boolean searchable;
     private transient String linkAlias;
 
-    public app.nimarkogram.messenger.plugins.Plugin plugin;
-    public app.nimarkogram.messenger.plugins.models.SettingItem settingItem;
-
     public boolean withUsername = true;
 
     public UItem(int viewType, boolean selectable) {

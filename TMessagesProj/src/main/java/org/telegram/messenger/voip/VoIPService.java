@@ -159,9 +159,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
-import app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig;
-import app.nimarkogram.messenger.wsbypass.voip.VoipBypassConfig;
-import app.nimarkogram.messenger.wsbypass.voip.VoipBypassCore;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -779,10 +776,7 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 		if (currentAccount == -1) {
 			throw new IllegalStateException("No account specified when starting VoIP service");
 		}
-		if (NimarkoWsBypassConfig.enabled && VoipBypassConfig.isVoipBypassEnabled()) {
-			
-			app.nimarkogram.messenger.wsbypass.voip.VoipRelayAuth.prefetchAsync(currentAccount);
-		}
+
 		classGuid = ConnectionsManager.generateClassGuid();
 		long userID = intent.getLongExtra("user_id", 0);
 		long chatID = intent.getLongExtra("chat_id", 0);
@@ -2702,21 +2696,8 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 					mySource[CAPTURE_DEVICE_SCREEN] = ssrc;
 					if (tgVoip[CAPTURE_DEVICE_SCREEN] != null) {
 						long selfId = getSelfId();
-						if (nmPublishedScreenParams != null) {
-							final boolean[] payloadApplied = {false};
-							boolean stateCurrent = VoipBypassConfig.publishIfRelayStateCurrent(
-									nmPreparedParams.relayState, () -> {
-										if (!nmIsCurrentGroupJoin(nmJoinGeneration, true)
-												|| tgVoip[CAPTURE_DEVICE_SCREEN] == null) return;
-										tgVoip[CAPTURE_DEVICE_SCREEN].setJoinResponsePayload(
-												nmPublishedScreenParams.data);
-										payloadApplied[0] = true;
-									});
-							if (!stateCurrent || !payloadApplied[0]) {
-								nmAbortGroupRelay("screen relay state changed before native publication",
-										nmJoinGeneration, true);
-								return;
-							}
+						if (nmPublishedScreenParams != null && tgVoip[CAPTURE_DEVICE_SCREEN] != null) {
+							tgVoip[CAPTURE_DEVICE_SCREEN].setJoinResponsePayload(nmPublishedScreenParams.data);
 						}
 						for (int a = 0, N = updates.updates.size(); a < N; a++) {
 							TLRPC.Update update = updates.updates.get(a);
@@ -2927,42 +2908,14 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 	}
 
 	private void nmLogGroupParams(String where, String data) {
-		if (!VoipBypassCore.DEBUG) return;
-		try {
-			if (data == null) { VoipBypassCore.dlog(where + ": params=null"); return; }
-			org.json.JSONObject o = new org.json.JSONObject(data);
-			StringBuilder sb = new StringBuilder(where + ": stream=" + o.optBoolean("stream") + " ufrag=" + (o.optJSONObject("transport") != null ? o.optJSONObject("transport").optString("ufrag") : "?"));
-			org.json.JSONObject transport = o.optJSONObject("transport");
-			org.json.JSONArray cands = transport != null ? transport.optJSONArray("candidates") : null;
-			if (cands != null) {
-				for (int i = 0; i < cands.length(); i++) {
-					org.json.JSONObject c = cands.optJSONObject(i);
-					if (c == null) continue;
-					String cip = c.optString("ip");
-					boolean tgIp = VoipBypassConfig.isTelegramReflectorIp(cip);   
-					sb.append("\n  cand[").append(i).append("] ").append(c.optString("type")).append(" ").append(cip).append(":").append(c.optString("port"))
-						.append(" ").append(c.optString("protocol")).append(tgIp ? " <TG-IP relayable>" : "");
-				}
-			} else {
-				sb.append(" (no candidates[] — raw=").append(data.length() > 200 ? data.substring(0, 200) : data).append(")");
-			}
-			VoipBypassCore.dlog(sb.toString());
-		} catch (Exception e) {
-			VoipBypassCore.dlog(where + ": parse err " + e + " raw=" + (data != null && data.length() > 200 ? data.substring(0, 200) : data));
-		}
 	}
 
 	private boolean nmGroupRelayRequired() {
-		return VoipBypassConfig.captureRelayState().required;
+		return false;
 	}
 
 	private int nmBeginGroupJoin() {
-		int generation = nmGroupJoinGeneration.incrementAndGet();
-		if (nmGroupRelayRequired()) {
-			
-			myParams = null;
-		}
-		return generation;
+		return nmGroupJoinGeneration.incrementAndGet();
 	}
 
 	private int nmBeginPresentationJoin() {
@@ -2982,7 +2935,6 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 	private void nmAbortGroupRelay(String reason, int generation, boolean presentation) {
 		if (!nmIsCurrentGroupJoin(generation, presentation)) return;
 		myParams = null;
-		VoipBypassCore.dlog("group relay required; aborting join: " + reason);
 		AndroidUtilities.runOnUIThread(() -> {
 			if (nmIsCurrentGroupJoin(generation, presentation)) {
 				myParams = null;
@@ -3008,13 +2960,10 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 	private static final class NmPreparedGroupParamsBatch {
 		final ArrayList<NmPreparedGroupParams> prepared = new ArrayList<>();
 		final ArrayList<TL_update.TL_updateGroupCallConnection> suppressed = new ArrayList<>();
-		final VoipBypassConfig.RelayState relayState;
 		final boolean presentation;
 		int relevantUpdates;
 
-		NmPreparedGroupParamsBatch(VoipBypassConfig.RelayState relayState,
-				boolean presentation) {
-			this.relayState = relayState;
+		NmPreparedGroupParamsBatch(boolean presentation) {
 			this.presentation = presentation;
 		}
 
@@ -3027,57 +2976,18 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			boolean presentation, int generation, boolean presentationGeneration,
 			String path) {
 		if (!nmIsCurrentGroupJoin(generation, presentationGeneration)) return null;
-		VoipBypassConfig.RelayState relayState = VoipBypassConfig.captureRelayState();
-		NmPreparedGroupParamsBatch batch = new NmPreparedGroupParamsBatch(
-				relayState, presentation);
-		long deadline = relayState.required
-				? android.os.SystemClock.elapsedRealtime() + 1000 : 0;
+		NmPreparedGroupParamsBatch batch = new NmPreparedGroupParamsBatch(presentation);
 
 		for (TL_update.TL_updateGroupCallConnection update
 				: findUpdates(updates, TL_update.TL_updateGroupCallConnection.class)) {
 			if (update.presentation != presentation) {
-				if (relayState.required) batch.suppressed.add(update);
 				continue;
 			}
 			batch.relevantUpdates++;
 			TLRPC.TL_dataJSON serverParams = update.params;
-			nmLogGroupParams("group JOIN-RESPONSE [" + path + ", server params]",
-					serverParams != null ? serverParams.data : null);
-			if (serverParams == null) {
-				if (relayState.required) {
-					nmAbortGroupRelay(path + " join response has no transport params",
-							generation, presentationGeneration);
-					return null;
-				}
-				continue;
+			if (serverParams != null) {
+				batch.prepared.add(new NmPreparedGroupParams(update, serverParams));
 			}
-
-			String payload = serverParams.data;
-			if (relayState.required) {
-				payload = nmRelayGroupParams(payload, deadline);
-				if (payload == null) {
-					nmAbortGroupRelay(path + " connection update batch could not be relayed",
-							generation, presentationGeneration);
-					return null;
-				}
-			}
-			if (!nmIsCurrentGroupJoin(generation, presentationGeneration)) return null;
-			VoipBypassConfig.RelayState now = VoipBypassConfig.captureRelayState();
-			if (now.generation != relayState.generation
-					|| now.required != relayState.required) {
-				nmAbortGroupRelay(path + " relay state changed during batch preparation",
-						generation, presentationGeneration);
-				return null;
-			}
-			TLRPC.TL_dataJSON published = new TLRPC.TL_dataJSON();
-			published.data = payload;
-			batch.prepared.add(new NmPreparedGroupParams(update, published));
-		}
-
-		if (relayState.required && batch.relevantUpdates == 0) {
-			nmAbortGroupRelay(path + " join response omitted relay transport",
-					generation, presentationGeneration);
-			return null;
 		}
 		return batch;
 	}
@@ -3088,84 +2998,18 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 		if (batch == null || !nmIsCurrentGroupJoin(generation, presentationGeneration)) {
 			return false;
 		}
-		final boolean[] applied = {false};
-		boolean current = VoipBypassConfig.publishIfRelayStateCurrent(batch.relayState, () -> {
-			if (!nmIsCurrentGroupJoin(generation, presentationGeneration)) return;
-			for (NmPreparedGroupParams prepared : batch.prepared) {
-				prepared.update.params = prepared.params;
-			}
-			if (batch.relayState.required && !batch.suppressed.isEmpty()) {
-				updates.updates.removeAll(batch.suppressed);
-			}
-			if (!batch.presentation && batch.lastParams() != null) {
-				myParams = batch.lastParams();
-			}
-			MessagesController.getInstance(currentAccount).processUpdates(updates, false);
-			applied[0] = true;
-		});
-		if (current && applied[0]) return true;
-
-		VoipBypassConfig.RelayState now = VoipBypassConfig.captureRelayState();
-		String reason = !batch.relayState.required && now.required
-				? path + " direct transport rejected after relay enable"
-				: path + " relay state changed before transport publication";
-		nmAbortGroupRelay(reason, generation, presentationGeneration);
-		return false;
-	}
-
-	private String nmRelayGroupParams(String data, long deadline) {
-		if (data == null) return null;
-		try {
-			org.json.JSONObject o = new org.json.JSONObject(data);
-			org.json.JSONObject transport = o.optJSONObject("transport");
-			org.json.JSONArray cands = transport != null ? transport.optJSONArray("candidates") : null;
-			if (cands == null) return null;
-			int rewritten = 0;
-			int suppressed = 0;
-			for (int i = 0; i < cands.length(); i++) {
-				org.json.JSONObject c = cands.optJSONObject(i);
-				if (c == null) continue;
-				String cip = c.optString("ip");
-				if (!"udp".equalsIgnoreCase(c.optString("protocol", "udp"))) {
-					cands.remove(i--);
-					suppressed++;
-					continue;
-				}
-				String relayTarget = VoipBypassConfig.relayProtocolTarget(cip);
-				if (relayTarget == null) {
-					cands.remove(i--);
-					suppressed++;
-					continue;
-				}
-				int cport;
-				try { cport = Integer.parseInt(c.optString("port")); }
-				catch (Exception e) { cands.remove(i--); suppressed++; continue; }
-				if (cport <= 0 || cport > 65535) { cands.remove(i--); suppressed++; continue; }
-				VoipBypassCore.RelayEndpoint relay = VoipBypassCore.getInstance().allocateRelay(relayTarget, cport,
-						currentAccount, (int) (deadline - android.os.SystemClock.elapsedRealtime()));
-				if (relay == null) {
-					VoipBypassCore.dlog("group relay allocation failed for " + cip + ":" + cport);
-					return null;
-				}
-				String relayIp = relay.host;
-				c.put("ip", relayIp);
-				c.put("port", String.valueOf(relay.port));
-				rewritten++;
-				VoipBypassCore.dlog("group RELAY candidate " + cip + ":" + cport + " -> " + relayIp + ":" + relay.port);
-			}
-			if (rewritten == 0) return null;
-			VoipBypassCore.dlog("group join-response relayed=" + rewritten
-					+ " suppressedDirect=" + suppressed);
-			return o.toString();
-		} catch (Exception e) {
-			VoipBypassCore.dlog("group relay rewrite failed; aborting join: " + e);
-			return null;
+		for (NmPreparedGroupParams prepared : batch.prepared) {
+			prepared.update.params = prepared.params;
 		}
+		if (!batch.presentation && batch.lastParams() != null) {
+			myParams = batch.lastParams();
+		}
+		MessagesController.getInstance(currentAccount).processUpdates(updates, false);
+		return true;
 	}
 
 	private void createGroupInstance(int type, boolean switchAccount, boolean isFirst) {
 		
-		VoipBypassCore.dlog("createGroupInstance(type=" + type + ", first=" + isFirst + "): GROUP call (WebRTC) — group relay = ICE-candidate rewrite at join-response");
 		if (switchAccount) {
 			mySource[type] = 0;
 			if (type == CAPTURE_DEVICE_CAMERA) {
@@ -3195,7 +3039,6 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			final boolean[] first = new boolean[] { isFirst };
 			final String logFilePath = BuildVars.DEBUG_VERSION ? VoIPHelper.getLogFilePath("voip_" + type + "_" + logId) : VoIPHelper.getLogFilePath(logId, false);
 			tgVoip[type] = NativeInstance.makeGroup(logFilePath, captureDevice[type], type == CAPTURE_DEVICE_SCREEN, type == CAPTURE_DEVICE_CAMERA && SharedConfig.noiseSupression, (ssrc, json) -> {
-				VoipBypassCore.dlog("group LOCAL-OFFER emit type=" + type + " ssrc=" + ssrc + " offerLen=" + (json == null ? 0 : json.length()) + " conference=" + (conference != null) + " -> joinGroupCall");
 				if (type == CAPTURE_DEVICE_CAMERA) {
 					if (conference != null) {
 						startConferenceGroupCall(false, ssrc, json, !first[0]);
@@ -3348,7 +3191,6 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 	}
 
 	private void updateConnectionState(int type, int state, boolean inTransition) {
-		VoipBypassCore.dlog("group CONNECTION-STATE type=" + type + " state=" + state + " (1=connected, else reconnecting) inTransition=" + inTransition);
 		if (type != CAPTURE_DEVICE_CAMERA) {
 			return;
 		}
@@ -3505,15 +3347,13 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			final double initializationTimeout = messagesController.callConnectTimeout / 1000.0;
 			final double receiveTimeout = messagesController.callPacketTimeout / 1000.0;
 				final int voipDataSaving = convertDataSavingMode(preferences.getInt("VoipDataSaving", VoIPHelper.getDataSavingDefault()));
-				final boolean useVoipBypass = NimarkoWsBypassConfig.enabled && VoipBypassConfig.isVoipBypassEnabled()
-						&& !app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().blockedByVpn();
 				final Instance.ServerConfig serverConfig = Instance.getGlobalServerConfig();
 			final boolean enableAec = !(sysAecAvailable && serverConfig.useSystemAec);
 			final boolean enableNs = !(sysNsAvailable && serverConfig.useSystemNs);
 			final String logFilePath = BuildVars.DEBUG_VERSION ? VoIPHelper.getLogFilePath("voip" + privateCall.id) : VoIPHelper.getLogFilePath("" + privateCall.id, false);
 			final String statsLogFilePath = VoIPHelper.getLogFilePath("" + privateCall.id, true);
 				final Instance.Config config = new Instance.Config(initializationTimeout, receiveTimeout, voipDataSaving,
-						privateCall.p2p_allowed && !useVoipBypass, enableAec, enableNs, true, false,
+						privateCall.p2p_allowed, enableAec, enableNs, true, false,
 						serverConfig.enableStunMarking, logFilePath, statsLogFilePath,
 						privateCall.protocol.max_layer, privateCall.custom_parameters == null ? "" : privateCall.custom_parameters.data);
 			lastLogFilePath = logFilePath;
@@ -3523,54 +3363,14 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			final boolean forceTcp = preferences.getBoolean("dbg_force_tcp_in_calls", false);
 			final int endpointType = forceTcp ? Instance.ENDPOINT_TYPE_TCP_RELAY : Instance.ENDPOINT_TYPE_UDP_RELAY;
 
-			final boolean nmIsVideoCall = privateCall != null && privateCall.video;
-			VoipBypassCore.dlog("buildEndpoints: video=" + nmIsVideoCall + " p2p=" + privateCall.p2p_allowed
-					+ " connections=" + privateCall.connections.size() + " useVoipBypass=" + useVoipBypass);
-
 			final Instance.Endpoint[] endpoints = new Instance.Endpoint[privateCall.connections.size()];
 			ArrayList<Long> reflectorIds = new ArrayList<>();
 				
-			final long nmRelayDeadline = android.os.SystemClock.elapsedRealtime() + 600;
 			for (int i = 0; i < endpoints.length; i++) {
 				final TLRPC.PhoneConnection connection = privateCall.connections.get(i);
 				String ip = connection.ip;
 				int port = connection.port;
 				String ipv6 = connection.ipv6;
-
-				final boolean nmIsWebrtc = connection instanceof TLRPC.TL_phoneConnectionWebrtc;
-				final boolean nmIsReflector = connection instanceof TLRPC.TL_phoneConnection;
-				boolean nmRelayed = false;
-
-					if (useVoipBypass) {
-						String relayTarget = VoipBypassConfig.relayProtocolTarget(ip);
-						if (relayTarget == null) relayTarget = VoipBypassConfig.relayProtocolTarget(ipv6);
-						boolean isTelegramIp = relayTarget != null;
-					
-						if (!forceTcp && !connection.tcp && isTelegramIp) {
-						VoipBypassCore.RelayEndpoint relay = VoipBypassCore.getInstance().allocateRelay(relayTarget, connection.port,
-								currentAccount, (int) (nmRelayDeadline - android.os.SystemClock.elapsedRealtime()));
-						if (relay != null) {
-							if (relay.host.indexOf(':') >= 0) {
-								ip = "";
-								ipv6 = relay.host;
-							} else {
-								ip = relay.host;
-								ipv6 = "";
-							}
-							port = relay.port;
-							nmRelayed = true;
-						}
-					}
-						
-						if (!nmRelayed) {
-							ip = "";
-							ipv6 = "";
-							port = 0;
-						}
-					}
-
-				VoipBypassCore.dlog("  endpoint[" + i + "] type=" + (nmIsWebrtc ? "WEBRTC(turn=" + connection.turn + ",stun=" + connection.stun + ")" : nmIsReflector ? "REFLECTOR" : "OTHER")
-						+ " " + connection.ip + ":" + connection.port + " tcp=" + connection.tcp + " video=" + nmIsVideoCall + " relayed=" + nmRelayed);
 
 				endpoints[i] = new Instance.Endpoint(connection instanceof TLRPC.TL_phoneConnectionWebrtc, connection.id, ip, ipv6, port, endpointType, connection.peer_tag, connection.turn, connection.stun, connection.username, connection.password, connection.tcp);
 				if (connection instanceof TLRPC.TL_phoneConnection) {

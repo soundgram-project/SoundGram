@@ -640,11 +640,14 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private boolean drawVerified;
     private boolean drawBotVerified;
     private boolean drawPremium;
+    private boolean drawSoundGram;
+    private android.graphics.RectF soundGramBadgeRect = new android.graphics.RectF();
+    private boolean soundGramBadgePressed = false;
+    private android.animation.ValueAnimator soundGramGlowAnimator;
+    private float soundGramGlowAlpha = 1f;
     private final View emojiStatusView;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable emojiStatus;
-    // Per-cell guard for plugin badge: dedupe the SwapAnimatedEmojiDrawable
-    // rebind when the same badge fires again on UPDATE_MASK_EMOJI_STATUS.
-    private long lastNimarkoMaskDocId = 0L;
+
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable botVerification;
 
     private int drawScam;
@@ -1550,42 +1553,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                     if (dialogBotVerificationIcon != 0 && drawBotVerified) {
                         botVerification.set(dialogBotVerificationIcon, false);
                     }
-                    // NimarkoGram: probe the badge for the dialog owner. NO
-                    // Saved-Messages exclusion — achievement-style plugins
-                    // push badges at the user's own id and need them visible
-                    // on the Saved Messages row too.
-                    try {
-                        org.telegram.tgnet.TLObject badgeTarget = user != null ? user : chat;
-                        app.nimarkogram.messenger.api.dto.BadgeDTO nimarkoBadge =
-                                app.nimarkogram.messenger.badges.BadgesController.getInstance().i(badgeTarget);
-                        if (nimarkoBadge != null && nimarkoBadge.getDocumentId() != 0L) {
-                            drawPremium = true;
-                            nameLayoutEllipsizeByGradient = true;
-                            emojiStatus.center = LocaleController.isRTL;
-                            emojiStatus.set(nimarkoBadge.getDocumentId(), false);
-                            emojiStatus.setParticles(true, false);
-                            // NimarkoGram: kill the chat's bot-verification
-                            // emoji when our badge wins — otherwise both
-                            // render side-by-side on channels like "Фумошка"
-                            // that have both bot_verification_icon and a
-                            // nimarko badge.
-                            drawBotVerified = false;
-                            drawVerified = false;
-                            botVerification.set((Drawable) null, false);
-                        } else {
-                            // NG: defensive clear — particles must be OFF for any
-                            // user/chat without an NG badge AND without a collectible
-                            // emoji status. User reported still seeing sparkles in
-                            // search results for badgeless users (recycler view leak
-                            // through the SwapAnimatedEmojiDrawable particle flag).
-                            boolean hasCollectibleEmojiStatus =
-                                    (user != null && DialogObject.isEmojiStatusCollectible(user.emoji_status))
-                                    || (chat != null && DialogObject.isEmojiStatusCollectible(chat.emoji_status));
-                            if (!hasCollectibleEmojiStatus) {
-                                emojiStatus.setParticles(false, false);
-                            }
-                        }
-                    } catch (Throwable ignored) {}
+
                 }
             }
 
@@ -3412,34 +3380,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 }
                 if ((mask & MessagesController.UPDATE_MASK_EMOJI_STATUS) != 0) {
                     long dialogBotVerificationIcon = 0;
-                    // NimarkoGram: probe badge FIRST and let it short-circuit
-                    // the original premium/emoji-status assignment for this
-                    // bind. Otherwise the cell flashes premium-star → badge
-                    // on every emoji-status mask update (user reported as
-                    // "duplicating / disappearing" badges on channels).
-                    app.nimarkogram.messenger.api.dto.BadgeDTO nimarkoBadgeMask = null;
-                    try {
-                        org.telegram.tgnet.TLObject t = user != null ? user : chat;
-                        nimarkoBadgeMask = app.nimarkogram.messenger.badges.BadgesController.getInstance().i(t);
-                        if (nimarkoBadgeMask != null && nimarkoBadgeMask.getDocumentId() == 0L) nimarkoBadgeMask = null;
-                    } catch (Throwable ignored) {}
-                    // Per-cell guard: skip the expensive emojiStatus.set+setParticles
-                    // chain when this exact badge already rendered for this cell.
-                    // Saves N visible cells × SwapAnimatedEmojiDrawable rebind on
-                    // every UPDATE_MASK_EMOJI_STATUS broadcast.
-                    long _nimarkoMaskDoc = nimarkoBadgeMask != null ? nimarkoBadgeMask.getDocumentId() : 0L;
-                    boolean _nimarkoMaskSame = (_nimarkoMaskDoc != 0L) && (_nimarkoMaskDoc == lastNimarkoMaskDocId);
-                    lastNimarkoMaskDocId = _nimarkoMaskDoc;
                     if (user != null) {
                         user = MessagesController.getInstance(currentAccount).getUser(user.id);
-                        if (nimarkoBadgeMask != null) {
-                            nameLayoutEllipsizeByGradient = true;
-                            if (!_nimarkoMaskSame) {
-                                emojiStatus.set(_nimarkoMaskDoc, false);
-                                emojiStatus.setParticles(true, false);
-                                botVerification.set((Drawable) null, false);
-                            }
-                        } else if (user != null && DialogObject.getEmojiStatusDocumentId(user.emoji_status) != 0) {
+                        if (user != null && DialogObject.getEmojiStatusDocumentId(user.emoji_status) != 0) {
                             nameLayoutEllipsizeByGradient = true;
                             emojiStatus.set(DialogObject.getEmojiStatusDocumentId(user.emoji_status), animated);
                             emojiStatus.setParticles(DialogObject.isEmojiStatusCollectible(user.emoji_status), animated);
@@ -3453,14 +3396,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                     }
                     if (chat != null) {
                         chat = MessagesController.getInstance(currentAccount).getChat(chat.id);
-                        if (nimarkoBadgeMask != null) {
-                            nameLayoutEllipsizeByGradient = true;
-                            if (!_nimarkoMaskSame) {
-                                emojiStatus.set(_nimarkoMaskDoc, false);
-                                emojiStatus.setParticles(true, false);
-                                botVerification.set((Drawable) null, false);
-                            }
-                        } else if (chat != null && DialogObject.getEmojiStatusDocumentId(chat.emoji_status) != 0)  {
+                        if (chat != null && DialogObject.getEmojiStatusDocumentId(chat.emoji_status) != 0)  {
                             nameLayoutEllipsizeByGradient = true;
                             emojiStatus.set(DialogObject.getEmojiStatusDocumentId(chat.emoji_status), animated);
                             emojiStatus.setParticles(DialogObject.isEmojiStatusCollectible(chat.emoji_status), animated);
@@ -3483,8 +3419,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                         }
                         botVerification.set((Drawable) null, animated);
                     }
-                    // (Badge handling now inline above as the first branch in
-                    // both the user and chat blocks — no double-set.)
                 }
                 if (isDialogCell || isTopic) {
                     if ((mask & MessagesController.UPDATE_MASK_USER_PRINT) != 0) {
@@ -5602,12 +5536,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     public boolean performAccessibilityAction(int action, Bundle arguments) {
-        app.nimarkogram.messenger.api.dto.BadgeDTO badge = getNimarkoBadgeForAccessibility();
-        if (action == R.id.acc_action_badge_info && badge != null) {
-            app.nimarkogram.messenger.badges.BadgeUi.showBulletin(currentAccount, badge);
-            sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED);
-            return true;
-        }
         if (action == R.id.acc_action_chat_preview && parentFragment != null) {
             parentFragment.showChatPreview(this);
             return true;
@@ -5631,23 +5559,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             info.setClassName("android.widget.CheckBox");
             info.setCheckable(true);
             info.setChecked(true);
-        }
-        app.nimarkogram.messenger.api.dto.BadgeDTO badge = getNimarkoBadgeForAccessibility();
-        if (badge != null) {
-            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(
-                    R.id.acc_action_badge_info,
-                    app.nimarkogram.messenger.badges.BadgeUi.accessibilityLabel(badge)));
-        }
-    }
-
-    private app.nimarkogram.messenger.api.dto.BadgeDTO getNimarkoBadgeForAccessibility() {
-        try {
-            TLObject target = user != null ? user : chat;
-            app.nimarkogram.messenger.api.dto.BadgeDTO badge =
-                    app.nimarkogram.messenger.badges.BadgesController.getInstance().i(target);
-            return badge != null && badge.getDocumentId() != 0L ? badge : null;
-        } catch (Throwable ignored) {
-            return null;
         }
     }
 
@@ -5701,11 +5612,6 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
         if (drawVerified) {
             sb.append(getString(R.string.AccDescrVerified));
-            sb.append(". ");
-        }
-        app.nimarkogram.messenger.api.dto.BadgeDTO accessibilityBadge = getNimarkoBadgeForAccessibility();
-        if (accessibilityBadge != null) {
-            sb.append(app.nimarkogram.messenger.badges.BadgeUi.accessibilityLabel(accessibilityBadge));
             sb.append(". ");
         }
         if (dialogMuted) {

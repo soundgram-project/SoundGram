@@ -1,6 +1,5 @@
 plugins {
     `kotlin-dsl`
-    // kotlin("jvm") version "2.1.0"
 }
 
 gradlePlugin {
@@ -21,11 +20,7 @@ repositories {
     mavenCentral()
     gradlePluginPortal()
 }
-/*
-val checkEmojiKeyboard by tasks.registering(GenerateSchemeTask::class) {
 
-}
-*/
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)

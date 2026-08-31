@@ -1233,21 +1233,8 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         ConnectionsManager.getInstance(currentAccount).setAppPaused(true, false);
         UserConfig.selectedAccount = account;
         UserConfig.getInstance(0).saveConfig(false);
-        // NimarkoGram: the new account may live on a different DC (e.g. RU DC2 <-> asian DC5), so re-decide
-        // the relay region for the process-global bypass rather than keeping the previous account's pick.
-        app.nimarkogram.messenger.wsbypass.RelayRegion.invalidate();
-        // Keep both independently-issued relay credentials warm for the newly selected account. The calls are
-        // single-flight and no-op while their existing credential is still fresh.
-        AndroidUtilities.runOnUIThread(() ->
-                app.nimarkogram.messenger.wsbypass.WsRelayAuth.prefetchAsync(account), 500);
-        AndroidUtilities.runOnUIThread(() ->
-                app.nimarkogram.messenger.wsbypass.voip.VoipRelayAuth.prefetchAsync(account), 1000);
-
         checkCurrentAccount();
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.activeAccountChanged, account);
-        // NimarkoGram: refetch the new account's banner status now (selectedAccount already committed above),
-        // otherwise B's own server banner stays hidden until the 5-min status loop tick.
-        try { app.nimarkogram.messenger.banners.NimarkoBannerController.getInstance().onAccountSwitched(); } catch (Throwable ignored) {}
         if (AndroidUtilities.isTablet()) {
             layersActionBarLayout.removeAllFragments();
             rightActionBarLayout.removeAllFragments();
@@ -1598,9 +1585,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             }, 350);
         }
         if (AndroidUtilities.handleProxyIntent(this, intent, true)) {
-            return true;
-        }
-        if (app.nimarkogram.messenger.plugins.intents.IntentsController.getInstance().dispatchIntent(intent)) {
             return true;
         }
         if (intent == null || !Intent.ACTION_MAIN.equals(intent.getAction())) {
@@ -6220,60 +6204,38 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             req.source = "";
         }
         final int accountNum = currentAccount;
-        int reqId = ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
+        if (progress != null) progress.init();
+        ConnectionsManager.getInstance(accountNum).sendRequest(req, (response, error) -> {
             SharedConfig.lastUpdateCheckTime = System.currentTimeMillis();
             SharedConfig.saveConfig();
-            if (response instanceof TLRPC.TL_help_appUpdate) {
-                final TLRPC.TL_help_appUpdate res = (TLRPC.TL_help_appUpdate) response;
-                AndroidUtilities.runOnUIThread(() -> {
-                    if (SharedConfig.pendingAppUpdate != null && SharedConfig.pendingAppUpdate.version.equals(res.version)) {
-                        return;
+            AndroidUtilities.runOnUIThread(() -> {
+                if (response instanceof TLRPC.TL_help_appUpdate) {
+                    TLRPC.TL_help_appUpdate res = (TLRPC.TL_help_appUpdate) response;
+                    SharedConfig.setNewAppVersionAvailable(res);
+                    if (res.can_not_skip) {
+                        showUpdateActivity(accountNum, res, false);
+                    } else {
+                        ApplicationLoader.applicationLoaderInstance.showUpdateAppPopup(LaunchActivity.this, res, accountNum);
                     }
-                    final boolean newVersionAvailable = SharedConfig.setNewAppVersionAvailable(res);
-                    if (newVersionAvailable) {
-                        if (res.can_not_skip) {
-                            showUpdateActivity(accountNum, res, false);
-                        } else if (ApplicationLoader.isStandaloneBuild() || BuildVars.DEBUG_VERSION) {
-                            ApplicationLoader.applicationLoaderInstance.showUpdateAppPopup(LaunchActivity.this, res, accountNum);
-                        }
-                        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.appUpdateAvailable);
-                    }
-                    if (progress != null) {
-                        progress.end();
-                        if (!newVersionAvailable) {
-                            BaseFragment fragment = getLastFragment();
-                            if (fragment != null) {
-                                BulletinFactory.of(fragment).createSimpleBulletin(R.raw.chats_infotip, LocaleController.getString(R.string.YourVersionIsLatest)).show();
+                } else {
+                    if (force) {
+                        BaseFragment fragment = getLastFragment();
+                        if (fragment != null) {
+                            if (error == null) {
+                                BulletinFactory.of(fragment).createSimpleBulletin(R.raw.done, LocaleController.getString(R.string.YourVersionIsLatestNax)).show();
+                            } else {
+                                AlertsCreator.createSimpleAlert(LaunchActivity.this, getString(R.string.ErrorOccurred) + "\n" + (error != null ? error.text : "")).show();
                             }
                         }
                     }
-                });
-            } else if (response instanceof TLRPC.TL_help_noAppUpdate) {
-                AndroidUtilities.runOnUIThread(() -> {
-                    if (progress != null) {
-                        progress.end();
-                        BaseFragment fragment = getLastFragment();
-                        if (fragment != null) {
-                            BulletinFactory.of(fragment).createSimpleBulletin(R.raw.chats_infotip, LocaleController.getString(R.string.YourVersionIsLatest)).show();
-                        }
-                    }
-                });
-            } else if (error != null) {
-                AndroidUtilities.runOnUIThread(() -> {
-                    if (progress != null) {
-                        progress.end();
-                        BaseFragment fragment = getLastFragment();
-                        if (fragment != null) {
-                            BulletinFactory.of(fragment).showForError(error);
-                        }
-                    }
-                });
-            }
+                    SharedConfig.setNewAppVersionAvailable(null);
+                }
+                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.appUpdateAvailable);
+                if (progress != null) {
+                    progress.end();
+                }
+            });
         });
-        if (progress != null) {
-            progress.init();
-            progress.onCancel(() -> ConnectionsManager.getInstance(currentAccount).cancelRequest(reqId, true));
-        }
     }
 
     public Dialog showAlertDialog(AlertDialog.Builder builder) {
@@ -6952,11 +6914,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     @Override
     protected void onPause() {
         super.onPause();
-        // NimarkoGram plugin engine event hook.
-        try {
-            app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                    .executeOnAppEvent(app.nimarkogram.messenger.plugins.PluginsConstants.APP_PAUSE);
-        } catch (Throwable ignored) {}
         // NimarkoGram: extend "Auto pause video" to MediaController-driven
         // playback — voice messages + round videos. Telegram keeps these
         // playing under MusicPlayerService when the app is backgrounded,
@@ -6977,11 +6934,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         pipActivityHandler.onPause();
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.stopAllHeavyOperations, 4096);
         ApplicationLoader.mainInterfacePaused = true;
-        // NimarkoGram: pause the banner video/blur worker when the app backgrounds — onAppPause had NO caller,
-        // so a video banner kept ExoPlayer decoding + the blur worker grabbing bitmaps while backgrounded.
-        // ALWAYS invoke (null/no-op safe) regardless of the feature toggle, so a banner that was live when
-        // the user switched the feature OFF still gets paused on background instead of leaking.
-        try { app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onAppPause(); } catch (Throwable ignore) {}
         int account = currentAccount;
         Utilities.stageQueue.postRunnable(() -> {
             ApplicationLoader.mainInterfacePausedStageQueue = true;
@@ -7048,11 +7000,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         // photo picker / share sheet and would wrongly wipe the configurable locked-chats TTL grace). So
         // locked chats / archive / delete re-prompt after real backgrounding while in-session grace survives.
         try { app.nimarkogram.messenger.security.NimarkoBiometricPrompt.onAppBackgrounded(); } catch (Throwable ignore) {}
-        // NimarkoGram plugin engine event hook.
-        try {
-            app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                    .executeOnAppEvent(app.nimarkogram.messenger.plugins.PluginsConstants.APP_STOP);
-        } catch (Throwable ignored) {}
         isStarted = false;
         pipActivityHandler.onStop();
         Browser.unbindCustomTabsService(this);
@@ -7232,11 +7179,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     protected void onResume() {
         super.onResume();
         if (flagSecureReason != null) flagSecureReason.invalidate();
-        // NimarkoGram plugin engine event hook.
-        try {
-            app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                    .executeOnAppEvent(app.nimarkogram.messenger.plugins.PluginsConstants.APP_RESUME);
-        } catch (Throwable ignored) {}
         isResumed = true;
         // NimarkoGram: OTA auto-check once per launch (gated on "Check on launch").
         try {
@@ -7256,13 +7198,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.startAllHeavyOperations, 4096);
         MediaController.getInstance().setFeedbackView(feedbackView = actionBarLayout.getView(), true);
         ApplicationLoader.mainInterfacePaused = false;
-        // Keep pause/resume delivery symmetrical. The banner setting can still be loading while
-        // LaunchActivity resumes; gating this callback used to leave the singleton permanently
-        // paused even after the feature became enabled.
-        try { app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onAppResume(); } catch (Throwable ignore) {}
-        // NimarkoGram: clear ws-bypass fail/blacklist backoff and restart a dead listener after a
-        // network change (Wi-Fi<->cellular/doze/VPN). This is the only caller of onAppResume().
-        try { app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().onAppResume(); } catch (Throwable ignore) {}
         MessagesController.getInstance(currentAccount).sortDialogsAfterResume();
         showLanguageAlert(false);
         Utilities.stageQueue.postRunnable(() -> {

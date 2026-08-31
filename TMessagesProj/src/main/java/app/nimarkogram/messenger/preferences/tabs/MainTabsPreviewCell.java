@@ -195,15 +195,17 @@ public class MainTabsPreviewCell extends ViewGroup {
 
     private void rebuildFromFixedLayout() {
         removeAllViews();
-        tabs = new GlassTabView[3];
+        tabs = new GlassTabView[4];
         tabTypes = new MainTabsManager.TabType[]{
                 MainTabsManager.TabType.PROFILE,
                 MainTabsManager.TabType.CHATS,
+                MainTabsManager.TabType.MUSIC,
                 MainTabsManager.TabType.SETTINGS,
         };
         tabs[0] = GlassTabView.createAvatar(boundContext, boundResourceProvider, boundCurrentAccount, R.string.MainTabsProfile);
         tabs[1] = GlassTabView.createMainTab(boundContext, boundResourceProvider, GlassTabView.TabAnimation.CHATS, R.string.MainTabsChats);
-        tabs[2] = GlassTabView.createMainTab(boundContext, boundResourceProvider, GlassTabView.TabAnimation.SETTINGS, R.string.Settings);
+        tabs[2] = GlassTabView.createMainTab(boundContext, boundResourceProvider, GlassTabView.TabAnimation.MUSIC, R.string.Music);
+        tabs[3] = GlassTabView.createMainTab(boundContext, boundResourceProvider, GlassTabView.TabAnimation.SETTINGS, R.string.Settings);
 
         final boolean titleVisible = NimarkoConfig.showMainTabsTitle;
         for (int i = 0; i < tabs.length; i++) {

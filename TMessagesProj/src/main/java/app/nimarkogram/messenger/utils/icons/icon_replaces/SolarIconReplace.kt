@@ -9,6 +9,23 @@ import org.telegram.messenger.R
 import app.nimarkogram.messenger.utils.icons.newHashMap
 
 class SolarIconReplace : BaseIconReplace() {
+
+    companion object {
+        @JvmField
+        val INSTANCE = SolarIconReplace()
+
+        @JvmStatic
+        fun getConversion(id: Int): Int = INSTANCE.wrap(id)
+
+        @JvmStatic
+        fun getReverseConversion(id: Int): Int {
+            for ((k, v) in INSTANCE.replaces) {
+                if (v == id) return k
+            }
+            return id
+        }
+    }
+
     override val replaces: HashMap<Int, Int> = newHashMap(
         R.drawable.arrow_more to R.drawable.arrow_more_solar,
         R.drawable.attach_send to R.drawable.attach_send_solar,

@@ -53,13 +53,10 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     private static final int ANIMATOR_ID_CLOSE_BUTTON_VISIBLE = 0;
     private static final int ANIMATOR_ID_SEARCH_ICON_VISIBLE = 1;
     private static final int ANIMATOR_ID_SEARCH_FILTERS_WIDTH = 2;
-    private static final int ANIMATOR_ID_INFO_CARDS_VISIBLE = 3;
 
     private final BoolAnimator animatorCloseIconVisible = new BoolAnimator(ANIMATOR_ID_CLOSE_BUTTON_VISIBLE, this, CubicBezierInterpolator.EASE_OUT_QUINT, 380, false);
     private final BoolAnimator animatorSearchIconVisible = new BoolAnimator(ANIMATOR_ID_SEARCH_ICON_VISIBLE, this, CubicBezierInterpolator.EASE_OUT_QUINT, 380, true);
     private final FactorAnimator animatorSearchFiltersWidth = new FactorAnimator(ANIMATOR_ID_SEARCH_FILTERS_WIDTH, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 280);
-    
-    private final BoolAnimator animatorInfoCardsVisible = new BoolAnimator(ANIMATOR_ID_INFO_CARDS_VISIBLE, this, CubicBezierInterpolator.EASE_OUT_QUINT, 250, true);
 
     private final Theme.ResourcesProvider resourcesProvider;
 
@@ -67,8 +64,6 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     private final ImageView closeIcon;
     private final LinearLayout additionalIconsLayout;
     
-    private app.nimarkogram.messenger.infocards.InfoCardStripView infoCards;
-    private final boolean withInfoCards;
     private boolean closeButtonForcedVisible;
     public final EditTextBoldCursor editText;
     private BlurredBackgroundDrawable blurredBackgroundDrawable;
@@ -79,7 +74,6 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
 
     public FragmentSearchField(Context context, Theme.ResourcesProvider resourcesProvider, boolean withInfoCards) {
         super(context);
-        this.withInfoCards = withInfoCards;
         this.resourcesProvider = resourcesProvider;
 
         editText = new EditTextBoldCursor(context) {
@@ -179,17 +173,6 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
         searchFilterLayout.setOrientation(LinearLayout.HORIZONTAL);
         searchFilterLayout.setVisibility(View.VISIBLE);
         addView(searchFilterLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 32, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, 4, 0, 4, 0));
-
-        if (withInfoCards) {
-            
-            setClipChildren(false);
-            setClipToPadding(false);
-            infoCards = new app.nimarkogram.messenger.infocards.InfoCardStripView(context, resourcesProvider);
-            infoCards.setVisibilityFactor(1f);
-            
-            addView(infoCards, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT,
-                    (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT), 6, 0, 6, 0));
-        }
 
         setWillNotDraw(false);
         checkUi_editTextPaddings();
@@ -347,7 +330,6 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     private void checkCloseButtonVisible() {
         boolean searching = closeButtonForcedVisible || editText.length() > 0;
         animatorCloseIconVisible.setValue(searching, true);
-        animatorInfoCardsVisible.setValue(!searching, true);
     }
 
     @Override
@@ -359,8 +341,6 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
             FragmentFloatingButton.setAnimatedVisibility(searchIcon, factor);
         } else if (id == ANIMATOR_ID_SEARCH_FILTERS_WIDTH) {
             checkUi_editTextPaddings();
-        } else if (id == ANIMATOR_ID_INFO_CARDS_VISIBLE) {
-            if (infoCards != null) infoCards.setVisibilityFactor(factor);
         }
     }
 

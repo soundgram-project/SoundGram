@@ -11036,6 +11036,8 @@
     <string name="NM_Cat_Privacy">Privacy</string>
     <string name="NM_Cat_Messages">Messages</string>
     <string name="NM_Cat_MessageMenu">Message menu</string>
+    <string name="NM_Cat_Miscellaneous">Miscellaneous</string>
+    <string name="NM_SettingsSummaryMisc">Experimental and extra features</string>
 
     <!-- Appearance -->
     <string name="NM_AP_Header">Header</string>

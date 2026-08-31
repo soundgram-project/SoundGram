@@ -378,19 +378,12 @@ public class NotificationCenter {
     public static final int cgUpdateSearchFiledVisibility = totalEvents++;
 
     public static final int cgTabsUpdated = totalEvents++;
-    public static final int pluginsUpdated = totalEvents++;
-    public static final int pluginMenuItemsUpdated = totalEvents++;
     public static final int customTitleUpdated = totalEvents++;
-    public static final int pluginSettingsRegistered = totalEvents++;
-    public static final int pluginSettingsUnregistered = totalEvents++;
-    public static final int pluginIsNotResponding = totalEvents++;
     public static final int nmUpdateBubbleShape = totalEvents++;
     public static final int nmUpdateOnlineIndicator = totalEvents++;
-    public static final int infoCardsLayoutChanged = totalEvents++;
-    public static final int infoCardsSettingsChanged = totalEvents++;
-    public static final int infoCardsColorModeChanged = totalEvents++;
-    public static final int infoCardsActiveCardChanged = totalEvents++;
     public static final int messagePlayingMetadataChanged = totalEvents++;
+    public static final int infoCardsLayoutChanged = totalEvents++;
+    public static final int pluginMenuItemsUpdated = totalEvents++;
 
     public static boolean alreadyLogged;
 

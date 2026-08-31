@@ -96,6 +96,7 @@ public class NimarkoIconResources extends Resources {
     public NimarkoIconResources(Resources wrapped) {
         super(wrapped.getAssets(), wrapped.getDisplayMetrics(), wrapped.getConfiguration());
         this.wrapped = wrapped;
+        soundgram.icons.IconPackResources.apiBaseResources = wrapped;
         applySelection(NimarkoConfig.iconReplacement, 1L);
         prepareBackArrowBitmap();
         sInstalled = this;
@@ -389,6 +390,15 @@ public class NimarkoIconResources extends Resources {
     }
 
     private Drawable skinned(int stockId, int density, Theme theme, BaseIconReplace replacement) {
+        if (soundgram.icons.IconPackManager.getInstance().hasActivePack()) {
+            try {
+                String resName = getResourceEntryName(stockId);
+                Drawable custom = soundgram.icons.IconPackManager.getInstance().getDrawable(resName);
+                if (custom != null) {
+                    return custom;
+                }
+            } catch (Throwable ignored) {}
+        }
         if (NON_SKINNABLE_DRAWABLES.contains(stockId)
                 || STOCK_COMPOSER_DRAWABLES.contains(stockId)) {
             return loadRaw(stockId, density, theme);

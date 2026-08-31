@@ -138,7 +138,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
     private StaticLayout statusLayout;
     private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable botVerificationDrawable;
     private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable statusDrawable;
-    private app.nimarkogram.messenger.api.dto.BadgeDTO currentNimarkoBadge;
+
     public StoriesUtilities.AvatarStoryParams avatarStoryParams = new StoriesUtilities.AvatarStoryParams(false);
 
     private final RectF adBounds = new RectF();
@@ -795,17 +795,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
 
     public void updateStatus(boolean verified, TLRPC.User user, TLRPC.Chat chat, boolean animated) {
         statusDrawable.center = LocaleController.isRTL;
-        currentNimarkoBadge = null;
         final boolean showStatus = shouldAllowEmojiStatus();
-        
-        app.nimarkogram.messenger.api.dto.BadgeDTO nimarkoBadge = null;
-        if (showStatus && !savedMessages) {
-            try {
-                org.telegram.tgnet.TLObject badgeTarget = user != null ? user : chat;
-                nimarkoBadge = app.nimarkogram.messenger.badges.BadgesController.getInstance().i(badgeTarget);
-                if (nimarkoBadge != null && nimarkoBadge.getDocumentId() == 0L) nimarkoBadge = null;
-            } catch (Throwable ignored) {}
-        }
         
         statusDrawable.setParticles(false, animated);
         
@@ -817,11 +807,6 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
             statusDrawable.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider));
         } else if (showStatus && chat != null && !savedMessages && DialogObject.getEmojiStatusDocumentId(chat.emoji_status) != 0) {
             statusDrawable.set(DialogObject.getEmojiStatusDocumentId(chat.emoji_status), animated);
-            statusDrawable.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider));
-        } else if (nimarkoBadge != null) {
-            currentNimarkoBadge = nimarkoBadge;
-            statusDrawable.set(nimarkoBadge.getDocumentId(), animated);
-            statusDrawable.setParticles(true, animated);
             statusDrawable.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider));
         } else if (showStatus && user != null && !savedMessages && MessagesController.getInstance(currentAccount).isPremiumUser(user)) {
             statusDrawable.set(PremiumGradient.getInstance().premiumStarDrawableMini, animated);
@@ -1163,12 +1148,6 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
         if (drawCheck) {
             builder.append(", ").append(getString(R.string.AccDescrVerified)).append("\n");
         }
-        if (currentNimarkoBadge != null) {
-            CharSequence badgeLabel = app.nimarkogram.messenger.badges.BadgeUi.accessibilityLabel(currentNimarkoBadge);
-            builder.append(", ").append(badgeLabel);
-            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(
-                    R.id.acc_action_badge_info, badgeLabel));
-        }
         if (statusLayout != null) {
             if (builder.length() > 0) {
                 builder.append(", ");
@@ -1181,16 +1160,6 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
             info.setChecked(checkBox.isChecked());
             info.setClassName("android.widget.CheckBox");
         }
-    }
-
-    @Override
-    public boolean performAccessibilityAction(int action, Bundle arguments) {
-        if (action == R.id.acc_action_badge_info && currentNimarkoBadge != null) {
-            app.nimarkogram.messenger.badges.BadgeUi.showBulletin(currentAccount, currentNimarkoBadge);
-            sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED);
-            return true;
-        }
-        return super.performAccessibilityAction(action, arguments);
     }
 
     public long getDialogId() {

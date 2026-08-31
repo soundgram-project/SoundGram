@@ -23,41 +23,6 @@ public final class ExteraConfig {
         }
     }
 
-    public static volatile boolean pluginsSafeMode = app.nimarkogram.messenger.NimarkoConfig.pluginsSafeMode;
-
-    public static boolean getPluginsSafeMode() {
-        try { return app.nimarkogram.messenger.NimarkoConfig.pluginsSafeMode; } catch (Throwable t) { return false; }
-    }
-
-    public static void setPluginsSafeMode(boolean enabled) {
-        pluginsSafeMode = enabled;
-        try { app.nimarkogram.messenger.NimarkoConfig.setPluginsSafeMode(enabled); } catch (Throwable t) {   }
-    }
-
-    public static boolean getPluginsDevMode() {
-        try { return app.nimarkogram.messenger.NimarkoConfig.pluginsDevMode; } catch (Throwable t) { return false; }
-    }
-
-    public static boolean getPluginsCompactView() {
-        try { return app.nimarkogram.messenger.NimarkoConfig.pluginsCompactView; } catch (Throwable t) { return false; }
-    }
-
-    public static boolean getPluginsDisableArtOpts() {
-        try { return app.nimarkogram.messenger.NimarkoConfig.pluginsDisableArtOpts; } catch (Throwable t) { return false; }
-    }
-
-    public static boolean getPluginsPySdkAutoUpdate() {
-        try { return app.nimarkogram.messenger.NimarkoConfig.pluginsPySdkAutoUpdate; } catch (Throwable t) { return false; }
-    }
-
-    public static boolean getPluginsPySdkBetaVersions() {
-        try { return app.nimarkogram.messenger.NimarkoConfig.pluginsPySdkBetaVersions; } catch (Throwable t) { return false; }
-    }
-
-    public static boolean getPluginsEngine() {
-        try { return app.nimarkogram.messenger.NimarkoConfig.pluginsEngine; } catch (Throwable t) { return true; }
-    }
-
     public static float getAvatarCorners() {
         try { return app.nimarkogram.messenger.NimarkoConfig.avatarCorners; } catch (Throwable t) { return 0f; }
     }

@@ -19,17 +19,16 @@ public final class DownloadSpeedPolicy {
         return value >= BOOST_NONE && value <= BOOST_EXTREME ? value : BOOST_NONE;
     }
 
-    public static Profile resolve(int configuredBoost, boolean telegramRequestsLargeChunks,
-                                  boolean wsBypassActive) {
+    public static Profile resolve(int configuredBoost, boolean telegramRequestsLargeChunks) {
         int tier = normalizeBoost(configuredBoost);
         if (tier == BOOST_NONE && telegramRequestsLargeChunks) {
             tier = BOOST_AVERAGE;
         }
         if (tier == BOOST_EXTREME) {
-            return wsBypassActive ? BYPASS_EXTREME : DIRECT_EXTREME;
+            return DIRECT_EXTREME;
         }
         if (tier == BOOST_AVERAGE) {
-            return wsBypassActive ? BYPASS_AVERAGE : DIRECT_AVERAGE;
+            return DIRECT_AVERAGE;
         }
         return STOCK;
     }

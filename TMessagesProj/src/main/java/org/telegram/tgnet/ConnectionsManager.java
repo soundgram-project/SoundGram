@@ -398,41 +398,7 @@ public class ConnectionsManager extends BaseController {
         return requestToken;
     }
 
-    private void sendRequestInternal(TLObject objectIn, RequestDelegate onCompleteIn, RequestDelegateTimestamp onCompleteTimestamp, QuickAckDelegate onQuickAck, WriteToSocketDelegate onWriteToSocket, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken) {
-        // NimarkoGram: pre-request plugin hook
-        TLObject hookedObject = objectIn;
-        String requestName = "";
-        try {
-            requestName = objectIn != null ? objectIn.getClass().getSimpleName() : "";
-            TLObject pre = app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                    .executePreRequestHook(requestName, currentAccount, objectIn);
-            if (pre == null) {
-                return;
-            }
-            hookedObject = pre;
-        } catch (Throwable t) {
-            FileLog.e("nimarko: pre-request hook threw", t);
-        }
-        // NimarkoGram: wrap onComplete with post-request hook (only when caller actually passed a callback)
-        final RequestDelegate userOnComplete = onCompleteIn;
-        final String finalRequestName = requestName;
-        final TLObject object = hookedObject;
-        final RequestDelegate onComplete = (userOnComplete == null) ? null : (response, error) -> {
-            try {
-                app.nimarkogram.messenger.plugins.hooks.PluginsHooks.PostRequestResult post =
-                        app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                                .executePostRequestHook(finalRequestName, currentAccount, response, error);
-                if (post != null) {
-                    userOnComplete.run(post.response, post.error);
-                    return;
-                } else {
-                    return;
-                }
-            } catch (Throwable t) {
-                FileLog.e("nimarko: post-request hook threw", t);
-            }
-            userOnComplete.run(response, error);
-        };
+    private void sendRequestInternal(TLObject object, RequestDelegate onComplete, RequestDelegateTimestamp onCompleteTimestamp, QuickAckDelegate onQuickAck, WriteToSocketDelegate onWriteToSocket, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken) {
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("send request " + object + " with token = " + requestToken);
         }

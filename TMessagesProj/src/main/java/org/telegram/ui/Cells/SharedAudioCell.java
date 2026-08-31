@@ -198,11 +198,7 @@ public class SharedAudioCell extends FrameLayout implements DownloadController.F
         }
 
         if (currentMessageObject.hasHighlightedWords()) {
-            String rawAudioMsg = currentMessageObject.messageOwner.message;
-            if (rawAudioMsg != null && rawAudioMsg.contains("$")) {
-                rawAudioMsg = app.nimarkogram.messenger.utils.NimarkoLatexHelper.cleanForPreview(rawAudioMsg);
-            }
-            CharSequence caption = TextUtils.isEmpty(rawAudioMsg) ? "" : Emoji.replaceEmoji(rawAudioMsg.replace("\n", " ").replaceAll(" +", " ").trim(), Theme.chat_msgTextPaint.getFontMetricsInt(), false);
+            CharSequence caption = TextUtils.isEmpty(currentMessageObject.messageOwner.message) ? "" : Emoji.replaceEmoji(currentMessageObject.messageOwner.message.replace("\n", " ").replaceAll(" +", " ").trim(), Theme.chat_msgTextPaint.getFontMetricsInt(), false);
             CharSequence sequence = AndroidUtilities.highlightText(caption, currentMessageObject.highlightedWords, resourcesProvider);
             if (sequence != null) {
                 sequence = TextUtils.ellipsize(AndroidUtilities.ellipsizeCenterEnd(sequence, currentMessageObject.highlightedWords.get(0), maxWidth, captionTextPaint, 130), captionTextPaint, maxWidth, TextUtils.TruncateAt.END);
@@ -213,8 +209,9 @@ public class SharedAudioCell extends FrameLayout implements DownloadController.F
             captionLayoutEmojis = AnimatedEmojiSpan.update(AnimatedEmojiDrawable.CACHE_TYPE_MESSAGES, this, captionLayoutEmojis, captionLayout);
         }
         try {
-            if (viewType == VIEW_TYPE_GLOBAL_SEARCH && (currentMessageObject.isVoice() || currentMessageObject.isRoundVideo())) {
+            if (/*viewType == VIEW_TYPE_GLOBAL_SEARCH && */(currentMessageObject.isVoice() || currentMessageObject.isRoundVideo())) {
                 CharSequence duration = AndroidUtilities.formatDuration((int) currentMessageObject.getDuration(), false);
+                duration = duration + " / " + currentMessageObject.getMusicAuthor().replace('\n', ' ');
                 TextPaint paint = viewType == VIEW_TYPE_GLOBAL_SEARCH ? description2TextPaint : Theme.chat_contextResult_descriptionTextPaint;
                 duration = TextUtils.ellipsize(duration, paint, maxWidth, TextUtils.TruncateAt.END);
                 descriptionLayout = new StaticLayout(duration, paint, maxWidth + dp(4), Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false);
@@ -262,26 +259,7 @@ public class SharedAudioCell extends FrameLayout implements DownloadController.F
     public void setMessageObject(MessageObject messageObject, boolean divider) {
         needDivider = divider;
         currentMessageObject = messageObject;
-        final TLRPC.Document document = messageObject.getDocument();
-        final TLRPC.PhotoSize thumb = document != null ? FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 360) : null;
-        if (thumb instanceof TLRPC.TL_photoSize || thumb instanceof TLRPC.TL_photoSizeProgressive) {
-            radialProgress.setImageOverlay(thumb, document, messageObject);
-        } else {
-            Bitmap cover = null;
-            if (messageObject.audioCover != null) {
-                cover = messageObject.audioCover;
-            }
-            if (cover != null) {
-                radialProgress.setImageOverlay(cover);
-            } else {
-                final String artworkUrl = messageObject.getArtworkUrl(true);
-                if (!TextUtils.isEmpty(artworkUrl)) {
-                    radialProgress.setImageOverlay(artworkUrl);
-                } else {
-                    radialProgress.setImageOverlay(null, null, null);
-                }
-            }
-        }
+        soundgram.music.ChannelMusicFragment.setAudioCover(radialProgress, messageObject);
         updateButtonState(false, false);
         requestLayout();
     }
@@ -667,10 +645,10 @@ public class SharedAudioCell extends FrameLayout implements DownloadController.F
     @Override
     protected void dispatchDraw(Canvas canvas) {
         if (showName && showNameProgress != 1f) {
-            showNameProgress += AndroidUtilities.screenRefreshTime / 150f;
+            showNameProgress += 16 / 150f;
             invalidate();
         } else if (!showName && showNameProgress != 0) {
-            showNameProgress -= AndroidUtilities.screenRefreshTime / 150f;
+            showNameProgress -= 16 / 150f;
             invalidate();
         }
         showNameProgress = Utilities.clamp(showNameProgress, 1f, 0);
@@ -696,10 +674,10 @@ public class SharedAudioCell extends FrameLayout implements DownloadController.F
     private void drawReorder(Canvas canvas) {
         if (showReorderIcon || showReorderIconProgress != 0) {
             if (showReorderIcon && showReorderIconProgress != 1f) {
-                showReorderIconProgress += AndroidUtilities.screenRefreshTime / 150f;
+                showReorderIconProgress += 16 /150f;
                 invalidate();
             } else if (!showReorderIcon && showReorderIconProgress != 0) {
-                showReorderIconProgress -= AndroidUtilities.screenRefreshTime / 150f;
+                showReorderIconProgress -= 16 /150f;
                 invalidate();
             }
             showReorderIconProgress = Utilities.clamp(showReorderIconProgress, 1f, 0);
@@ -860,3 +838,4 @@ public class SharedAudioCell extends FrameLayout implements DownloadController.F
         }
     }
 }
+

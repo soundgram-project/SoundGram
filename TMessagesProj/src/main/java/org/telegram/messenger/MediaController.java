@@ -1392,6 +1392,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
     }
 
+    public static final long WAVE_CONTEXT_ID = -999999999L;
+    public final ArrayList<MessageObject> myWaveBasePlaylist = new ArrayList<>();
+
     private String[] mediaProjections;
 
     private static volatile MediaController Instance;
@@ -3158,6 +3161,32 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 MessageObject messageObject = voiceMessagesPlaylist.get(a);
                 voiceMessagesPlaylistMap.put(messageObject.getId(), messageObject);
             }
+        }
+    }
+
+    public void addTracksToPlaylist(ArrayList<MessageObject> tracks) {
+        if (tracks == null || tracks.isEmpty()) {
+            return;
+        }
+        for (int a = 0; a < tracks.size(); a++) {
+            MessageObject messageObject = tracks.get(a);
+            if (messageObject != null && messageObject.isMusic()) {
+                int id = messageObject.getId();
+                if (!playlistMap.containsKey(id)) {
+                    playlist.add(messageObject);
+                    playlistMap.put(id, messageObject);
+                }
+            }
+        }
+    }
+
+    public int getAudioSessionId() {
+        return audioPlayer != null ? audioPlayer.getAudioSessionId() : 0;
+    }
+
+    public void applyMusicPlaybackParams(float speed, float pitch) {
+        if (audioPlayer != null) {
+            audioPlayer.setPlaybackSpeedAndPitch(speed, pitch);
         }
     }
 

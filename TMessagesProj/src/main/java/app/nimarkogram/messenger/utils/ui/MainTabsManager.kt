@@ -14,7 +14,8 @@ object MainTabsManager {
         CHATS,
         SETTINGS,
         PROFILE,
-        SEARCH
+        SEARCH,
+        MUSIC
     }
 
     data class Tab(
@@ -80,6 +81,7 @@ object MainTabsManager {
         if (value == null) {
             result.add(Tab(TabType.PROFILE, true))
             result.add(Tab(TabType.CHATS, true))
+            result.add(Tab(TabType.MUSIC, true))
             result.add(Tab(TabType.SETTINGS, true))
         } else {
             val parts = value.split(",")
@@ -144,6 +146,13 @@ object MainTabsManager {
                 resourceProvider,
                 currentAccount,
                 R.string.MainTabsProfile
+            )
+
+            TabType.MUSIC -> GlassTabView.createMainTab(
+                context,
+                resourceProvider,
+                GlassTabView.TabAnimation.MUSIC,
+                R.string.Music
             )
 
             TabType.SEARCH -> {

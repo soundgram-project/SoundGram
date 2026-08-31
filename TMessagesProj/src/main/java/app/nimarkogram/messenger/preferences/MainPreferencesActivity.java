@@ -5,10 +5,7 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.EditText;
 
-import app.nimarkogram.messenger.plugins.PluginsController;
-import app.nimarkogram.messenger.plugins.ui.PluginsActivity;
 import app.nimarkogram.messenger.utils.AppRestartHelper;
-import app.nimarkogram.messenger.wsbypass.preferences.WsBypassPreferencesActivity;
 
 import java.util.ArrayList;
 
@@ -32,20 +29,15 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
     public static final int ID_APPEARANCE   = 2;
     public static final int ID_CHATS        = 3;
     public static final int ID_CAMERA       = 4;
+    public static final int ID_MISC         = 5;
     public static final int ID_PRIVACY      = 6;
 
     public static final int ID_RESTART      = 10;
 
-    public static final int ID_PLUGINS        = 20;
     public static final int ID_DEBUG          = 21;
     private static final int ID_EXPERIMENTAL   = 22;
-    public static final int ID_NIMARKO_MEDIA  = 23;
     private static final int ID_CHERRYGRAM_FORK = 24;
-    public static final int ID_BANNERS        = 25;
     public static final int ID_UPDATES        = 26;
-    public static final int ID_WSBYPASS       = 27;
-    public static final int ID_TEXTANIM       = 28;
-    public static final int ID_PILLSTACK      = 29;
     public static final int ID_SOURCE_CODE    = 30;
 
     private static final String SOURCE_REPOSITORY_URL = "https://github.com/Ettacent/NimarkoGram";
@@ -127,23 +119,8 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
         arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_SettingsSectionPrivacyNetwork)));
         arrayList.add(category(ID_PRIVACY, IconBackgroundColors.GREEN,
                 R.drawable.msg_secret_solar, R.string.NM_Cat_Privacy, R.string.NM_SettingsSummaryPrivacy, "nimarko_privacy"));
-        arrayList.add(category(ID_WSBYPASS, IconBackgroundColors.BLUE_DEEP,
-                R.drawable.msg_satellite_solar, R.string.NM_WSB_Title, R.string.NM_SettingsSummaryBypass, "nimarko_wsbypass"));
-        arrayList.add(UItem.asShadow(null));
-
-        arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_SettingsSectionFeatures)));
-        if (PluginsController.isPluginEngineSupported()) {
-            arrayList.add(category(ID_PLUGINS, IconBackgroundColors.PURPLE,
-                    R.drawable.msg_plugins, R.string.Plugins, R.string.NM_SettingsSummaryPlugins, "nimarko_plugins"));
-        }
-        arrayList.add(category(ID_NIMARKO_MEDIA, IconBackgroundColors.BLUE_DEEP,
-                R.drawable.msg_download_solar, R.string.NM_DownloadMedia, R.string.NM_SettingsSummaryMedia, "nimarko_media"));
-        arrayList.add(category(ID_BANNERS, IconBackgroundColors.ORANGE,
-                R.drawable.msg_photos_solar, R.string.NM_BAN_Title, R.string.NM_SettingsSummaryBanners, "nimarko_banners"));
-        arrayList.add(category(ID_TEXTANIM, IconBackgroundColors.PURPLE,
-                R.drawable.msg_edit_solar, R.string.NM_TA_Title, R.string.NM_SettingsSummaryTextAnimation, "nimarko_textanim"));
-        arrayList.add(category(ID_PILLSTACK, IconBackgroundColors.CYAN,
-                R.drawable.msg_search_solar, R.string.NM_CARDS_Title, R.string.NM_SettingsSummaryInfoCards, "nimarko_infocards"));
+        arrayList.add(category(ID_MISC, IconBackgroundColors.ORANGE,
+                R.drawable.msg_settings_solar, R.string.NM_Cat_Miscellaneous, R.string.NM_SettingsSummaryMisc, "nimarko_misc"));
         arrayList.add(UItem.asShadow(null));
 
         arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_SettingsSectionApp)));
@@ -215,25 +192,6 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
                 break;
             case NimarkoSettingsSearchIndex.SCREEN_PRIVACY:
                 fragment = new PrivacyPreferencesActivity().openAtSetting(entry.itemId);
-                break;
-            case NimarkoSettingsSearchIndex.SCREEN_PLUGINS:
-                fragment = new PluginsActivity();
-                break;
-            case NimarkoSettingsSearchIndex.SCREEN_MEDIA:
-                fragment = new NimarkoMediaPreferencesActivity().openAtSetting(entry.itemId);
-                break;
-            case NimarkoSettingsSearchIndex.SCREEN_BANNERS:
-                fragment = new BannerPreferencesActivity().openAtSetting(entry.itemId);
-                break;
-            case NimarkoSettingsSearchIndex.SCREEN_BYPASS:
-                fragment = new WsBypassPreferencesActivity().openAtSetting(entry.itemId);
-                break;
-            case NimarkoSettingsSearchIndex.SCREEN_TEXT_ANIMATION:
-                fragment = new NimarkoTextAnimPreferencesActivity().openAtSetting(entry.itemId);
-                break;
-            case NimarkoSettingsSearchIndex.SCREEN_INFO_CARDS:
-                fragment = new app.nimarkogram.messenger.infocards.preferences.InfoCardsPreferencesActivity()
-                        .openAtSetting(entry.itemId);
                 break;
             case NimarkoSettingsSearchIndex.SCREEN_ADVANCED:
                 fragment = new DebugPreferencesActivity().openAtSetting(entry.itemId);
@@ -307,23 +265,8 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
             case ID_PRIVACY:
                 presentFragment(new PrivacyPreferencesActivity());
                 break;
-            case ID_PLUGINS:
-                presentFragment(new PluginsActivity());
-                break;
-            case ID_NIMARKO_MEDIA:
-                presentFragment(new NimarkoMediaPreferencesActivity());
-                break;
-            case ID_BANNERS:
-                presentFragment(new BannerPreferencesActivity());
-                break;
-            case ID_WSBYPASS:
-                presentFragment(new WsBypassPreferencesActivity());
-                break;
-            case ID_PILLSTACK:
-                presentFragment(new app.nimarkogram.messenger.infocards.preferences.InfoCardsPreferencesActivity());
-                break;
-            case ID_TEXTANIM:
-                presentFragment(new NimarkoTextAnimPreferencesActivity());
+            case ID_MISC:
+                presentFragment(new MiscPreferencesActivity());
                 break;
             case ID_UPDATES:
                 app.nimarkogram.messenger.updater.NimarkoUpdaterSheet.showAlert(this, false, null);

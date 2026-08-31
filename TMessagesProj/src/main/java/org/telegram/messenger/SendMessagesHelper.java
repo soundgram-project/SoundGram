@@ -4270,16 +4270,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         });
     }
 
-    public void sendMessage(SendMessageParams _smpInParam) {
-        // NimarkoGram plugin engine — pre-send hook. May mutate or cancel the outgoing message.
-        try {
-            _smpInParam = app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                    .executeSendMessageHook(currentAccount, _smpInParam);
-            if (_smpInParam == null) return; // cancelled by a plugin
-        } catch (Throwable t) {
-            FileLog.e("plugin sendMessage hook failed", t);
-        }
-        final SendMessageParams sendMessageParams = _smpInParam;
+    public void sendMessage(final SendMessageParams sendMessageParams) {
         // NimarkoGram: local premium emoji — rewrite custom-emoji entities into
         // tg://emoji?id= text-URLs so a non-premium account can still send them.
         try {

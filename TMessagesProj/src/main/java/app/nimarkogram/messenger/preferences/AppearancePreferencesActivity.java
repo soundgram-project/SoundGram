@@ -320,7 +320,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
 
             showRestartBulletin();
         } else if (item.id == iconPackRow) {
-            presentFragment(new IconPackSelectorActivity());   // dedicated screen with live previews
+            presentFragment(new soundgram.icons.IconPacksActivity());   // full icon packs manager
         } else if (item.id == oneUISwitchesRow) {
             java.util.ArrayList<CharSequence> opts = new java.util.ArrayList<>();
             opts.add(getString(R.string.Default));
@@ -424,6 +424,10 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
     }
 
     private String getIconPackValueText()  {
+        String activePackId = soundgram.icons.IconPackManager.getInstance().getActivePackId();
+        if (activePackId != null) {
+            return activePackId;
+        }
         return switch (app.nimarkogram.messenger.NimarkoConfig.iconReplacement) {
             case NimarkoConfig.ICON_REPLACE_SOLAR -> getString(R.string.NM_IconPack_SolarTitle);
             case NimarkoConfig.ICON_REPLACE_LIQUID_GLASS -> getString(R.string.NM_IconPack_LiquidTitle);

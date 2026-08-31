@@ -4570,17 +4570,6 @@ public class AndroidUtilities {
     }
 
     public static boolean openForView(MessageObject message, Activity activity, Theme.ResourcesProvider resourcesProvider, boolean restrict) {
-        try {
-            if (app.nimarkogram.messenger.plugins.PluginsController.isPlugin(message)) {
-                org.telegram.ui.ActionBar.BaseFragment fragment = org.telegram.ui.LaunchActivity.getLastFragment();
-                if (fragment != null) {
-                    app.nimarkogram.messenger.plugins.PluginsController.getInstance().showInstallDialog(fragment, message);
-                    return true;
-                }
-            }
-        } catch (Throwable t) {
-            FileLog.e("nimarko: plugin install dialog hook failed", t);
-        }
         File f = null;
         if (message.messageOwner.attachPath != null && message.messageOwner.attachPath.length() != 0) {
             f = new File(message.messageOwner.attachPath);
@@ -4589,23 +4578,6 @@ public class AndroidUtilities {
             f = FileLoader.getInstance(message.currentAccount).getPathToMessage(message.messageOwner);
         }
         String mimeType = message.type == MessageObject.TYPE_FILE || message.type == MessageObject.TYPE_TEXT ? message.getMimeType() : null;
-        // NimarkoGram file-hook dispatch: a plugin that registered a handler for
-        // this file's extension (base_plugin.add_file_hook) may intercept the open
-        // (e.g. show it in a custom viewer). If a handler consumes it, skip the
-        // default external-viewer open.
-        try {
-            if (com.chaquo.python.Python.isStarted() && f != null) {
-                com.chaquo.python.PyObject consumed = com.chaquo.python.Python.getInstance()
-                        .getModule("file_utils")
-                        .callAttr("_dispatch_open_from_java", f.getAbsolutePath(),
-                                message.getFileName(), mimeType);
-                boolean handled = consumed != null && consumed.toBoolean();
-                if (consumed != null) consumed.close();
-                if (handled) return true;
-            }
-        } catch (Throwable t) {
-            FileLog.e("nimarko: file-hook dispatch failed", t);
-        }
         return openForView(f, message.getFileName(), mimeType, activity, resourcesProvider, restrict);
     }
 

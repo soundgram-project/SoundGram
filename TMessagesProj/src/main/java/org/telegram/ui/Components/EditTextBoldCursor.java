@@ -140,7 +140,7 @@ public class EditTextBoldCursor extends EditTextEffects {
     private TextPaint errorPaint;
 
     private int cursorSize;
-    private int ignoreTopCount;
+    public int ignoreTopCount;
     private int ignoreBottomCount;
     private int scrollY;
     private float lineSpacingExtra;

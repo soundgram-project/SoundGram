@@ -125,7 +125,6 @@ public class StoryViewer implements NotificationCenter.NotificationCenterDelegat
     private boolean opening;
     ValueAnimator openCloseAnimator;
     private boolean openCloseNotificationsLocked;
-    private boolean bannerOverlayPaused;
     ValueAnimator swipeToDissmissBackAnimator;
     ValueAnimator swipeToReplyBackAnimator;
 
@@ -374,7 +373,6 @@ public class StoryViewer implements NotificationCenter.NotificationCenterDelegat
             return;
         }
         cancelOpenCloseAnimator();
-        acquireBannerOverlay();
         setSpeed(1f);
         ATTACH_TO_FRAGMENT = !AndroidUtilities.isTablet() && !fromBottomSheet;
         USE_SURFACE_VIEW = SharedConfig.useSurfaceInStories && ATTACH_TO_FRAGMENT;
@@ -2374,28 +2372,6 @@ public class StoryViewer implements NotificationCenter.NotificationCenterDelegat
         showViewsAfterOpening = true;
     }
 
-    private void acquireBannerOverlay() {
-        if (bannerOverlayPaused || !app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-            return;
-        }
-        try {
-            app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onOverlayOpen(this);
-            bannerOverlayPaused = true;
-        } catch (Throwable ignored) {
-        }
-    }
-
-    private void releaseBannerOverlay() {
-        if (!bannerOverlayPaused) {
-            return;
-        }
-        bannerOverlayPaused = false;
-        try {
-            app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onOverlayClose(this);
-        } catch (Throwable ignored) {
-        }
-    }
-
     private void lockOpenCloseNotifications() {
         if (!openCloseNotificationsLocked) {
             openCloseNotificationsLocked = true;
@@ -2713,7 +2689,6 @@ public class StoryViewer implements NotificationCenter.NotificationCenterDelegat
     @Override
     public void release() {
         cancelOpenCloseAnimator();
-        releaseBannerOverlay();
         lastUri = null;
         setInTouchMode(false);
         allowScreenshots(true);

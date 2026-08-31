@@ -75,11 +75,10 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
     private TextView adminTextView;
     public TextView addButton;
     private Drawable premiumDrawable;
+    private Drawable soundGramDrawable;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable botVerification;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable emojiStatus;
-    
-    private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable nimarkoBadgeEmoji;
-    private app.nimarkogram.messenger.api.dto.BadgeDTO currentNimarkoBadge;
+
     private ImageView closeView;
     protected Theme.ResourcesProvider resourcesProvider;
 
@@ -674,7 +673,10 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
             botVerification.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider));
             nameTextView.setLeftDrawable(botVerification);
         }
-        if (currentUser != null && MessagesController.getInstance(currentAccount).isPremiumUser(currentUser) && !MessagesController.getInstance(currentAccount).premiumFeaturesBlocked() && !app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses) {
+        boolean isPremium = currentUser != null && MessagesController.getInstance(currentAccount).isPremiumUser(currentUser) && !MessagesController.getInstance(currentAccount).premiumFeaturesBlocked() && !app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses;
+        boolean isSoundGram = currentUser != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(currentUser.id);
+
+        if (isPremium) {
             if (DialogObject.getEmojiStatusDocumentId(currentUser.emoji_status) != 0) {
                 emojiStatus.set(DialogObject.getEmojiStatusDocumentId(currentUser.emoji_status), false);
                 emojiStatus.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider));
@@ -697,10 +699,43 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
             }
             nameTextView.setRightDrawableTopPadding(-dp(0.5f));
         } else {
-            nameTextView.setRightDrawable(null);
-            nameTextView.setRightDrawableTopPadding(0);
+            if (!isSoundGram) {
+                nameTextView.setRightDrawable(null);
+                nameTextView.setRightDrawableTopPadding(0);
+            }
         }
-        applyNimarkoBadge(currentUser);
+
+        if (isSoundGram) {
+            if (soundGramDrawable == null) {
+                soundGramDrawable = getContext().getResources().getDrawable(R.drawable.ic_soundgram_badge).mutate();
+                soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, dp(14), dp(14)) {
+                    @Override
+                    public void draw(@NonNull Canvas canvas) {
+                        canvas.save();
+                        canvas.translate(0, dp(1));
+                        super.draw(canvas);
+                        canvas.restore();
+                    }
+                };
+            }
+            if (isPremium) {
+                nameTextView.setRightDrawable2(soundGramDrawable);
+                nameTextView.setRightDrawable2OnClick(null);
+            } else {
+                nameTextView.setRightDrawable(soundGramDrawable);
+                nameTextView.setRightDrawableOnClick(null);
+                nameTextView.setRightDrawableTopPadding(-dp(0.5f));
+                nameTextView.setRightDrawable2(null);
+                nameTextView.setRightDrawable2OnClick(null);
+            }
+        } else {
+            nameTextView.setRightDrawable2(null);
+            nameTextView.setRightDrawable2OnClick(null);
+            if (!isPremium) {
+                nameTextView.setRightDrawableOnClick(null);
+            }
+        }
+
         if (currentStatus != null) {
             statusTextView.setTextColor(statusColor);
             CharSequence status = currentStatus;
@@ -814,26 +849,9 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
                 sb.append(status);
             }
         }
-        if (currentNimarkoBadge != null) {
-            if (sb.length() > 0) sb.append(", ");
-            CharSequence badgeLabel = app.nimarkogram.messenger.badges.BadgeUi.accessibilityLabel(currentNimarkoBadge);
-            sb.append(badgeLabel);
-            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(
-                    R.id.acc_action_badge_info, badgeLabel));
-        }
         if (sb.length() > 0) {
             info.setContentDescription(sb);
         }
-    }
-
-    @Override
-    public boolean performAccessibilityAction(int action, Bundle arguments) {
-        if (action == R.id.acc_action_badge_info && currentNimarkoBadge != null) {
-            app.nimarkogram.messenger.badges.BadgeUi.showBulletin(currentAccount, currentNimarkoBadge);
-            sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED);
-            return true;
-        }
-        return super.performAccessibilityAction(action, arguments);
     }
 
     @Override
@@ -849,9 +867,6 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
         emojiStatus.attach();
         botVerification.attach();
-        if (nimarkoBadgeEmoji != null) {
-            nimarkoBadgeEmoji.attach();
-        }
     }
 
     @Override
@@ -860,44 +875,10 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
         emojiStatus.detach();
         botVerification.detach();
-        if (nimarkoBadgeEmoji != null) {
-            nimarkoBadgeEmoji.detach();
-        }
         storyParams.onDetachFromWindow();
     }
 
-    private void applyNimarkoBadge(TLRPC.User user) {
-        currentNimarkoBadge = null;
-        try {
-            app.nimarkogram.messenger.api.dto.BadgeDTO badge =
-                    app.nimarkogram.messenger.badges.BadgesController.getInstance().i(user);
-            if (badge == null || badge.getDocumentId() == 0L) {
-                if (nimarkoBadgeEmoji != null) {
-                    nimarkoBadgeEmoji.set((Drawable) null, false);
-                    
-                    nimarkoBadgeEmoji.setParticles(false, false);
-                }
-                nameTextView.setRightDrawable2(null);
-                return;
-            }
-            currentNimarkoBadge = badge;
-            if (nimarkoBadgeEmoji == null) {
-                nimarkoBadgeEmoji = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView, dp(20));
-                if (isAttachedToWindow()) {
-                    nimarkoBadgeEmoji.attach();
-                }
-            }
-            nimarkoBadgeEmoji.set(badge.getDocumentId(), false);
-            nimarkoBadgeEmoji.setParticles(true, false);
-            nimarkoBadgeEmoji.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider));
-            if (nameTextView.getRightDrawable() == null) {
-                nameTextView.setRightDrawable(nimarkoBadgeEmoji);
-            } else {
-                nameTextView.setRightDrawable2(nimarkoBadgeEmoji);
-            }
-            nameTextView.setRightDrawableTopPadding(-dp(0.5f));
-        } catch (Throwable ignored) {}
-    }
+
 
     public long getDialogId() {
         return dialogId;

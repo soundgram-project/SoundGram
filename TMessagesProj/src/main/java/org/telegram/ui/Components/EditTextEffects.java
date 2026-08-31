@@ -305,6 +305,7 @@ public class EditTextEffects extends EditText {
 
     @Override
     protected void onDraw(Canvas canvas) {
+        soundgram.animation.TextAnimationCore.beforeDraw(this, canvas);
         canvas.save();
         if (clipToPadding && getScrollY() != 0) {
             canvas.clipRect(-AndroidUtilities.dp(3), getScrollY() - super.getExtendedPaddingTop() - offsetY, getMeasuredWidth(), getMeasuredHeight() + getScrollY() + super.getExtendedPaddingBottom() - offsetY);
@@ -376,6 +377,7 @@ public class EditTextEffects extends EditText {
             }
             canvas.restore();
         }
+        soundgram.animation.TextAnimationCore.afterDraw(this, canvas);
     }
 
     public void updateAnimatedEmoji(boolean force) {
@@ -479,5 +481,18 @@ public class EditTextEffects extends EditText {
 
     public CharSequence getTextToUse() {
         return QuoteSpan.stripNewlineHacks(getText());
+    }
+
+    @Override
+    protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
+        super.onFocusChanged(focused, direction, previouslyFocusedRect);
+        soundgram.animation.TextAnimationCore.onFocusChanged(this, focused);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        boolean result = super.onTouchEvent(event);
+        soundgram.animation.TextAnimationCore.onTouchEvent(this, event);
+        return result;
     }
 }

@@ -11548,6 +11548,16 @@ public class MessageObject {
     }
 
     public String getArtworkUrl(boolean small) {
+        if (messageOwner != null && messageOwner.message != null && messageOwner.message.startsWith("SG_STREAM|||")) {
+            String[] parts = messageOwner.message.split("\\|\\|\\|");
+            if (parts.length >= 7 && !TextUtils.isEmpty(parts[6])) {
+                return parts[6];
+            }
+        }
+        String localCover = soundgram.music.ChannelMusicFragment.getLocalAudioCoverPath(this);
+        if (localCover != null) {
+            return localCover;
+        }
         return getArtworkUrl(getDocument(), small);
     }
 

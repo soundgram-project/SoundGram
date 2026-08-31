@@ -52,7 +52,20 @@ public class AudioVisualizerDrawable {
     private int lastAmplitudePointer;
 
 
+    public interface GlobalListener {
+        void onWaveformUpdate(boolean playing, boolean animate, float[] waveform);
+    }
+
+    private static GlobalListener globalListener;
+
+    public static void setGlobalListener(GlobalListener listener) {
+        globalListener = listener;
+    }
+
     public void setWaveform(boolean playing, boolean animate, float[] waveform) {
+        if (globalListener != null) {
+            globalListener.onWaveformUpdate(playing, animate, waveform);
+        }
         if (!LiteMode.isEnabled(LiteMode.FLAG_CHAT_BACKGROUND)) {
             return;
         }

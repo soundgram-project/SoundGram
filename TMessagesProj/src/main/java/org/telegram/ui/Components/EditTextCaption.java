@@ -897,67 +897,35 @@ public class EditTextCaption extends EditTextBoldCursor implements FloatingToolb
 
     @Override
     protected void onDraw(Canvas canvas) {
-        app.nimarkogram.messenger.textanim.NimarkoTextAnim.beforeEditorDraw(this);
+        final int saveCount = canvas.save();
         try {
-            final int saveCount = canvas.save();
+            canvas.translate(0, offsetY);
+            super.onDraw(canvas);
             try {
-                canvas.translate(0, offsetY);
-                super.onDraw(canvas);
-                try {
-                    if (captionLayout != null && userNameLength == length()) {
-                        Paint paint = getPaint();
-                        int oldColor = getPaint().getColor();
-                        paint.setColor(hintColor);
-                        canvas.save();
-                        canvas.translate(xOffset, yOffset);
-                        captionLayout.draw(canvas);
-                        canvas.restore();
-                        paint.setColor(oldColor);
-                    }
-                } catch (Exception e) {
-                    FileLog.e(e);
+                if (captionLayout != null && userNameLength == length()) {
+                    Paint paint = getPaint();
+                    int oldColor = getPaint().getColor();
+                    paint.setColor(hintColor);
+                    canvas.save();
+                    canvas.translate(xOffset, yOffset);
+                    captionLayout.draw(canvas);
+                    canvas.restore();
+                    paint.setColor(oldColor);
                 }
-                if (rightText != null && length() != 0) {
-                    final Layout layout = getLayout();
-                    if (layout != null && layout.getLineCount() > 0) {
-                        final float right = layout.getLineRight(0);
-                        rightText.draw(
-                                canvas, right, getHeight() / 2f + dp(1),
-                                hintColor, 1.0f);
-                    }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+            if (rightText != null && length() != 0) {
+                final Layout layout = getLayout();
+                if (layout != null && layout.getLineCount() > 0) {
+                    final float right = layout.getLineRight(0);
+                    rightText.draw(
+                            canvas, right, getHeight() / 2f + dp(1),
+                            hintColor, 1.0f);
                 }
-            } finally {
-                canvas.restoreToCount(saveCount);
             }
         } finally {
-            app.nimarkogram.messenger.textanim.NimarkoTextAnim.afterEditorDraw(this, canvas);
-        }
-    }
-
-    @Override
-    protected void onFocusChanged(
-            boolean focused, int direction, Rect previouslyFocusedRect) {
-        super.onFocusChanged(focused, direction, previouslyFocusedRect);
-        app.nimarkogram.messenger.textanim.NimarkoTextAnim.onEditorFocusChanged(
-                this, focused);
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        try {
-            return super.onTouchEvent(event);
-        } finally {
-            app.nimarkogram.messenger.textanim.NimarkoTextAnim.onEditorTouch(this);
-        }
-    }
-
-    @Override
-    protected void onDetachedFromWindow() {
-        try {
-            app.nimarkogram.messenger.textanim.NimarkoTextAnim.onEditorFocusChanged(
-                    this, false);
-        } finally {
-            super.onDetachedFromWindow();
+            canvas.restoreToCount(saveCount);
         }
     }
 

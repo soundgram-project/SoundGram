@@ -18359,10 +18359,6 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         if (parentActivity == null || isVisible || provider == null && checkAnimation() || messageObject == null && fileLocation == null && messages == null && photos == null && documents == null && imageLocation == null && pageBlocksAdapter == null) {
             return false;
         }
-        // NimarkoGram: pause the profile-banner video while the photo viewer is open.
-        if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-            try { app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onOverlayOpen(); } catch (Throwable ignored) {}
-        }
 
         final PlaceProviderObject object = provider.getPlaceForPhoto(messageObject, fileLocation, index, true, false);
         WindowManager wm = (WindowManager) parentActivity.getSystemService(Context.WINDOW_SERVICE);
@@ -19012,10 +19008,6 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         // (after the master guard below). Calling onClose() at the top fired it on every spurious
         // closePhoto() — edit-mode/quality early returns and checkAnimation() — fading the glow out
         // and freeing its bitmap while the photo stayed on screen.
-        // NimarkoGram: resume the profile-banner video when the photo viewer closes.
-        if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-            try { app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onOverlayClose(); } catch (Throwable ignored) {}
-        }
         if (stickerMakerView != null) {
             stickerMakerView.isThanosInProgress = false;
             if (cutOutBtn.isCancelState()) {

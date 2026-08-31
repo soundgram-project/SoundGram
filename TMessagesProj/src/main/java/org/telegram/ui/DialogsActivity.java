@@ -528,14 +528,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private FragmentSearchField fragmentSearchField;
-    // NimarkoGram: when the home search bar is hidden (hideSearchBar), the info cards that normally live in
-    // the search field have no home — show them as a compact capsule in the action bar's free space instead.
-    private app.nimarkogram.messenger.infocards.InfoCardStripView homeInfoCards;
-    // Fade+scale the home capsule in/out (via its visibilityFactor) instead of snapping visibility, so it
-    // returns SMOOTHLY when the search closes (back from search with hideSearchBar on). homeInfoCardsShown is the
-    // last-applied show state, to fire the transition only once.
-    private boolean homeInfoCardsShown = false;
-    private ValueAnimator homeInfoCardsAnimator;
     private SearchTextWatcher fragmentSearchFieldWatcher;
 
     private SearchTabsAndFiltersLayout searchTabsAndFiltersLayout;
@@ -1164,7 +1156,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             updateContextViewPosition();
             updateStoriesViewAlpha(storiesAlpha);
-            positionHomeInfoCards(); // keep the home info-cards capsule glued below the (scrolling) header
             super.dispatchDraw(canvas);
             if (communityId == 0 || progressToActionMode > 0) {
                 drawHeaderShadow(canvas, top + actionBarHeight);
@@ -5105,8 +5096,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
         }
 
+        soundgram.ui.SoundGramWallpaperHelper.applyChatListWallpaper(contentView);
+
         topBubblesFadeView = new DialogsActivityTopBubblesFadeView(context);
         topBubblesFadeView.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        if (soundgram.ui.SoundGramWallpaperHelper.hasChatListWallpaper()) {
+            topBubblesFadeView.setVisibility(View.GONE);
+        }
         contentView.addView(topBubblesFadeView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100, Gravity.TOP));
 
         searchViewPagerIndex = contentView.getChildCount();
@@ -5761,22 +5757,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
         if (fragmentSearchField != null) {
             contentView.addView(fragmentSearchField, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.TOP, 7, -2, 7, 0));
-        }
-        // NimarkoGram: a fallback home for the info cards when the search bar is hidden. Placed BELOW the
-        // action bar (never inside it — the toolbar hosts the search/menu icons and transient indicators
-        // like the download-speed item, so the action bar's free space is not ours to take), right-aligned,
-        // as a compact capsule over the top of the chat list. Visibility + Y are driven from
-        // checkUi_searchFieldVisibility so it only shows in the idle home list with hideSearchBar on.
-        if (!onlySelect && initialDialogsType == DIALOGS_TYPE_DEFAULT && folderId == 0 && communityId == 0) {
-            homeInfoCards = new app.nimarkogram.messenger.infocards.InfoCardStripView(context, resourceProvider);
-            homeInfoCards.setOpaqueCards(true); // floats over the chat list -> flat cards must be opaque
-            homeInfoCards.setVisibilityFactor(0f); // start hidden (factor 0 => alpha 0 + GONE); fades in via checkUi
-            // v7276 placement: the strip is added DIRECTLY to contentView, right-aligned, WRAP width. Its
-            // visibility + Y are driven from checkUi_searchFieldVisibility / positionHomeInfoCards.
-            contentView.addView(homeInfoCards, LayoutHelper.createFrame(
-                    LayoutHelper.WRAP_CONTENT, 40,
-                    Gravity.TOP | (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT),
-                    0, 0, 10, 0));
         }
 
 
@@ -7098,7 +7078,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             topBubblesFadeView.setPosition(s, Math.min(dp(40), topPanelsHeight + filtersTabHeight - s));
             topBubblesFadeView.setAlpha(Math.max(filtersTabVisibility, topPanelsVisibility));
         }
-        positionHomeInfoCards(); // panels just moved — keep the capsule below the now-playing bar
     }
 
     private void updateFiltersView(boolean showMediaFilters, ArrayList<Object> users, ArrayList<FiltersView.DateData> dates, boolean archive, boolean animated) {
@@ -14860,56 +14839,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
         }
 
-        // NimarkoGram: inject plugin-registered menu items (DRAWER_MENU + MAIN_MENU + CHAT_ACTION_MENU)
-        // into the chat-list overflow popup. DialogsActivity uses ItemOptions
-        // not ActionBarMenuItem.toggleSubMenu, so the dynamic Pine hook in
-        // ApplicationLoader doesn't catch it — explicit inject here.
-        try {
-            final java.util.Map<String, Object> nimarkoCtx = new java.util.HashMap<>();
-            nimarkoCtx.put("fragment", "DialogsActivity");
-            java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> nimarkoItems =
-                    new java.util.ArrayList<>();
-            for (String loc : new String[]{"drawer_menu", "main_menu", "chat_action_menu"}) {
-                try {
-                    java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> part =
-                            app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                                    .getMenuItemsForLocation(loc, nimarkoCtx);
-                    if (part != null) nimarkoItems.addAll(part);
-                } catch (Throwable t) {
-                    FileLog.e("nimarko: getMenuItemsForLocation(" + loc + ") in DialogsActivity failed", t);
-                }
-            }
-            if (!nimarkoItems.isEmpty()) {
-                io.addGap();
-                java.util.Set<String> seen = new java.util.HashSet<>();
-                // Controller already pre-filtered via checkCondition; skip duplicate eval.
-                for (final app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec : nimarkoItems) {
-                    if (rec == null || android.text.TextUtils.isEmpty(rec.text)) continue;
-                    // C4: dedupe by stable plugin identity (pluginId:itemId), not the
-                    // visible label — two plugins may share a caption (mirror ChatActivity).
-                    final String key = rec.pluginId + ":" + rec.itemId;
-                    if (!seen.add(key)) continue;
-                    // C12: consistent neutral fallback drawable across all item sites.
-                    int iconRes = rec.iconResId != 0 ? rec.iconResId : R.drawable.msg_plugins;
-                    io.add(iconRes, rec.text.toString(), () -> {
-                        try {
-                            // C3: re-check the owning plugin is still active right
-                            // before crossing into Python — the menu was built when
-                            // the popup opened and the plugin may have been disabled.
-                            if (!app.nimarkogram.messenger.plugins.PluginsController.getInstance().isPluginActive(rec.pluginId)) {
-                                return;
-                            }
-                            rec.onClickCallback.call(nimarkoCtx);
-                        } catch (Throwable t) {
-                            FileLog.e("nimarko: plugin menu click failed in DialogsActivity", t);
-                        }
-                    });
-                }
-            }
-        } catch (Throwable t) {
-            FileLog.e("nimarko: DialogsActivity plugin inject failed", t);
-        }
-
         io.show();
         io.setTranslationY(-dp(64));
     }
@@ -15206,97 +15135,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 : Math.max(searchFieldVisible, alphaByScrollOffset * (1f - getRightSlidingProgress()));
 
         final float alpha = factor0 * factor1 * factor2;
-
         fragmentSearchField.setAlpha(alpha);
         fragmentSearchField.setVisibility(alpha > 0 ? View.VISIBLE : View.GONE);
         animatorSearchButtonVisible.setValue(alpha <= 0.01f, true);
-
-        // NimarkoGram: home info-cards capsule — visible only when the search field (and thus its own cards)
-        // is hidden in the idle home list with hideSearchBar on. Position itself is computed in
-        // positionHomeInfoCards() (also called every dispatchDraw frame so it tracks the header on scroll).
-        if (homeInfoCards != null) {
-            final boolean show = app.nimarkogram.messenger.infocards.InfoCardsConfig.isEnabled()
-                    && hideHomeSearchField
-                    && alpha <= 0.01f
-                    && actionModeVisible <= 0.01f
-                    && getRightSlidingProgress() <= 0.01f;
-            // Is the capsule ACTUALLY in the visual state our `show` flag claims? A ValueAnimator is paused by
-            // Android while the app is backgrounded; if `show` flipped to false right before we were paused, the
-            // fade-out could be frozen mid-way (or the end-state lost), leaving the strip faded/GONE while
-            // homeInfoCardsShown still reads its pre-pause value. On resume `show == homeInfoCardsShown` then
-            // skips the transition block forever and the capsule stays invisible until an unrelated search
-            // toggle re-runs this — exactly the "capsule gone after a long background, back only via search" bug.
-            // Treat a desynced state (we think shown, but it's faded/GONE, and nothing is animating) as a
-            // transition so it self-heals.
-            final boolean actuallyVisible = homeInfoCards.getVisibility() == View.VISIBLE
-                    && homeInfoCards.getVisibilityFactor() > 0.99f;
-            final boolean idle = homeInfoCardsAnimator == null || !homeInfoCardsAnimator.isRunning();
-            final boolean desynced = idle && (show != actuallyVisible);
-            if (show != homeInfoCardsShown || desynced) {
-                homeInfoCardsShown = show;
-                if (homeInfoCardsAnimator != null) {
-                    homeInfoCardsAnimator.cancel();
-                    homeInfoCardsAnimator = null;
-                }
-                if (show) {
-                    // Appearing (e.g. back from a channel/global search with hideSearchBar on): make it visible
-                    // and re-sync to the shared active card BEFORE fading, so it never flashes a stale card.
-                    homeInfoCards.setVisibility(View.VISIBLE);
-                    homeInfoCards.syncToActiveCard();
-                }
-                // FADE+scale via the strip's visibilityFactor instead of snapping. setVisibilityFactor already
-                // alpha-fades, scales lerp(0.6,1) and flips the view GONE once the factor reaches ~0, so the
-                // disappear end-state is handled for free.
-                homeInfoCardsAnimator = ValueAnimator.ofFloat(homeInfoCards.getVisibilityFactor(), show ? 1f : 0f);
-                homeInfoCardsAnimator.addUpdateListener(a -> homeInfoCards.setVisibilityFactor((float) a.getAnimatedValue()));
-                homeInfoCardsAnimator.setDuration(220);
-                homeInfoCardsAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
-                homeInfoCardsAnimator.start();
-            }
-            positionHomeInfoCards();
-        }
-    }
-
-    /**
-     * Anchor the home info-cards capsule just below the WHOLE top chrome (action bar, then stories, then the
-     * folder tabs when those are at the top), using each view's REAL on-screen bottom — {@code getY()}
-     * includes the translationY the header scrolls with, so the capsule tracks the tabs frame-perfectly and
-     * sits BELOW the folders, not above them. {@code max(...)} clamps it to the action bar bottom so it never
-     * slides over the toolbar when the header collapses on scroll. No hardcoded heights → correct on
-     * phone / tablet / landscape / split. Called from checkUi and every dispatchDraw frame.
-     */
-    private void positionHomeInfoCards() {
-        if (homeInfoCards == null || homeInfoCards.getVisibility() != View.VISIBLE) {
-            return;
-        }
-        float y;
-        if (actionBar != null && actionBar.getMeasuredHeight() > 0) {
-            y = actionBar.getY() + actionBar.getMeasuredHeight();
-        } else {
-            y = ActionBar.getCurrentActionBarHeight()
-                    + (actionBar != null && actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0);
-        }
-        if (dialogStoriesCell != null && dialogStoriesCell.getVisibility() == View.VISIBLE
-                && dialogStoriesCell.getMeasuredHeight() > 0) {
-            y = Math.max(y, dialogStoriesCell.getY() + dialogStoriesCell.getMeasuredHeight());
-        }
-        if (filterTabsView != null && !foldersAtBottom()
-                && filterTabsView.getVisibility() == View.VISIBLE && filterTabsView.getMeasuredHeight() > 0) {
-            y = Math.max(y, filterTabsView.getY() + filterTabsView.getMeasuredHeight());
-        }
-        // The now-playing music bar (and the location-sharing bar) live in topPanelLayout, which is drawn
-        // ABOVE the capsule in z-order and shares its top-of-list region. When no tabs/stories sit above the
-        // capsule, the panel lands at the same Y and covers it. Drop the capsule below the visible panels:
-        // topPanelLayout.getY() is the panel view top, dp21 is its paddingTop, getTotalHeight() the animated
-        // bar height. getAnimatedHeightWithPadding scales by panel visibility, so this collapses to a no-op
-        // (and the gate skips it) when nothing is playing.
-        if (topPanelLayout != null && topPanelLayout.getMetadata() != null
-                && topPanelLayout.getMetadata().getTotalVisibility() > 0.01f) {
-            float panelBottom = topPanelLayout.getY()
-                    + topPanelLayout.getAnimatedHeightWithPadding(AndroidUtilities.dp(21));
-            y = Math.max(y, panelBottom);
-        }
-        homeInfoCards.setTranslationY(y + AndroidUtilities.dp(2));
     }
 
     private void checkUi_searchFieldStyle() {

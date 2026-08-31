@@ -176,18 +176,7 @@ public class AudioPlayerCell extends FrameLayout implements DownloadController.F
         optionsButton.setVisibility(reorder || onOptions != null ? View.VISIBLE : View.GONE);
         optionsButton.setOnClickListener(onOptions);
         optionsButton.setOnTouchListener(onReorderTouchListener);
-        final TLRPC.Document document = messageObject.getDocument();
-        final TLRPC.PhotoSize thumb = document != null ? FileLoader.getClosestPhotoSizeWithSize(document.thumbs, 90) : null;
-        if (thumb instanceof TLRPC.TL_photoSize || thumb instanceof TLRPC.TL_photoSizeProgressive) {
-            radialProgress.setImageOverlay(thumb, document, messageObject);
-        } else {
-            final String artworkUrl = messageObject.getArtworkUrl(true);
-            if (!TextUtils.isEmpty(artworkUrl)) {
-                radialProgress.setImageOverlay(artworkUrl);
-            } else {
-                radialProgress.setImageOverlay(null, null, null);
-            }
-        }
+        soundgram.music.ChannelMusicFragment.setAudioCover(radialProgress, messageObject);
         requestLayout();
         updateButtonState(false, false);
     }

@@ -17,11 +17,21 @@ ext.buildConfigString = { String value ->
     return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 }
 
+def releaseStoreFile = privateConfig('RELEASE_STORE_FILE', 'TMessagesProj/config/release.keystore')
+def releaseStorePassword = privateConfig('RELEASE_STORE_PASSWORD', 'serega070908')
+def releaseKeyAlias = privateConfig('RELEASE_KEY_ALIAS', 'key0')
+def releaseKeyPassword = privateConfig('RELEASE_KEY_PASSWORD', 'serega070908')
+
+ext.RELEASE_STORE_FILE = releaseStoreFile
+ext.RELEASE_STORE_PASSWORD = releaseStorePassword
+ext.RELEASE_KEY_ALIAS = releaseKeyAlias
+ext.RELEASE_KEY_PASSWORD = releaseKeyPassword
+
 ext.releaseSigning = [
-        storeFile: privateConfig('RELEASE_STORE_FILE'),
-        storePassword: privateConfig('RELEASE_STORE_PASSWORD'),
-        keyAlias: privateConfig('RELEASE_KEY_ALIAS'),
-        keyPassword: privateConfig('RELEASE_KEY_PASSWORD')
+        storeFile: releaseStoreFile,
+        storePassword: releaseStorePassword,
+        keyAlias: releaseKeyAlias,
+        keyPassword: releaseKeyPassword
 ]
 ext.hasReleaseSigning = !releaseSigning.storeFile.isEmpty()
         && !releaseSigning.storePassword.isEmpty()
@@ -34,7 +44,6 @@ buildscript {
         mavenCentral()
         google()
         maven { url 'https://developer.huawei.com/repo/' }
-        maven { url 'https://chaquo.com/maven' }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.9.1'
@@ -43,21 +52,22 @@ buildscript {
         classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.0'
         
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
-        
-        classpath 'com.chaquo.python:gradle:17.0.0'
     }
 }
 repositories {
     google()
     mavenCentral()
-    maven { url 'https://chaquo.com/maven' }
     maven { url 'https://jitpack.io' }
 }
 allprojects {
+    ext.RELEASE_STORE_FILE = releaseStoreFile
+    ext.RELEASE_STORE_PASSWORD = releaseStorePassword
+    ext.RELEASE_KEY_ALIAS = releaseKeyAlias
+    ext.RELEASE_KEY_PASSWORD = releaseKeyPassword
+
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://chaquo.com/maven' }
         maven { url 'https://jitpack.io' }
     }
 }

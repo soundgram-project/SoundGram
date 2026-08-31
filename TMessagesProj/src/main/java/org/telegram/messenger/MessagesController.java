@@ -17941,22 +17941,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     // must be run from Utilities.stageQueue
-    public void processUpdates(final TLRPC.Updates updatesIn, boolean fromQueue) {
-        // NimarkoGram: updates hook
-        TLRPC.Updates hookedUpdates = updatesIn;
-        try {
-            TLRPC.Updates hooked = app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                    .executeUpdatesHook(updatesIn.getClass().getSimpleName(), currentAccount, updatesIn);
-            if (hooked != null) {
-                hookedUpdates = hooked;
-            } else {
-                // cancelled
-                return;
-            }
-        } catch (Throwable t) {
-            FileLog.e("nimarko: executeUpdatesHook threw", t);
-        }
-        final TLRPC.Updates updates = hookedUpdates;
+    public void processUpdates(final TLRPC.Updates updates, boolean fromQueue) {
         ArrayList<Long> needGetChannelsDiff = null;
         boolean needGetDiff = false;
         boolean needReceivedQueue = false;
@@ -18579,21 +18564,6 @@ public class MessagesController extends BaseController implements NotificationCe
 
         for (int c = 0, size3 = updates.size(); c < size3; c++) {
             TLRPC.Update baseUpdate = updates.get(c);
-            // NimarkoGram: per-update plugin hook
-            if (baseUpdate != null) {
-                try {
-                    TLRPC.Update hookedUpdate = app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                            .executeUpdateHook(baseUpdate.getClass().getSimpleName(), currentAccount, baseUpdate);
-                    if (hookedUpdate != null) {
-                        baseUpdate = hookedUpdate;
-                    } else {
-                        // cancelled - skip this update
-                        continue;
-                    }
-                } catch (Throwable t) {
-                    FileLog.e("nimarko: executeUpdateHook threw", t);
-                }
-            }
             if (BuildVars.LOGS_ENABLED && baseUpdate != null) {
                 FileLog.d("process update " + baseUpdate.getClass().getSimpleName());
             }

@@ -23,54 +23,10 @@ if (!window.__tg__webview_set) {
         let touchElement = null;
         let mutatedWhileTouch = false;
         let whiletouchstart = false, whiletouchmove = false;
-        let mutationObserver = null;
-        let touchSequence = 0;
-        const isParentOf = (element, parent) => {
-            while (element && parent) {
-                if (element === parent) return true;
-                element = element.parentElement;
-            }
-            return false;
-        };
-        const startMutationObserver = () => {
-            if (!mutationObserver) {
-                mutationObserver = new MutationObserver(mutationList => {
-                    if (!touchElement) return;
-                    for (const mutation of mutationList || []) {
-                        const target = mutation && mutation.target;
-                        if (target && target !== document.body && target !== document.documentElement && isParentOf(touchElement, target)) {
-                            if (DEBUG) {
-                                console.log('tgbrowser mutation detected', mutationList);
-                            }
-                            mutatedWhileTouch = true;
-                            break;
-                        }
-                    }
-                });
-            }
-            mutationObserver.disconnect();
-            mutationObserver.observe(document, { attributes: true, attributeFilter: ['style', 'class'], subtree: true });
-        };
-        const finishTouch = () => {
-            if (mutationObserver) mutationObserver.disconnect();
-            touchElement = null;
-            whiletouchstart = false;
-            whiletouchmove = false;
-            const finishedSequence = touchSequence;
-            setTimeout(() => {
-                if (finishedSequence === touchSequence) {
-                    awaitingResponse = false;
-                    prevented = false;
-                    mutatedWhileTouch = false;
-                }
-            }, 32);
-        };
         document.addEventListener('touchstart', e => {
-            touchSequence++;
             touchElement = e.target;
             awaitingResponse = true;
             whiletouchstart = true;
-            startMutationObserver();
         }, true);
         document.addEventListener('touchstart', e => {
             whiletouchstart = false;
@@ -101,8 +57,6 @@ if (!window.__tg__webview_set) {
         document.addEventListener('touchmove', e => {
             whiletouchmove = false;
         }, false);
-        document.addEventListener('touchend', finishTouch, true);
-        document.addEventListener('touchcancel', finishTouch, true);
         document.addEventListener('scroll', e => {
             if (!e.target) return;
             const allowScrollX = e.target.scrollLeft == 0 && (!window.visualViewport || window.visualViewport.offsetLeft == 0) && !prevented && !mutatedWhileTouch;
@@ -122,7 +76,7 @@ if (!window.__tg__webview_set) {
             prevented = false;
             mutatedWhileTouch = false;
         }, true);
-        if (typeof TouchEvent !== 'undefined') {
+        if (TouchEvent) {
             const originalPreventDefault = TouchEvent.prototype.preventDefault;
             TouchEvent.prototype.preventDefault = function () {
                 prevented = true;
@@ -138,5 +92,23 @@ if (!window.__tg__webview_set) {
                 originalStopPropagation.call(this);
             };
         }
+        const isParentOf = (e, p) => {
+            if (!e || !p) return false;
+            if (e == p) return true;
+            return isParentOf(e.parentElement, p);
+        }
+        new MutationObserver(mutationList => {
+            const isTouchElement = touchElement && !![...(mutationList||[])]
+                .filter(r => r && (r.attributeName === 'style' || r.attributeName === 'class'))
+                .map(r => r.target)
+                .filter(e => !!e && e != document.body && e != document.documentElement)
+                .find(e => isParentOf(touchElement, e));
+            if (isTouchElement) { // && (whiletouchstart || whiletouchmove)) {
+                if (DEBUG) {
+                    console.log('tgbrowser mutation detected', mutationList);
+                }
+                mutatedWhileTouch = true;
+            }
+        }).observe(document, { attributes: true, childList: true, subtree: true });
     })();
 };

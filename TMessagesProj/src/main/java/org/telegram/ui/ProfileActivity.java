@@ -367,8 +367,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private Long emojiStatusGiftId;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable[] emojiStatusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable[2];
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable[] botVerificationDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable[2];
-    // NimarkoGram: extera-style badge slot, one per a-index (collapsed/expanded)
-    private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable[] nimarkoBadgeDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable[2];
     private final Drawable[] verifiedCheckDrawable = new Drawable[2];
     private final CrossfadeDrawable[] verifiedCrossfadeDrawable = new CrossfadeDrawable[2];
     private final CrossfadeDrawable[] premiumCrossfadeDrawable = new CrossfadeDrawable[2];
@@ -511,13 +509,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private float extraHeight;
     private float initialAnimationExtraHeight;
     private float avatarAnimationProgress;
-    // Snapshot the banner viewport during a backward profile morph. Reusing
-    // shrinking extraHeight re-centered the crop on every frame and made the
-    // banner visibly pan upward over the returning chat/forum.
-    private boolean nimarkoBannerExitTransition;
-    private float nimarkoBannerExitExtraHeight;
-    private int nimarkoBannerExitY1;
-    private float nimarkoBannerExitExpand;
 
     private int searchTransitionOffset;
     private float searchTransitionProgress;
@@ -627,11 +618,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private final static int nm_option_get_profile_background = app.nimarkogram.messenger.utils.NimarkoProfileActivityHelper.OPTION_GET_PROFILE_BACKGROUND;
     private final static int nm_option_apply_profile_background = app.nimarkogram.messenger.utils.NimarkoProfileActivityHelper.OPTION_APPLY_PROFILE_BACKGROUND;
     private final static int nm_option_user_info = app.nimarkogram.messenger.utils.NimarkoProfileActivityHelper.OPTION_USER_INFO;
-
-    // C1: plugin-registered "Plugins (N)" item in the profile overflow (PROFILE_ACTION_MENU).
-    private final static int nimarko_plugins_menu = 1092;
-    private java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> nimarkoProfileMenuItems;
-    private java.util.Map<String, Object> nimarkoProfileMenuCtx;
 
     private Rect rect = new Rect();
 
@@ -1277,17 +1263,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         private boolean hasColorById;
         private final AnimatedFloat hasColorAnimated = new AnimatedFloat(this, 350, CubicBezierInterpolator.EASE_OUT_QUINT);
-        // NimarkoGram: smooth fade of the PREMIUM profile bg (gradient + emoji) out as a
-        // banner appears. 1 = premium bg fully visible, 0 = fully hidden behind banner.
-        private final AnimatedFloat ngBannerBgAlpha = new AnimatedFloat(1f, this, 0, 3000, CubicBezierInterpolator.EASE_OUT_QUINT);
-        // Last actually-painted banner opacity. Kept per TopView (rather than in
-        // the process-wide renderer) so outgoing/incoming profile fragments can
-        // restore their own foreground colours independently during navigation.
-        // It follows the renderer through a time-based low-pass filter below:
-        // unlike a fixed per-frame lerp, its speed is identical at 60/90/120/144 Hz.
-        private float ngBannerForegroundProgress;
-        private long ngBannerForegroundFrameTime;
-        private Boolean ngBannerLightStatusBar;
         public int color1, color2;
         private final AnimatedColor color1Animated = new AnimatedColor(this, 350, CubicBezierInterpolator.EASE_OUT_QUINT);
         private final AnimatedColor color2Animated = new AnimatedColor(this, 350, CubicBezierInterpolator.EASE_OUT_QUINT);
@@ -1423,50 +1398,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
             int y1 = (int) (v * (1.0f - mediaHeaderAnimationProgress));
 
-            final float bannerExtraHeight = nimarkoBannerExitTransition
-                    ? nimarkoBannerExitExtraHeight : extraHeight;
-            final int bannerY1 = nimarkoBannerExitTransition
-                    ? nimarkoBannerExitY1 : y1;
-            final float bannerExpand = nimarkoBannerExitTransition
-                    ? nimarkoBannerExitExpand : currentExpandAnimatorValue;
-            // A cached photo banner can be ready before the first frame of the
-            // profile morph.  Fade that already-decoded media with the native
-            // profile transition instead of letting it appear at full opacity
-            // behind a still-moving avatar/title.  The same factor also drives
-            // the title/status/badge colours so their contrast changes with the
-            // pixels that are actually visible, not with an independent clock.
-            // The back arrow is handled separately below: the white profile
-            // arrow and the Monet-coloured source arrow keep their own colours
-            // and crossfade as two independent views.
-            final boolean nimarkoBannerOpeningTransition =
-                    !nimarkoBannerExitTransition
-                            && openAnimationInProgress
-                            && playProfileAnimation != 0;
-            final boolean nimarkoBannerMorph =
-                    nimarkoBannerExitTransition || nimarkoBannerOpeningTransition;
-            final float nimarkoBannerTransitionAlpha = nimarkoBannerMorph
-                    ? Utilities.clamp01(avatarAnimationProgress) : 1f;
-
-            // NimarkoGram: native profile banner — decide whether to suppress the
-            // default header background and draw a banner instead.
-            boolean nimarkoSuppress = false;
-            if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled && bannerY1 > 0) {
-                try {
-                    nimarkoSuppress = app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().prepareFrame(
-                            TopView.this, getDialogId(), bannerExtraHeight, getMeasuredWidth(), bannerY1,
-                            openAnimationInProgress, transitionAnimationInProress, searchMode,
-                            bannerExpand, playProfileAnimation, hasMainTabs,
-                            nimarkoBannerExitTransition,
-                            getHeaderExtraHeight()).suppressBackground;
-                } catch (Throwable ignored) {}
-            }
-            // Keep the normal profile header below a partially visible cached
-            // banner.  Suppressing it from frame zero leaves a transparent/black
-            // strip while the banner layer is still fading in (and the inverse
-            // seam while closing).
-            final boolean nimarkoSuppressBackground =
-                    nimarkoSuppress && nimarkoBannerTransitionAlpha >= 0.999f;
-
             if (y1 != 0) {
                 if (previousTransitionFragment != null
                         && previousTransitionFragment.getContentView() != null
@@ -1482,46 +1413,17 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         previousTransitionFragment.getContentView().drawBlurRect(canvas, getY(), blurBounds, previousTransitionFragment.getActionBar().blurScrimPaint, true);
                     }
                 }
-                // TopicsFragment already draws its list and floating glass
-                // islands in ActionBarLayout's destination container below this
-                // transparent profile. Its SizeNotifierFrameLayout uses a
-                // separate blur3 source, while ActionBar.blurScrimPaint is not
-                // initialized by that glass pipeline. Calling drawBlurRect here
-                // would therefore add a second full-width black scrim over the
-                // correctly rendered destination.
-                // NimarkoGram: over a banner, skip the header bg paint and neutralise
-                // the action-bar background so its theme colour doesn't strip the banner.
-                if (!nimarkoSuppressBackground) {
-                    paint.setColor(currentColor);
-                    updateBackgroundPaint();
-                } else {
-                    if (actionBarBackgroundPaint != null) actionBarBackgroundPaint.setColor(Color.TRANSPARENT);
-                    if (actionBar != null) actionBar.setBackgroundColor(Color.TRANSPARENT);
-                    // neutralise the action buttons over the banner (clears tint)
-                    if (actionsView != null) actionsView.setActionsColor(0, false);
-                }
+                paint.setColor(currentColor);
+                updateBackgroundPaint();
                 final float progressToGradient = (playProfileAnimation == 0 ? 1f : avatarAnimationProgress) * hasColorAnimated.set(hasColorById);
-                // NimarkoGram: a banner exists for this profile (set as soon as the path
-                // resolves, BEFORE the video has rendered/faded in). While the video is
-                // still loading, nimarkoSuppress is false, so without this the PREMIUM
-                // peer-color gradient + emoji pattern would flash behind the banner every
-                // time the My-Profile tab re-loads the video. Hide the premium gradient &
-                // emoji as soon as a banner exists; keep a SOLID currentColor backing so
-                // the non-opaque video texture doesn't reveal the container bg underneath.
-                final boolean ngBannerBg = app.nimarkogram.messenger.banners.NimarkoBannerRenderer.suppressActionsColor;
-                // 1 = premium bg fully shown, 0 = fully faded out behind the banner.
-                final float ngBg = ngBannerBgAlpha.set(ngBannerBg ? 0f : 1f);
-                // Solid currentColor backing under the (fading) gradient, so the
-                // non-opaque video texture never reveals the container bg as the
-                // premium gradient fades out.
-                if (!nimarkoSuppressBackground && (progressToGradient < 1 || ngBg < 1)) {
+                if (progressToGradient < 1) {
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, paint);
                 }
-                if (!nimarkoSuppressBackground && progressToGradient > 0 && ngBg > 0) {
-                    backgroundPaint.setAlpha((int) (0xFF * progressToGradient * ngBg));
+                if (progressToGradient > 0) {
+                    backgroundPaint.setAlpha((int) (0xFF * progressToGradient));
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, backgroundPaint);
                 }
-                if (hasEmoji && !nimarkoSuppressBackground && ngBg > 0) {
+                if (hasEmoji) {
                     final float loadedScale = emojiLoadedT.set(isEmojiLoaded());
                     boolean shoudIgnore = openAnimationInProgress && playProfileAnimation == 2;
                     if (!shoudIgnore && loadedScale > 0 && avatarContainer != null) {
@@ -1529,7 +1431,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         canvas.clipRect(0, 0, getMeasuredWidth(), y1);
                         float atop = actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0;
                         float maxExpand = getHeaderOnlyExtraHeight() + atop + (actionBar.getHeight() - atop) / 2f;
-                        StarGiftPatterns.drawProfileAnimatedPattern(canvas, emoji, getMeasuredWidth(), maxExpand, calculateHeaderExtraDiff(), avatarContainer, ngBg);
+                        StarGiftPatterns.drawProfileAnimatedPattern(canvas, emoji, getMeasuredWidth(), maxExpand, calculateHeaderExtraDiff(), avatarContainer, 1f);
                         canvas.restore();
                     }
                 }
@@ -1540,17 +1442,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     final float sourceArrowAlpha = 1f - profileArrowAlpha;
                     final ActionBar previousActionBar = previousTransitionFragment.getActionBar();
 
-                    // Keep both arrows in their native colours.  The profile
-                    // ActionBar is drawn later, so only change its opacity here;
-                    // the source ActionBar is skip-drawn during the morph and its
-                    // brown Monet arrow is painted manually underneath.
                     if (!profileTransitionSingleBackArrow
                             && ProfileActivity.this.actionBar != null
                             && ProfileActivity.this.actionBar.getBackButton() != null) {
                         ProfileActivity.this.actionBar.getBackButton().setAlpha(profileArrowAlpha);
                     }
                     if (previousActionBar != null) {
-                        // Fade the source glass islands with their own arrow.
                         previousActionBar.setGlassAlpha(sourceArrowAlpha);
                     }
 
@@ -1570,63 +1467,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 blurBounds.set(0, y1, getMeasuredWidth(), (int) v);
                 contentView.drawBlurRect(canvas, getY(), blurBounds, paint, true);
             }
-            // NimarkoGram: draw the banner LAST, over the (now neutralised) header.
-            // drawImageBanner no-ops for video; applyVideoFx no-ops without video.
-            float nextNgBannerForegroundProgress = 0f;
-            if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled && bannerY1 > 0) {
-                try {
-                    app.nimarkogram.messenger.banners.NimarkoBannerRenderer r = app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-                    int bannerLayer = -1;
-                    if (nimarkoBannerTransitionAlpha < 0.999f) {
-                        bannerLayer = canvas.saveLayerAlpha(0, 0, getMeasuredWidth(), bannerY1,
-                                Math.round(255 * nimarkoBannerTransitionAlpha));
-                    }
-                    r.drawImageBanner(canvas, getMeasuredWidth(), bannerY1, bannerExtraHeight, getDialogId());
-                    if (bannerLayer >= 0) {
-                        canvas.restoreToCount(bannerLayer);
-                    }
-                    float bannerForegroundBase;
-                    if (nimarkoBannerExitTransition) {
-                        // Read the unmodified video/photo foreground first:
-                        // applyProfileExitAlpha multiplies TextureView layers.
-                        bannerForegroundBase = r.getForegroundProgress(getDialogId());
-                        r.applyProfileExitAlpha(getDialogId(), nimarkoBannerTransitionAlpha);
-                    } else {
-                        r.applyVideoFx(bannerExtraHeight, bannerY1, bannerExpand);
-                        bannerForegroundBase = r.getForegroundProgress(getDialogId());
-                    }
-                    r.reassertAvatarFade();
-                    // Couple all content colours to the same composited opacity
-                    // used to paint the banner.  Omitting the morph factor made
-                    // cached media fade on one curve while the name/status/badges
-                    // followed another, which was visible as a colour flicker.
-                    // The profile back arrow is deliberately excluded below.
-                    nextNgBannerForegroundProgress =
-                            bannerForegroundBase * nimarkoBannerTransitionAlpha;
-                } catch (Throwable ignored) {}
-            }
-            boolean hadNgBannerForeground = ngBannerForegroundProgress > 0f;
-            final float paintedNgBannerForegroundProgress;
-            if (nimarkoBannerMorph) {
-                // The native profile morph is already time-based and vsync
-                // driven.  A second low-pass would lag behind the painted banner
-                // and then catch up on the last frame, recreating the flash.
-                ngBannerForegroundProgress =
-                        Utilities.clamp01(nextNgBannerForegroundProgress);
-                ngBannerForegroundFrameTime = SystemClock.uptimeMillis();
-                paintedNgBannerForegroundProgress =
-                        ngBannerForegroundProgress;
-            } else {
-                paintedNgBannerForegroundProgress =
-                        smoothNimarkoBannerForeground(nextNgBannerForegroundProgress);
-            }
-            if (paintedNgBannerForegroundProgress > 0f || nextNgBannerForegroundProgress > 0f || hadNgBannerForeground) {
-                applyNimarkoBannerForeground(paintedNgBannerForegroundProgress);
-            }
             if (profileTransitionOwnsActionBarColors) {
-                // Banner/media foreground updates run from draw and used to be
-                // the last writer, which produced a white frame. Reassert the
-                // single transition colour after every competing draw-time path.
                 applyProfileTransitionActionBarColors(avatarAnimationProgress);
             }
             if (previousTransitionFragment != null
@@ -1642,9 +1483,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         && previousBackButton.getMeasuredWidth() > 0
                         && previousBackButton.getMeasuredHeight() > 0
                         && sourceArrowAlpha > 0f) {
-                    // Draw after the photo/video banner. If painted underneath,
-                    // the opaque banner multiplies the fade a second time and the
-                    // brown arrow appears only on the last frame.
                     int restoreCount = canvas.save();
                     canvas.translate(
                             previousActionBar.getX() + previousBackButton.getX(),
@@ -1658,45 +1496,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     canvas.restoreToCount(restoreCount);
                 }
             }
-            if (isLastFragment() && getParentActivity() != null) {
-                boolean lightStatusBar = ProfileActivity.this.isLightStatusBar();
-                if (ngBannerLightStatusBar == null || ngBannerLightStatusBar != lightStatusBar) {
-                    ngBannerLightStatusBar = lightStatusBar;
-                    AndroidUtilities.setLightStatusBar(getParentActivity(), lightStatusBar);
-                }
-            }
         }
 
         private Rect blurBounds = new Rect();
-
-        /**
-         * Smooth renderer progress in real time and schedule frames on display
-         * vsync. The exponential form is refresh-rate independent: a 120 Hz
-         * display gets twice as many colour samples as 60 Hz, not a transition
-         * which finishes twice as fast. A slightly softer release prevents a
-         * visible colour snap when a banner is replaced or disappears.
-         */
-        private float smoothNimarkoBannerForeground(float target) {
-            target = Utilities.clamp01(target);
-            final long now = SystemClock.uptimeMillis();
-            if (ngBannerForegroundFrameTime == 0L) {
-                ngBannerForegroundFrameTime = now;
-            } else {
-                final float dt = Math.min(0.064f, Math.max(0f,
-                        (now - ngBannerForegroundFrameTime) / 1000f));
-                final float responseSeconds = target >= ngBannerForegroundProgress ? 0.18f : 0.24f;
-                final float amount = 1f - (float) Math.exp(-dt / responseSeconds);
-                ngBannerForegroundProgress += (target - ngBannerForegroundProgress) * amount;
-            }
-            ngBannerForegroundFrameTime = now;
-
-            if (Math.abs(target - ngBannerForegroundProgress) < 0.001f) {
-                ngBannerForegroundProgress = target;
-            } else {
-                postInvalidateOnAnimation();
-            }
-            return ngBannerForegroundProgress;
-        }
     }
 
     private class OverlaysView extends View implements ProfileGalleryView.Callback {
@@ -2438,7 +2240,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getNotificationCenter().addObserver(this, NotificationCenter.userInfoDidLoad);
             getNotificationCenter().addObserver(this, NotificationCenter.privacyRulesUpdated);
             NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.reloadInterface);
-            NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.pluginMenuItemsUpdated); // C1: live profile_action_menu "Plugins (N)" refresh
 
             userBlocked = getMessagesController().blockePeers.indexOfKey(userId) >= 0;
             if (user.bot) {
@@ -2493,7 +2294,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getNotificationCenter().addObserver(this, NotificationCenter.channelRightsUpdated);
             getNotificationCenter().addObserver(this, NotificationCenter.chatWasBoostedByUser);
             NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.uploadStoryEnd);
-            NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.pluginMenuItemsUpdated); // C1: live profile_action_menu "Plugins (N)" refresh
             sortedUsers = new ArrayList<>();
             updateOnlineCount(true);
             if (chatInfo == null) {
@@ -2671,10 +2471,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         cancelProfileLifecycleAnimations();
         cancelProfileTransitionIfNeeded();
         super.onFragmentDestroy();
-        // NimarkoGram: ALWAYS tear down (null/no-op safe) regardless of feature toggle —
-        // a profile destroyed after the feature was switched OFF must still release the
-        // ExoPlayer/texture/views/blur worker instead of leaking them.
-        try { app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onProfileDestroyed(topView, getDialogId()); } catch (Throwable ignored) {}
         if (sharedMediaLayout != null) {
             sharedMediaLayout.onDestroy();
         }
@@ -2722,11 +2518,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getNotificationCenter().removeObserver(this, NotificationCenter.userInfoDidLoad);
             getNotificationCenter().removeObserver(this, NotificationCenter.privacyRulesUpdated);
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.reloadInterface);
-            NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.pluginMenuItemsUpdated); // C1
             getMessagesController().cancelLoadFullUser(userId);
         } else if (chatId != 0) {
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.uploadStoryEnd);
-            NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.pluginMenuItemsUpdated); // C1
             getNotificationCenter().removeObserver(this, NotificationCenter.chatWasBoostedByUser);
             getNotificationCenter().removeObserver(this, NotificationCenter.chatInfoDidLoad);
             getNotificationCenter().removeObserver(this, NotificationCenter.chatOnlineCountDidLoad);
@@ -2933,11 +2727,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         return;
                     }
                     finishFragment();
-                } else if (id == nimarko_plugins_menu) {
-                    // C1: open the bottom-sheet listing plugin-registered profile_action_menu items.
-                    if (nimarkoProfileMenuItems != null) {
-                        showNimarkoProfilePluginsBottomSheet(nimarkoProfileMenuItems, nimarkoProfileMenuCtx);
-                    }
                 } else if (id == block_contact) {
                     onBlockContactClicked(false);
                 } else if (id == add_contact) {
@@ -3892,11 +3681,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         botVerificationDrawable[i].attach();
                     }
                 }
-                for (int i = 0; i < nimarkoBadgeDrawable.length; ++i) {
-                    if (nimarkoBadgeDrawable[i] != null) {
-                        nimarkoBadgeDrawable[i].attach();
-                    }
-                }
             }
 
             @Override
@@ -3911,11 +3695,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 for (int i = 0; i < botVerificationDrawable.length; ++i) {
                     if (botVerificationDrawable[i] != null) {
                         botVerificationDrawable[i].detach();
-                    }
-                }
-                for (int i = 0; i < nimarkoBadgeDrawable.length; ++i) {
-                    if (nimarkoBadgeDrawable[i] != null) {
-                        nimarkoBadgeDrawable[i].detach();
                     }
                 }
             }
@@ -6847,108 +6626,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 avatarsViewPager.requestLayout();
             }
         }
-        // Release avatar-alpha authority back to the banner; it re-anchors its
-        // time-fade to the live alpha so the hide (if any) resumes seamlessly, and
-        // may resume writing avatarsViewPager alpha now that the pager is GONE.
-        try {
-            app.nimarkogram.messenger.banners.NimarkoBannerRenderer banner =
-                app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-            banner.setPagerOwnedByProfile(false);
-            banner.setCollapseSettling(false);
-        } catch (Throwable ignore) {}
-    }
-
-    /**
-     * Adapts Telegram's existing expanded-profile light foreground to a custom
-     * photo/video banner. The transition follows the media reveal progress, so
-     * a light-theme header remains dark while a banner is loading and changes
-     * smoothly to white only as the darkened media becomes visible.
-     */
-    private void applyNimarkoBannerForeground(float bannerProgress) {
-        bannerProgress = Utilities.clamp01(bannerProgress);
-        float lightProgress = 1f - (1f - Utilities.clamp01(currentExpandAnimatorValue)) * (1f - bannerProgress);
-
-        if (nameTextView[1] != null) {
-            int nameColor = peerColor != null && app.nimarkogram.messenger.NimarkoConfig.profileBackgroundColor
-                    ? Color.WHITE : getThemedColor(Theme.key_profile_title);
-            nameColor = ColorUtils.blendARGB(nameColor, getThemedColor(Theme.key_player_actionBarTitle), mediaHeaderAnimationProgress);
-            nameTextView[1].setTextColor(ColorUtils.blendARGB(nameColor, Color.WHITE, lightProgress));
-            nameTextView[1].getPaint().setShadowLayer(
-                    dpf2(1.5f), 0, dpf2(.5f),
-                    ColorUtils.setAlphaComponent(Color.BLACK, (int) (0x8F * bannerProgress)));
-        }
-
-        if (onlineTextView[1] != null) {
-            Object tag = onlineTextView[1].getTag();
-            int statusKey = tag instanceof Integer ? (Integer) tag : Theme.key_actionBarDefaultSubtitle;
-            boolean online = tag instanceof Integer && (Integer) tag == Theme.key_profile_status;
-            int statusColor = applyPeerColor(getThemedColor(statusKey), true, online);
-            statusColor = ColorUtils.blendARGB(statusColor, getThemedColor(Theme.key_player_actionBarSubtitle), mediaHeaderAnimationProgress);
-            onlineTextView[1].setTextColor(ColorUtils.blendARGB(statusColor, 0xB3FFFFFF, lightProgress));
-            onlineTextView[1].getPaint().setShadowLayer(
-                    dpf2(1.25f), 0, dpf2(.5f),
-                    ColorUtils.setAlphaComponent(Color.BLACK, (int) (0x8F * bannerProgress)));
-        }
-
-        if (mediaCounterTextView != null) {
-            int counterColor = ColorUtils.blendARGB(
-                    getThemedColor(Theme.key_player_actionBarSubtitle), 0xB3FFFFFF, bannerProgress);
-            mediaCounterTextView.getTextView().setTextColor(counterColor);
-            mediaCounterTextView.getNextTextView().setTextColor(counterColor);
-            int shadow = ColorUtils.setAlphaComponent(Color.BLACK, (int) (0x8F * bannerProgress));
-            mediaCounterTextView.getTextView().setShadowLayer(dpf2(1.25f), 0, dpf2(.5f), shadow);
-            mediaCounterTextView.getNextTextView().setShadowLayer(dpf2(1.25f), 0, dpf2(.5f), shadow);
-        }
-
-        int actionColor = peerColor != null && app.nimarkogram.messenger.NimarkoConfig.profileBackgroundColor
-                ? Color.WHITE : getThemedColor(Theme.key_actionBarDefaultIcon);
-        actionColor = ColorUtils.blendARGB(actionColor, getThemedColor(Theme.key_actionBarActionModeDefaultIcon), mediaHeaderAnimationProgress);
-        actionColor = ColorUtils.blendARGB(actionColor, Color.WHITE, lightProgress);
-        if (actionBar != null) {
-            int selectorColor = peerColor != null
-                    ? Theme.ACTION_BAR_WHITE_SELECTOR_COLOR : getThemedColor(Theme.key_avatar_actionBarSelectorBlue);
-            selectorColor = ColorUtils.blendARGB(selectorColor, getThemedColor(Theme.key_actionBarActionModeDefaultSelector), mediaHeaderAnimationProgress);
-            actionBar.setItemsColor(actionColor, false);
-            actionBar.setItemsBackgroundColor(
-                    ColorUtils.blendARGB(selectorColor, Theme.ACTION_BAR_WHITE_SELECTOR_COLOR, lightProgress), false);
-        }
-        if (otherItem != null) otherItem.setIconColor(actionColor);
-        if (callItem != null) callItem.setIconColor(actionColor);
-        if (videoCallItem != null) videoCallItem.setIconColor(actionColor);
-        if (editItem != null) editItem.setIconColor(actionColor);
-
-        if (lockIconDrawable != null) {
-            lockIconDrawable.setColorFilter(
-                    ColorUtils.blendARGB(getThemedColor(Theme.key_chat_lockIcon), Color.WHITE, lightProgress),
-                    PorterDuff.Mode.MULTIPLY);
-        }
-        if (scamDrawable != null) {
-            scamDrawable.setColor(ColorUtils.blendARGB(
-                    getThemedColor(Theme.key_avatar_subtitleInProfileBlue), 0xB3FFFFFF, lightProgress));
-        }
-        if (verifiedCrossfadeDrawable[1] != null) verifiedCrossfadeDrawable[1].setProgress(lightProgress);
-        if (premiumCrossfadeDrawable[1] != null) {
-            // Banner visibility controls the foreground colour, not the star's
-            // geometry. Keep Telegram's 14dp -> profile-star crossfade tied to
-            // the real profile expansion so a cached banner cannot enlarge the
-            // default Premium star in the collapsed header.
-            premiumCrossfadeDrawable[1].setProgress(
-                    Utilities.clamp01(currentExpandAnimatorValue));
-        }
-        if (nimarkoBadgeDrawable[1] != null) {
-            int badgeColor = ColorUtils.blendARGB(
-                    getThemedColor(Theme.key_profile_verifiedBackground),
-                    getThemedColor(Theme.key_player_actionBarTitle), mediaHeaderAnimationProgress);
-            nimarkoBadgeDrawable[1].setColor(ColorUtils.blendARGB(badgeColor, Color.WHITE, lightProgress));
-        }
-        updateEmojiStatusDrawableColor(lightProgress);
-
-        if (ratingView != null) ratingView.setParentExpanded(lightProgress);
-
-        if (showStatusButton != null) {
-            int normal = Theme.multAlpha(Theme.adaptHSV(actionBarBackgroundColor, +0.18f, -0.1f), 0.5f);
-            showStatusButton.setBackgroundColor(ColorUtils.blendARGB(normal, 0x23FFFFFF, lightProgress));
-        }
     }
 
     private void setAvatarExpandProgress(float animatedFracture) {
@@ -8838,11 +8515,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             // can be skipped and audio freeze at a residual volume. This runs on every
             // scroll delta AND on the post-ACTION_UP settle smoothScroll, so the volume
             // (and the hard mute on collapse) always tracks the live header height.
-            if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-                try {
-                    app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().applyAudioVolume(extraHeight);
-                } catch (Throwable ignored) {}
-            }
+
             if (playProfileAnimation != 0) {
                 allowProfileAnimation = extraHeight > getActionsExtraHeight();
             }
@@ -9363,12 +9036,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 // release banner suppression and the settle hand-off together. Doing
                                 // it HERE (not on the expand edge) is what keeps the banner from
                                 // painting the full-screen pager opaque mid-expand.
-                                try {
-                                    app.nimarkogram.messenger.banners.NimarkoBannerRenderer banner =
-                                        app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-                                    banner.setPagerOwnedByProfile(false);
-                                    banner.setCollapseSettling(false);
-                                } catch (Throwable ignore) {}
+
                             }
 
                             @Override
@@ -9401,9 +9069,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         // expand onAnimationEnd releases ownership once the pager is VISIBLE + alpha 1.
                         // setPagerOwnedByProfile gates ONLY the pager write, so the small-avatar
                         // overlay fade the banner runs on avatarImage/container is untouched.
-                        try {
-                            app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().setPagerOwnedByProfile(true);
-                        } catch (Throwable ignore) {}
+
 
                         try {
                             avatarContainer.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING);
@@ -9519,14 +9185,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         // Tell the banner a gesture-release collapse settle is in flight so it stops
                         // snapping the avatar alpha to 0 (gate at setAvAlpha) for the settle's duration;
                         // the avatar then fades out smoothly instead of vanishing when released while small.
-                        try {
-                            app.nimarkogram.messenger.banners.NimarkoBannerRenderer banner =
-                                app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-                            banner.setCollapseSettling(true);
-                            // Collapse owns the pager for the settle: suppress the banner's pager
-                            // alpha write (line 919) until the finalizer hides it.
-                            banner.setPagerOwnedByProfile(true);
-                        } catch (Throwable ignore) {}
+
                         // This collapse now owns the pager teardown; the END/CANCEL finalizer below
                         // will hide+shrink it. Suppresses the full-screen height stamp in needLayout
                         // for the settle duration so the pager can't be pinned full-screen.
@@ -10003,14 +9662,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, final Object... args) {
-        if (id == NotificationCenter.pluginMenuItemsUpdated) {
-            // C1: a plugin registered/unregistered (or the engine finished loading) —
-            // rebuild the profile overflow so the "Plugins (N)" item appears/relabels/
-            // disappears without reopening the profile. createActionBarMenu re-adds the
-            // standard items and calls nimarkoRebuildProfilePluginsMenu at the end.
-            createActionBarMenu(true);
-            return;
-        }
+
         if (id == NotificationCenter.uploadStoryEnd || id == NotificationCenter.chatWasBoostedByUser) {
             checkCanSendStoryForPosting();
         } else if (id == NotificationCenter.updateInterfaces) {
@@ -10579,13 +10231,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (sharedMediaLayout != null) {
             sharedMediaLayout.onResume();
         }
-        if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-            try {
-                app.nimarkogram.messenger.banners.NimarkoBannerRenderer rr = app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-                rr.setAvatarViews(avatarImage, avatarContainer, avatarsViewPager, storyView, giftsView, avatarGooey);
-                rr.onProfileResumed(topView, getDialogId());
-            } catch (Throwable ignored) {}
-        }
+
         invalidateIsInLandscapeMode();
         if (!initialResume && listAdapter != null) {
             // saveScrollPosition();
@@ -10631,12 +10277,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     // bootstrap gate (`!isPulledDown` at 8656). allowPullingDown is already
                     // cleared below.
                     isPulledDown = false;
-                    try {
-                        app.nimarkogram.messenger.banners.NimarkoBannerRenderer banner =
-                            app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-                        banner.setPagerOwnedByProfile(false);
-                        banner.setCollapseSettling(false);
-                    } catch (Throwable ignore) {}
+
                     extraHeight = getHeaderExtraHeight();
                     allowPullingDown = false;
                     layoutManager.scrollToPositionWithOffset(0, getHeaderExtraHeight() - listView.getPaddingTop());
@@ -10653,10 +10294,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onPause() {
         super.onPause();
-        // NimarkoGram: ALWAYS tear down (null/no-op safe) so toggling the feature OFF
-        // while a video banner is live still pauses ExoPlayer + the blur worker. Only
-        // CREATION/draw is gated on NimarkoBannerConfig.enabled, never teardown.
-        try { app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onProfilePaused(topView); } catch (Throwable ignored) {}
+
         if (undoView != null) {
             undoView.hide(true, 0);
         }
@@ -10727,8 +10365,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public void onBecomeFullyHidden() {
-        // NimarkoGram: ALWAYS tear down (null/no-op safe) regardless of feature toggle.
-        try { app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onProfilePaused(topView); } catch (Throwable ignored) {}
+
         if (undoView != null) {
             undoView.hide(true, 0);
         }
@@ -11398,20 +11035,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         final int transitionGeneration = ++profileTransitionGeneration;
         captureProfileTransitionOnlineTextState();
 
-        if (!isOpen && app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-            nimarkoBannerExitTransition = true;
-            nimarkoBannerExitExtraHeight = extraHeight;
-            nimarkoBannerExitExpand = currentExpandAnimatorValue;
-            nimarkoBannerExitY1 = Math.max(1, Math.round(
-                    (ActionBar.getCurrentActionBarHeight()
-                            + (actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0)
-                            + extraHeight + searchTransitionOffset)
-                            * (1f - mediaHeaderAnimationProgress)));
-            try {
-                app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance()
-                        .beginProfileExit(getDialogId());
-            } catch (Throwable ignored) {}
-        }
+
 
         if (communityItem != null) {
             communityItem.setAlpha(1f);
@@ -11849,13 +11473,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 // presentation never inherits a partially transparent button.
                 actionBar.getBackButton().setAlpha(1f);
             }
-            if (nimarkoBannerExitTransition) {
-                try {
-                    app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance()
-                            .endProfileExit(getDialogId());
-                } catch (Throwable ignored) {}
-                nimarkoBannerExitTransition = false;
-            }
+
             if (finalPrevCallItem != null) {
                 finalPrevCallItem.setAlpha(1f);
             }
@@ -12885,169 +12503,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         return botVerificationDrawable[a];
     }
 
-    // NimarkoGram: extera-style badge slot on the profile name. Slot 2 if free,
-    // otherwise slot 1 (replacing premium star). Scam/verified always win.
-    private void applyNimarkoBadgeOnProfile(int a, TLRPC.User user) {
-        try {
-            clearNimarkoBadgeSlot(a);
-            app.nimarkogram.messenger.api.dto.BadgeDTO badge =
-                    app.nimarkogram.messenger.badges.BadgesController.getInstance().i(user);
-            if (badge == null) {
-                if (nimarkoBadgeDrawable[a] != null) {
-                    nimarkoBadgeDrawable[a].set((Drawable) null, true);
-                }
-                lastNimarkoBadgeDocId[a] = 0L;
-                return;
-            }
-            // Track first-creation: when the drawable is brand new the swap
-            // animation would play "from null → emoji" which the user reads
-            // as the badge "appearing/recreating" every time the profile
-            // opens. Bind without animation in that case.
-            boolean justCreated = (nimarkoBadgeDrawable[a] == null);
-            if (justCreated) {
-                nimarkoBadgeDrawable[a] = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(
-                        nameTextView[a], AndroidUtilities.dp(24),
-                        a == 0 ? AnimatedEmojiDrawable.CACHE_TYPE_EMOJI_STATUS
-                               : AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD);
-                if (fragmentViewAttached) {
-                    nimarkoBadgeDrawable[a].attach();
-                }
-            }
-            long prev = lastNimarkoBadgeDocId[a];
-            // Animate only on genuine doc-id swaps; never on the first set
-            // (avoids the "recreate" animation when opening profile).
-            boolean animate = !justCreated && prev != 0L && prev != badge.getDocumentId();
-            nimarkoBadgeDrawable[a].set(badge.getDocumentId(), animate);
-            nimarkoBadgeDrawable[a].setParticles(true, animate);
-            nimarkoBadgeDrawable[a].setColor(getThemedColor(Theme.key_profile_verifiedBackground));
-            lastNimarkoBadgeDocId[a] = badge.getDocumentId();
-            final app.nimarkogram.messenger.api.dto.BadgeDTO finalBadge = badge;
-            CharSequence badgeDescription = TextUtils.isEmpty(badge.getText())
-                    ? LocaleController.getString(R.string.NM_ProfileBadge)
-                    : LocaleController.getString(R.string.NM_ProfileBadge) + ": " + badge.getText();
-            View.OnClickListener bulletinClick = v -> showNimarkoBadgeBulletin(finalBadge);
-            placeNimarkoBadge(a, bulletinClick, badgeDescription);
-        } catch (Throwable ignored) {}
-    }
 
-    private void applyNimarkoBadgeOnChat(int a, TLRPC.Chat chat) {
-        try {
-            clearNimarkoBadgeSlot(a);
-            app.nimarkogram.messenger.api.dto.BadgeDTO badge =
-                    app.nimarkogram.messenger.badges.BadgesController.getInstance().i(chat);
-            if (badge == null) {
-                if (nimarkoBadgeDrawable[a] != null) {
-                    nimarkoBadgeDrawable[a].set((Drawable) null, true);
-                }
-                lastNimarkoBadgeDocId[a] = 0L;
-                return;
-            }
-            boolean justCreated = (nimarkoBadgeDrawable[a] == null);
-            if (justCreated) {
-                nimarkoBadgeDrawable[a] = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(
-                        nameTextView[a], AndroidUtilities.dp(24),
-                        a == 0 ? AnimatedEmojiDrawable.CACHE_TYPE_EMOJI_STATUS
-                               : AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD);
-                if (fragmentViewAttached) {
-                    nimarkoBadgeDrawable[a].attach();
-                }
-            }
-            long prev = lastNimarkoBadgeDocId[a];
-            boolean animate = !justCreated && prev != 0L && prev != badge.getDocumentId();
-            nimarkoBadgeDrawable[a].set(badge.getDocumentId(), animate);
-            nimarkoBadgeDrawable[a].setParticles(true, animate);
-            nimarkoBadgeDrawable[a].setColor(getThemedColor(Theme.key_profile_verifiedBackground));
-            lastNimarkoBadgeDocId[a] = badge.getDocumentId();
-            final app.nimarkogram.messenger.api.dto.BadgeDTO finalBadge = badge;
-            CharSequence badgeDescription = TextUtils.isEmpty(badge.getText())
-                    ? LocaleController.getString(R.string.NM_ProfileBadge)
-                    : LocaleController.getString(R.string.NM_ProfileBadge) + ": " + badge.getText();
-            placeNimarkoBadge(a, v -> showNimarkoBadgeBulletin(finalBadge), badgeDescription);
-        } catch (Throwable ignored) {}
-    }
-
-    /** Keep Telegram's emoji-status drawable owned by Telegram; badges always use their own drawable. */
-    private void placeNimarkoBadge(int a, View.OnClickListener click, CharSequence description) {
-        if (nameTextView[a].getRightDrawable2() == null) {
-            nameTextView[a].setRightDrawable2(nimarkoBadgeDrawable[a]);
-            nameTextView[a].setRightDrawable2OnClick(click);
-            nameTextView[a].setRightDrawable2ContentDescription(description);
-            lastNimarkoBadgeSlot[a] = 2;
-        } else {
-            nameTextView[a].setRightDrawable(nimarkoBadgeDrawable[a]);
-            nameTextView[a].setRightDrawableOnClick(click);
-            nameTextView[a].setRightDrawableContentDescription(description);
-            lastNimarkoBadgeSlot[a] = 1;
-        }
-    }
-
-    private void clearNimarkoBadgeSlot(int a) {
-        if (nameTextView[a] == null) return;
-        if (lastNimarkoBadgeSlot[a] == 1) {
-            if (nameTextView[a].getRightDrawable() == nimarkoBadgeDrawable[a]) {
-                nameTextView[a].setRightDrawable(null);
-            }
-            // Clear badge semantics even if Telegram replaced the drawable in this slot first. Otherwise the
-            // replacement inherits the stale badge click listener/description and TalkBack activates a badge
-            // that is no longer visible.
-            nameTextView[a].setRightDrawableOnClick(null);
-            nameTextView[a].setRightDrawableContentDescription(null);
-        }
-        if (lastNimarkoBadgeSlot[a] == 2) {
-            if (nameTextView[a].getRightDrawable2() == nimarkoBadgeDrawable[a]) {
-                nameTextView[a].setRightDrawable2(null);
-            }
-            nameTextView[a].setRightDrawable2OnClick(null);
-            nameTextView[a].setRightDrawable2ContentDescription(null);
-        }
-        lastNimarkoBadgeSlot[a] = 0;
-    }
-
-    // NimarkoGram: remember the last badge documentId per nameTextView index
-    // so we can skip the swap animation when the same badge re-binds.
-    private final long[] lastNimarkoBadgeDocId = new long[2];
-    private final int[] lastNimarkoBadgeSlot = new int[2];
-
-    private void showNimarkoBadgeBulletin(app.nimarkogram.messenger.api.dto.BadgeDTO badge) {
-        try {
-            if (badge == null) return;
-            CharSequence rawText = badge.getText();
-            // Keep the action functional for text-less badges without leaking the
-            // old upstream brand used by the original implementation.
-            final CharSequence text = TextUtils.isEmpty(rawText)
-                    ? LocaleController.getString(R.string.NM_ProfileBadge) : rawText;
-            final long docId = badge.getDocumentId();
-            TLRPC.Document cached = AnimatedEmojiDrawable.findDocument(currentAccount, docId);
-            if (cached != null) {
-                showBulletinForDoc(cached, text);
-                return;
-            }
-            AnimatedEmojiDrawable.getDocumentFetcher(currentAccount)
-                    .fetchDocument(docId, d -> {
-                        if (d == null) return;
-                        AndroidUtilities.runOnUIThread(() -> showBulletinForDoc(d, text));
-                    });
-        } catch (Throwable ignored) {}
-    }
-
-    private void showBulletinForDoc(TLRPC.Document doc, CharSequence text) {
-        try {
-            if (doc == null) return;
-            org.telegram.ui.Components.Bulletin b = org.telegram.ui.Components.BulletinFactory
-                    .of(this)
-                    .createEmojiBulletin(doc, text);
-            try {
-                if (b.getLayout() instanceof org.telegram.ui.Components.Bulletin.LottieLayout) {
-                    org.telegram.ui.Components.RLottieImageView iv =
-                            ((org.telegram.ui.Components.Bulletin.LottieLayout) b.getLayout()).imageView;
-                    if (iv.getImageReceiver() != null) {
-                        iv.getImageReceiver().setRoundRadius(AndroidUtilities.dp(8));
-                    }
-                }
-            } catch (Throwable ignored) {}
-            b.show();
-        } catch (Throwable ignored) {}
-    }
 
     private Drawable getEmojiStatusDrawable(TLRPC.EmojiStatus emojiStatus, boolean switchable, boolean animated, int a) {
         if (app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses) return null;
@@ -13426,7 +12882,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         nameTextView[a].setRightDrawable(null);
                         nameTextViewRightDrawableContentDescription = null;
                     }
-                    applyNimarkoBadgeOnProfile(a, user);
                 } else if (a == 1) {
                     if (user.scam || user.fake) {
                         nameTextView[a].setRightDrawable2(getScamDrawable(user.scam ? 0 : 1));
@@ -13450,7 +12905,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     } else {
                         nameTextView[a].setRightDrawable(null);
                     }
-                    applyNimarkoBadgeOnProfile(a, user);
                 }
                 if (leftIcon == null && currentEncryptedChat == null && user.bot_verification_icon != 0) {
                     nameTextView[a].setLeftDrawableOutside(true);
@@ -13462,14 +12916,46 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (a == 1 && (rightIconIsStatus || rightIconIsPremium)) {
                     nameTextView[a].setRightDrawableOutside(true);
                 }
-                if (user.self && getMessagesController().isPremiumUser(user)
-                        && nameTextView[a].getRightDrawable() != nimarkoBadgeDrawable[a]) {
+
+                boolean isSoundGram = user != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(user.id);
+                if (isSoundGram) {
+                    Drawable soundGramDrawable = androidx.core.content.ContextCompat.getDrawable(getParentActivity(), R.drawable.ic_soundgram_badge).mutate();
+                    soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, AndroidUtilities.dp(20), AndroidUtilities.dp(20)) {
+                        @Override
+                        public void draw(@androidx.annotation.NonNull android.graphics.Canvas canvas) {
+                            canvas.save();
+                            canvas.translate(0, AndroidUtilities.dp(1));
+                            super.draw(canvas);
+                            canvas.restore();
+                        }
+                    };
+
+                    if (nameTextView[a].getRightDrawable() == null) {
+                        nameTextView[a].setRightDrawable(soundGramDrawable);
+                    } else if (nameTextView[a].getRightDrawable2() == null) {
+                        nameTextView[a].setRightDrawable2(soundGramDrawable);
+                    } else {
+                        nameTextView[a].setRightDrawable2(soundGramDrawable);
+                    }
+                    nameTextView[a].requestLayout();
+
+                    android.view.View.OnClickListener badgeClickListener = v -> {
+                        soundgram.ui.SoundGramBadgeBottomSheet bottomSheet = new soundgram.ui.SoundGramBadgeBottomSheet(ProfileActivity.this.getParentActivity(), resourcesProvider);
+                        showDialog(bottomSheet);
+                    };
+
+                    if (nameTextView[a].getRightDrawable() == soundGramDrawable) {
+                        nameTextView[a].setRightDrawableOnClick(badgeClickListener);
+                    } else if (nameTextView[a].getRightDrawable2() == soundGramDrawable) {
+                        nameTextView[a].setRightDrawable2OnClick(badgeClickListener);
+                    }
+                }
+                if (user.self && getMessagesController().isPremiumUser(user)) {
                     nameTextView[a].setRightDrawableOnClick(v -> {
                         showStatusSelect();
                     });
                 }
-                if (!user.self && getMessagesController().isPremiumUser(user)
-                        && nameTextView[a].getRightDrawable() != nimarkoBadgeDrawable[a]) {
+                if (!user.self && getMessagesController().isPremiumUser(user)) {
                     final SimpleTextView textView = nameTextView[a];
                     nameTextView[a].setRightDrawableOnClick(v -> {
                         if (user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible) {
@@ -13779,9 +13265,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else {
                     nameTextView[a].setLeftDrawable(null);
                 }
-                // NimarkoGram: badge on channel/group profile (the chat branch
-                // previously didn't get an applyNimarkoBadge call).
-                applyNimarkoBadgeOnChat(a, chat);
+
                 if (a == 0 && onlineTextOverride != null) {
                     onlineTextView[a].setText(onlineTextOverride);
                 } else {
@@ -14423,105 +13907,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         if (sharedMediaLayout != null) {
             sharedMediaLayout.getSearchItem().requestLayout();
-        }
-        // C1: (re)inject the plugin-registered "Plugins (N)" entry. createActionBarMenu
-        // calls otherItem.removeAllSubItems() at the top, so this must run on every
-        // rebuild as well as on pluginMenuItemsUpdated.
-        nimarkoRebuildProfilePluginsMenu();
-        updateStoriesViewBounds(false);
-    }
-
-    /** NimarkoGram (C1): (re)build the "Plugins (N)" item in the profile three-dots
-     *  overflow (PROFILE_ACTION_MENU). Mirrors ChatActivity.nimarkoRebuildChatPluginsMenu.
-     *  Shows ONLY when a plugin actually registered a profile_action_menu item; dedupes
-     *  by stable plugin identity; relabels the "(N)" count live; pulls the row when the
-     *  last item unregisters. Crash-safe. */
-    private void nimarkoRebuildProfilePluginsMenu() {
-        try {
-            if (otherItem == null) return;
-            final java.util.Map<String, Object> nimarkoCtx = new java.util.HashMap<>();
-            nimarkoCtx.put("fragment", "ProfileActivity");
-            nimarkoCtx.put("dialog_id", dialogId);
-            nimarkoCtx.put("account", currentAccount);
-            TLRPC.User user = userId != 0 ? getMessagesController().getUser(userId) : null;
-            if (user != null) nimarkoCtx.put("user", user);
-            if (currentChat != null) nimarkoCtx.put("chat", currentChat);
-            nimarkoCtx.put("userId", userId);
-            nimarkoCtx.put("chatId", chatId);
-            nimarkoCtx.put("is_user", userId != 0);
-            nimarkoCtx.put("is_group", currentChat != null && !ChatObject.isChannel(currentChat));
-            nimarkoCtx.put("is_channel", currentChat != null && ChatObject.isChannel(currentChat) && !currentChat.megagroup);
-
-            java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> items =
-                    app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                            .getMenuItemsForLocation("profile_action_menu", nimarkoCtx);
-            final java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> unique = new java.util.ArrayList<>();
-            if (items != null) {
-                final java.util.Set<String> seen = new java.util.HashSet<>();
-                for (app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec : items) {
-                    if (rec == null || android.text.TextUtils.isEmpty(rec.text)) continue;
-                    // dedupe by stable plugin identity (pluginId:itemId), not the visible label
-                    if (!seen.add(rec.pluginId + ":" + rec.itemId)) continue;
-                    unique.add(rec);
-                }
-            }
-            if (!unique.isEmpty()) {
-                nimarkoProfileMenuItems = unique;
-                nimarkoProfileMenuCtx = nimarkoCtx;
-                final CharSequence label = LocaleController.getString(R.string.Plugins) + " (" + unique.size() + ")";
-                // otherItem.removeAllSubItems() in createActionBarMenu cleared any prior
-                // copy, so just add a fresh row here (createActionBarMenu re-runs on every
-                // pluginMenuItemsUpdated too).
-                if (!otherItem.hasSubItem(nimarko_plugins_menu)) {
-                    otherItem.addSubItem(nimarko_plugins_menu, R.drawable.msg_plugins, label);
-                } else {
-                    otherItem.showSubItem(nimarko_plugins_menu);
-                }
-            } else {
-                nimarkoProfileMenuItems = null;
-                nimarkoProfileMenuCtx = null;
-                if (otherItem.hasSubItem(nimarko_plugins_menu)) {
-                    otherItem.hideSubItem(nimarko_plugins_menu);
-                }
-            }
-        } catch (Throwable t) {
-            FileLog.e("nimarko: ProfileActivity profile_action_menu rebuild failed", t);
-        }
-    }
-
-    /** NimarkoGram (C1): bottom-sheet listing the plugin profile-menu items.
-     *  Triggered from the single "Plugins (N)" entry in the profile overflow.
-     *  Re-checks plugin liveness (C3) before crossing into Python. */
-    private void showNimarkoProfilePluginsBottomSheet(
-            java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> items,
-            java.util.Map<String, Object> ctx) {
-        try {
-            if (getParentActivity() == null || items == null || items.isEmpty()) return;
-            CharSequence[] labels = new CharSequence[items.size()];
-            int[] icons = new int[items.size()];
-            for (int i = 0; i < items.size(); i++) {
-                app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec = items.get(i);
-                labels[i] = rec.text != null ? rec.text : "";
-                // C12: consistent neutral fallback drawable.
-                icons[i] = rec.iconResId != 0 ? rec.iconResId : R.drawable.msg_plugins;
-            }
-            BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity(), false, resourcesProvider);
-            builder.setTitle(LocaleController.getString(R.string.Plugins), true);
-            builder.setItems(labels, icons, (dialog, which) -> {
-                try {
-                    app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec = items.get(which);
-                    // C3: re-check the owning plugin is still active right before dispatch.
-                    if (rec == null || !app.nimarkogram.messenger.plugins.PluginsController.getInstance().isPluginActive(rec.pluginId)) {
-                        return;
-                    }
-                    rec.onClickCallback.call(ctx);
-                } catch (Throwable t) {
-                    FileLog.e("nimarko: profile plugins bottom-sheet item click failed", t);
-                }
-            });
-            showDialog(builder.create());
-        } catch (Throwable t) {
-            FileLog.e("nimarko: showNimarkoProfilePluginsBottomSheet failed", t);
         }
     }
 
@@ -17714,13 +17099,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onBecomeFullyVisible() {
         super.onBecomeFullyVisible();
-        if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-            try {
-                app.nimarkogram.messenger.banners.NimarkoBannerRenderer rr = app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-                rr.setAvatarViews(avatarImage, avatarContainer, avatarsViewPager, storyView, giftsView, avatarGooey);
-                rr.onProfileResumed(topView, getDialogId());
-            } catch (Throwable ignored) {}
-        }
+
         writeButtonSetBackground();
         fullyVisible = true;
         createBirthdayEffect();
@@ -17781,12 +17160,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     // next expand's bootstrap gate and keeps the pager-write suppressed.
                     isPulledDown = false;
                     allowPullingDown = false;
-                    try {
-                        app.nimarkogram.messenger.banners.NimarkoBannerRenderer banner =
-                            app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance();
-                        banner.setPagerOwnedByProfile(false);
-                        banner.setCollapseSettling(false);
-                    } catch (Throwable ignore) {}
+
                     extraHeight = getHeaderExtraHeight();
                 } else {
                     final int actionBarHeight = ActionBar.getCurrentActionBarHeight() + (actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0);
@@ -17987,11 +17361,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             color = getThemedColor(Theme.key_actionBarActionModeDefault);
         } else if (mediaHeaderVisible) {
             color = getThemedColor(Theme.key_windowBackgroundWhite);
-        } else if (topView != null && topView.ngBannerForegroundProgress > 0.35f) {
-            // Custom media uses a stable white foreground plus a dark top scrim.
-            // Never derive system icon colour from the app theme while that media
-            // is visible, otherwise light-theme time/network icons disappear.
-            return false;
         } else if (peerColor != null && app.nimarkogram.messenger.NimarkoConfig.profileBackgroundColor) {
             color = peerColor.getBgColor2(Theme.isCurrentThemeDark());
         } else {

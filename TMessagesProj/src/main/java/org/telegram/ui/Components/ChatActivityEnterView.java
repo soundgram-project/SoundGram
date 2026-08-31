@@ -8366,48 +8366,6 @@ public class ChatActivityEnterView extends FrameLayout implements
             if (checkPremiumAnimatedEmoji(currentAccount, dialog_id, parentFragment, null, message)) {
                 return;
             }
-            // NimarkoMedia native: intercept when the entire message body is a
-            // single supported URL and auto-mode is on. Controller takes over
-            // the API call + hyperlinked message send; we clear the editor and
-            // bail so the original send doesn't fire too. Mirrors plugin
-            // on_send_message_hook with HookStrategy.CANCEL.
-            // BLOCKED case: a previous download is still in flight. Cancel the
-            // send but KEEP the editor text so the user can retry without
-            // retyping (and without the URL leaking into the chat next to a
-            // "still downloading" bulletin).
-            if (parentFragment instanceof ChatActivity
-                    && app.nimarkogram.messenger.NimarkoConfig.nimarkoMediaAuto) {
-                app.nimarkogram.messenger.media.NimarkoMediaController.SendOptions sendOptions =
-                        new app.nimarkogram.messenger.media.NimarkoMediaController.SendOptions(
-                                notify,
-                                scheduleDate,
-                                scheduleRepeatPeriod,
-                                payStars,
-                                0,
-                                effectId,
-                                parentFragment.quickReplyShortcut,
-                                parentFragment.getQuickReplyId(),
-                                getSendMonoForumPeerId(),
-                                getSendMessageSuggestionParams(),
-                                delegate != null ? delegate.getReplyToStory() : null,
-                                delegate != null ? delegate.getReplyQuote() : null,
-                                parentFragment.messagePreviewParams != null
-                                        && parentFragment.messagePreviewParams.webpageTop);
-                int interceptResult = app.nimarkogram.messenger.media.NimarkoMediaController.getInstance()
-                        .interceptOutgoingMessage(message, (ChatActivity) parentFragment, sendOptions);
-                if (interceptResult == app.nimarkogram.messenger.media.NimarkoMediaController.INTERCEPT_HIJACKED) {
-                    sendButton.setEffect(effectId = 0);
-                    if (messageEditText != null) {
-                        messageEditText.setText("");
-                    }
-                    if (delegate != null) {
-                        delegate.onMessageSend(null, notify, scheduleDate, scheduleRepeatPeriod, payStars);
-                    }
-                    return;
-                } else if (interceptResult == app.nimarkogram.messenger.media.NimarkoMediaController.INTERCEPT_BLOCKED) {
-                    return;
-                }
-            }
             if (processSendingText(message, notify, scheduleDate, scheduleRepeatPeriod, payStars)) {
                 if (delegate.hasForwardingMessages() || (scheduleDate != 0 && !isInScheduleMode()) || isInScheduleMode()) {
                     if (messageEditText != null) {

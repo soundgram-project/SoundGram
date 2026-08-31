@@ -1766,10 +1766,6 @@ public class ChatActivity extends BaseFragment implements
     private final static int chat_menu_edit_text_options = -3;
     private final static int clear_history = 15;
     private final static int delete_chat = 16;
-    private final static int nimarko_plugins_menu = 1091;   // NimarkoGram: plugin-registered "Plugins (N)" item in the chat overflow
-    private java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> nimarkoChatMenuItems;
-    private java.util.Map<String, Object> nimarkoChatMenuCtx;
-    private ActionBarMenuItem.Item nimarkoChatMenuLazyItem; // lazy sub-item handle so the "(N)" label can be relabeled/hidden live
     private final static int share_contact = 17;
     private final static int mute = 18;
     private final static int report = 21;
@@ -3208,7 +3204,6 @@ public class ChatActivity extends BaseFragment implements
             .add(NotificationCenter.didSetNewWallpapper)
             .add(NotificationCenter.didApplyNewTheme)
             .add(NotificationCenter.goingToPreviewTheme)
-            .add(NotificationCenter.pluginMenuItemsUpdated) // NimarkoGram: refresh the "Plugins (N)" chat-overflow item when plugins register/unregister
             // NimarkoGram: repaint open-chat bubbles when the hideBubbleTail shape toggles. Subscribed on the
             // GLOBAL group (not per-account observersGroup) so the matching global post from the settings
             // fragment reaches a chat open on any account, not just the settings fragment's own account.
@@ -4077,10 +4072,6 @@ public class ChatActivity extends BaseFragment implements
                         return;
                     }
                     showDialog(AlertsCreator.createTTLAlert(getParentActivity(), currentEncryptedChat, themeDelegate).create());
-                } else if (id == nimarko_plugins_menu) {
-                    if (nimarkoChatMenuItems != null && !nimarkoChatMenuItems.isEmpty()) {
-                        showNimarkoPluginsBottomSheet(nimarkoChatMenuItems, nimarkoChatMenuCtx);
-                    }
                 } else if (id == clear_history || id == delete_chat || id == auto_delete_timer) {
                     if (getParentActivity() == null) {
                         return;
@@ -4973,12 +4964,6 @@ public class ChatActivity extends BaseFragment implements
         if (BuildConfig.DEBUG_PRIVATE_VERSION && headerItem != null) {
             headerItem.lazilyAddSubItem(888, R.drawable.menu_download_round, "Dump Canvas");
         }
-
-        // NimarkoGram: inject the plugin-registered "Plugins (N)" item into the chat three-dots overflow
-        // (CHAT_ACTION_MENU). Deterministic explicit inject — NOT a fragile runtime Pine/Xposed hook like
-        // exteraGram — and it appears ONLY when a plugin actually registered a chat_action_menu item. Tapping it
-        // opens the clean NimarkoGram plugins bottom-sheet (same as the message-context-menu path).
-        nimarkoRebuildChatPluginsMenu();
 
         actionModeViews.clear();
         selectedMessagesCountTextView = null;
@@ -25177,10 +25162,6 @@ public class ChatActivity extends BaseFragment implements
             if (chatListView != null) {
                 chatListView.invalidateViews();
             }
-        } else if (id == NotificationCenter.pluginMenuItemsUpdated) {
-            // NimarkoGram: a plugin registered/unregistered (or the engine finished loading) — rebuild the
-            // "Plugins (N)" chat-overflow item so it appears/relabels/disappears without reopening the chat.
-            nimarkoRebuildChatPluginsMenu();
         } else if (id == NotificationCenter.didApplyNewTheme) {
             if (undoView == null || paused) {
                 return;
@@ -33645,64 +33626,6 @@ public class ChatActivity extends BaseFragment implements
                     layout.addView(infoText, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.FILL));
                     popupLayout.addView(layout);
                 }
-
-                // NimarkoGram: inject plugin message_context_menu items.
-                // Used by NimarkoExport for "Import plugins" on .zip files.
-                try {
-                    final java.util.Map<String, Object> nimarkoCtx = new java.util.HashMap<>();
-                    nimarkoCtx.put("fragment", "ChatActivity");
-                    // C10: provide the chat context scalars/peers so message_context
-                    // plugins can condition on the dialog the same way chat_action
-                    // ones can (parity with nimarkoRebuildChatPluginsMenu's ctx).
-                    nimarkoCtx.put("dialog_id", dialog_id);
-                    if (currentUser != null) nimarkoCtx.put("user", currentUser);
-                    if (currentChat != null) nimarkoCtx.put("chat", currentChat);
-                    if (selectedObject != null) {
-                        // extera plugins reference the selected message via MVEL expr
-                        // `message.getDocument()` etc. — `message` is the canonical key
-                        // used by MenuContextBuilder.withMessage. Keep `messageObject`
-                        // alias too for any plugins that probe with the old name.
-                        nimarkoCtx.put("message", selectedObject);
-                        nimarkoCtx.put("messageObject", selectedObject);
-                        // C10: expose the album group when the selected message is part
-                        // of a grouped media post, so plugins can act on the whole album.
-                        if (selectedObjectGroup != null) {
-                            nimarkoCtx.put("groupedMessages", selectedObjectGroup);
-                        }
-                        if (selectedObject.getDocument() != null) {
-                            nimarkoCtx.put("document", selectedObject.getDocument());
-                            nimarkoCtx.put("fileName", selectedObject.getDocumentName());
-                            nimarkoCtx.put("mimeType", selectedObject.getMimeType());
-                        }
-                    }
-                    java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> nimarkoItems =
-                            app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                                    .getMenuItemsForLocation("message_context_menu", nimarkoCtx);
-                    if (nimarkoItems != null && !nimarkoItems.isEmpty()) {
-                        // Dedupe by stable plugin identity (not label); controller already pre-filtered conditions and pre-sorted by priority.
-                        final java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> nimarkoUnique = new java.util.ArrayList<>(nimarkoItems.size());
-                        java.util.Set<String> seenP = new java.util.HashSet<>();
-                        for (final app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec : nimarkoItems) {
-                            if (rec == null || android.text.TextUtils.isEmpty(rec.text)) continue;
-                            if (!seenP.add(rec.pluginId + ":" + rec.itemId)) continue;
-                            nimarkoUnique.add(rec);
-                        }
-                        if (!nimarkoUnique.isEmpty()) {
-                            popupLayout.addView(new ActionBarPopupWindow.GapView(contentView.getContext(), themeDelegate), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 8));
-                            final java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> finalItems = nimarkoUnique;
-                            ActionBarMenuSubItem pluginsBtn = new ActionBarMenuSubItem(getParentActivity(), false, false, themeDelegate);
-                            pluginsBtn.setMinimumWidth(AndroidUtilities.dp(200));
-                            pluginsBtn.setTextAndIcon(getString(R.string.Plugins) + " (" + nimarkoUnique.size() + ")", R.drawable.msg_plugins);
-                            popupLayout.addView(pluginsBtn);
-                            pluginsBtn.setOnClickListener(v1 -> {
-                                closeMenu();
-                                showNimarkoPluginsBottomSheet(finalItems, nimarkoCtx);
-                            });
-                        }
-                    }
-                } catch (Throwable t) {
-                    FileLog.e("nimarko: ChatActivity msg-context inject failed", t);
-                }
             }
 
             if (selectedObject != null && selectedObject.isEphemeral() && chatMode != MODE_WELCOME_MESSAGES && !showWelcomeMessageRevertOption(selectedObject)) {
@@ -35605,14 +35528,6 @@ public class ChatActivity extends BaseFragment implements
                         .checkProcessSelectedOption(option, ChatActivity.this, selectedObject, selectedObjectGroup, threadMessageId, currentChat);
                 break;
             }
-            case app.nimarkogram.messenger.utils.chats.NimarkoChatActivityHelper.OPTION_NIMARKO_MEDIA_DOWNLOAD: {
-                // Native NimarkoMedia dispatch — routes through the singleton
-                // controller which spawns a background download and sends the
-                // resolved media back into the chat.
-                app.nimarkogram.messenger.media.NimarkoMediaController.getInstance()
-                        .tryHandle(selectedObject, ChatActivity.this);
-                break;
-            }
             case OPTION_COPY: {
                 final TL_iv.RichMessage copyRichMessage = selectedObject.messageOwner != null ? selectedObject.messageOwner.rich_message : null;
                 if (selectedObject.isDice()) {
@@ -37431,9 +37346,7 @@ public class ChatActivity extends BaseFragment implements
                     createArticleViewer(false).open(message, finalParsed);
                 } else {
                     try {
-                        if (!app.nimarkogram.messenger.plugins.PluginsController.maybeShowInstallDialog(message, ChatActivity.this)) {
-                            AndroidUtilities.openForView(message, getParentActivity(), themeDelegate, false);
-                        }
+                        AndroidUtilities.openForView(message, getParentActivity(), themeDelegate, false);
                     } catch (Exception e) {
                         FileLog.e(e);
                         alertUserOpenError(message);
@@ -43844,9 +43757,7 @@ public class ChatActivity extends BaseFragment implements
                     }
                     if (!handled) {
                         try {
-                            if (!app.nimarkogram.messenger.plugins.PluginsController.maybeShowInstallDialog(message, ChatActivity.this)) {
-                                AndroidUtilities.openForView(message, getParentActivity(), themeDelegate, false);
-                            }
+                            AndroidUtilities.openForView(message, getParentActivity(), themeDelegate, false);
                         } catch (Exception e) {
                             FileLog.e(e);
                             alertUserOpenError(message);
@@ -44151,9 +44062,7 @@ public class ChatActivity extends BaseFragment implements
                 }
                 if (!handled) {
                     try {
-                        if (!app.nimarkogram.messenger.plugins.PluginsController.maybeShowInstallDialog(message, ChatActivity.this)) {
-                            AndroidUtilities.openForView(message, getParentActivity(), themeDelegate, false);
-                        }
+                        AndroidUtilities.openForView(message, getParentActivity(), themeDelegate, false);
                     } catch (Exception e) {
                         FileLog.e(e);
                         alertUserOpenError(message);
@@ -47442,101 +47351,6 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
-    /** NimarkoGram: (re)build the "Plugins (N)" item in the chat three-dots overflow (CHAT_ACTION_MENU).
-     *  Called once from createView AND on every pluginMenuItemsUpdated notification, so the item appears even
-     *  when the plugin engine finishes loading after the chat opened (cold start), reflects late
-     *  registrations/removals, drops disabled plugins, and relabels its "(N)" count live. The item shows ONLY
-     *  when a plugin actually registered a chat_action_menu item — deterministic explicit inject, unlike a
-     *  fragile runtime Pine/Xposed hook. */
-    private void nimarkoRebuildChatPluginsMenu() {
-        try {
-            if (headerItem == null) return;
-            final java.util.Map<String, Object> nimarkoCtx = new java.util.HashMap<>();
-            nimarkoCtx.put("fragment", "ChatActivity");
-            nimarkoCtx.put("dialog_id", dialog_id);
-            if (currentUser != null) nimarkoCtx.put("user", currentUser);
-            if (currentChat != null) nimarkoCtx.put("chat", currentChat);
-            // C11: scalar aliases so plugins can condition on raw ids/account
-            // without unwrapping the TLObjects.
-            nimarkoCtx.put("userId", currentUser != null ? currentUser.id : 0L);
-            nimarkoCtx.put("chatId", currentChat != null ? currentChat.id : 0L);
-            nimarkoCtx.put("account", currentAccount);
-            nimarkoCtx.put("is_group", currentChat != null && !ChatObject.isChannel(currentChat));
-            nimarkoCtx.put("is_channel", currentChat != null && ChatObject.isChannel(currentChat) && !currentChat.megagroup);
-            nimarkoCtx.put("is_user", currentUser != null);
-            java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> items =
-                    app.nimarkogram.messenger.plugins.PluginsController.getInstance()
-                            .getMenuItemsForLocation("chat_action_menu", nimarkoCtx);
-            final java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> unique = new java.util.ArrayList<>();
-            if (items != null) {
-                final java.util.Set<String> seen = new java.util.HashSet<>();
-                for (app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec : items) {
-                    if (rec == null || android.text.TextUtils.isEmpty(rec.text)) continue;
-                    // dedupe by stable plugin identity, not visible label (two plugins may share a caption)
-                    if (!seen.add(rec.pluginId + ":" + rec.itemId)) continue;
-                    unique.add(rec);
-                }
-            }
-            if (!unique.isEmpty()) {
-                nimarkoChatMenuItems = unique;
-                nimarkoChatMenuCtx = nimarkoCtx;
-                final CharSequence label = getString(R.string.Plugins) + " (" + unique.size() + ")";
-                if (nimarkoChatMenuLazyItem != null && headerItem.hasSubItem(nimarko_plugins_menu)) {
-                    nimarkoChatMenuLazyItem.setText(label); // relabel count live (works lazy or materialized)
-                    headerItem.showSubItem(nimarko_plugins_menu);
-                } else {
-                    nimarkoChatMenuLazyItem = headerItem.lazilyAddSubItem(nimarko_plugins_menu, R.drawable.msg_plugins, label);
-                }
-            } else {
-                nimarkoChatMenuItems = null;
-                nimarkoChatMenuCtx = null;
-                if (headerItem.hasSubItem(nimarko_plugins_menu)) {
-                    headerItem.hideSubItem(nimarko_plugins_menu); // last plugin unregistered — pull the row
-                }
-            }
-        } catch (Throwable nimarkoChatMenuT) {
-            FileLog.e("nimarko: ChatActivity chat_action_menu rebuild failed", nimarkoChatMenuT);
-        }
-    }
-
-    /** NimarkoGram: bottom-sheet listing all plugin context-menu items for the
-     *  currently selected message. Triggered from the single "Плагины (N)"
-     *  entry in the chat long-press popup. */
-    private void showNimarkoPluginsBottomSheet(
-            java.util.List<app.nimarkogram.messenger.plugins.hooks.MenuItemRecord> items,
-            java.util.Map<String, Object> ctx) {
-        try {
-            if (getParentActivity() == null || items == null || items.isEmpty()) return;
-            CharSequence[] labels = new CharSequence[items.size()];
-            int[] icons = new int[items.size()];
-            for (int i = 0; i < items.size(); i++) {
-                app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec = items.get(i);
-                labels[i] = rec.text != null ? rec.text : "";
-                // C12: consistent neutral fallback drawable across all item sites.
-                icons[i] = rec.iconResId != 0 ? rec.iconResId : R.drawable.msg_plugins;
-            }
-            BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity(), false, themeDelegate);
-            builder.setTitle(getString(R.string.Plugins), true);
-            builder.setItems(labels, icons, (dialog, which) -> {
-                try {
-                    app.nimarkogram.messenger.plugins.hooks.MenuItemRecord rec = items.get(which);
-                    // C3: re-check the owning plugin is still active right before
-                    // crossing into Python — the list was captured when the sheet
-                    // opened and the plugin may have been disabled meanwhile.
-                    if (rec == null || !app.nimarkogram.messenger.plugins.PluginsController.getInstance().isPluginActive(rec.pluginId)) {
-                        return;
-                    }
-                    rec.onClickCallback.call(ctx);
-                } catch (Throwable t) {
-                    FileLog.e("nimarko: plugins bottom-sheet item click failed", t);
-                }
-            });
-            showDialog(builder.create());
-        } catch (Throwable t) {
-            FileLog.e("nimarko: showNimarkoPluginsBottomSheet failed", t);
-        }
-    }
-
     public void didLongPressCopyButton(String text) {
         BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity(), false, themeDelegate);
         builder.setTitle(text);
@@ -48882,12 +48696,6 @@ public class ChatActivity extends BaseFragment implements
                 // NimarkoChatActivityHelper.checkProcessSelectedOption which opens
                 // the EmojiPacksAlert.
                 app.nimarkogram.messenger.NimarkoMessageMenuInjector.injectGetCustomReactions(
-                    selectedObject, items, options, icons
-                );
-                // NimarkoMedia native: surfaces "Download media" when the
-                // message contains a supported download URL. Replaces the
-                // Python NimarkoMedia plugin's menu hook.
-                app.nimarkogram.messenger.NimarkoMessageMenuInjector.injectNimarkoMediaDownload(
                     selectedObject, items, options, icons
                 );
                 if (allowUnpin) {

@@ -89,9 +89,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     private boolean useProxyForCalls;
 
     private int rowCount;
-    private int nimarkoVpnRow;
-    private int nimarkoVlessRow;
-    private int nimarkoVpnInfoRow;
     @Keep
     private int useProxyRow;
     private int useProxyShadowRow;
@@ -209,12 +206,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         }
 
         public void setProxy(SharedConfig.ProxyInfo proxyInfo) {
-            String label;
-            if (isOwnWsBypass(proxyInfo)) {
-                label = LocaleController.getString(R.string.NM_WSB_Title);
-            } else {
-                label = proxyInfo.address + ":" + proxyInfo.port;
-            }
+            String label = proxyInfo.address + ":" + proxyInfo.port;
             textView.setText(label);
             currentInfo = proxyInfo;
         }
@@ -224,10 +216,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             if (SharedConfig.currentProxy == currentInfo && useProxySettings) {
                 boolean transportConnected = currentConnectionState == ConnectionsManager.ConnectionStateConnected
                         || currentConnectionState == ConnectionsManager.ConnectionStateUpdating;
-                if (isOwnWsBypass(currentInfo)) {
-                    transportConnected = transportConnected && app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.STATE_RUNNING.equals(
-                            app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().getConnectionState());
-                }
                 if (transportConnected) {
                     colorKey = Theme.key_windowBackgroundWhiteBlueText6;
                     if (currentInfo.ping != 0) {
@@ -405,7 +393,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         rowsUpdatePosted = false;
         AndroidUtilities.cancelRunOnUIThread(rowsUpdateRunnable);
         super.onFragmentDestroy();
-        AndroidUtilities.cancelRunOnUIThread(ownBypassPingPoll);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxyChangedByRotation);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxySettingsChanged);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.proxyCheckDone);
@@ -454,21 +441,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             }
         });
         listView.setOnItemClickListener((view, position) -> {
-            if (position == nimarkoVpnRow) {
-                org.telegram.messenger.browser.Browser.openUrl(getParentActivity(), "https://t.me/NimarkoVPN_Bot");
-                return;
-            }
-            if (position == nimarkoVlessRow) {
-                org.telegram.messenger.browser.Browser.openUrl(getParentActivity(), "https://t.me/NimarkoVlessBot");
-                return;
-            }
             if (position == useProxyRow) {
-                if (useProxySettings && isOwnWsBypass(SharedConfig.currentProxy)) {
-                    app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().setEnabled(false);
-                    reconcileProxyState();
-                    updateRows(true);
-                    return;
-                }
                 if (SharedConfig.currentProxy == null) {
                     if (!proxyList.isEmpty()) {
                         SharedConfig.currentProxy = proxyList.get(0);
@@ -540,9 +513,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     return;
                 }
                 SharedConfig.ProxyInfo info = proxyList.get(position - proxyStartRow);
-                if (!isOwnWsBypass(info) && app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.enabled) {
-                    app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().setEnabled(false);
-                }
                 useProxySettings = true;
                 SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit();
                 editor.putString("proxy_ip", info.address);
@@ -580,16 +550,11 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 builder.setNegativeButton(getString(R.string.Cancel), null);
                 builder.setTitle(getString(R.string.DeleteProxyTitle));
                 builder.setPositiveButton(getString(R.string.Delete), (dialog, which) -> {
-                    boolean keptBypass = false;
                     for (SharedConfig.ProxyInfo info : new ArrayList<>(proxyList)) {
-                        if (isOwnWsBypass(info)) {
-                            keptBypass = true;
-                            continue;
-                        }
                         SharedConfig.deleteProxy(info);
                     }
                     useProxyForCalls = false;
-                    useProxySettings = keptBypass && SharedConfig.currentProxy != null && useProxySettings;
+                    useProxySettings = false;
                     NotificationCenter.getGlobalInstance().removeObserver(ProxyListActivity.this, NotificationCenter.proxySettingsChanged);
                     NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxySettingsChanged);
                     NotificationCenter.getGlobalInstance().addObserver(ProxyListActivity.this, NotificationCenter.proxySettingsChanged);
@@ -647,9 +612,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                         builder.setTitle(getString(R.string.DeleteProxyTitle));
                         builder.setPositiveButton(getString(R.string.Delete), (dialog, which) -> {
                             for (SharedConfig.ProxyInfo info : selectedItems) {
-                                if (isOwnWsBypass(info)) {
-                                    continue;
-                                }
                                 SharedConfig.deleteProxy(info);
                             }
                             if (SharedConfig.currentProxy == null) {
@@ -753,9 +715,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
     private void updateRowsInternal(boolean notify) {
         rowCount = 0;
-        nimarkoVpnRow = rowCount++;
-        nimarkoVlessRow = rowCount++;
-        nimarkoVpnInfoRow = rowCount++;
         useProxyRow = rowCount++;
         if (useProxySettings && SharedConfig.currentProxy != null && SharedConfig.proxyList.size() > 1 && IS_PROXY_ROTATION_AVAILABLE) {
             rotationRow = rowCount++;
@@ -854,21 +813,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             if (proxyInfo.checking || SystemClock.elapsedRealtime() - proxyInfo.availableCheckTime < 2 * 60 * 1000) {
                 continue;
             }
-            if (isOwnWsBypass(proxyInfo)) {
-                proxyInfo.checking = false;
-                app.nimarkogram.messenger.wsbypass.WsBypassCore core =
-                        app.nimarkogram.messenger.wsbypass.WsBypassCore.getInstance();
-                proxyInfo.available = core.isRunning() && core.isAcceptThreadAlive();
-                proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
-                if (!proxyInfo.available) {
-                    proxyInfo.ping = 0;
-                } else if (proxyInfo == SharedConfig.currentProxy) {
-                    int live = ConnectionsManager.native_getCurrentPingTime(currentAccount);
-                    if (live > 0) proxyInfo.ping = live;
-                }
-                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxyCheckDone, proxyInfo);
-                continue;
-            }
             proxyInfo.checking = true;
             proxyInfo.proxyCheckPingId = ConnectionsManager.getInstance(currentAccount).checkProxy(proxyInfo.address, proxyInfo.port, proxyInfo.username, proxyInfo.password, proxyInfo.secret, time -> AndroidUtilities.runOnUIThread(() -> {
                 proxyInfo.availableCheckTime = SystemClock.elapsedRealtime();
@@ -885,12 +829,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         }
     }
 
-    private static boolean isOwnWsBypass(SharedConfig.ProxyInfo p) {
-        return p != null
-                && app.nimarkogram.messenger.wsbypass.WsBypassCore.LOCAL_PROXY_HOST.equals(p.address)
-                && p.port == app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.localPort;
-    }
-
     @Override
     protected void onDialogDismiss(Dialog dialog) {
         DownloadController.getInstance(currentAccount).checkAutodownloadSettings();
@@ -901,50 +839,9 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         super.onResume();
         reconcileProxyState();
         updateRows(true);
-        scheduleOwnBypassPing();
     }
 
-    @Override
-    public void onPause() {
-        super.onPause();
-        AndroidUtilities.cancelRunOnUIThread(ownBypassPingPoll);
-        ownBypassPingScheduled = false;
-    }
 
-    private boolean ownBypassPingScheduled;
-    private final Runnable ownBypassPingPoll = () -> {
-        ownBypassPingScheduled = false;
-        refreshOwnBypassPing();
-        scheduleOwnBypassPing();
-    };
-
-    private void scheduleOwnBypassPing() {
-        if (ownBypassPingScheduled) return;
-        ownBypassPingScheduled = true;
-        AndroidUtilities.runOnUIThread(ownBypassPingPoll, 2000);
-    }
-
-    private void refreshOwnBypassPing() {
-        try {
-            if (listView == null || SharedConfig.currentProxy == null || !useProxySettings) return;
-            if (!isOwnWsBypass(SharedConfig.currentProxy)) return;
-            if (currentConnectionState != ConnectionsManager.ConnectionStateConnected
-                    && currentConnectionState != ConnectionsManager.ConnectionStateUpdating) return;
-            int live = ConnectionsManager.native_getCurrentPingTime(currentAccount);
-            if (live <= 0) return;
-            SharedConfig.ProxyInfo info = SharedConfig.currentProxy;
-            info.available = true;
-            if (live == info.ping) return;
-            info.ping = live;
-            for (int a = proxyStartRow; a < proxyEndRow; a++) {
-                RecyclerListView.Holder holder = (RecyclerListView.Holder) listView.findViewHolderForAdapterPosition(a);
-                if (holder != null && holder.itemView instanceof TextDetailProxyCell) {
-                    TextDetailProxyCell cell = (TextDetailProxyCell) holder.itemView;
-                    if (cell.currentInfo == info) cell.updateStatus();
-                }
-            }
-        } catch (Throwable ignored) {}
-    }
 
     private void reconcileProxyState() {
         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
@@ -1030,8 +927,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             VIEW_TYPE_TEXT_CHECK = 3,
             VIEW_TYPE_INFO = 4,
             VIEW_TYPE_PROXY_DETAIL = 5,
-            VIEW_TYPE_SLIDE_CHOOSER = 6,
-            VIEW_TYPE_PROMO = 7;
+            VIEW_TYPE_SLIDE_CHOOSER = 6;
 
         public static final int PAYLOAD_CHECKED_CHANGED = 0;
         public static final int PAYLOAD_SELECTION_CHANGED = 1;
@@ -1050,9 +946,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 return;
             }
             SharedConfig.ProxyInfo info = proxyList.get(position - proxyStartRow);
-            if (isOwnWsBypass(info)) {
-                return;
-            }
             if (selectedItems.contains(info)) {
                 selectedItems.remove(info);
             } else {
@@ -1105,17 +998,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     }
                     break;
                 }
-                case VIEW_TYPE_PROMO: {
-                    TextCell cell = (TextCell) holder.itemView;
-                    if (position == nimarkoVpnRow) {
-                        cell.setTextAndColorfulIcon(getString(R.string.NM_ProxyVpnPromo),
-                                R.drawable.pill_proxy, Theme.getColor(Theme.key_statisticChartLine_green), true);
-                    } else if (position == nimarkoVlessRow) {
-                        cell.setTextAndColorfulIcon(getString(R.string.NM_ProxyVlessPromo),
-                                R.drawable.shield_network_filled_solar, Theme.getColor(Theme.key_statisticChartLine_blue), false);
-                    }
-                    break;
-                }
                 case VIEW_TYPE_HEADER: {
                     HeaderCell headerCell = (HeaderCell) holder.itemView;
                     if (position == connectionsHeaderRow) {
@@ -1140,8 +1022,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                         cell.setText(getString(R.string.UseProxyForCallsInfo));
                     } else if (position == rotationTimeoutInfoRow) {
                         cell.setText(getString(R.string.ProxyRotationTimeoutInfo));
-                    } else if (position == nimarkoVpnInfoRow) {
-                        cell.setText(getString(R.string.NM_ProxyVpnPromo_Desc));
                     }
                     break;
                 }
@@ -1217,7 +1097,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int position = holder.getAdapterPosition();
-            return position == nimarkoVpnRow || position == nimarkoVlessRow || position == useProxyRow || position == rotationRow || position == callsRow || position == proxyAddRow || position == deleteAllRow || position >= proxyStartRow && position < proxyEndRow;
+            return position == useProxyRow || position == rotationRow || position == callsRow || position == proxyAddRow || position == deleteAllRow || position >= proxyStartRow && position < proxyEndRow;
         }
 
         @Override
@@ -1241,10 +1121,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     break;
                 case VIEW_TYPE_INFO:
                     view = new TextInfoPrivacyCell(mContext);
-                    break;
-                case VIEW_TYPE_PROMO:
-                    view = new TextCell(mContext);
-                    view.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
                     break;
                 case VIEW_TYPE_SLIDE_CHOOSER:
                     view = new SlideChooseView(mContext);
@@ -1293,8 +1169,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         public int getItemViewType(int position) {
             if (position == useProxyShadowRow || position == proxyShadowRow) {
                 return VIEW_TYPE_SHADOW;
-            } else if (position == nimarkoVpnRow || position == nimarkoVlessRow) {
-                return VIEW_TYPE_PROMO;
             } else if (position == proxyAddRow || position == deleteAllRow) {
                 return VIEW_TYPE_TEXT_SETTING;
             } else if (position == useProxyRow || position == rotationRow || position == callsRow) {

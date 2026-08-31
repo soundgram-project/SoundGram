@@ -92,7 +92,6 @@ public class ProfileMusicView extends View {
     private float parentExpanded;
     private int backgroundColor;
     private boolean withShadows;
-    private boolean bannerMode;
 
     public void setColor(MessagesController.PeerColor peerColor) {
         
@@ -112,12 +111,12 @@ public class ProfileMusicView extends View {
             backgroundColor = Theme.adaptHSV(ColorUtils.blendARGB(color1, color2, .15f), +.04f, -.09f);
             withShadows = false;
         }
-        backgroundPaint.setColor(bannerMode ? 0x40000000 : backgroundColor);
+        backgroundPaint.setColor(backgroundColor);
         checkTextColor();
     }
 
     private void checkTextColor() {
-        final boolean useBlackText = !bannerMode && parentExpanded < 0.8f
+        final boolean useBlackText = parentExpanded < 0.8f
                 && AndroidUtilities.computePerceivedBrightness(backgroundColor) > 0.85f;
         textColor = useBlackText ? Color.BLACK : Color.WHITE;
         icon.setColorFilter(useBlackText ? filterColorBlack : filterColorWhite);
@@ -212,10 +211,6 @@ public class ProfileMusicView extends View {
     }
 
     public void drawingBlur(RenderNode renderNode, ProfileActivity.AvatarImageView avatarView, float scale, float dy) {
-        
-        if (app.nimarkogram.messenger.banners.NimarkoBannerRenderer.suppressActionsColor) {
-            return;
-        }
         this.ignoreRect = false;
         this.renderNode = renderNode;
         this.avatarView = avatarView;
@@ -256,13 +251,6 @@ public class ProfileMusicView extends View {
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         if (this.author == null || this.title == null) return;
-
-        boolean nextBannerMode = app.nimarkogram.messenger.banners.NimarkoBannerRenderer.suppressActionsColor;
-        if (bannerMode != nextBannerMode) {
-            bannerMode = nextBannerMode;
-            backgroundPaint.setColor(bannerMode ? 0x40000000 : backgroundColor);
-            checkTextColor();
-        }
 
         final float alpha = Utilities.clamp01((currentHeight) / dp(21));
         final float scale = bounce.getScale(0.02f);

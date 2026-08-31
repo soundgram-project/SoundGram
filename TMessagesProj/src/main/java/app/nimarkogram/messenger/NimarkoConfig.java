@@ -152,57 +152,6 @@ public final class NimarkoConfig {
         return APP_NAME + " " + VERSION_NAME;
     }
 
-    public static boolean pluginsEngine = getPreferences().getBoolean("pluginsEngine", true);
-    public static void togglePluginsEngine() {
-        pluginsEngine = !pluginsEngine;
-        getEditor().putBoolean("pluginsEngine", pluginsEngine).apply();
-    }
-
-    public static boolean pluginsDevMode = getPreferences().getBoolean("pluginsDevMode", false);
-    public static void togglePluginsDevMode() {
-        pluginsDevMode = !pluginsDevMode;
-        getEditor().putBoolean("pluginsDevMode", pluginsDevMode).apply();
-    }
-
-    public static boolean pluginsSafeMode = getPreferences().getBoolean("pluginsSafeMode", false);
-    public static void togglePluginsSafeMode() {
-        pluginsSafeMode = !pluginsSafeMode;
-        getEditor().putBoolean("pluginsSafeMode", pluginsSafeMode).apply();
-        try {
-            org.telegram.messenger.FileLog.d("nimarko: togglePluginsSafeMode -> " + pluginsSafeMode);
-        } catch (Throwable ignored) {}
-    }
-    public static void setPluginsSafeMode(boolean v) {
-        pluginsSafeMode = v;
-        getEditor().putBoolean("pluginsSafeMode", v).apply();
-        try {
-            org.telegram.messenger.FileLog.d("nimarko: setPluginsSafeMode = " + v);
-        } catch (Throwable ignored) {}
-    }
-
-    public static boolean pluginsCompactView = getPreferences().getBoolean("pluginsCompactView", false);
-    public static void togglePluginsCompactView() {
-        pluginsCompactView = !pluginsCompactView;
-        getEditor().putBoolean("pluginsCompactView", pluginsCompactView).apply();
-    }
-
-    public static boolean pluginsDisableArtOpts = getPreferences().getBoolean("pluginsDisableArtOpts", false);
-    public static void setPluginsDisableArtOpts(boolean v) {
-        pluginsDisableArtOpts = v;
-        getEditor().putBoolean("pluginsDisableArtOpts", v).apply();
-    }
-
-    public static boolean pluginsPySdkAutoUpdate = getPreferences().getBoolean("pluginsPySdkAutoUpdate", true);
-    public static void setPluginsPySdkAutoUpdate(boolean v) {
-        pluginsPySdkAutoUpdate = v;
-        getEditor().putBoolean("pluginsPySdkAutoUpdate", v).apply();
-    }
-
-    public static boolean pluginsPySdkBetaVersions = getPreferences().getBoolean("pluginsPySdkBetaVersions", false);
-    public static void setPluginsPySdkBetaVersions(boolean v) {
-        pluginsPySdkBetaVersions = v;
-        getEditor().putBoolean("pluginsPySdkBetaVersions", v).apply();
-    }
 
 
     public static boolean hideProxySponsor = getPreferences().getBoolean("hideProxySponsor", true);
@@ -338,66 +287,6 @@ public final class NimarkoConfig {
     public static void toggleGifSpoilers() {
         gifSpoilers = !gifSpoilers;
         getEditor().putBoolean("gifSpoilers", gifSpoilers).apply();
-    }
-
-    public static boolean nimarkoMediaAuto = getPreferences().getBoolean("nimarkoMediaAuto", true);
-    public static void toggleNimarkoMediaAuto() {
-        nimarkoMediaAuto = !nimarkoMediaAuto;
-        getEditor().putBoolean("nimarkoMediaAuto", nimarkoMediaAuto).apply();
-    }
-    public static int nimarkoMediaYtFmt = getPreferences().getInt("nimarkoMediaYtFmt", 0);
-    public static void setNimarkoMediaYtFmt(int v) {
-        nimarkoMediaYtFmt = v;
-        getEditor().putInt("nimarkoMediaYtFmt", v).apply();
-    }
-    public static boolean nimarkoMediaYtAsk = getPreferences().getBoolean("nimarkoMediaYtAsk", true);
-    public static void toggleNimarkoMediaYtAsk() {
-        nimarkoMediaYtAsk = !nimarkoMediaYtAsk;
-        getEditor().putBoolean("nimarkoMediaYtAsk", nimarkoMediaYtAsk).apply();
-    }
-    public static String getVoipRelayTokenForUid(long uid) {
-        String key = "voipRelayAuthToken_" + uid;
-        String token = getPreferences().getString(key, "");
-        long selectedUid = org.telegram.messenger.UserConfig.getInstance(
-                org.telegram.messenger.UserConfig.selectedAccount).getClientUserId();
-        if (token.isEmpty() && uid == selectedUid && getPreferences().contains("voipRelayAuthToken")) {
-            token = getPreferences().getString("voipRelayAuthToken", "");
-            getEditor().putString(key, token).remove("voipRelayAuthToken").apply();
-        }
-        return token;
-    }
-    public static void setVoipRelayTokenForUid(long uid, String token) {
-        getEditor().putString("voipRelayAuthToken_" + uid, token == null ? "" : token).apply();
-    }
-
-    public static boolean wsAutoSubscribed = getPreferences().getBoolean("wsAutoSubscribed", false);
-    public static void setWsAutoSubscribed(boolean v) {
-        wsAutoSubscribed = v;
-        getEditor().putBoolean("wsAutoSubscribed", v).apply();
-    }
-
-    public static String getWsRelayTokenForUid(long uid) {
-        String key = "wsRelayAuthToken_" + uid;
-        String token = getPreferences().getString(key, "");
-        long selectedUid = org.telegram.messenger.UserConfig.getInstance(
-                org.telegram.messenger.UserConfig.selectedAccount).getClientUserId();
-        if (token.isEmpty() && uid == selectedUid && getPreferences().contains("wsRelayAuthToken")) {
-            token = getPreferences().getString("wsRelayAuthToken", "");
-            getEditor().putString(key, token).remove("wsRelayAuthToken").apply();
-        }
-        return token;
-    }
-    public static void setWsRelayTokenForUid(long uid, String t) {
-        getEditor().putString("wsRelayAuthToken_" + uid, t == null ? "" : t).apply();
-    }
-
-    public static String wsInstallId = getPreferences().getString("wsInstallId", "");
-    public static synchronized String ensureWsInstallId() {
-        if (wsInstallId == null || wsInstallId.isEmpty()) {
-            wsInstallId = java.util.UUID.randomUUID().toString().replace("-", "");
-            getEditor().putString("wsInstallId", wsInstallId).apply();
-        }
-        return wsInstallId;
     }
 
     public static boolean localPremiumEmojis = getPreferences().getBoolean("localPremiumEmojis", true);
@@ -1385,42 +1274,6 @@ public final class NimarkoConfig {
     public static void toggleSleepTimer() { sleepTimer = !sleepTimer; getEditor().putBoolean("sleepTimer", sleepTimer).apply(); }
     public static void setSleepTimer(boolean v) { sleepTimer = v; getEditor().putBoolean("sleepTimer", v).apply(); }
 
-
-    public static boolean nimarkoTextAnim = getPreferences().getBoolean("nimarkoTextAnim", true);
-    public static void toggleNimarkoTextAnim() {
-        nimarkoTextAnim = !nimarkoTextAnim;
-        getEditor().putBoolean("nimarkoTextAnim", nimarkoTextAnim).apply();
-        app.nimarkogram.messenger.textanim.NimarkoTextAnim.applySettings();
-    }
-
-    public static boolean nimarkoTextAnimAppear = getPreferences().getBoolean("nimarkoTextAnimAppear", true);
-    public static void toggleNimarkoTextAnimAppear() {
-        nimarkoTextAnimAppear = !nimarkoTextAnimAppear;
-        getEditor().putBoolean("nimarkoTextAnimAppear", nimarkoTextAnimAppear).apply();
-        app.nimarkogram.messenger.textanim.NimarkoTextAnim.applySettings();
-    }
-
-    public static boolean nimarkoTextAnimCursor = getPreferences().getBoolean("nimarkoTextAnimCursor", true);
-    public static void toggleNimarkoTextAnimCursor() {
-        nimarkoTextAnimCursor = !nimarkoTextAnimCursor;
-        getEditor().putBoolean("nimarkoTextAnimCursor", nimarkoTextAnimCursor).apply();
-        app.nimarkogram.messenger.textanim.NimarkoTextAnim.applySettings();
-    }
-
-    public static boolean nimarkoTextAnimDelete = getPreferences().getBoolean("nimarkoTextAnimDelete", true);
-    public static void toggleNimarkoTextAnimDelete() {
-        nimarkoTextAnimDelete = !nimarkoTextAnimDelete;
-        getEditor().putBoolean("nimarkoTextAnimDelete", nimarkoTextAnimDelete).apply();
-        app.nimarkogram.messenger.textanim.NimarkoTextAnim.applySettings();
-    }
-
-    public static boolean nimarkoTextAnimSpoiler = getPreferences().getBoolean("nimarkoTextAnimSpoiler", false);
-    public static void toggleNimarkoTextAnimSpoiler() {
-        nimarkoTextAnimSpoiler = !nimarkoTextAnimSpoiler;
-        getEditor().putBoolean("nimarkoTextAnimSpoiler", nimarkoTextAnimSpoiler).apply();
-        app.nimarkogram.messenger.textanim.NimarkoTextAnim.applySettings();
-    }
-
     public static boolean showRPCErrors = getPreferences().getBoolean("showRPCErrors", false);
     public static void toggleShowRPCErrors() { showRPCErrors = !showRPCErrors; getEditor().putBoolean("showRPCErrors", showRPCErrors).apply(); }
 
@@ -1550,93 +1403,6 @@ public final class NimarkoConfig {
             videoMessagesHintCount--;
             getEditor().putInt("videoMessagesHintCount", videoMessagesHintCount).apply();
         }
-    }
-
-    private static volatile List<String> pinnedPlugins = loadPinnedPlugins();
-
-    private static List<String> loadPinnedPlugins() {
-        String raw = getPreferences().getString("pinnedPlugins", null);
-        if (raw == null || raw.isEmpty()) {
-            return Collections.emptyList();
-        }
-        try {
-            List<String> list = GSON.fromJson(raw, new TypeToken<List<String>>() {}.getType());
-            return immutablePinnedPlugins(list);
-        } catch (Throwable ignored) {
-            return Collections.emptyList();
-        }
-    }
-
-    private static List<String> immutablePinnedPlugins(List<String> source) {
-        if (source == null || source.isEmpty()) {
-            return Collections.emptyList();
-        }
-        ArrayList<String> ordered = new ArrayList<>(source.size());
-        HashSet<String> seen = new HashSet<>();
-        for (String pluginId : source) {
-            if (pluginId != null && !pluginId.isEmpty() && seen.add(pluginId)) {
-                ordered.add(pluginId);
-            }
-        }
-        return ordered.isEmpty()
-                ? Collections.emptyList()
-                : Collections.unmodifiableList(ordered);
-    }
-
-    public static List<String> getPinnedPluginsSnapshot() {
-        return pinnedPlugins;
-    }
-
-    public static boolean isPluginPinned(String pluginId) {
-        return pluginId != null && !pluginId.isEmpty() && pinnedPlugins.contains(pluginId);
-    }
-
-    public static synchronized void setPluginPinned(String pluginId, boolean pinned) {
-        if (pluginId == null || pluginId.isEmpty()) {
-            return;
-        }
-        List<String> current = pinnedPlugins;
-        boolean alreadyPinned = current.contains(pluginId);
-        if (alreadyPinned == pinned) {
-            return;
-        }
-        ArrayList<String> updated = new ArrayList<>(current);
-        if (pinned) {
-            updated.add(pluginId);
-        } else {
-            updated.remove(pluginId);
-        }
-        List<String> snapshot = immutablePinnedPlugins(updated);
-        pinnedPlugins = snapshot;
-        savePinnedPluginsSnapshot(snapshot);
-    }
-
-    public static synchronized void savePinnedPlugins() {
-        savePinnedPluginsSnapshot(pinnedPlugins);
-    }
-
-    public static synchronized boolean removePluginPinnedDurably(
-            String pluginId) {
-        if (pluginId == null || pluginId.isEmpty()
-                || !pinnedPlugins.contains(pluginId)) {
-            return true;
-        }
-        List<String> previous = pinnedPlugins;
-        ArrayList<String> updated = new ArrayList<>(previous);
-        updated.remove(pluginId);
-        List<String> snapshot = immutablePinnedPlugins(updated);
-        pinnedPlugins = snapshot;
-        boolean saved = getEditor()
-                .putString("pinnedPlugins", GSON.toJson(snapshot))
-                .commit();
-        if (!saved) {
-            pinnedPlugins = previous;
-        }
-        return saved;
-    }
-
-    private static void savePinnedPluginsSnapshot(List<String> snapshot) {
-        getEditor().putString("pinnedPlugins", GSON.toJson(snapshot)).apply();
     }
 
     public static volatile boolean enableMsgFilters = getPreferences().getBoolean("enableMsgFilters", false);

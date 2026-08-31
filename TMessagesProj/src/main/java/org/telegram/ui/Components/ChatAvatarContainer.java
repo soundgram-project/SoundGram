@@ -277,10 +277,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
 
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable emojiStatusDrawable;
     private final AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable botVerificationDrawable;
-    // NimarkoGram: extera-style badge slot — populated from BadgesController
-    // when the currently-shown user has a registered badge.
-    private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable badgeEmojiDrawable;
-    private app.nimarkogram.messenger.api.dto.BadgeDTO currentNimarkoBadge;
+
 
     protected boolean useAnimatedSubtitle() {
         return false;
@@ -1539,6 +1536,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     private boolean rightDrawableIsScam = false;
     private String rightDrawableContentDescription = null;
     private String rightDrawable2ContentDescription = null;
+    private Drawable soundGramDrawable;
 
     public void setTitleIcons(Drawable leftIcon, Drawable mutedIcon) {
         titleTextView.setLeftDrawable(leftIcon);
@@ -1550,10 +1548,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         // via the chat-list cell mute icon and notification settings.
         checkActionBar(true);
     }
-
-    // NG: tracks whether slot 2 currently holds our badge (so setTitleIcons
-    // doesn't overwrite it with the mute bell). Updated in setTitle below.
-    private boolean rightDrawable2IsBadge = false;
 
     public AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable getBotVerificationDrawable(long icon, boolean animated) {
         if (icon == 0) {
@@ -1570,37 +1564,16 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     }
 
     public void setTitle(CharSequence value, boolean scam, boolean fake, boolean verified, boolean premium, TLRPC.EmojiStatus emojiStatus, boolean animated) {
-        // NimarkoGram slot layout (CG-derived, badge guaranteed visible):
-        //   slot 1 (rightDrawable)
-        //     emoji_status              (highest)
-        //     premium + badge           → badge replaces default star
-        //     premium                   → default premium-star
-        //     non-premium + badge       → badge
-        //     else                      → null
-        //   slot 2 (rightDrawable2)
-        //     scam / fake               (highest)
-        //     emoji_status + badge      → badge (kicks verified, since badge
-        //                                 cannot ride in slot 1 there)
-        //     verified                  → verified-check
-        //     else                      → null
-        //   muted bell stays in slot 2 via setTitleIcons() (CG L908-918);
-        //   it is fed only when rightDrawableIsScamOrVerified == false, so the
-        //   slot-2 badge path keeps that flag false to preserve mute-icon flow.
         if (value != null) {
             value = Emoji.replaceEmoji(value, titleTextView.getPaint().getFontMetricsInt(), false);
         }
         titleTextView.setText(value);
 
-        // NG: disablePremiumStatuses kills emoji-status display entirely (CG-parity).
         if (app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses) {
             emojiStatus = null;
             premium = false;
         }
 
-        // NG: in Saved Messages (self chat) don't show our own emoji status /
-        // premium star — the user doesn't want to see their own premium emoji
-        // in their own Saved Messages header. The NG badge is still allowed
-        // through below (plugins inject badges at the self id).
         boolean isSelfChat = parentFragment != null
                 && parentFragment.getCurrentUser() != null
                 && UserObject.isUserSelf(parentFragment.getCurrentUser());
@@ -1609,66 +1582,14 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             premium = false;
         }
 
-        // Lookup NimarkoGram badge for the dialog owner.
-        app.nimarkogram.messenger.api.dto.BadgeDTO badge = null;
-        try {
-            org.telegram.tgnet.TLObject target = null;
-            if (parentFragment != null) {
-                if (parentFragment.getCurrentUser() != null) target = parentFragment.getCurrentUser();
-                else if (parentFragment.getCurrentChat() != null) target = parentFragment.getCurrentChat();
-            }
-            if (target == null) {
-                target = headerIdentityTarget;
-            }
-            // NG: show the badge in Saved Messages too — plugins
-            // (NimarkoAchievements streaks, etc.) inject badges at the user's
-            // own id and need to be visible on the Saved Messages header.
-            if (target != null) {
-                badge = app.nimarkogram.messenger.badges.BadgesController.getInstance().i(target);
-                if (badge != null && badge.getDocumentId() == 0L) badge = null;
-            }
-        } catch (Throwable ignored) {}
-
-        if (badge != null) {
-            if (badgeEmojiDrawable == null) {
-                badgeEmojiDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(titleTextView, dp(24));
-                if (isAttachedToWindow()) badgeEmojiDrawable.attach();
-            }
-            boolean animateBadge = animated && lastNimarkoBadgeDocId != 0L && lastNimarkoBadgeDocId != badge.getDocumentId();
-            badgeEmojiDrawable.set(badge.getDocumentId(), animateBadge);
-            badgeEmojiDrawable.setParticles(true, false);
-            badgeEmojiDrawable.setColor(getThemedColor(Theme.key_profile_verifiedBackground));
-            lastNimarkoBadgeDocId = badge.getDocumentId();
-            // NG: the bulletin click is wired AFTER slot placement (below) so it
-            // lands on whichever slot the badge actually occupies — tapping the
-            // BADGE shows the bulletin, not the emoji status next to it.
-        } else {
-            lastNimarkoBadgeDocId = 0L;
-            if (badgeEmojiDrawable != null) {
-                badgeEmojiDrawable.set((Drawable) null, false);
-                badgeEmojiDrawable.setParticles(false, false);
-            }
-        }
-        CharSequence badgeAccessibilityDescription = badge == null || TextUtils.isEmpty(badge.getText())
-                ? LocaleController.getString(R.string.NM_ProfileBadge)
-                : LocaleController.getString(R.string.NM_ProfileBadge) + ": " + badge.getText();
-
         boolean emojiStatusPresent = DialogObject.getEmojiStatusDocumentId(emojiStatus) != 0;
 
-        // NG slot-2 priority (CG L944-965 + NG badge fallback):
-        //   scam/fake  > verified  > badge (when slot 1 is occupied by emoji_status)
-        // Slot 2 hosts the badge ONLY when emoji_status is present AND the badge
-        // cannot ride along in slot 1 (slot 1 is the custom status). In that case
-        // the badge wins over verified (badge is more interesting) but never over
-        // scam/fake.
         rightDrawableContentDescription = null;
         rightDrawable2ContentDescription = null;
         titleTextView.setRightDrawableTopPadding(0);
-        boolean badgeInSlot2 = badge != null && emojiStatusPresent;
         rightDrawableIsScam = false;
         if (scam || fake) {
             rightDrawableIsScam = true;
-            rightDrawable2IsBadge = false;
             if (!(titleTextView.getRightDrawable2() instanceof ScamDrawable)) {
                 ScamDrawable sd = new ScamDrawable(11, scam ? 0 : 1);
                 sd.setColor(getThemedColor(Theme.key_actionBarDefaultSubtitle));
@@ -1676,12 +1597,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
                 rightDrawable2ContentDescription = LocaleController.getString(R.string.ScamMessage);
                 rightDrawableIsScamOrVerified = true;
             }
-        } else if (badgeInSlot2) {
-            // NG: emoji_status + badge → badge takes slot 2 (overrides verified).
-            titleTextView.setRightDrawable2(badgeEmojiDrawable);
-            rightDrawableIsScamOrVerified = false;
-            rightDrawable2IsBadge = true;
-            rightDrawable2ContentDescription = badgeAccessibilityDescription.toString();
         } else if (verified) {
             verifiedBackground = getResources().getDrawable(R.drawable.verified_area).mutate();
             verifiedBackground.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_profile_verifiedBackground), PorterDuff.Mode.MULTIPLY));
@@ -1690,17 +1605,12 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             Drawable verifiedDrawable = new CombinedDrawable(verifiedBackground, verifiedCheck);
             titleTextView.setRightDrawable2(verifiedDrawable);
             rightDrawableIsScamOrVerified = true;
-            rightDrawable2IsBadge = false;
             rightDrawable2ContentDescription = LocaleController.getString(R.string.AccDescrVerified);
         } else {
-            // No slot-2 content — clear whatever was there (scam drawable, stale badge).
             titleTextView.setRightDrawable2(null);
             rightDrawableIsScamOrVerified = false;
-            rightDrawable2IsBadge = false;
         }
 
-        // NG slot-1 priority:
-        //   emoji_status > (premium + badge → badge replaces star) > premium-star > badge (non-premium) > null
         Drawable primaryTitleDrawable = null;
         if ((premium || emojiStatusPresent) && !app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses) {
             if (titleTextView.getRightDrawable() instanceof AnimatedEmojiDrawable.WrapSizeDrawable
@@ -1710,18 +1620,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             if (emojiStatusPresent) {
                 emojiStatusDrawable.set(DialogObject.getEmojiStatusDocumentId(emojiStatus), animated);
                 primaryTitleDrawable = emojiStatusDrawable;
-            } else if (premium && badge != null) {
-                // NG: premium without custom emoji_status + has badge → show badge
-                // instead of the boring default premium-star.
-                emojiStatusDrawable.set(badgeEmojiDrawable, animated);
-                primaryTitleDrawable = emojiStatusDrawable;
             } else if (premium) {
-                // Telegram uses the compact list star in every chat header.
-                // It is a real 14dp drawable. Do not put it into the 24dp
-                // animated-emoji slot: that leaves a transparent 10dp tail on
-                // the right, shifts the centred title group by 5dp, and creates
-                // an oversized gap before slot 2. Custom emoji and Nimarko
-                // badges still use the full 24dp swap drawable above.
                 emojiStatusDefaultDrawable = ContextCompat.getDrawable(
                         ApplicationLoader.applicationContext,
                         R.drawable.msg_premium_liststar
@@ -1735,123 +1634,50 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             emojiStatusDrawable.setColor(getThemedColor(Theme.key_profile_verifiedBackground));
             titleTextView.setRightDrawable(primaryTitleDrawable);
             rightDrawableIsScamOrVerified = false;
-            rightDrawableContentDescription = badge != null && !emojiStatusPresent
-                    ? badgeAccessibilityDescription.toString()
-                    : LocaleController.getString(R.string.AccDescrPremium);
-        } else if (badge != null) {
-            // Non-premium user with a NG badge — show badge in slot 1.
-            titleTextView.setRightDrawable(badgeEmojiDrawable);
-            rightDrawableContentDescription = badgeAccessibilityDescription.toString();
+            rightDrawableContentDescription = LocaleController.getString(R.string.AccDescrPremium);
         } else {
             titleTextView.setRightDrawable(null);
             rightDrawableContentDescription = null;
         }
 
-        // NG: wire the badge-bulletin click onto the slot the badge ended up in.
-        //   - badge in slot 2 (premium user w/ emoji_status) → tap slot 2.
-        //   - badge in slot 1 (non-premium / premium-no-status / self) → tap slot 1.
-        // Clear the other slot's listener so tapping the emoji status does
-        // nothing (user wants the bulletin only on the badge itself).
-        boolean badgeInSlot1 = badge != null && !emojiStatusPresent;
-        final app.nimarkogram.messenger.api.dto.BadgeDTO renderedBadge =
-                badgeInSlot1 || rightDrawable2IsBadge ? badge : null;
-        currentNimarkoBadge = renderedBadge;
-        if (renderedBadge != null) {
-            final app.nimarkogram.messenger.api.dto.BadgeDTO finalBadge = renderedBadge;
-            if (rightDrawable2IsBadge) {
-                titleTextView.setRightDrawable2OnClick(v -> showNimarkoBadgeBulletin(finalBadge));
-                titleTextView.setRightDrawableOnClick(null);
+        titleTextView.setRightDrawableOnClick(null);
+        titleTextView.setRightDrawable2OnClick(null);
+
+        TLRPC.User user = parentFragment != null ? parentFragment.getCurrentUser() : null;
+        boolean isSoundGram = user != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(user.id) && !org.telegram.messenger.UserObject.isUserSelf(user);
+        if (isSoundGram) {
+            if (soundGramDrawable == null) {
+                soundGramDrawable = getResources().getDrawable(R.drawable.ic_soundgram_badge).mutate();
+                soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, dp(20), dp(20)) {
+                    @Override
+                    public void draw(@NonNull android.graphics.Canvas canvas) {
+                        canvas.save();
+                        canvas.translate(0, dp(1));
+                        super.draw(canvas);
+                        canvas.restore();
+                    }
+                };
+            }
+            View.OnClickListener badgeClickListener = v -> {
+                if (parentFragment != null && parentFragment.getParentActivity() != null) {
+                    soundgram.ui.SoundGramBadgeBottomSheet bottomSheet = new soundgram.ui.SoundGramBadgeBottomSheet(parentFragment.getParentActivity(), resourcesProvider);
+                    bottomSheet.show();
+                }
+            };
+            boolean hasPremiumStatus = (premium || emojiStatusPresent) && !app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses;
+            if (hasPremiumStatus) {
+                titleTextView.setRightDrawable2(soundGramDrawable);
+                titleTextView.setRightDrawable2OnClick(badgeClickListener);
             } else {
-                titleTextView.setRightDrawableOnClick(v -> showNimarkoBadgeBulletin(finalBadge));
+                titleTextView.setRightDrawable(soundGramDrawable);
+                titleTextView.setRightDrawableOnClick(badgeClickListener);
+                titleTextView.setRightDrawable2(null);
                 titleTextView.setRightDrawable2OnClick(null);
             }
-        } else {
-            titleTextView.setRightDrawableOnClick(null);
-            titleTextView.setRightDrawable2OnClick(null);
         }
-        // NimarkoGram: SimpleTextView.setRightDrawable{,2} only rebuilds the
-        // StaticLayout via recreateLayoutMaybe() — it does NOT requestLayout
-        // upward. Without a full re-measure, the parent container's onMeasure
-        // never re-runs, so the avatarContainer width / menu-overlap math
-        // (above, in onMeasure) stays stale until something else triggers a
-        // layout pass. Force the parent re-measure so the right-drawable
-        // intrinsic widths actually participate in the menu-overlap budget.
+
         requestLayout();
-        // Topics refreshes the same title together with asynchronously loaded
-        // chat info and passes animated=false.  Forcing the width animator here
-        // snapped an in-flight subtitle expansion to its end.  Once the inline
-        // header is on screen, always retarget it smoothly.
         checkActionBar(animated);
-    }
-
-    // NG: refresh handler for badge cache updates. Now that badge lives in
-    // slot 1 (CG-parity layout) rather than slot 2, we cannot just write
-    // the drawable directly — we have to redo the slot-1 priority decision
-    // (emoji_status > premium-star > badge > null). The simplest correct
-    // implementation is to re-invoke setTitle with the current state.
-    private void applyNimarkoBadge(boolean animated) {
-        try {
-            if (parentFragment == null) return;
-            TLRPC.User user = parentFragment.getCurrentUser();
-            TLRPC.Chat chat = parentFragment.getCurrentChat();
-            boolean premium = user != null && user.premium;
-            TLRPC.EmojiStatus emojiStatus = null;
-            if (user != null) emojiStatus = user.emoji_status;
-            else if (chat != null) emojiStatus = chat.emoji_status;
-            boolean verified = (user != null && user.verified) || (chat != null && chat.verified);
-            boolean scam = (user != null && user.scam) || (chat != null && chat.scam);
-            boolean fake = (user != null && user.fake) || (chat != null && chat.fake);
-            setTitle(titleTextView.getText(), scam, fake, verified, premium, emojiStatus, animated);
-        } catch (Throwable ignored) {}
-    }
-
-    private long lastNimarkoBadgeDocId = 0L;
-
-    // NimarkoGram: tap-to-info bulletin for the badge — matches extera's
-    // BulletinFactory.createEmojiBulletin behaviour.
-    private void showNimarkoBadgeBulletin(app.nimarkogram.messenger.api.dto.BadgeDTO badge) {
-        try {
-            if (badge == null || parentFragment == null) return;
-            CharSequence rawText = badge.getText();
-            // Keep touch and accessibility actions functional for text-less badges
-            // without restoring the old upstream brand fallback.
-            final CharSequence text = TextUtils.isEmpty(rawText)
-                    ? LocaleController.getString(R.string.NM_ProfileBadge) : rawText;
-            final long docId = badge.getDocumentId();
-            org.telegram.tgnet.TLRPC.Document cached =
-                    org.telegram.ui.Components.AnimatedEmojiDrawable.findDocument(currentAccount, docId);
-            if (cached != null) {
-                showBulletinForDoc(cached, text);
-                return;
-            }
-            // Plugin's custom emoji not in cache yet → async fetch then show.
-            // Same pattern Telegram uses in SetupEmojiStatusSheet for custom emoji.
-            org.telegram.ui.Components.AnimatedEmojiDrawable
-                    .getDocumentFetcher(currentAccount)
-                    .fetchDocument(docId, d -> {
-                        if (d == null) return;
-                        AndroidUtilities.runOnUIThread(() -> showBulletinForDoc(d, text));
-                    });
-        } catch (Throwable ignored) {}
-    }
-
-    private void showBulletinForDoc(org.telegram.tgnet.TLRPC.Document doc, CharSequence text) {
-        try {
-            if (doc == null || parentFragment == null) return;
-            org.telegram.ui.Components.Bulletin b = org.telegram.ui.Components.BulletinFactory
-                    .of(parentFragment)
-                    .createEmojiBulletin(doc, text);
-            try {
-                if (b.getLayout() instanceof org.telegram.ui.Components.Bulletin.LottieLayout) {
-                    org.telegram.ui.Components.RLottieImageView iv =
-                            ((org.telegram.ui.Components.Bulletin.LottieLayout) b.getLayout()).imageView;
-                    if (iv.getImageReceiver() != null) {
-                        iv.getImageReceiver().setRoundRadius(AndroidUtilities.dp(8));
-                    }
-                }
-            } catch (Throwable ignored) {}
-            b.show();
-        } catch (Throwable ignored) {}
     }
 
     private Drawable emojiStatusDefaultDrawable;
@@ -2500,11 +2326,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.updateInterfaces);
             NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.dialogsNeedReload);
-            // NimarkoGram: retrigger badge apply when chat/user info finally
-            // loads — otherwise the first setTitle() fires with empty
-            // parentFragment data and badge probe returns null.
-            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.chatInfoDidLoad);
-            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.userInfoDidLoad);
             if (parentFragment.getChatMode() == ChatActivity.MODE_SAVED) {
                 NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.savedMessagesDialogsUpdate);
             }
@@ -2517,16 +2338,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         if (botVerificationDrawable != null) {
             botVerificationDrawable.attach();
         }
-        if (badgeEmojiDrawable != null) {
-            badgeEmojiDrawable.attach();
-        }
-        // NG: profile-open then back → ChatAvatarContainer detaches/reattaches.
-        // setTitle wasn't re-fired by ChatActivity on resume, so the badge slot
-        // ended up empty. Re-evaluate the badge state every time the view
-        // re-attaches; cheap (no allocation when badge unchanged).
-        if (parentFragment != null) {
-            applyNimarkoBadge(false);
-        }
+
     }
 
     @Override
@@ -2550,8 +2362,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
             NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.updateInterfaces);
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.dialogsNeedReload);
-            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.chatInfoDidLoad);
-            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.userInfoDidLoad);
             if (parentFragment.getChatMode() == ChatActivity.MODE_SAVED) {
                 NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.savedMessagesDialogsUpdate);
             }
@@ -2562,9 +2372,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         if (botVerificationDrawable != null) {
             botVerificationDrawable.detach();
         }
-        if (badgeEmojiDrawable != null) {
-            badgeEmojiDrawable.detach();
-        }
+
     }
 
     @Override
@@ -2585,14 +2393,6 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             invalidate();
         } else if (id == NotificationCenter.savedMessagesDialogsUpdate) {
             updateSubtitle(true);
-        } else if (id == NotificationCenter.updateInterfaces || id == NotificationCenter.dialogsNeedReload
-                || id == NotificationCenter.chatInfoDidLoad || id == NotificationCenter.userInfoDidLoad) {
-            // NimarkoGram: badge cache may have just been populated by
-            // BadgesController.refreshSync() OR the chat/user info finally
-            // loaded — re-evaluate the slot so the badge appears without a
-            // manual scroll/rebind. animated=false because we already
-            // dedupe on lastNimarkoBadgeDocId.
-            applyNimarkoBadge(false);
         }
     }
 
@@ -2682,18 +2482,10 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
                     AccessibilityNodeInfo.ACTION_CLICK,
                     getString(R.string.OpenProfile)));
         }
-        if (currentNimarkoBadge != null) {
-            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(
-                    R.id.acc_action_badge_info, getString(R.string.NM_ProfileBadge)));
-        }
     }
 
     @Override
     public boolean performAccessibilityAction(int action, Bundle arguments) {
-        if (action == R.id.acc_action_badge_info && currentNimarkoBadge != null) {
-            showNimarkoBadgeBulletin(currentNimarkoBadge);
-            return true;
-        }
         return super.performAccessibilityAction(action, arguments);
     }
 

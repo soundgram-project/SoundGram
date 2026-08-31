@@ -8,6 +8,8 @@
 
 package org.telegram.ui.Cells;
 
+import app.nimarkogram.messenger.chats.filters.MessagesFilterHelper;
+
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.AndroidUtilities.dpf2;
 import static org.telegram.messenger.AndroidUtilities.find;
@@ -263,12 +265,9 @@ import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.BitwiseUtils;
 
-import app.nimarkogram.messenger.chats.filters.MessagesFilterHelper;
-import app.nimarkogram.messenger.plugins.xposed.PluginHookBypassTarget;
-
 public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate, ImageReceiver.ImageReceiverDelegate,
         DownloadController.FileDownloadProgressListener, TextSelectionHelper.SelectableView,
-        NotificationCenter.NotificationCenterDelegate, FactorAnimator.Target, IMessageCell, PluginHookBypassTarget {
+        NotificationCenter.NotificationCenterDelegate, FactorAnimator.Target, IMessageCell {
     private final static int TIME_APPEAR_MS = 200;
     private final static int UPLOADING_ALLOWABLE_ERROR = 1024 * 1024;
     private final static int STICKER_STATUS_OFFSET = 6;
@@ -288,7 +287,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     public ChannelRecommendationsCell channelRecommendationsCell;
     private final PostRunnableHolder postRunnableHolder = new PostRunnableHolder();
 
-    @Override
     public boolean shouldBypassPluginHooks() {
         return false;
     }
@@ -1332,6 +1330,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private Drawable nameStatusSelector;
     private boolean nameStatusPressed;
 
+    private boolean isSoundGramUser;
+    private android.graphics.Rect soundGramBadgeRect = new android.graphics.Rect();
+    private boolean soundGramBadgePressed;
+    private static android.animation.ValueAnimator soundGramGlowAnimator;
+    private static float soundGramGlowAlpha = 1f;
+
     private RoundVideoPlayingDrawable roundVideoPlayingDrawable;
 
     private StaticLayout docTitleLayout;
@@ -2359,13 +2363,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
         } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
             if (event.getAction() == MotionEvent.ACTION_UP && nameStatusPressed) {
-                // NimarkoGram: intercept tap when the status slot is showing
-                // a nimarko/extera badge — render a bulletin with the badge
-                // text instead of the standard premium/emoji-status sheet.
-                if (currentNimarkoAuthorBadge != null) {
-                    showNimarkoAuthorBadgeBulletin(currentNimarkoAuthorBadge);
-                    invalidateOutbounds();
-                } else if (delegate != null) {
+                if (delegate != null) {
                     if (currentUser != null) {
                         TLRPC.Document document = null;
                         if (currentNameStatusDrawable.getDrawable() instanceof AnimatedEmojiDrawable) {
@@ -2382,35 +2380,24 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         return nameStatusPressed;
     }
 
-    // NimarkoGram: show a BulletinFactory emoji-bulletin for the badge.
-    // Mirrors the same flow used in ChatAvatarContainer / ProfileActivity.
-    private void showNimarkoAuthorBadgeBulletin(app.nimarkogram.messenger.api.dto.BadgeDTO badge) {
-        try {
-            if (badge == null) return;
-            CharSequence text = badge.getText();
-            if (TextUtils.isEmpty(text)) text = getString(R.string.NM_ProfileBadge);
-            org.telegram.tgnet.TLRPC.Document doc =
-                    AnimatedEmojiDrawable.findDocument(currentAccount, badge.getDocumentId());
-            org.telegram.ui.ActionBar.BaseFragment frag =
-                    org.telegram.ui.LaunchActivity.getLastFragment();
-            if (frag != null) {
-                org.telegram.ui.Components.Bulletin b = org.telegram.ui.Components.BulletinFactory
-                        .of(frag)
-                        .createEmojiBulletin(doc, text);
-                try {
-                    if (b.getLayout() instanceof org.telegram.ui.Components.Bulletin.LottieLayout) {
-                        android.widget.ImageView iv = ((org.telegram.ui.Components.Bulletin.LottieLayout) b.getLayout()).imageView;
-                        iv.setOutlineProvider(new android.view.ViewOutlineProvider() {
-                            @Override public void getOutline(android.view.View view, android.graphics.Outline outline) {
-                                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), AndroidUtilities.dp(10));
-                            }
-                        });
-                        iv.setClipToOutline(true);
-                    }
-                } catch (Throwable ignored) {}
-                b.show();
+    private boolean checkSoundGramBadgeMotionEvent(MotionEvent event) {
+        if (!drawNameLayout || nameLayout == null || !isSoundGramUser || soundGramBadgeRect.isEmpty()) {
+            soundGramBadgePressed = false;
+            return false;
+        }
+        final boolean pressed = soundGramBadgeRect.contains((int) getEventX(event), (int) getEventY(event));
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            soundGramBadgePressed = pressed;
+        } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+            if (event.getAction() == MotionEvent.ACTION_UP && soundGramBadgePressed && pressed) {
+                if (delegate == null || delegate.canPerformActions()) {
+                    soundgram.ui.SoundGramBadgeBottomSheet bottomSheet = new soundgram.ui.SoundGramBadgeBottomSheet(getContext(), resourcesProvider);
+                    bottomSheet.show();
+                }
             }
-        } catch (Throwable ignored) {}
+            soundGramBadgePressed = false;
+        }
+        return soundGramBadgePressed;
     }
 
     private final Runnable scheduleUpdateRelativeDatesRunnable = this::scheduleUpdateRelativeDates;
@@ -5130,6 +5117,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             result = checkNameStatusMotionEvent(event);
         }
         if (!result) {
+            result = checkSoundGramBadgeMotionEvent(event);
+        }
+        if (!result) {
             result = checkPinchToZoom(event);
         }
         if (!result) {
@@ -6875,6 +6865,20 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didUpdatePremiumGiftStickers);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.userInfoDidLoad);
+
+        if (soundGramGlowAnimator == null) {
+            soundGramGlowAnimator = android.animation.ValueAnimator.ofFloat(0.4f, 1f);
+            soundGramGlowAnimator.setDuration(1500);
+            soundGramGlowAnimator.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+            soundGramGlowAnimator.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+            soundGramGlowAnimator.addUpdateListener(animation -> {
+                soundGramGlowAlpha = (float) animation.getAnimatedValue();
+                if (isSoundGramUser) {
+                    invalidate();
+                }
+            });
+            soundGramGlowAnimator.start();
+        }
 
         if (currentMessageObject != null) {
             currentMessageObject.animateComments = false;
@@ -19626,6 +19630,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
 
             currentNameStatus = null;
+            isSoundGramUser = false;
             nameStatusSlug = null;
             currentNameBotVerificationId = 0;
             if (messageObject.customName != null) {
@@ -19634,6 +19639,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 currentNameString = getAuthorName();
                 currentNameStatus = getAuthorStatus();
                 currentNameBotVerificationId = getAuthorBotVerificationId();
+                isSoundGramUser = currentUser != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(currentUser.id) && !isSavedChat;
             } else {
                 currentNameString = "";
             }
@@ -19696,6 +19702,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         viaNameWidth += dp(4 + 20 + 4);
                         stringBuilder.setSpan(new DialogCell.FixedWidthSpan(dp(4 + 20 + 4)), nameStringFinal.length(), nameStringFinal.length() + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     }
+                    if (isSoundGramUser) {
+                        viaNameWidth += dp(4 + 20 + 4);
+                        stringBuilder.setSpan(new DialogCell.FixedWidthSpan(dp(4 + 20 + 4)), nameStringFinal.length(), nameStringFinal.length() + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
                     stringBuilder.setSpan(viaSpan2 = new TypefaceSpan(AndroidUtilities.bold(), 0, color), nameStringFinal.length() + 2 + viaBotString.length(), stringBuilder.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     nameStringFinal = stringBuilder;
                 } else {
@@ -19728,6 +19738,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
                 if (currentNameStatus != null && !viaBot) {
                     nameWidth += dp(4 + 12 + 4);
+                }
+                if (isSoundGramUser) {
+                    nameWidth += dp(4 + 20 + 4);
                 }
                 if (currentNameBotVerificationId != 0) {
                     nameWidth += dp(4 + 12 + 4);
@@ -19768,8 +19781,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 } else if (currentNameStatus instanceof Drawable) {
                     currentNameStatusDrawable.set((Drawable) currentNameStatus, false);
                 }
-                // NimarkoGram: particles on when this is a nimarko/extera badge.
-                currentNameStatusDrawable.setParticles(currentNimarkoAuthorBadge != null, false);
+
             }
             if (currentNameEmojiStatusDrawable == null && currentNameBotVerificationId != 0) {
                 currentNameEmojiStatusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, true, dp(18));
@@ -20572,13 +20584,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         return "DELETED";
     }
 
-    // NimarkoGram: cache the BadgeDTO that fed currentNameStatus this bind so
-    // the touch handler can show a bulletin + the draw path can enable
-    // particles on swap drawable.
-    private app.nimarkogram.messenger.api.dto.BadgeDTO currentNimarkoAuthorBadge;
-
     private Object getAuthorStatus() {
-        currentNimarkoAuthorBadge = null;
         if (app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses) return null;
         if (currentUser != null) {
             Long emojiStatusId = UserObject.getEmojiStatusDocumentId(currentUser);
@@ -20588,18 +20594,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
                 return emojiStatusId;
             }
-            // NimarkoGram: extera-style author badge — appears in place of
-            // premium star when no emoji status is set. Returning the
-            // badge's document id lets the existing emoji-status draw path
-            // pick it up as if it were a regular emoji status.
-            try {
-                app.nimarkogram.messenger.api.dto.BadgeDTO badge =
-                        app.nimarkogram.messenger.badges.BadgesController.getInstance().i((org.telegram.tgnet.TLObject) currentUser);
-                if (badge != null && badge.getDocumentId() != 0L) {
-                    currentNimarkoAuthorBadge = badge;
-                    return Long.valueOf(badge.getDocumentId());
-                }
-            } catch (Throwable ignored) {}
             if (currentUser.premium) {
                 return ContextCompat.getDrawable(ApplicationLoader.applicationContext, R.drawable.msg_premium_liststar).mutate();
             }
@@ -21871,6 +21865,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             return false;
         }
         return (
+            isSoundGramUser ||
             reactionsLayoutInBubble.hasOverlay() ||
             (!transitionParams.transitionBotButtons.isEmpty() && transitionParams.animateBotButtonsChanged) ||
             !botButtons.isEmpty() ||
@@ -22067,7 +22062,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             Choreographer60FpsContent.getInstance().removeFrameCallback(invalidateOutboundsRunnable);
         }
 
-        if ((currentNameStatusDrawable != null || currentNameEmojiStatusDrawable != null || topicButton != null && (drawTopic || transitionParams.animateDrawTopic)) && drawNameLayout && nameLayout != null && (currentPosition == null || currentPosition.minX == 0 && currentPosition.minY == 0) && !(currentMessageObject.deleted && !drawingToBitmap && currentMessagesGroup != null && currentMessagesGroup.messages.size() >= 1)) {
+        if ((currentNameStatusDrawable != null || currentNameEmojiStatusDrawable != null || isSoundGramUser || topicButton != null && (drawTopic || transitionParams.animateDrawTopic)) && drawNameLayout && nameLayout != null && (currentPosition == null || currentPosition.minX == 0 && currentPosition.minY == 0) && !(currentMessageObject.deleted && !drawingToBitmap && currentMessagesGroup != null && currentMessagesGroup.messages.size() >= 1)) {
             int color;
             float nameX, nameY;
             if (currentMessageObject.shouldDrawWithoutBackground()) {
@@ -22176,6 +22171,61 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 );
                 currentNameStatusDrawable.setColor(ColorUtils.setAlphaComponent(color, 115));
                 currentNameStatusDrawable.draw(canvas);
+            }
+            if (isSoundGramUser) {
+                int offset = (currentNameStatusDrawable != null && !currentNameStatusDrawable.isEmpty()) ? dp(24) : 0;
+                Drawable soundGramBadge = androidx.core.content.ContextCompat.getDrawable(getContext(), org.telegram.messenger.R.drawable.ic_soundgram_badge).mutate();
+                soundGramBadge = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramBadge, AndroidUtilities.dp(24), AndroidUtilities.dp(24)) {
+                    private android.graphics.Paint glowPaint;
+                    private org.telegram.ui.Components.Premium.StarParticlesView.Drawable particlesDrawable;
+                    @Override
+                    public void draw(@androidx.annotation.NonNull Canvas canvas) {
+                        if (glowPaint == null) {
+                            glowPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                            int glowColor = androidx.core.graphics.ColorUtils.setAlphaComponent(color, (int) (90 * soundGramGlowAlpha));
+                            glowPaint.setShader(new android.graphics.RadialGradient(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), new int[]{glowColor, 0}, null, android.graphics.Shader.TileMode.CLAMP));
+                            
+                            particlesDrawable = new org.telegram.ui.Components.Premium.StarParticlesView.Drawable(15);
+                            particlesDrawable.type = 100;
+                            particlesDrawable.roundEffect = true;
+                            particlesDrawable.useRotate = false;
+                            particlesDrawable.useScale = true;
+                            particlesDrawable.checkBounds = true;
+                            particlesDrawable.size1 = 1;
+                            particlesDrawable.k1 = particlesDrawable.k2 = particlesDrawable.k3 = 0.98f;
+                            particlesDrawable.colorKey = Theme.key_chats_verifiedBackground;
+                            particlesDrawable.resourcesProvider = resourcesProvider;
+                            particlesDrawable.init();
+                        } else {
+                            int glowColor = androidx.core.graphics.ColorUtils.setAlphaComponent(color, (int) (90 * soundGramGlowAlpha));
+                            glowPaint.setShader(new android.graphics.RadialGradient(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), new int[]{glowColor, 0}, null, android.graphics.Shader.TileMode.CLAMP));
+                        }
+                        canvas.save();
+                        canvas.translate(getBounds().left, getBounds().top);
+                        canvas.drawCircle(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), glowPaint);
+                        
+                        android.graphics.Rect pBounds = new android.graphics.Rect(0, 0, AndroidUtilities.dp(24), AndroidUtilities.dp(24));
+                        particlesDrawable.rect.set(pBounds);
+                        particlesDrawable.rect2.set(pBounds);
+                        particlesDrawable.onDraw(canvas);
+                        canvas.restore();
+                        
+                        super.draw(canvas);
+                        ChatMessageCell.this.invalidate();
+                    }
+                };
+                int badgeLeft = (int) (Math.abs(nx) + (viaNameWidth > 0 ? viaNameWidth - dp(4 + 28) : nameLayoutWidth) + dp(2)) + offset;
+                int badgeTop = (int) (ny + nameLayout.getHeight() / 2 - dp(12));
+                soundGramBadgeRect.set(badgeLeft, badgeTop, badgeLeft + dp(24), badgeTop + dp(24));
+                soundGramBadge.setBounds(
+                    badgeLeft,
+                    badgeTop,
+                    badgeLeft + dp(24),
+                    badgeTop + dp(24)
+                );
+                soundGramBadge.draw(canvas);
+            } else {
+                soundGramBadgeRect.setEmpty();
             }
 
             float end;
@@ -27449,11 +27499,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     @Override
     public boolean performAccessibilityAction(int action, Bundle arguments) {
-        if (action == R.id.acc_action_badge_info && currentNimarkoAuthorBadge != null) {
-            showNimarkoAuthorBadgeBulletin(currentNimarkoAuthorBadge);
-            sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED);
-            return true;
-        }
+
         if (action == AccessibilityNodeInfo.ACTION_CLICK && isFilteredMessageCollapsed()) {
             revealFilteredMessage();
             return true;
@@ -27555,13 +27601,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     @Override
     public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
-        if (currentNimarkoAuthorBadge != null) {
-            CharSequence badgeText = currentNimarkoAuthorBadge.getText();
-            CharSequence label = TextUtils.isEmpty(badgeText)
-                    ? getString(R.string.NM_ProfileBadge)
-                    : getString(R.string.NM_ProfileBadge) + ": " + badgeText;
-            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.acc_action_badge_info, label));
-        }
+
     }
 
     @Override

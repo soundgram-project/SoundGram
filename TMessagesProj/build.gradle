@@ -5,7 +5,6 @@ apply plugin: 'com.android.library'
 // kotlin-kapt removed: Room *_Impl.java files were pre-generated during decompile,
 // so we don't need RoomProcessor at compile time.
 apply plugin: 'kotlin-android'
-apply plugin: 'com.chaquo.python'
 apply plugin: 'org.telegram.lottie-meta'
 apply plugin: 'idea'
 
@@ -24,7 +23,6 @@ idea {
 repositories {
     mavenCentral()
     google()
-    maven { url 'https://chaquo.com/maven' }
 }
 
 configurations {
@@ -71,6 +69,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-wallet:19.1.0'
     implementation 'com.googlecode.mp4parser:isoparser:1.0.6'
     implementation 'com.stripe:stripe-android:2.0.2'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'com.google.mlkit:language-id:17.0.6'
     implementation 'com.android.billingclient:billing:7.1.1'
     implementation 'com.google.code.gson:gson:2.11.0'
@@ -109,35 +108,11 @@ dependencies {
 
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
 
-    // ---- NimarkoGram (ported extera) ----
+    // ---- NimarkoGram ----
     // Kotlin stdlib pinned to 1.9.0 (matches buildscript classpath).
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0'
-    // Pine xposed-style hooks (used by extera plugins.xposed). We keep the 0.3.0 AAR for its Java classes,
-    // Pine hook engine, rebuilt from canyie/pine @0.3.0 sources (see /root/pine-build) instead of the maven AAR
-    // for TWO reasons: (1) 16KB-page alignment — the stock 0.3.0 .so is 4KB-aligned and fails to load on
-    // 16KB-page Android 15/16 devices, crashing the plugin engine; our jni/<abi>/libpine.so is built with
-    // -Wl,-z,max-page-size=16384. (2) A Java-side guard in Pine.handleCall that turns Pine 0.3.0's arm64
-    // receiver/arg mis-read (Method.invoke "Expected receiver of type X, but got byte[]" during a draw hook)
-    // from a hard UI-thread crash into a skipped call with a default result. The patched classes ship in
-    // libs/pine-core-16kb.jar; the matching 16KB .so is in jni/ (packagingOptions.pickFirst below). Same public
-    // ABI, so the ColorOS trampoline guards in PineAdapter/XposedBridge are unaffected.
-    implementation files('libs/pine-core-16kb.jar')
-    // LSPosed HiddenApiBypass — Pine.disableHiddenApiPolicy does NOT cover
-    // Chaquopy's JNI-based constructor enumeration on Android 13+: the
-    // protected @hide Intent(Parcel) ctor still gets resolved by the
-    // reflection cache and triggers NoSuchMethodError during overload-pick.
-    // setHiddenApiExemptions("L") permits all @hide APIs regardless of the
-    // calling domain, restoring constructor enumeration for plugins.
-    // 6.1 is the current stable implementation. Unlike the old 4.3 build it
-    // includes the latest ART/Unsafe compatibility fixes used on Android 15/16.
-    implementation 'org.lsposed.hiddenapibypass:hiddenapibypass:6.1'
-    // NimarkoGram: pine:enhances:0.1.0 not on mavenCentral — dropped (extera plugins.xposed will reflect on core only).
-    // MVEL expression engine (extera plugins engine).
-    implementation 'org.mvel:mvel2:2.5.2.Final'
     // Coil for NowPlaying album-art async loading.
     implementation 'io.coil-kt:coil:2.5.0'
-    // Gson — extera api uses it heavily. Note: TG already pulls gson 2.11.0;
-    // explicit pin keeps extera api/dto contract stable at 2.10.1 semantics.
     implementation 'com.google.code.gson:gson:2.10.1'
     // Jackson — NimarkoJsonBottomSheet's "Switch to Jackson" toggle uses ObjectMapper
     // for pretty-printing the TLRPC.Message when NimarkoConfig.jacksonJSON_Provider
@@ -184,10 +159,7 @@ android {
 
     sourceSets.main.jniLibs.srcDirs = ['./jni/']
 
-    // Our 16KB-aligned jni/<abi>/libpine.so wins over the 4KB one bundled in the Pine 0.3.0 AAR.
-    packagingOptions {
-        pickFirst 'lib/**/libpine.so'
-    }
+
 
     externalNativeBuild {
         cmake {
@@ -245,6 +217,17 @@ android {
         vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
 
         multiDexEnabled true
+
+        def apiId = getProps("TELEGRAM_API_ID")
+        if (apiId == null || apiId.isEmpty() || apiId == "0") apiId = "2496"
+        def apiHash = getProps("TELEGRAM_API_HASH")
+        if (apiHash == null || apiHash.isEmpty()) apiHash = "8da85b0d5b16e057ab588561332ed5d0"
+
+        buildConfigField "int", "TELEGRAM_API_ID", apiId
+        buildConfigField "String", "TELEGRAM_API_HASH", "\"" + apiHash + "\""
+        buildConfigField "String", "GOOGLE_SAFETYNET_KEY", "\"" + getProps("GOOGLE_SAFETYNET_KEY") + "\""
+        buildConfigField "String", "GOOGLE_AUTH_CLIENT_ID", "\"" + getProps("GOOGLE_AUTH_CLIENT_ID") + "\""
+        buildConfigField "String", "HUAWEI_APP_ID", "\"" + getProps("HUAWEI_APP_ID") + "\""
 
         externalNativeBuild {
             cmake {
@@ -355,72 +338,24 @@ android {
     namespace 'org.telegram.messenger'
 }
 
-// Chaquopy reads settings at apply-time, so this block may sit before or
-// after the android closure.
-chaquopy {
-    defaultConfig {
-        // Python 3.11 is the newest runtime in this project which supports
-        // both release ABIs (arm64-v8a and armeabi-v7a). Python 3.13 would
-        // silently make a combined ARM64 + ARMv7 release impossible.
-        version = "3.11"
-        def nimarkoBuildPython = System.getenv("NIMARKO_BUILD_PYTHON")
-        if (!nimarkoBuildPython) {
-            nimarkoBuildPython = [
-                    "/usr/bin/python3.11",
-                    "/usr/local/bin/python3.11",
-                    "/opt/nimarko-python-3.11.14/bin/python3.11"
-            ].find { file(it).canExecute() }
-        }
-        buildPython(nimarkoBuildPython ?: "python3.11")
-        pip {
-            // Higher build-number ARM64 wheels compiled with
-            // -Wl,-z,max-page-size=16384. For ARMv7, pip ignores these
-            // incompatible wheels and keeps using Chaquopy's official ones.
-            options "--find-links", "${project.projectDir}/python-wheels/arm64-v8a"
-            install "requests==2.31.0"
-            install "certifi"
-            install "urllib3"
-            install "mpmath"
-            install "tinydb"
-            // Bundled so plugins can import them without declaring (exteraGram
-            // ships these in its runtime, and plugins like UiTweaks do
-            // `from packaging.version import Version` / `import humanize`
-            // without listing them in __requirements__).
-            install "packaging"
-            install "humanize"
-            install "typing_extensions"
-            // Pillow (import name PIL) — exteraGram bundles it; some plugins do
-            // `from PIL import ...`. Chaquopy ships prebuilt native wheels for it.
-            install "Pillow"
-            // Native packages with Chaquopy prebuilt Android wheels. These cannot
-            // be installed by the on-device resolver (Chaquopy can't load .so at
-            // runtime), so they MUST be bundled here to be importable.
-            install "lxml"
-            install "numpy==1.26.2"
-            install "cryptography==42.0.8"
-            install "pycryptodome"
-            install "regex==2023.10.3"
-            install "PyYAML"
-            // Pure-python helpers bundled for convenience so plugins can import
-            // them without declaring (and without a network round-trip on install).
-            install "beautifulsoup4"
-            install "soupsieve"
-            install "markupsafe"
-            install "mutagen"
-        }
-    }
-}
+
 
 
 def getProps(String propName) {
+    if (project.hasProperty(propName)) return project.property(propName) as String
     def propsFile = rootProject.file('local.properties')
     if (propsFile.exists()) {
         def props = new Properties()
         props.load(new FileInputStream(propsFile))
-        return props[propName]
-    } else {
-        return "";
+        if (props.containsKey(propName)) return props[propName] as String
     }
+    def privateFile = rootProject.file('private.properties')
+    if (privateFile.exists()) {
+        def props = new Properties()
+        props.load(new FileInputStream(privateFile))
+        if (props.containsKey(propName)) return props[propName] as String
+    }
+    return ""
 }
 // NimarkoGram: google-services plugin intentionally NOT applied on the
 // library module. Its namespace is `org.telegram.messenger` (changing that

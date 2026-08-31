@@ -319,22 +319,6 @@ public final class NimarkoMessageMenuInjector {
         icons.add(R.drawable.msg_emoji_smiles);
     }
 
-    public static void injectNimarkoMediaDownload(
-        MessageObject selectedObject,
-        ArrayList<CharSequence> items,
-        ArrayList<Integer> options,
-        ArrayList<Integer> icons
-    ) {
-        if (selectedObject == null) return;
-        CharSequence text = selectedObject.messageText;
-        if (text == null || text.length() == 0) return;
-        if (!app.nimarkogram.messenger.media.NimarkoMediaDownloader.messageHasSupportedUrl(text)) return;
-
-        items.add(LocaleController.getString(R.string.NM_DownloadMedia));
-        options.add(app.nimarkogram.messenger.utils.chats.NimarkoChatActivityHelper.OPTION_NIMARKO_MEDIA_DOWNLOAD);
-        icons.add(R.drawable.msg_download);
-    }
-
     public static void removeItems(
         MessageObject selectedObject,
         MessageObject.GroupedMessages selectedObjectGroup,

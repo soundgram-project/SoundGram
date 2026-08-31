@@ -97,6 +97,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private static final int INDEX_CHATS = 1;
     private static final int INDEX_SETTINGS = 2;
     private static final int INDEX_CALLS = 3;
+    private static final int INDEX_MUSIC = 4;
 
     private static int posProfile() {
         return app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE
@@ -115,6 +116,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         return p >= 0 ? p : FALLBACK_SETTINGS;
     }
 
+    private static int posMusic() {
+        return app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE
+                .getPosition(app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.MUSIC);
+    }
+
     private static app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType tabTypeAt(int position) {
         java.util.List<app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab> enabled =
                 app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE.getEnabledTabs();
@@ -128,6 +134,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             case INDEX_CHATS:    return posChats();
             case INDEX_SETTINGS:
             case INDEX_CALLS:    return posSettings();
+            case INDEX_MUSIC:    return posMusic();
             default:             return Math.min(index, 2);
         }
     }
@@ -364,11 +371,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsView.setPadding(dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4));
         tabsView.setMaxWidth(dp(328 + DialogsActivity.MAIN_TABS_MARGIN * 2));
 
-        tabs = new GlassTabView[4];
+        tabs = new GlassTabView[5];
         tabs[INDEX_PROFILE] = GlassTabView.createAvatar(context, resourceProvider, currentAccount, R.string.MainTabsProfile);
         tabs[INDEX_CHATS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CHATS, R.string.MainTabsChats);
         tabs[INDEX_SETTINGS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.SETTINGS, R.string.Settings);
         tabs[INDEX_CALLS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CALLS, R.string.MainTabsCalls);
+        tabs[INDEX_MUSIC] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.MUSIC, R.string.Music);
         tabs[INDEX_CHATS].setOnLongClickListener(this::openFoldersSelector);
         tabs[INDEX_CALLS].setOnLongClickListener(this::openCallsSelector);
         tabs[INDEX_PROFILE].setOnLongClickListener(this::openAccountSelector);
@@ -854,12 +862,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 dialogsActivity.scrollToFolder(pendingFolderId);
                 pendingFolderId = null;
             }
-            if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-                try {
-                    app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance()
-                            .onTabVisibilityChanged(currentPosition == posProfile() ? 1f : 0f);
-                } catch (Throwable ignored) {}
-            }
         }
 
     }
@@ -877,15 +879,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                         : viewPager.getCurrentPosition();
                 selectTab(target, true);
             }
-        }
-
-        if (app.nimarkogram.messenger.banners.NimarkoBannerConfig.enabled) {
-            try {
-                float pos = viewPager.getPositionAnimated();
-                int profilePosition = posProfile();
-                float vis = profilePosition < 0 ? 0f : Math.max(0f, 1f - Math.abs(profilePosition - pos));
-                app.nimarkogram.messenger.banners.NimarkoBannerRenderer.getInstance().onTabVisibilityChanged(vis);
-            } catch (Throwable ignored) {}
         }
 
         checkUi_fadeView();
@@ -950,6 +943,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 args.putLong("user_id", UserConfig.getInstance(currentAccount).getClientUserId());
                 args.putBoolean("my_profile", true);
                 return new ProfileActivity(args);
+            case MUSIC:
+                return new soundgram.music.ChannelMusicFragment();
             case SETTINGS:
                 if (getUserConfig().showCallsTab) {
                     args.putBoolean("needFinishFragment", false);
@@ -979,6 +974,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                     currentType = app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.CHATS;
                 } else if (f instanceof ProfileActivity) {
                     currentType = app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.PROFILE;
+                } else if (f instanceof soundgram.music.ChannelMusicFragment) {
+                    currentType = app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.MUSIC;
                 } else if (f instanceof SettingsActivity || f instanceof CallLogActivity) {
                     currentType = app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.SETTINGS;
                 }
@@ -1358,6 +1355,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 mgr.hasTab(app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.PROFILE), animated);
         tabsView.setViewVisible(tabs[INDEX_CHATS],
                 mgr.hasTab(app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.CHATS), animated);
+        tabsView.setViewVisible(tabs[INDEX_MUSIC],
+                mgr.hasTab(app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.MUSIC), animated);
         checkUi_callTabVisible(getUserConfig().showCallsTab, animated);
         for (app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab t : mgr.getAllTabs()) {
             GlassTabView view = tabForType(t.getType());
@@ -1372,6 +1371,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             case PROFILE: return tabs[INDEX_PROFILE];
             case CHATS: return tabs[INDEX_CHATS];
             case SETTINGS: return tabs[INDEX_SETTINGS];
+            case MUSIC: return tabs[INDEX_MUSIC];
             default: return null;
         }
     }

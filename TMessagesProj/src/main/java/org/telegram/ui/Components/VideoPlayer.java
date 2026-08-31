@@ -31,7 +31,6 @@ import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -48,6 +47,7 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SeekParameters;
 import com.google.android.exoplayer2.Tracks;
 import com.google.android.exoplayer2.analytics.AnalyticsListener;
+import com.google.android.exoplayer2.text.CueGroup;
 import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.audio.AudioCapabilities;
 import com.google.android.exoplayer2.audio.AudioProcessor;
@@ -70,7 +70,6 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride;
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters;
-import com.google.android.exoplayer2.text.CueGroup;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DataSpec;
 import com.google.android.exoplayer2.upstream.DefaultAllocator;
@@ -104,12 +103,23 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
+
+
 
 @SuppressLint("NewApi")
 public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsListener, NotificationCenter.NotificationCenterDelegate {
@@ -176,11 +186,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     private boolean audioPlayerReady;
     private boolean mixedPlayWhenReady;
 
-    private volatile VideoPlayerDelegate delegate;
-    private volatile AudioVisualizerDelegate audioVisualizerDelegate;
+    private VideoPlayerDelegate delegate;
+    private AudioVisualizerDelegate audioVisualizerDelegate;
     private int lastReportedPlaybackState;
     private boolean lastReportedPlayWhenReady;
-    private volatile boolean released;
 
     private ArrayList<Quality> videoQualities;
     private Quality videoQualityToSelect;
@@ -204,6 +213,64 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public VideoPlayer() {
         this(true, false);
     }
+
+    // ==========================================
+    // VPN FIX: SSL-tolerant DataSource factory
+    // ==========================================
+    private static SSLSocketFactory vpnSslSocketFactory;
+    private static X509TrustManager vpnTrustManager;
+
+    private static void ensureVpnSsl() {
+        if (vpnSslSocketFactory != null) return;
+        try {
+            vpnTrustManager = new X509TrustManager() {
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, new TrustManager[]{vpnTrustManager}, new SecureRandom());
+            vpnSslSocketFactory = sc.getSocketFactory();
+        } catch (Exception e) {
+            FileLog.e("VideoPlayer VPN SSL init: " + e);
+        }
+    }
+    private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent) {
+        ensureVpnSsl();
+        // ИСПРАВЛЕНИЕ: СТРОГО ЕДИНЫЙ USER-AGENT как в MusicWebSearcher для обхода защиты Cloudflare/Hitmos
+        String unifiedUserAgent = "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0";
+
+        com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory httpFactory = new com.google.android.exoplayer2.upstream.DefaultHttpDataSource.Factory()
+                .setUserAgent(unifiedUserAgent)
+                .setConnectTimeoutMs(25000)
+                .setReadTimeoutMs(25000)
+                // setAllowCrossProtocolRedirects позволяет следовать редиректам http↔https И между разными хостами
+                // Критично при VPN: rus.hitmos.fm → eu.hitmoz.com или rus.hitmoz.org
+                .setAllowCrossProtocolRedirects(true);
+
+        java.util.Map<String, String> headers = new java.util.HashMap<>();
+        // Referer должен совпадать с ожиданием зеркальных серверов
+        // rus.hitmos.fm — основной домен
+        headers.put("Referer", "https://rus.hitmos.fm/");
+        headers.put("Origin", "https://rus.hitmos.fm");
+        headers.put("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+        headers.put("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8");
+        headers.put("Connection", "keep-alive");
+        headers.put("Accept-Encoding", "identity"); // Критично для VPN, чтобы стрим не рвался
+        headers.put("Icy-MetaData", "1");
+        httpFactory.setDefaultRequestProperties(headers);
+
+        // Обходим TLS-проблемы при перехвате трафика VPN'ом (для зеркал с нестандартными сертификатами)
+        if (vpnSslSocketFactory != null) {
+            try {
+                javax.net.ssl.HttpsURLConnection.setDefaultSSLSocketFactory(vpnSslSocketFactory);
+                javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+            } catch (Exception ignore) {}
+        }
+        return new com.google.android.exoplayer2.upstream.DefaultDataSource.Factory(
+                ApplicationLoader.applicationContext, httpFactory);
+    }
+
 
     static int playerCounter = 0;
     public VideoPlayer(boolean pauseOther, boolean audioDisabled) {
@@ -235,6 +302,25 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     public void setLooper(Looper looper) {
         this.looper = looper;
     }
+    public void preparePlayerWithMediaItem(com.google.android.exoplayer2.MediaItem mediaItem, String type) {
+        try {
+            if (player != null) {
+                player.setMediaItem(mediaItem);
+                player.prepare();
+                player.setPlayWhenReady(true);
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+    private EGLContext eglParentContext;
+    public void setEGLContext(EGLContext ctx) {
+        eglParentContext = ctx;
+    }
+
+    private int getPlayerExtensionRendererMode() {
+        return DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER;
+    }
 
     private void ensurePlayerCreated() {
         DefaultLoadControl loadControl;
@@ -262,27 +348,56 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                     DefaultLoadControl.DEFAULT_RETAIN_BACK_BUFFER_FROM_KEYFRAME);
         }
         if (player == null) {
-            DefaultRenderersFactory factory;
-            if (audioVisualizerDelegate != null) {
-                factory = new AudioVisualizerRenderersFactory(ApplicationLoader.applicationContext);
-            } else {
-                factory = new DefaultRenderersFactory(ApplicationLoader.applicationContext);
-            }
-            factory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
-            // NG: when the primary (hardware) decoder can't init a format — e.g. H.264 4K@60 High L5.2,
-            // which many mobile AVC decoders top out below (they support 4K only via HEVC) — ExoPlayer
-            // would otherwise fail with a decoder-init error and the video just wouldn't play. Enabling
-            // fallback lets it drop to the next decoder in the list (the platform software AVC decoder),
-            // so such clips still play instead of showing a black/dead frame.
-            factory.setEnableDecoderFallback(true);
+            DefaultRenderersFactory factory = new DefaultRenderersFactory(ApplicationLoader.applicationContext) {
+                @androidx.annotation.Nullable
+                @Override
+                protected com.google.android.exoplayer2.audio.AudioSink buildAudioSink(Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams, boolean enableOffload) {
+                    com.google.android.exoplayer2.audio.DefaultAudioSink.Builder b = new com.google.android.exoplayer2.audio.DefaultAudioSink.Builder()
+                            .setAudioCapabilities(com.google.android.exoplayer2.audio.AudioCapabilities.getCapabilities(context))
+                            .setEnableFloatOutput(enableFloatOutput)
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                            .setOffloadMode(com.google.android.exoplayer2.audio.DefaultAudioSink.OFFLOAD_MODE_DISABLED);
+                    if (audioVisualizerDelegate != null) {
+                        b.setAudioProcessors(new com.google.android.exoplayer2.audio.AudioProcessor[] {
+                                new com.google.android.exoplayer2.audio.TeeAudioProcessor(new VisualizerBufferSink())
+                        });
+                    }
+                    return b.build();
+                }
+            };
+            factory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF);
             ExoPlayer.Builder builder = new ExoPlayer.Builder(ApplicationLoader.applicationContext).setRenderersFactory(factory)
                     .setTrackSelector(trackSelector)
                     .setLoadControl(loadControl);
             if (looper != null) {
                 builder.setLooper(looper);
             }
+
             player = builder.build();
 
+            // --- SOUNDGRAM FX: EQ/REVERB только для музыки ---
+            // Скорость и тон из SoundGramAudioFX НЕ применяются здесь:
+            // VideoPlayer используется для ГС и кружков, где скорость управляется
+            // отдельно через setPlaybackSpeed(currentPlaybackSpeed) из MediaController.
+            try {
+                int sessionId = player.getAudioSessionId();
+                soundgram.music.SoundGramAudioFX.initFX(sessionId);
+
+                // Реверберация — тоже только для музыки (isMusicPlaying проверяется внутри)
+                if (soundgram.music.SoundGramAudioFX.getReverbId() != 0
+                        && soundgram.music.SoundGramAudioFX.isMusicPlaying()) {
+                    com.google.android.exoplayer2.audio.AuxEffectInfo effectInfo =
+                            new com.google.android.exoplayer2.audio.AuxEffectInfo(
+                                    soundgram.music.SoundGramAudioFX.getReverbId(), 1.0f);
+                    player.setAuxEffectInfo(effectInfo);
+                }
+                // Скорость и тон эквалайзера НЕ применяем при инициализации плеера:
+                // для музыки — MediaController вызовет applyFXForCurrentMessage() после старта,
+                // для ГС/кружков — MC выставит currentPlaybackSpeed через setPlaybackSpeed().
+            } catch (Exception e) {
+                FileLog.e("SoundGram FX Init Error: " + e.getMessage());
+            }
+            // -------------------------------------------------
             player.addAnalyticsListener(this);
             player.addListener(this);
             player.addVideoListener(this);
@@ -315,6 +430,20 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
         }
     }
+    public int getAudioSessionId() {
+        return player != null ? player.getAudioSessionId() : 0;
+    }
+
+    @Override
+    public void onAudioSessionIdChanged(com.google.android.exoplayer2.analytics.AnalyticsListener.EventTime eventTime, int audioSessionId) {
+        if (audioSessionId > 0) {
+            org.telegram.messenger.AndroidUtilities.runOnUIThread(() -> {
+                soundgram.music.SoundGramAudioFX.initFX(audioSessionId);
+                soundgram.music.SoundGramAudioFX.applyFXForCurrentMessage();
+            });
+        }
+    }
+
 
     public void preparePlayerLoop(Uri videoUri, String videoType, Uri audioUri, String audioType) {
         this.videoQualities = null;
@@ -363,32 +492,26 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     private MediaSource mediaSourceFromUri(Uri uri, long videoByteOffset, String type) {
         final MediaItem mediaItem = new MediaItem.Builder().setUri(uri).build();
+        // VPN FIX: для HTTP/HTTPS стриминга используем SSL-tolerant фабрику
+        boolean isHttp = uri != null && (uri.getScheme() != null) &&
+                (uri.getScheme().startsWith("http"));
+        DataSource.Factory factory = isHttp
+                ? createVpnAwareDataSourceFactory("Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/47.0 (Chrome)")
+                : mediaDataSourceFactory;
         if (videoByteOffset != 0) {
             return new ProgressiveMediaSource.Factory(
-                () -> new OffsetDataSource(mediaDataSourceFactory.createDataSource(), videoByteOffset)
+                () -> new OffsetDataSource(factory.createDataSource(), videoByteOffset)
             ).createMediaSource(mediaItem);
         }
         switch (type) {
             case "dash":
-                if (dashMediaSourceFactory == null) {
-                    dashMediaSourceFactory = new DashMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return dashMediaSourceFactory.createMediaSource(mediaItem);
+                return new DashMediaSource.Factory(factory).createMediaSource(mediaItem);
             case "hls":
-                if (hlsMediaSourceFactory == null) {
-                    hlsMediaSourceFactory = new HlsMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return hlsMediaSourceFactory.createMediaSource(mediaItem);
+                return new HlsMediaSource.Factory(factory).createMediaSource(mediaItem);
             case "ss":
-                if (ssMediaSourceFactory == null) {
-                    ssMediaSourceFactory = new SsMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return ssMediaSourceFactory.createMediaSource(mediaItem);
+                return new SsMediaSource.Factory(factory).createMediaSource(mediaItem);
             default:
-                if (progressiveMediaSourceFactory == null) {
-                    progressiveMediaSourceFactory = new ProgressiveMediaSource.Factory(mediaDataSourceFactory);
-                }
-                return progressiveMediaSourceFactory.createMediaSource(mediaItem);
+                return new ProgressiveMediaSource.Factory(factory).createMediaSource(mediaItem);
         }
     }
 
@@ -1350,48 +1473,25 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
 
     public void releasePlayer(boolean async) {
-        if (released) {
-            return;
-        }
-        released = true;
         activePlayers.remove(playerId);
-        audioUpdateHandler.removeCallbacksAndMessages(null);
-        audioVisualizerDelegate = null;
-        delegate = null;
-        seekFinishedListeners.clear();
         if (player != null) {
-            try {
-                player.release();
-            } catch (Exception e) {
-                FileLog.e(e);
-            }
+            player.release();
             player = null;
         }
         if (audioPlayer != null) {
-            try {
-                audioPlayer.release();
-            } catch (Exception e) {
-                FileLog.e(e);
-            }
+            audioPlayer.release();
             audioPlayer = null;
         }
-        textureView = null;
-        surfaceView = null;
-        surface = null;
         if (shouldPauseOther) {
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.playerDidStartPlaying);
         }
-        playerCounter = Math.max(0, playerCounter - 1);
+        playerCounter--;
     }
 
     @Override
     public void onSeekStarted(EventTime eventTime) {
-        if (released) {
-            return;
-        }
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (currentDelegate != null) {
-            currentDelegate.onSeekStarted(eventTime);
+        if (delegate != null) {
+            delegate.onSeekStarted(eventTime);
         }
     }
 
@@ -1399,12 +1499,8 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     @Override
     public void onSeekProcessed(EventTime eventTime) {
-        if (released) {
-            return;
-        }
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (currentDelegate != null) {
-            currentDelegate.onSeekFinished(eventTime);
+        if (delegate != null) {
+            delegate.onSeekFinished(eventTime);
         }
         for (Runnable r : seekFinishedListeners) {
             r.run();
@@ -1414,14 +1510,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     @Override
     public void onRenderedFirstFrame(EventTime eventTime, Object output, long renderTimeMs) {
-        if (released) {
-            return;
-        }
         fallbackPosition = C.TIME_UNSET;
         fallbackDuration = C.TIME_UNSET;
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (!released && currentDelegate != null) {
-            currentDelegate.onRenderedFirstFrame(eventTime);
+        if (delegate != null) {
+            delegate.onRenderedFirstFrame(eventTime);
         }
     }
 
@@ -1500,17 +1592,27 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             audioPlayer.setPlayWhenReady(false);
         }
 
-        AudioVisualizerDelegate visualizerDelegate = audioVisualizerDelegate;
-        if (visualizerDelegate != null) {
+        if (audioVisualizerDelegate != null) {
             audioUpdateHandler.removeCallbacksAndMessages(null);
-            visualizerDelegate.onVisualizerUpdate(false, true, null);
+            audioVisualizerDelegate.onVisualizerUpdate(false, true, null);
         }
     }
 
     public void setPlaybackSpeed(float speed) {
         try {
             if (player != null) {
-                player.setPlaybackParameters(new PlaybackParameters(speed, speed > 1.0f ? 0.98f : 1.0f));
+                // pitch = 1.0f: этот метод вызывается MediaController для ГС/кружков (currentPlaybackSpeed)
+                // и для музыки как base speed. Pitch из эквалайзера применяется отдельно
+                // через MediaController.applyMusicPlaybackParams() → applyFXForCurrentMessage().
+                player.setPlaybackParameters(new PlaybackParameters(speed, 1.0f));
+            }
+        } catch (Exception ignore) {}
+    }
+
+    public void setPlaybackSpeedAndPitch(float speed, float pitch) {
+        try {
+            if (player != null) {
+                player.setPlaybackParameters(new PlaybackParameters(speed, pitch));
             }
         } catch (Exception ignore) {}
     }
@@ -1709,9 +1811,6 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     @Override
     public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-        if (released) {
-            return;
-        }
         maybeReportPlayerState();
         if (playWhenReady && playbackState == Player.STATE_READY && !isMuted() && shouldPauseOther) {
             NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.playerDidStartPlaying, this);
@@ -1722,18 +1821,14 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         }
         if (playbackState != Player.STATE_READY) {
             audioUpdateHandler.removeCallbacksAndMessages(null);
-            AudioVisualizerDelegate visualizerDelegate = audioVisualizerDelegate;
-            if (visualizerDelegate != null) {
-                visualizerDelegate.onVisualizerUpdate(false, true, null);
+            if (audioVisualizerDelegate != null) {
+                audioVisualizerDelegate.onVisualizerUpdate(false, true, null);
             }
         }
     }
 
     @Override
     public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, @Player.DiscontinuityReason int reason) {
-        if (released) {
-            return;
-        }
         if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
             repeatCount++;
         }
@@ -1742,9 +1837,6 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     @Override
     public void onPlayerError(PlaybackException error) {
         AndroidUtilities.runOnUIThread(() -> {
-            if (released) {
-                return;
-            }
             Throwable cause = error.getCause();
             if (cause instanceof MediaCodecDecoderException) {
                 if (cause.toString().contains("av1") || cause.toString().contains("av01")) {
@@ -1761,51 +1853,45 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                     return;
                 }
             }
-            TextureView currentTextureView = textureView;
-            if (!triedReinit && currentTextureView != null
-                    && player != null
-                    && (cause instanceof MediaCodecRenderer.DecoderInitializationException
-                    || cause instanceof SurfaceNotValidException)) {
+            if (textureView != null && (!triedReinit && cause instanceof MediaCodecRenderer.DecoderInitializationException || cause instanceof SurfaceNotValidException)) {
                 triedReinit = true;
-                ViewParent textureParent = currentTextureView.getParent();
-                if (textureParent instanceof ViewGroup) {
-                    ViewGroup parent = (ViewGroup) textureParent;
-                    int i = parent.indexOfChild(currentTextureView);
-                    parent.removeView(currentTextureView);
-                    parent.addView(currentTextureView, i);
-                }
-                if (workerQueue != null) {
-                    workerQueue.postRunnable(() -> {
-                        if (!released && player != null && textureView == currentTextureView) {
-                            player.clearVideoTextureView(currentTextureView);
-                            player.setVideoTextureView(currentTextureView);
-                            if (videoQualities != null) {
-                                preparePlayer(videoQualities, videoQualityToSelect);
-                            } else if (loopingMediaSource) {
-                                preparePlayerLoop(videoUri, videoType, audioUri, audioType);
-                            } else {
-                                preparePlayer(videoUri, videoType);
-                            }
-                            play();
-                        }
-                    });
-                } else if (!released && player != null && textureView == currentTextureView) {
-                    player.clearVideoTextureView(currentTextureView);
-                    player.setVideoTextureView(currentTextureView);
-                    if (videoQualities != null) {
-                        preparePlayer(videoQualities, videoQualityToSelect);
-                    } else if (loopingMediaSource) {
-                        preparePlayerLoop(videoUri, videoType, audioUri, audioType);
-                    } else {
-                        preparePlayer(videoUri, videoType);
+                if (player != null) {
+                    ViewGroup parent = (ViewGroup) textureView.getParent();
+                    if (parent != null) {
+                        int i = parent.indexOfChild(textureView);
+                        parent.removeView(textureView);
+                        parent.addView(textureView, i);
                     }
-                    play();
+                    if (workerQueue != null) {
+                        workerQueue.postRunnable(() -> {
+                            if (player != null) {
+                                player.clearVideoTextureView(textureView);
+                                player.setVideoTextureView(textureView);
+                                if (videoQualities != null) {
+                                    preparePlayer(videoQualities, videoQualityToSelect);
+                                } else if (loopingMediaSource) {
+                                    preparePlayerLoop(videoUri, videoType, audioUri, audioType);
+                                } else {
+                                    preparePlayer(videoUri, videoType);
+                                }
+                                play();
+                            }
+                        });
+                    } else {
+                        player.clearVideoTextureView(textureView);
+                        player.setVideoTextureView(textureView);
+                        if (videoQualities != null) {
+                            preparePlayer(videoQualities, videoQualityToSelect);
+                        } else if (loopingMediaSource) {
+                            preparePlayerLoop(videoUri, videoType, audioUri, audioType);
+                        } else {
+                            preparePlayer(videoUri, videoType);
+                        }
+                        play();
+                    }
                 }
             } else {
-                VideoPlayerDelegate currentDelegate = delegate;
-                if (!released && currentDelegate != null) {
-                    currentDelegate.onError(this, error);
-                }
+                delegate.onError(this, error);
             }
         });
     }
@@ -1816,33 +1902,23 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
     @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (!released && currentDelegate != null) {
-            currentDelegate.onVideoSizeChanged(videoSize.width, videoSize.height, videoSize.unappliedRotationDegrees, videoSize.pixelWidthHeightRatio);
-        }
+        delegate.onVideoSizeChanged(videoSize.width, videoSize.height, videoSize.unappliedRotationDegrees, videoSize.pixelWidthHeightRatio);
         Player.Listener.super.onVideoSizeChanged(videoSize);
     }
 
     @Override
     public void onRenderedFirstFrame() {
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (!released && currentDelegate != null) {
-            currentDelegate.onRenderedFirstFrame();
-        }
+        delegate.onRenderedFirstFrame();
     }
 
     @Override
     public boolean onSurfaceDestroyed(SurfaceTexture surfaceTexture) {
-        VideoPlayerDelegate currentDelegate = delegate;
-        return !released && currentDelegate != null && currentDelegate.onSurfaceDestroyed(surfaceTexture);
+        return delegate.onSurfaceDestroyed(surfaceTexture);
     }
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (!released && currentDelegate != null) {
-            currentDelegate.onSurfaceTextureUpdated(surfaceTexture);
-        }
+        delegate.onSurfaceTextureUpdated(surfaceTexture);
     }
 
     @Override
@@ -1851,14 +1927,13 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
 
     private void maybeReportPlayerState() {
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (released || player == null || currentDelegate == null) {
+        if (player == null) {
             return;
         }
         boolean playWhenReady = player.getPlayWhenReady();
         int playbackState = player.getPlaybackState();
         if (lastReportedPlayWhenReady != playWhenReady || lastReportedPlaybackState != playbackState) {
-            currentDelegate.onStateChanged(playWhenReady, playbackState);
+            delegate.onStateChanged(playWhenReady, playbackState);
             lastReportedPlayWhenReady = playWhenReady;
             lastReportedPlaybackState = playbackState;
         }
@@ -1914,29 +1989,25 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
         @Override
         public void handleBuffer(ByteBuffer buffer) {
-            AudioVisualizerDelegate visualizerDelegate = audioVisualizerDelegate;
-            if (released || visualizerDelegate == null) {
+            if (audioVisualizerDelegate == null) {
                 return;
             }
             if (buffer == AudioProcessor.EMPTY_BUFFER || !mixedPlayWhenReady) {
                 audioUpdateHandler.postDelayed(() -> {
                     audioUpdateHandler.removeCallbacksAndMessages(null);
-                    AudioVisualizerDelegate currentDelegate = audioVisualizerDelegate;
-                    if (!released && currentDelegate != null) {
-                        currentDelegate.onVisualizerUpdate(false, true, null);
-                    }
+                    audioVisualizerDelegate.onVisualizerUpdate(false, true, null);
                 }, 80);
                 return;
             }
 
-            if (!visualizerDelegate.needUpdate()) {
+            if (!audioVisualizerDelegate.needUpdate()) {
                 return;
             }
 
             int len = buffer.limit();
             if (len > MAX_BUFFER_SIZE) {
                 audioUpdateHandler.removeCallbacksAndMessages(null);
-                visualizerDelegate.onVisualizerUpdate(false, true, null);
+                audioVisualizerDelegate.onVisualizerUpdate(false, true, null);
                 return;
 //                len = MAX_BUFFER_SIZE;
 //                byte[] bytes = new byte[BUFFER_SIZE];
@@ -2001,12 +2072,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 }
                 lastUpdateTime = System.currentTimeMillis();
 
-                audioUpdateHandler.postDelayed(() -> {
-                    AudioVisualizerDelegate currentDelegate = audioVisualizerDelegate;
-                    if (!released && currentDelegate != null) {
-                        currentDelegate.onVisualizerUpdate(true, true, partsAmplitude);
-                    }
-                }, 130);
+                audioUpdateHandler.postDelayed(() -> audioVisualizerDelegate.onVisualizerUpdate(true, true, partsAmplitude), 130);
             }
         }
     }
@@ -2034,7 +2100,13 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             hdrInfo = new StoryEntry.HDRInfo();
         }
         try {
-            MediaFormat mediaFormat = ((MediaCodecRenderer) player.getRenderer(0)).getCodecOutputMediaFormat();
+            MediaFormat mediaFormat = null;
+            try {
+                java.lang.reflect.Field field = MediaCodecRenderer.class.getDeclaredField("codecOutputMediaFormat");
+                field.setAccessible(true);
+                mediaFormat = (MediaFormat) field.get(player.getRenderer(0));
+            } catch (Throwable ignore) {}
+            if (mediaFormat == null) return hdrInfo;
             ByteBuffer byteBuffer = mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
             byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
             if (byteBuffer.get() == 0) {
@@ -2074,69 +2146,6 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         if (onQualityChangeListener != null) {
             AndroidUtilities.runOnUIThread(onQualityChangeListener);
         }
-    }
-
-    @Override
-    public void onCues(CueGroup cueGroup) {
-        VideoPlayerDelegate currentDelegate = delegate;
-        if (!released && currentDelegate != null) {
-            currentDelegate.onCues(cueGroup);
-        }
-    }
-
-    public static final class SubtitleTrack {
-        private final TrackGroup group;
-        private final int trackIndex;
-        public final String label;
-
-        private SubtitleTrack(TrackGroup group, int trackIndex, String label) {
-            this.group = group;
-            this.trackIndex = trackIndex;
-            this.label = label;
-        }
-    }
-
-    public ArrayList<SubtitleTrack> getSubtitleTracks() {
-        ArrayList<SubtitleTrack> result = new ArrayList<>();
-        MappingTrackSelector.MappedTrackInfo info = trackSelector.getCurrentMappedTrackInfo();
-        if (info == null) return result;
-        int fallbackIndex = 1;
-        for (int renderer = 0; renderer < info.getRendererCount(); renderer++) {
-            if (info.getRendererType(renderer) != C.TRACK_TYPE_TEXT) continue;
-            TrackGroupArray groups = info.getTrackGroups(renderer);
-            for (int groupIndex = 0; groupIndex < groups.length; groupIndex++) {
-                TrackGroup group = groups.get(groupIndex);
-                for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
-                    Format format = group.getFormat(trackIndex);
-                    String label = format.label;
-                    if (TextUtils.isEmpty(label)) label = format.language;
-                    if (TextUtils.isEmpty(label)) label = getString(R.string.ChooseSubtitles) + " " + fallbackIndex;
-                    result.add(new SubtitleTrack(group, trackIndex, label));
-                    fallbackIndex++;
-                }
-            }
-        }
-        return result;
-    }
-
-    public void selectSubtitleTrack(SubtitleTrack track) {
-        if (track == null) return;
-        TrackSelectionParameters.Builder parameters = trackSelector.getParameters().buildUpon()
-                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                .addOverride(new TrackSelectionOverride(track.group, track.trackIndex));
-        trackSelector.setParameters(parameters.build());
-    }
-
-    public void disableSubtitles() {
-        trackSelector.setParameters(trackSelector.getParameters().buildUpon()
-                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                .build());
-    }
-
-    public boolean isSubtitlesEnabled() {
-        return !trackSelector.getParameters().disabledTrackTypes.contains(C.TRACK_TYPE_TEXT);
     }
 
     public ChromecastMediaVariations getCurrentChromecastMedia(String defaultId, String title, String subtitle) {
@@ -2221,4 +2230,69 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         }
     }
 
+    @Override
+    public void onCues(CueGroup cueGroup) {
+        VideoPlayerDelegate currentDelegate = delegate;
+        if (player != null && currentDelegate != null) {
+            currentDelegate.onCues(cueGroup);
+        }
+    }
+
+    public static final class SubtitleTrack {
+        private final TrackGroup group;
+        private final int trackIndex;
+        public final String label;
+
+        private SubtitleTrack(TrackGroup group, int trackIndex, String label) {
+            this.group = group;
+            this.trackIndex = trackIndex;
+            this.label = label;
+        }
+    }
+
+    public ArrayList<SubtitleTrack> getSubtitleTracks() {
+        ArrayList<SubtitleTrack> result = new ArrayList<>();
+        if (trackSelector == null) return result;
+        MappingTrackSelector.MappedTrackInfo info = trackSelector.getCurrentMappedTrackInfo();
+        if (info == null) return result;
+        int fallbackIndex = 1;
+        for (int renderer = 0; renderer < info.getRendererCount(); renderer++) {
+            if (info.getRendererType(renderer) != C.TRACK_TYPE_TEXT) continue;
+            TrackGroupArray groups = info.getTrackGroups(renderer);
+            for (int groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                TrackGroup group = groups.get(groupIndex);
+                for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+                    Format format = group.getFormat(trackIndex);
+                    String label = format.label;
+                    if (TextUtils.isEmpty(label)) label = format.language;
+                    if (TextUtils.isEmpty(label)) label = getString(R.string.ChooseSubtitles) + " " + fallbackIndex;
+                    result.add(new SubtitleTrack(group, trackIndex, label));
+                    fallbackIndex++;
+                }
+            }
+        }
+        return result;
+    }
+
+    public void selectSubtitleTrack(SubtitleTrack track) {
+        if (track == null || trackSelector == null) return;
+        TrackSelectionParameters.Builder parameters = trackSelector.getParameters().buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .addOverride(new TrackSelectionOverride(track.group, track.trackIndex));
+        trackSelector.setParameters(parameters.build());
+    }
+
+    public void disableSubtitles() {
+        if (trackSelector == null) return;
+        trackSelector.setParameters(trackSelector.getParameters().buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build());
+    }
+
+    public boolean isSubtitlesEnabled() {
+        if (trackSelector == null) return false;
+        return !trackSelector.getParameters().disabledTrackTypes.contains(C.TRACK_TYPE_TEXT);
+    }
 }

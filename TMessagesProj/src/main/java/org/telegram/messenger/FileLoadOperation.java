@@ -157,7 +157,6 @@ public class FileLoadOperation {
     private int maxDownloadRequestsBig = 4;
     private int bigFileSizeFrom = 10 * 1024 * 1024;
     private int maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE_PREMIUM / cdnChunkCheckSize);
-    private boolean wsBypassDownloadProfile;
     private int transportRecoveryAttempts;
     private int transportRecoverySuccessesRemaining;
     private boolean transportSafeWindowLocked;
@@ -294,16 +293,9 @@ public class FileLoadOperation {
         int boost = app.nimarkogram.messenger.NimarkoConfig.downloadSpeedBoost;
         boolean telegramRequestsLargeChunks = preloadPrefixSize > 0
                 || MessagesController.getInstance(currentAccount).getfileExperimentalParams;
-        try {
-            wsBypassDownloadProfile =
-                    app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController
-                            .getInstance().isRunning();
-        } catch (Throwable ignored) {
-            wsBypassDownloadProfile = false;
-        }
         app.nimarkogram.messenger.DownloadSpeedPolicy.Profile profile =
                 app.nimarkogram.messenger.DownloadSpeedPolicy.resolve(
-                        boost, telegramRequestsLargeChunks, wsBypassDownloadProfile);
+                        boost, telegramRequestsLargeChunks);
         downloadChunkSizeBig = profile.chunkSize;
         maxDownloadRequests = profile.maxRequests;
         maxDownloadRequestsBig = profile.maxRequests;
@@ -2752,8 +2744,7 @@ public class FileLoadOperation {
         currentMaxDownloadRequests = targetMaxRequests;
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("download window updated chunk=" + currentDownloadChunkSize
-                    + " requests=" + currentMaxDownloadRequests
-                    + " bypass=" + wsBypassDownloadProfile);
+                    + " requests=" + currentMaxDownloadRequests);
         }
         if (deferRestart) {
             
