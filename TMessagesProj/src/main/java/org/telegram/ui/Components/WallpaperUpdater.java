@@ -46,6 +46,8 @@ public class WallpaperUpdater {
     private BaseFragment parentFragment;
     private WallpaperUpdaterDelegate delegate;
     private File currentWallpaperPath;
+    public boolean currentWallpaperIsVideo;
+    public String currentWallpaperVideoPath;
 
     public interface WallpaperUpdaterDelegate {
         void didSelectWallpaper(File file, Bitmap bitmap, boolean gallery);
@@ -113,8 +115,9 @@ public class WallpaperUpdater {
             final Activity activity = parentFragment.getParentActivity();
             if (activity != null) {
                 if (Build.VERSION.SDK_INT >= 33) {
-                    if (activity.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
-                        activity.requestPermissions(new String[]{Manifest.permission.READ_MEDIA_IMAGES}, BasePermissionsActivity.REQUEST_CODE_EXTERNAL_STORAGE);
+                    if (activity.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED ||
+                        activity.checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+                        activity.requestPermissions(new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO}, BasePermissionsActivity.REQUEST_CODE_EXTERNAL_STORAGE);
                         return;
                     }
                 } else if (Build.VERSION.SDK_INT >= 23) {
@@ -135,8 +138,9 @@ public class WallpaperUpdater {
                 @Override
                 public void startPhotoSelectActivity() {
                     try {
-                        Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
-                        photoPickerIntent.setType("image/*");
+                        Intent photoPickerIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                        photoPickerIntent.setType("*/*");
+                        photoPickerIntent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
                         parentActivity.startActivityForResult(photoPickerIntent, 11);
                     } catch (Exception e) {
                         FileLog.e(e);
@@ -145,9 +149,14 @@ public class WallpaperUpdater {
             });
             parentFragment.presentFragment(fragment);
         } else {
-            Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
-            photoPickerIntent.setType("image/*");
-            parentActivity.startActivityForResult(photoPickerIntent, 11);
+            try {
+                Intent photoPickerIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                photoPickerIntent.setType("*/*");
+                photoPickerIntent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
+                parentActivity.startActivityForResult(photoPickerIntent, 11);
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
         }
     }
 
@@ -156,12 +165,47 @@ public class WallpaperUpdater {
             if (!photos.isEmpty()) {
                 SendMessagesHelper.SendingMediaInfo info = photos.get(0);
                 if (info.path != null) {
-                    currentWallpaperPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), Utilities.random.nextInt() + ".jpg");
-                    Point screenSize = AndroidUtilities.getRealScreenSize();
-                    Bitmap bitmap = ImageLoader.loadBitmap(info.path, null, screenSize.x, screenSize.y, true);
-                    FileOutputStream stream = new FileOutputStream(currentWallpaperPath);
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
-                    delegate.didSelectWallpaper(currentWallpaperPath, bitmap, true);
+                    boolean isVideo = info.isVideo;
+                    if (!isVideo) {
+                        String lower = info.path.toLowerCase();
+                        if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".webm") || lower.endsWith(".3gp") || lower.endsWith(".avi")) {
+                            isVideo = true;
+                        }
+                    }
+                    if (isVideo) {
+                        currentWallpaperIsVideo = true;
+                        currentWallpaperVideoPath = info.path;
+                        Bitmap bitmap = null;
+                        android.media.MediaMetadataRetriever retriever = new android.media.MediaMetadataRetriever();
+                        try {
+                            retriever.setDataSource(info.path);
+                            bitmap = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        } finally {
+                            try {
+                                retriever.release();
+                            } catch (Exception ignored) {}
+                        }
+                        if (bitmap == null) {
+                            bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+                        }
+                        currentWallpaperPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), Utilities.random.nextInt() + ".jpg");
+                        FileOutputStream stream = new FileOutputStream(currentWallpaperPath);
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
+                        stream.close();
+                        delegate.didSelectWallpaper(currentWallpaperPath, bitmap, true);
+                    } else {
+                        currentWallpaperIsVideo = false;
+                        currentWallpaperVideoPath = null;
+                        currentWallpaperPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), Utilities.random.nextInt() + ".jpg");
+                        Point screenSize = AndroidUtilities.getRealScreenSize();
+                        Bitmap bitmap = ImageLoader.loadBitmap(info.path, null, screenSize.x, screenSize.y, true);
+                        FileOutputStream stream = new FileOutputStream(currentWallpaperPath);
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
+                        stream.close();
+                        delegate.didSelectWallpaper(currentWallpaperPath, bitmap, true);
+                    }
                 }
             }
         } catch (Throwable e) {
@@ -212,12 +256,91 @@ public class WallpaperUpdater {
                     return;
                 }
                 try {
-                    currentWallpaperPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), Utilities.random.nextInt() + ".jpg");
-                    Point screenSize = AndroidUtilities.getRealScreenSize();
-                    Bitmap bitmap = ImageLoader.loadBitmap(null, data.getData(), screenSize.x, screenSize.y, true);
-                    FileOutputStream stream = new FileOutputStream(currentWallpaperPath);
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
-                    delegate.didSelectWallpaper(currentWallpaperPath, bitmap, false);
+                    Uri uri = data.getData();
+                    boolean isVideo = false;
+                    String type = parentActivity.getContentResolver().getType(uri);
+                    if (type == null) {
+                        android.database.Cursor cursor = null;
+                        try {
+                            cursor = parentActivity.getContentResolver().query(uri, new String[]{android.provider.MediaStore.MediaColumns.MIME_TYPE}, null, null, null);
+                            if (cursor != null && cursor.moveToFirst()) {
+                                type = cursor.getString(0);
+                            }
+                        } catch (Exception ignored) {
+                        } finally {
+                            if (cursor != null) {
+                                cursor.close();
+                            }
+                        }
+                    }
+                    if (type != null && type.startsWith("video/")) {
+                        isVideo = true;
+                    } else {
+                        String path = AndroidUtilities.getPath(uri);
+                        if (path != null) {
+                            String lower = path.toLowerCase();
+                            if (lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".webm") || lower.endsWith(".3gp") || lower.endsWith(".avi")) {
+                                isVideo = true;
+                            }
+                        }
+                    }
+                    if (isVideo) {
+                        currentWallpaperIsVideo = true;
+                        File videoFile = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), Utilities.random.nextInt() + ".mp4");
+                        try (java.io.InputStream is = parentActivity.getContentResolver().openInputStream(uri);
+                             FileOutputStream fos = new FileOutputStream(videoFile)) {
+                            byte[] buffer = new byte[8192];
+                            int read;
+                            while ((read = is.read(buffer)) != -1) {
+                                fos.write(buffer, 0, read);
+                            }
+                        }
+                        currentWallpaperVideoPath = videoFile.getAbsolutePath();
+
+                        Bitmap bitmap = null;
+                        android.media.MediaMetadataRetriever retriever = new android.media.MediaMetadataRetriever();
+                        try {
+                            retriever.setDataSource(parentActivity, uri);
+                            bitmap = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        } finally {
+                            try {
+                                retriever.release();
+                            } catch (Exception ignored) {}
+                        }
+                        if (bitmap == null) {
+                            try {
+                                retriever = new android.media.MediaMetadataRetriever();
+                                retriever.setDataSource(currentWallpaperVideoPath);
+                                bitmap = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                            } catch (Exception e) {
+                                FileLog.e(e);
+                            } finally {
+                                try {
+                                    retriever.release();
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                        if (bitmap == null) {
+                            bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+                        }
+                        currentWallpaperPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), Utilities.random.nextInt() + ".jpg");
+                        FileOutputStream stream = new FileOutputStream(currentWallpaperPath);
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
+                        stream.close();
+                        delegate.didSelectWallpaper(currentWallpaperPath, bitmap, false);
+                    } else {
+                        currentWallpaperIsVideo = false;
+                        currentWallpaperVideoPath = null;
+                        currentWallpaperPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), Utilities.random.nextInt() + ".jpg");
+                        Point screenSize = AndroidUtilities.getRealScreenSize();
+                        Bitmap bitmap = ImageLoader.loadBitmap(null, uri, screenSize.x, screenSize.y, true);
+                        FileOutputStream stream = new FileOutputStream(currentWallpaperPath);
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
+                        stream.close();
+                        delegate.didSelectWallpaper(currentWallpaperPath, bitmap, false);
+                    }
                 } catch (Exception e) {
                     FileLog.e(e);
                 }

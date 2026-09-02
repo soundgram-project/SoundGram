@@ -6194,23 +6194,13 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         if (!force && Math.abs(System.currentTimeMillis() - SharedConfig.lastUpdateCheckTime) < MessagesController.getInstance(0).updateCheckDelay * 1000) {
             return;
         }
-        final TLRPC.TL_help_getAppUpdate req = new TLRPC.TL_help_getAppUpdate();
-        try {
-            req.source = ApplicationLoader.applicationContext.getPackageManager().getInstallerPackageName(ApplicationLoader.applicationContext.getPackageName());
-        } catch (Exception ignore) {
-
-        }
-        if (req.source == null) {
-            req.source = "";
-        }
         final int accountNum = currentAccount;
         if (progress != null) progress.init();
-        ConnectionsManager.getInstance(accountNum).sendRequest(req, (response, error) -> {
+        tw.nekomimi.nekogram.helpers.remote.UpdateHelper.getInstance().checkNewVersionAvailable((res, error) -> {
             SharedConfig.lastUpdateCheckTime = System.currentTimeMillis();
             SharedConfig.saveConfig();
             AndroidUtilities.runOnUIThread(() -> {
-                if (response instanceof TLRPC.TL_help_appUpdate) {
-                    TLRPC.TL_help_appUpdate res = (TLRPC.TL_help_appUpdate) response;
+                if (res != null) {
                     SharedConfig.setNewAppVersionAvailable(res);
                     if (res.can_not_skip) {
                         showUpdateActivity(accountNum, res, false);
@@ -6224,7 +6214,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                             if (error == null) {
                                 BulletinFactory.of(fragment).createSimpleBulletin(R.raw.done, LocaleController.getString(R.string.YourVersionIsLatestNax)).show();
                             } else {
-                                AlertsCreator.createSimpleAlert(LaunchActivity.this, getString(R.string.ErrorOccurred) + "\n" + (error != null ? error.text : "")).show();
+                                AlertsCreator.createSimpleAlert(LaunchActivity.this, getString(R.string.ErrorOccurred) + "\n" + error).show();
                             }
                         }
                     }
@@ -6235,7 +6225,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     progress.end();
                 }
             });
-        });
+        }, force);
     }
 
     public Dialog showAlertDialog(AlertDialog.Builder builder) {

@@ -1162,15 +1162,21 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── MINI PLAYER ───────────────────────────────────────────────────────
         MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
-        int playerWidth = app.nimarkogram.messenger.utils.ui.MainTabsHelper.getTabsViewWidth() - app.nimarkogram.messenger.utils.ui.MainTabsHelper.getMainTabsMargin() * 2;
-        int playerHeight = app.nimarkogram.messenger.utils.ui.MainTabsHelper.getMainTabsHeight();
-        int tgBottomMenu = AndroidUtilities.dp(60);
-        int sysNavBar = AndroidUtilities.navigationBarHeight > 0 ? AndroidUtilities.navigationBarHeight : 0;
-        FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(playerWidth, playerHeight, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        playerParams.setMargins(0, 0, 0, sysNavBar + tgBottomMenu + AndroidUtilities.dp(8));
-        content.addView(miniPlayerView, playerParams);
+        int bottomTabsOffset = app.nimarkogram.messenger.NimarkoConfig.showMainTabs ? 88 : 0;
+        content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, bottomTabsOffset + 8));
+        SoundGramStyleManager.applyGlass(
+                miniPlayerView,
+                SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
+                SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
+                SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
+                SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
+                22f,
+                () -> miniPlayerView.invalidate()
+        );
 
-        listView.setPadding(0, 0, 0, AndroidUtilities.dp(90));
+        int listBottomPad = bottomTabsOffset + 88;
+        listView.setPadding(0, 0, 0, AndroidUtilities.dp(listBottomPad));
+        savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(listBottomPad));
 
         listView.setOnItemClickListener((view, position) -> {
             // При запуске из библиотеки (listView.setOnItemClickListener):
@@ -3263,9 +3269,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             // (Referer, User-Agent) сам пройдёт все редиректы через VPN TUN-интерфейс
                             // в момент воспроизведения — это надёжнее чем резолв заранее,
                             // который привязывался к IP/сессии VPN и устаревал.
-                            String streamingUrl = originalUrl.startsWith("http://")
-                                    ? originalUrl.replaceFirst("http://", "https://")
-                                    : originalUrl;
+                            String streamingUrl = originalUrl;
 
                             AndroidUtilities.runOnUIThread(() -> {
                                 finalTrack.messageOwner.attachPath = streamingUrl;
@@ -3523,6 +3527,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     safeNotifyAdapter(adapter, listView);
                 } catch (Exception e) {}
             }
+        }
+
+        @Override
+        public boolean hasOwnBackground() {
+            return true;
         }
 
         @Override
@@ -5366,16 +5375,38 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         @Override
+        public boolean hasOwnBackground() {
+            return true;
+        }
+
+        @Override
+        public ActionBar createActionBar(Context context) {
+            ActionBar bar = super.createActionBar(context);
+            if (bar != null) {
+                bar.setBackButtonImage(org.telegram.messenger.R.drawable.ic_ab_back);
+                bar.setAllowOverlayTitle(false);
+                bar.setTitle("");
+                bar.setBackgroundColor(Color.TRANSPARENT);
+                bar.setItemsColor(0xFFFFFFFF, false);
+                bar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() {
+                    @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
+                });
+            }
+            return bar;
+        }
+
+        @Override
         public View createView(Context context) {
-            // ── ActionBar: прозрачный, кнопка «назад» белая ─────────────────
-            actionBar.setBackButtonImage(org.telegram.messenger.R.drawable.ic_ab_back);
-            actionBar.setAllowOverlayTitle(false);
-            actionBar.setTitle("");
-            actionBar.setBackgroundColor(Color.TRANSPARENT);
-            actionBar.setItemsColor(0xFFFFFFFF, false);
-            actionBar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() {
-                @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
-            });
+            if (actionBar != null) {
+                actionBar.setBackButtonImage(org.telegram.messenger.R.drawable.ic_ab_back);
+                actionBar.setAllowOverlayTitle(false);
+                actionBar.setTitle("");
+                actionBar.setBackgroundColor(Color.TRANSPARENT);
+                actionBar.setItemsColor(0xFFFFFFFF, false);
+                actionBar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() {
+                    @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
+                });
+            }
 
             int accentColor  = Theme.getColor(Theme.key_featuredStickers_addButton);
             int bgColor      = Theme.getColor(Theme.key_windowBackgroundWhite);
@@ -5383,11 +5414,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             int grayColor    = Theme.getColor(Theme.key_windowBackgroundWhiteGrayText);
 
             // ── Корневой FrameLayout ─────────────────────────────────────────
-            FrameLayout rootFrame = new FrameLayout(context) {
-                @Override protected void onDraw(Canvas canvas) {
-                    canvas.drawColor(bgColor);
-                }
-            };
+            FrameLayout rootFrame = new FrameLayout(context);
+            rootFrame.setBackgroundColor(bgColor);
             fragmentView = rootFrame;
 
             // ── ScrollView ───────────────────────────────────────────────────
@@ -5407,6 +5435,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             // Фотография исполнителя — полный экран с параллакс-смещением
             bannerView = new BackupImageView(context);
+            bannerView.setBackgroundColor(0xFF161616);
             if (!TextUtils.isEmpty(bannerUrl)) bannerView.setImage(bannerUrl, "600_600", null);
             heroFrame.addView(bannerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 420));
 
@@ -5972,6 +6001,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
             NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
             NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidStart);
+        }
+
+        @Override
+        public boolean hasOwnBackground() {
+            return true;
         }
 
         @Override

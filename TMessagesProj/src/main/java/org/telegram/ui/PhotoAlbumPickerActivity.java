@@ -136,7 +136,7 @@ public class PhotoAlbumPickerActivity extends BaseFragment implements Notificati
 
     @Override
     public boolean onFragmentCreate() {
-        if (selectPhotoType == SELECT_TYPE_AVATAR || selectPhotoType == SELECT_TYPE_WALLPAPER || selectPhotoType == SELECT_TYPE_QR || !allowSearchImages) {
+        if (selectPhotoType == SELECT_TYPE_AVATAR || selectPhotoType == SELECT_TYPE_QR || (!allowSearchImages && selectPhotoType != SELECT_TYPE_WALLPAPER)) {
             albumsSorted = MediaController.allPhotoAlbums;
         } else {
             albumsSorted = MediaController.allMediaAlbums;
@@ -599,7 +599,7 @@ public class PhotoAlbumPickerActivity extends BaseFragment implements Notificati
         if (id == NotificationCenter.albumsDidLoad) {
             int guid = (Integer) args[0];
             if (classGuid == guid) {
-                if (selectPhotoType == SELECT_TYPE_AVATAR || selectPhotoType == SELECT_TYPE_WALLPAPER || selectPhotoType == SELECT_TYPE_QR || !allowSearchImages) {
+                if (selectPhotoType == SELECT_TYPE_AVATAR || selectPhotoType == SELECT_TYPE_QR || (!allowSearchImages && selectPhotoType != SELECT_TYPE_WALLPAPER)) {
                     albumsSorted = (ArrayList<MediaController.AlbumEntry>) args[2];
                 } else {
                     albumsSorted = (ArrayList<MediaController.AlbumEntry>) args[1];

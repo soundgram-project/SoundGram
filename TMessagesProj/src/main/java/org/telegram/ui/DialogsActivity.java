@@ -537,6 +537,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private float contactsAlpha = 1f;
     private ValueAnimator contactsAlphaAnimator;
     private ViewPage[] viewPages;
+    private android.view.View chatListWallDimView;
+    private android.view.TextureView chatListVideoView;
+    private org.telegram.ui.Components.VideoPlayer chatListVideoPlayer;
     private ActionBarMenuItem passcodeItem;
     private ActionBarMenuItem downloadsItem;
     private DownloadProgressIcon downloadProgressIcon;
@@ -3004,6 +3007,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
 
+    private android.net.Uri getUriForPath(String path) {
+        if (android.text.TextUtils.isEmpty(path)) {
+            return null;
+        }
+        if (path.startsWith("content://") || path.startsWith("file://")) {
+            return android.net.Uri.parse(path);
+        }
+        return android.net.Uri.fromFile(new java.io.File(path));
+    }
+
     private NotificationCenter.ObserversGroup observersGroup;
     private NotificationCenter.ObserversGroup globalObserversGroup;
 
@@ -3012,6 +3025,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         dialogsLifecycleDestroyed = false;
         searchAnimatorGeneration++;
         super.onFragmentCreate();
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.wallpapersDidLoad);
 
         // NimarkoGram (CG parity): when message-filters are on AND the "hide blocked"
         // sub-toggle is set, prime the blocked-peers list so first-render filtering works.
@@ -3298,6 +3312,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onFragmentDestroy() {
         dialogsLifecycleDestroyed = true;
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.wallpapersDidLoad);
+        if (chatListVideoPlayer != null) {
+            chatListVideoPlayer.releasePlayer(true);
+            chatListVideoPlayer = null;
+        }
         AnimatorSet animation = tabsAnimation;
         tabsAnimation = null;
         tabsAnimationInProgress = false;
@@ -4392,6 +4411,67 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         ContentView contentView = new ContentView(context);
         fragmentView = contentView;
+        if (!android.text.TextUtils.isEmpty(soundgram.music.SoundGramConfig.chatListWallPath) || !android.text.TextUtils.isEmpty(soundgram.music.SoundGramConfig.chatListWallVideoPath)) {
+            try {
+                if (!android.text.TextUtils.isEmpty(soundgram.music.SoundGramConfig.chatListWallPath)) {
+                    android.widget.ImageView bgImage = new android.widget.ImageView(context);
+                    bgImage.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+                    bgImage.setImageURI(getUriForPath(soundgram.music.SoundGramConfig.chatListWallPath));
+                    contentView.addView(bgImage, 0, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, org.telegram.ui.Components.LayoutHelper.MATCH_PARENT));
+                }
+
+                if (!android.text.TextUtils.isEmpty(soundgram.music.SoundGramConfig.chatListWallVideoPath)) {
+                    chatListVideoView = new android.view.TextureView(context);
+                    chatListVideoView.setOpaque(false);
+                    int videoIndex = contentView.getChildCount();
+                    contentView.addView(chatListVideoView, videoIndex, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, org.telegram.ui.Components.LayoutHelper.MATCH_PARENT));
+
+                    chatListVideoPlayer = new org.telegram.ui.Components.VideoPlayer();
+                    chatListVideoPlayer.setDelegate(new org.telegram.ui.Components.VideoPlayer.VideoPlayerDelegate() {
+                        @Override
+                        public void onStateChanged(boolean playWhenReady, int playbackState) {
+                            if (playbackState == 4 && chatListVideoPlayer != null) {
+                                chatListVideoPlayer.seekTo(0);
+                            }
+                        }
+                        @Override public void onError(org.telegram.ui.Components.VideoPlayer player, Exception e) {}
+                        @Override public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees, float pixelWidthHeightRatio) {}
+                        @Override public void onRenderedFirstFrame() {}
+                        @Override public boolean onSurfaceDestroyed(android.graphics.SurfaceTexture surfaceTexture) { return false; }
+                        @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture surfaceTexture) {}
+                    });
+
+                    chatListVideoView.setSurfaceTextureListener(new android.view.TextureView.SurfaceTextureListener() {
+                        @Override
+                        public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st, int w, int h) {
+                            if (chatListVideoPlayer != null) {
+                                chatListVideoPlayer.setSurface(new android.view.Surface(st));
+                                chatListVideoPlayer.preparePlayer(getUriForPath(soundgram.music.SoundGramConfig.chatListWallVideoPath), "other");
+                                chatListVideoPlayer.setVolume(0.0f);
+                                chatListVideoPlayer.setPlayWhenReady(true);
+                            }
+                        }
+                        @Override
+                        public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
+                            if (chatListVideoPlayer != null) {
+                                chatListVideoPlayer.releasePlayer(true);
+                            }
+                            return true;
+                        }
+                        @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) {}
+                        @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) {}
+                    });
+                }
+
+                chatListWallDimView = new android.view.View(context);
+                chatListWallDimView.setBackgroundColor(0xff000000);
+                chatListWallDimView.setAlpha(soundgram.music.SoundGramConfig.chatListWallDimming);
+                int dimIndex = contentView.getChildCount();
+                contentView.addView(chatListWallDimView, dimIndex, org.telegram.ui.Components.LayoutHelper.createFrame(org.telegram.ui.Components.LayoutHelper.MATCH_PARENT, org.telegram.ui.Components.LayoutHelper.MATCH_PARENT));
+            } catch (Exception e) {
+                org.telegram.messenger.FileLog.e(e);
+            }
+        }
         if (communityId != 0 || onlySelect) {
             // Selection fragments are pushed over the existing chat list. Give
             // them an opaque first frame so the source list (most visibly its
@@ -7651,6 +7731,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onResume() {
         super.onResume();
+        if (chatListWallDimView != null) {
+            chatListWallDimView.setAlpha(soundgram.music.SoundGramConfig.chatListWallDimming);
+        }
+        if (chatListVideoPlayer != null) {
+            chatListVideoPlayer.setPlayWhenReady(true);
+        }
         blur3_InvalidateBlur();
         normalizeCommunityHeaderGlassState();
         updateUnreadBackBadge();
@@ -7882,6 +7968,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onPause() {
         super.onPause();
+        if (chatListVideoPlayer != null) {
+            chatListVideoPlayer.pause();
+        }
         if (storiesBulletin != null) {
             storiesBulletin.hide();
             storiesBulletin = null;
@@ -11388,6 +11477,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
         if (dialogsLifecycleDestroyed) {
+            return;
+        }
+        if (id == NotificationCenter.wallpapersDidLoad) {
+            if (chatListWallDimView != null) {
+                chatListWallDimView.setAlpha(soundgram.music.SoundGramConfig.chatListWallDimming);
+            }
             return;
         }
         if (id == NotificationCenter.infoCardsLayoutChanged) {

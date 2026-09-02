@@ -102,7 +102,27 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
             dismiss();
         });
         root.addView(cryptoBtn, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 6, 20, 12));
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 6, 20, 10));
+
+        // ── Boosty button ────────────────────────────────────────────────────
+        TextView boostyBtn = new TextView(context);
+        boostyBtn.setGravity(Gravity.CENTER);
+        boostyBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        boostyBtn.setTypeface(AndroidUtilities.bold());
+        boostyBtn.setTextColor(0xFFFFFFFF);
+        boostyBtn.setText("Поддержать через Boosty");
+        boostyBtn.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
+        GradientDrawable boostyBg = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xFFF15F2C, 0xFFFF8D3F});
+        boostyBg.setCornerRadius(AndroidUtilities.dp(14));
+        boostyBtn.setBackground(boostyBg);
+        boostyBtn.setOnClickListener(v -> {
+            Browser.openUrl(getContext(), "https://boosty.to/soundgram_project/donate");
+            dismiss();
+        });
+        root.addView(boostyBtn, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 12));
 
         // ── "Send receipt" button ─────────────────────────────────────────────
         TextView receiptBtn = new TextView(context);

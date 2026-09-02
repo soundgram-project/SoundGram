@@ -4524,6 +4524,17 @@ public class AndroidUtilities {
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             MimeTypeMap myMime = MimeTypeMap.getSingleton();
+            if (fileName != null && (fileName.endsWith(".icons") || fileName.endsWith(".icons.zip"))) {
+                soundgram.icons.IconPackManager.IconPackInfo packInfo = soundgram.icons.IconPackManager.parseZipMetadata(f);
+                if (packInfo != null && activity != null) {
+                    final File finalFile = f;
+                    new soundgram.icons.IconPackPreviewBottomSheet(activity, packInfo, () -> {
+                        soundgram.icons.IconPackManager.installIconPack(finalFile);
+                        soundgram.icons.IconPackManager.setActivePack(packInfo.packId);
+                    }).show();
+                    return true;
+                }
+            }
             int idx = fileName == null ? -1 : fileName.lastIndexOf('.');
             if (idx != -1) {
                 String ext = fileName.substring(idx + 1);

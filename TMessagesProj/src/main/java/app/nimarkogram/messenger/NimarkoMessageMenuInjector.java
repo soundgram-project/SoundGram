@@ -38,13 +38,6 @@ public final class NimarkoMessageMenuInjector {
         ArrayList<Integer> options,
         ArrayList<Integer> icons
     ) {
-        if (noforwardsOrPaidMedia) return;
-        if (!app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.canCreate(chatActivity, selectedObject, selectedObjectGroup)) return;
-
-
-        items.add(LocaleController.getString(R.string.NM_QC_Create));
-        options.add(OPTION_CREATE_QUOTE);
-        icons.add(R.drawable.menu_select_quote);
     }
 
     public static void injectCopyPhoto(

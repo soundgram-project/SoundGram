@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- NimarkoGram настройки (отсортировано по ключу) -->
-    <string name="NimarkoAbout">О NimarkoGram</string>
-    <string name="NimarkoAboutAuthor">от @NimarkoProject</string>
+    <string name="NimarkoAbout">О SoundGram</string>
+    <string name="NimarkoAboutAuthor">от @soundgram_project</string>
     <string name="NimarkoAccentAsNotif">Акцент как цвет уведомлений</string>
     <string name="NimarkoAdminsShortcut">Ярлык «Администраторы»</string>
     <string name="NimarkoAltOpenAnim">Альтернативная анимация открытия</string>
@@ -160,7 +160,7 @@
     <string name="NimarkoSectionStickers">Стикеры</string>
     <string name="NimarkoSectionTabsTitles">Вкладки и заголовки</string>
     <string name="NimarkoSectionVoiceTranslation">🎤 Голос и перевод</string>
-    <string name="NimarkoSettingsTitle">NimarkoGram</string>
+    <string name="NimarkoSettingsTitle">SoundGram</string>
     <string name="NimarkoShowActionTimestamps">Показывать время действий</string>
     <string name="NimarkoShowAddToSaved">Добавить в «Избранное»</string>
     <string name="NimarkoShowClearHistory">Показывать «Очистить историю»</string>

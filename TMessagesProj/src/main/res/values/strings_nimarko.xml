@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- NimarkoGram settings UI (sorted alphabetically by key) -->
-    <string name="NimarkoAbout">About NimarkoGram</string>
-    <string name="NimarkoAboutAuthor">by @NimarkoProject</string>
+    <string name="NimarkoAbout">About SoundGram</string>
+    <string name="NimarkoAboutAuthor">by @soundgram_project</string>
     <string name="NimarkoAccentAsNotif">Accent as notification color</string>
     <string name="NimarkoAdminsShortcut">Administrators shortcut</string>
     <string name="NimarkoAltOpenAnim">Alternative open animation</string>
@@ -160,7 +160,7 @@
     <string name="NimarkoSectionStickers">Stickers</string>
     <string name="NimarkoSectionTabsTitles">Tabs &amp; Titles</string>
     <string name="NimarkoSectionVoiceTranslation">Voice &amp; Translation</string>
-    <string name="NimarkoSettingsTitle">NimarkoGram</string>
+    <string name="NimarkoSettingsTitle">SoundGram</string>
     <string name="NimarkoShowActionTimestamps">Show action timestamps</string>
     <string name="NimarkoShowAddToSaved">Add to Saved Messages</string>
     <string name="NimarkoShowClearHistory">Show Clear history</string>

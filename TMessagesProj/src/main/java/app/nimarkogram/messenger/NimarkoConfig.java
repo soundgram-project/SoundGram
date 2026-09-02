@@ -1208,6 +1208,55 @@ public final class NimarkoConfig {
     public static boolean showReply = getPreferences().getBoolean("showReply", true);
     public static void toggleShowReply() { showReply = !showReply; getEditor().putBoolean("showReply", showReply).apply(); }
 
+    public static boolean actionbarCrossfade = getPreferences().getBoolean("actionbarCrossfade", false);
+    public static void toggleActionbarCrossfade() { actionbarCrossfade = !actionbarCrossfade; getEditor().putBoolean("actionbarCrossfade", actionbarCrossfade).apply(); }
+
+    public static boolean nimarkoTextAnim = getPreferences().getBoolean("nimarkoTextAnim", true);
+    public static void toggleNimarkoTextAnim() {
+        nimarkoTextAnim = !nimarkoTextAnim;
+        getEditor().putBoolean("nimarkoTextAnim", nimarkoTextAnim).apply();
+    }
+
+    public static boolean nimarkoTextAnimAppear = getPreferences().getBoolean("nimarkoTextAnimAppear", true);
+    public static void toggleNimarkoTextAnimAppear() {
+        nimarkoTextAnimAppear = !nimarkoTextAnimAppear;
+        getEditor().putBoolean("nimarkoTextAnimAppear", nimarkoTextAnimAppear).apply();
+    }
+
+    public static boolean nimarkoTextAnimCursor = getPreferences().getBoolean("nimarkoTextAnimCursor", true);
+    public static void toggleNimarkoTextAnimCursor() {
+        nimarkoTextAnimCursor = !nimarkoTextAnimCursor;
+        getEditor().putBoolean("nimarkoTextAnimCursor", nimarkoTextAnimCursor).apply();
+    }
+
+    public static boolean nimarkoTextAnimDelete = getPreferences().getBoolean("nimarkoTextAnimDelete", true);
+    public static void toggleNimarkoTextAnimDelete() {
+        nimarkoTextAnimDelete = !nimarkoTextAnimDelete;
+        getEditor().putBoolean("nimarkoTextAnimDelete", nimarkoTextAnimDelete).apply();
+    }
+
+    public static boolean nimarkoTextAnimSpoiler = getPreferences().getBoolean("nimarkoTextAnimSpoiler", false);
+    public static void toggleNimarkoTextAnimSpoiler() {
+        nimarkoTextAnimSpoiler = !nimarkoTextAnimSpoiler;
+        getEditor().putBoolean("nimarkoTextAnimSpoiler", nimarkoTextAnimSpoiler).apply();
+    }
+
+    public static boolean nimarkoMediaAuto = getPreferences().getBoolean("nimarkoMediaAuto", true);
+    public static void toggleNimarkoMediaAuto() {
+        nimarkoMediaAuto = !nimarkoMediaAuto;
+        getEditor().putBoolean("nimarkoMediaAuto", nimarkoMediaAuto).apply();
+    }
+    public static int nimarkoMediaYtFmt = getPreferences().getInt("nimarkoMediaYtFmt", 0);
+    public static void setNimarkoMediaYtFmt(int v) {
+        nimarkoMediaYtFmt = v;
+        getEditor().putInt("nimarkoMediaYtFmt", v).apply();
+    }
+    public static boolean nimarkoMediaYtAsk = getPreferences().getBoolean("nimarkoMediaYtAsk", true);
+    public static void toggleNimarkoMediaYtAsk() {
+        nimarkoMediaYtAsk = !nimarkoMediaYtAsk;
+        getEditor().putBoolean("nimarkoMediaYtAsk", nimarkoMediaYtAsk).apply();
+    }
+
     public static boolean showSaveToGallery = getPreferences().getBoolean("showSaveToGallery", true);
     public static void toggleShowSaveToGallery() { showSaveToGallery = !showSaveToGallery; getEditor().putBoolean("showSaveToGallery", showSaveToGallery).apply(); }
 

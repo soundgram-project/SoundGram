@@ -708,7 +708,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         if (isSoundGram) {
             if (soundGramDrawable == null) {
                 soundGramDrawable = getContext().getResources().getDrawable(R.drawable.ic_soundgram_badge).mutate();
-                soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, dp(14), dp(14)) {
+                soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, dp(22), dp(22)) {
                     @Override
                     public void draw(@NonNull Canvas canvas) {
                         canvas.save();

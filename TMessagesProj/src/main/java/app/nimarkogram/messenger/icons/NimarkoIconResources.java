@@ -184,6 +184,13 @@ public class NimarkoIconResources extends Resources {
         }
     }
 
+    public static void clearAllCaches() {
+        NimarkoIconResources self = sInstalled;
+        if (self != null) {
+            self.reloadReplacements();
+        }
+    }
+
     public void reloadReplacements() {
         reloadReplacements(null);
     }

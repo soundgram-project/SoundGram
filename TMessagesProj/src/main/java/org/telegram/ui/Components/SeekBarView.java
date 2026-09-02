@@ -52,6 +52,10 @@ import java.util.Collections;
 
 public class SeekBarView extends FrameLayout {
 
+    public static final int SLIDER_STYLE_DEFAULT = 0;
+    public static final int SLIDER_STYLE_MODERN = 1;
+    public static final int SLIDER_STYLE_MD3 = 2;
+
     private final SeekBarAccessibilityDelegate seekBarAccessibilityDelegate;
 
     private Paint innerPaint1;
@@ -74,7 +78,13 @@ public class SeekBarView extends FrameLayout {
     private float transitionProgress = 1f;
     private int transitionThumbX;
     private int separatorsCount;
+    private boolean isModern = false;
+    private int previewingState = -1;
     private int lineWidthDp = 3;
+    private boolean hasCustomLineWidthValue = false;
+    private int sliderStyleOverride = -1;
+
+    private Path path = new Path();
 
     private boolean twoSided;
     private final Theme.ResourcesProvider resourcesProvider;
@@ -88,10 +98,6 @@ public class SeekBarView extends FrameLayout {
         }
         default int getStepsCount() {
             return 0;
-        }
-
-        default boolean isAccessibilityProgressInverted() {
-            return false;
         }
 
         default boolean needVisuallyDivideSteps() {
@@ -145,24 +151,20 @@ public class SeekBarView extends FrameLayout {
         setAccessibilityDelegate(seekBarAccessibilityDelegate = new FloatSeekBarAccessibilityDelegate(inPercents) {
             @Override
             public float getProgress() {
-                float visualProgress = SeekBarView.this.getProgress();
-                return delegate != null && delegate.isAccessibilityProgressInverted()
-                        ? 1f - visualProgress : visualProgress;
+                return SeekBarView.this.getProgress();
             }
 
             @Override
             public void setProgress(float progress) {
-                float visualProgress = delegate != null && delegate.isAccessibilityProgressInverted()
-                        ? 1f - progress : progress;
                 pressed = true;
-                SeekBarView.this.setProgress(visualProgress);
-                setSeekBarDrag(true, visualProgress);
+                SeekBarView.this.setProgress(progress);
+                setSeekBarDrag(true, progress);
                 pressed = false;
             }
 
             @Override
             protected float getDelta() {
-                final int stepsCount = delegate != null ? delegate.getStepsCount() : 0;
+                final int stepsCount = delegate.getStepsCount();
                 if (stepsCount > 0) {
                     return 1f / stepsCount;
                 } else {
@@ -173,23 +175,6 @@ public class SeekBarView extends FrameLayout {
             @Override
             public CharSequence getContentDescription(View host) {
                 return delegate != null ? delegate.getContentDescription() : null;
-            }
-
-            @Override
-            protected void doScroll(View host, boolean backward) {
-                float delta = getDelta();
-                if (backward) delta = -delta;
-                setProgress(Math.min(getMaxValue(), Math.max(getMinValue(), getProgress() + delta)));
-            }
-
-            @Override
-            protected boolean canScrollBackward(View host) {
-                return getProgress() > getMinValue();
-            }
-
-            @Override
-            protected boolean canScrollForward(View host) {
-                return getProgress() < getMaxValue();
             }
         });
     }
@@ -254,6 +239,10 @@ public class SeekBarView extends FrameLayout {
     boolean captured;
     float sx, sy;
     boolean onTouch(MotionEvent ev) {
+        if (delegate == null) {
+            return false;
+        }
+
         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
             sx = ev.getX();
             sy = ev.getY();
@@ -365,6 +354,7 @@ public class SeekBarView extends FrameLayout {
 
     public void setLineWidth(int dp) {
         lineWidthDp = dp;
+        hasCustomLineWidthValue = true;
     }
 
     int lastValue;
@@ -445,7 +435,7 @@ public class SeekBarView extends FrameLayout {
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
         int b = getMeasuredHeight() / 2 + AndroidUtilities.dp(14) + textViewSwitcher.getMeasuredHeight() / 2;
-        int l = (selectorWidth / 2 + (lastDuration > 1000L * 60 * 10 ? AndroidUtilities.dp(42) : 0)) + AndroidUtilities.dp(25) + AndroidUtilities.dp(8)  ;
+        int l = (selectorWidth / 2 + (lastDuration > 1000L * 60 * 10 ? AndroidUtilities.dp(42) : 0)) + AndroidUtilities.dp(25) + AndroidUtilities.dp(8) /*+ AndroidUtilities.dp(16)*/;
 
         textViewSwitcher.layout(l, b - textViewSwitcher.getMeasuredHeight(), l + textViewSwitcher.getMeasuredWidth(), b);
     }
@@ -459,12 +449,55 @@ public class SeekBarView extends FrameLayout {
         return pressed;
     }
 
+    public void setSliderStyleOverride(int style) {
+        this.sliderStyleOverride = style;
+    }
+
+    private int getEffectiveSliderStyle() {
+        if (previewingState != -1) {
+            return previewingState;
+        }
+        int configStyle = SLIDER_STYLE_DEFAULT;
+        if (sliderStyleOverride != -1 && configStyle == SLIDER_STYLE_MD3) {
+            return sliderStyleOverride;
+        }
+        return configStyle;
+    }
+
+    private void updateModernState() {
+        int style = getEffectiveSliderStyle();
+        isModern = style == SLIDER_STYLE_MODERN || style == SLIDER_STYLE_MD3;
+        isModern &= (timestamps == null || timestamps.isEmpty());
+
+        if (!hasCustomLineWidthValue || style != SLIDER_STYLE_DEFAULT) {
+            lineWidthDp = style == SLIDER_STYLE_MODERN ? 17 : (style == SLIDER_STYLE_MD3 ? 13 : 3);
+        }
+
+        if (isModern && style == SLIDER_STYLE_MD3) {
+            thumbSize = AndroidUtilities.dp(4);
+        }
+    }
+
+    private int needCustomDraw() {
+        updateModernState();
+
+        int style = getEffectiveSliderStyle();
+        if (isModern && style == SLIDER_STYLE_MD3) {
+            return style;
+        }
+
+        return -1;
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         int thumbX = this.thumbX;
+
+        updateModernState();
+
         if (!twoSided && separatorsCount > 1) {
-            float step = (getMeasuredWidth() - selectorWidth) / ((float) separatorsCount - 1f);
-            thumbX = (int) animatedThumbX.set(Math.round((thumbX) / step) * step);
+            //float step = (getMeasuredWidth() - selectorWidth) / ((float) separatorsCount - 1f);
+            //thumbX = (int) animatedThumbX.set(Math.round((thumbX) / step) * step);
         } else if (delegate != null && delegate.needVisuallyDivideSteps()) {
             float step = (getMeasuredWidth() - selectorWidth) / ((float) delegate.getStepsCount() - 1f);
             thumbX = (int) (Math.round((thumbX) / step) * step);
@@ -476,36 +509,76 @@ public class SeekBarView extends FrameLayout {
         float left = selectorWidth / 2f, right = getMeasuredWidth() - selectorWidth / 2;
         float top = centerY - AndroidUtilities.dp(lineWidthDp) / 2f, bottom = centerY + AndroidUtilities.dp(lineWidthDp) / 2f;
 
-        rect.set(left, top, right, bottom);
-        drawProgressBar(canvas, rect, innerPaint1);
-        if (bufferedProgress > 0) {
-            innerPaint1.setColor(getThemedColor(Theme.key_player_progressCachedBackground));
-            rect.set(left, top, selectorWidth / 2f + bufferedProgress * (getMeasuredWidth() - selectorWidth), bottom);
-            drawProgressBar(canvas, rect, innerPaint1);
-        }
-        if (twoSided) {
-            canvas.drawRect(getMeasuredWidth() / 2 - AndroidUtilities.dp(1), getMeasuredHeight() / 2 - AndroidUtilities.dp(6), getMeasuredWidth() / 2 + AndroidUtilities.dp(1), getMeasuredHeight() / 2 + AndroidUtilities.dp(6), outerPaint1);
-            if (thumbX > (getMeasuredWidth() - selectorWidth) / 2) {
-                canvas.drawRect(getMeasuredWidth() / 2, getMeasuredHeight() / 2 - AndroidUtilities.dp(1), selectorWidth / 2 + thumbX, getMeasuredHeight() / 2 + AndroidUtilities.dp(1), outerPaint1);
-            } else {
-                canvas.drawRect(thumbX + selectorWidth / 2, getMeasuredHeight() / 2 - AndroidUtilities.dp(1), getMeasuredWidth() / 2, getMeasuredHeight() / 2 + AndroidUtilities.dp(1), outerPaint1);
+        if (hasCustomLineWidthValue && lineWidthDp >= 16) {
+            float padding = AndroidUtilities.dp(8); // gap size
+            float thumbCenterX = left + thumbX;
+            float radius = (bottom - top) / 2f;
+
+            // Unfilled track (right part)
+            float rightTrackLeft = thumbCenterX + padding;
+            if (rightTrackLeft < right) {
+                rect.set(rightTrackLeft, top, right, bottom);
+                Path path = new Path();
+                path.addRoundRect(rect, new float[]{0, 0, radius, radius, radius, radius, 0, 0}, Path.Direction.CW);
+                canvas.drawPath(path, innerPaint1);
+            }
+
+            // Buffered track
+            if (bufferedProgress > 0) {
+                innerPaint1.setColor(getThemedColor(Theme.key_player_progressCachedBackground));
+                float buffRight = left + bufferedProgress * (getMeasuredWidth() - selectorWidth);
+                if (buffRight > rightTrackLeft) {
+                    rect.set(rightTrackLeft, top, buffRight, bottom);
+                    canvas.save();
+                    Path clipPath = new Path();
+                    RectF fullRightTrack = new RectF(rightTrackLeft, top, right, bottom);
+                    clipPath.addRoundRect(fullRightTrack, new float[]{0, 0, radius, radius, radius, radius, 0, 0}, Path.Direction.CW);
+                    canvas.clipPath(clipPath);
+                    canvas.drawRect(rect, innerPaint1);
+                    canvas.restore();
+                }
+            }
+
+            // Filled track (left part)
+            float leftTrackRight = thumbCenterX - padding;
+            if (leftTrackRight > left) {
+                rect.set(left, top, leftTrackRight, bottom);
+                Path path = new Path();
+                path.addRoundRect(rect, new float[]{radius, radius, 0, 0, 0, 0, radius, radius}, Path.Direction.CW);
+                canvas.drawPath(path, outerPaint1);
             }
         } else {
-            if (minProgress >= 0) {
-                rect.set(left + minProgress * (right - left), top, left + thumbX, bottom);
-                drawProgressBar(canvas, rect, outerPaint1);
-                int wasAlpha = outerPaint1.getAlpha();
-                rect.set(left, top, left + minProgress * (right - left), bottom);
-                outerPaint1.setAlpha((int) (0.50f * wasAlpha));
-                drawProgressBar(canvas, rect, outerPaint1);
-                outerPaint1.setAlpha(wasAlpha);
+            rect.set(left, top, right, bottom);
+            drawProgressBar(canvas, rect, innerPaint1);
+            if (bufferedProgress > 0) {
+                innerPaint1.setColor(getThemedColor(Theme.key_player_progressCachedBackground));
+                rect.set(left, top, selectorWidth / 2f + bufferedProgress * (getMeasuredWidth() - selectorWidth), bottom);
+                drawProgressBar(canvas, rect, innerPaint1);
+            }
+            if (twoSided) {
+                canvas.drawRect(getMeasuredWidth() / 2 - AndroidUtilities.dp(1), getMeasuredHeight() / 2 - AndroidUtilities.dp(6), getMeasuredWidth() / 2 + AndroidUtilities.dp(1), getMeasuredHeight() / 2 + AndroidUtilities.dp(6), outerPaint1);
+                if (thumbX > (getMeasuredWidth() - selectorWidth) / 2) {
+                    canvas.drawRect(getMeasuredWidth() / 2, getMeasuredHeight() / 2 - AndroidUtilities.dp(1), selectorWidth / 2 + thumbX, getMeasuredHeight() / 2 + AndroidUtilities.dp(1), outerPaint1);
+                } else {
+                    canvas.drawRect(thumbX + selectorWidth / 2, getMeasuredHeight() / 2 - AndroidUtilities.dp(1), getMeasuredWidth() / 2, getMeasuredHeight() / 2 + AndroidUtilities.dp(1), outerPaint1);
+                }
             } else {
-                rect.set(left, top, left + thumbX, bottom);
-                drawProgressBar(canvas, rect, outerPaint1);
+                if (minProgress >= 0) {
+                    rect.set(left + minProgress * (right - left), top, left + thumbX, bottom);
+                    drawProgressBar(canvas, rect, outerPaint1);
+                    int wasAlpha = outerPaint1.getAlpha();
+                    rect.set(left, top, left + minProgress * (right - left), bottom);
+                    outerPaint1.setAlpha((int) (0.50f * wasAlpha));
+                    drawProgressBar(canvas, rect, outerPaint1);
+                    outerPaint1.setAlpha(wasAlpha);
+                } else {
+                    rect.set(left, top, left + thumbX, bottom);
+                    drawProgressBar(canvas, rect, outerPaint1);
+                }
             }
         }
 
-        if (hoverDrawable != null) {
+        if (hoverDrawable != null && !isModern) {
             int dx = thumbX + selectorWidth / 2 - AndroidUtilities.dp(16);
             int dy = y + thumbSize / 2 - AndroidUtilities.dp(16);
             hoverDrawable.setBounds(dx, dy, dx + AndroidUtilities.dp(32), dy + AndroidUtilities.dp(32));
@@ -541,7 +614,58 @@ public class SeekBarView extends FrameLayout {
             }
         }
 
-        if (transitionProgress < 1f) {
+        if (!isModern) {
+            if (transitionProgress < 1f) {
+                final float oldCircleProgress = 1f - Easings.easeInQuad.getInterpolation(Math.min(1f, transitionProgress * 3f));
+                final float newCircleProgress = Easings.easeOutQuad.getInterpolation(transitionProgress);
+                if (oldCircleProgress > 0f) {
+                    canvas.drawCircle(transitionThumbX + selectorWidth / 2, y + thumbSize / 2, currentRadius * oldCircleProgress, outerPaint1);
+                }
+                canvas.drawCircle(thumbX + selectorWidth / 2, y + thumbSize / 2, currentRadius * newCircleProgress, outerPaint1);
+            } else {
+                if (hasCustomLineWidthValue && lineWidthDp >= 16) {
+                    float pillW = AndroidUtilities.dp(6);
+                    float pillH = AndroidUtilities.dp(24);
+                    Paint pillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    pillPaint.setColor(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000);
+                    RectF pillRect = new RectF(thumbX + selectorWidth / 2f - pillW / 2f, y + thumbSize / 2f - pillH / 2f, thumbX + selectorWidth / 2f + pillW / 2f, y + thumbSize / 2f + pillH / 2f);
+                    canvas.drawRoundRect(pillRect, pillW / 2f, pillW / 2f, pillPaint);
+                } else {
+                    canvas.drawCircle(thumbX + selectorWidth / 2, y + thumbSize / 2, currentRadius, outerPaint1);
+                }
+            }
+        } else if (needCustomDraw() == SLIDER_STYLE_MD3) {
+            float radius = AndroidUtilities.dp(8);
+            float radius2 = AndroidUtilities.dp(3);
+            float indicatorRadius = AndroidUtilities.dp(10);
+            float padding = AndroidUtilities.dp(7);
+
+            rect.set(left, top, thumbX + selectorWidth / 2f - padding, bottom);
+            if (rect.left < rect.right) {
+                if (rect.right - rect.left < AndroidUtilities.dp(7)) {
+                    canvas.drawRoundRect(rect, radius2, radius2, outerPaint1);
+                } else {
+                    updatePath(path, rect, radius, radius2);
+                    canvas.drawPath(path, outerPaint1);
+                }
+            }
+
+            rect.set(thumbX + selectorWidth / 2f + thumbSize + padding, top, right, bottom);
+            if (rect.left < rect.right) {
+                if (rect.right - rect.left < AndroidUtilities.dp(7)) {
+                    canvas.drawRoundRect(rect, radius2, radius2, innerPaint1);
+                } else {
+                    updatePath(path, rect, radius2, radius);
+                    canvas.drawPath(path, innerPaint1);
+                }
+            }
+
+            // left, top, right, bottom, rx, ry
+            rect.set(thumbX + selectorWidth / 2f, top - AndroidUtilities.dp(5), thumbX + selectorWidth / 2f + thumbSize, bottom + AndroidUtilities.dp(5));
+            canvas.drawRoundRect(rect, indicatorRadius, indicatorRadius, outerPaint1);
+        }
+
+        /*if (transitionProgress < 1f) {
             final float oldCircleProgress = 1f - Easings.easeInQuad.getInterpolation(Math.min(1f, transitionProgress * 3f));
             final float newCircleProgress = Easings.easeOutQuad.getInterpolation(transitionProgress);
             if (oldCircleProgress > 0f) {
@@ -550,13 +674,27 @@ public class SeekBarView extends FrameLayout {
             canvas.drawCircle(thumbX + selectorWidth / 2, y + thumbSize / 2, currentRadius * newCircleProgress, outerPaint1);
         } else {
             canvas.drawCircle(thumbX + selectorWidth / 2, y + thumbSize / 2, currentRadius, outerPaint1);
-        }
+        }*/
 
         drawTimestampLabel(canvas);
 
         if (needInvalidate) {
             postInvalidateOnAnimation();
         }
+    }
+
+    private void updatePath(Path path, RectF rect, float radius, float radius2) {
+        path.reset();
+        path.moveTo(rect.left + radius, rect.top);
+        path.lineTo(rect.right - radius2, rect.top);
+        path.quadTo(rect.right, rect.top, rect.right, rect.top + radius2);
+        path.lineTo(rect.right, rect.bottom - radius2);
+        path.quadTo(rect.right, rect.bottom, rect.right - radius2, rect.bottom);
+        path.lineTo(rect.left + radius, rect.bottom);
+        path.quadTo(rect.left, rect.bottom, rect.left, rect.bottom - radius);
+        path.lineTo(rect.left, rect.top + radius);
+        path.quadTo(rect.left, rect.top, rect.left + radius, rect.top);
+        path.close();
     }
 
     private ArrayList<Pair<Float, CharSequence>> timestamps;
@@ -653,7 +791,7 @@ public class SeekBarView extends FrameLayout {
         if (timestampLabelPaint == null) {
             timestampLabelPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
             timestampLabelPaint.setTextSize(AndroidUtilities.dp(12));
-            timestampLabelPaint.setColor(0xffffffff);
+            timestampLabelPaint.setColor(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000);
         }
         for (int i = 0; i < links.length; ++i) {
             URLSpanNoUnderline link = links[i];
@@ -680,9 +818,13 @@ public class SeekBarView extends FrameLayout {
     }
 
     private void drawProgressBar(Canvas canvas, RectF rect, Paint paint) {
-        
         float radius = (rect.bottom - rect.top) / 2f;
+        //float radius = AndroidUtilities.dp(2);
         if (timestamps == null || timestamps.isEmpty()) {
+            if (needCustomDraw() != -1) {
+                return;
+            }
+
             canvas.drawRoundRect(rect, radius, radius, paint);
         } else {
             float lineWidth = rect.bottom - rect.top;
@@ -776,7 +918,7 @@ public class SeekBarView extends FrameLayout {
     private int getTimestampLabelWidth() {
         float left = selectorWidth / 2f + (lastDuration > 1000L * 60 * 10 ? AndroidUtilities.dp(42) : 0);
         float right = getMeasuredWidth() - selectorWidth / 2f - (lastDuration > 1000L * 60 * 10 ? AndroidUtilities.dp(42) : 0);
-        return (int) (Math.abs(left - right) - AndroidUtilities.dp(16 + 50));
+        return Math.max(0, (int) (Math.abs(left - right) - AndroidUtilities.dp(16 + 50)));
     }
 
     private void drawTimestampLabel(Canvas canvas) {
@@ -801,7 +943,7 @@ public class SeekBarView extends FrameLayout {
 
         float left = selectorWidth / 2f + (lastDuration > 1000L * 60 * 10 ? AndroidUtilities.dp(42) : 0);
         float right = getMeasuredWidth() - selectorWidth / 2f - (lastDuration > 1000L * 60 * 10 ? AndroidUtilities.dp(42) : 0);
-        float width = Math.abs(left - right) - AndroidUtilities.dp(16 + 50);
+        float width = Math.max(0f, Math.abs(left - right) - AndroidUtilities.dp(16 + 50));
 
         if (lastWidth > 0 && Math.abs(lastWidth - width) > 0.01f) {
             if (timestampLabel[0] != null) {
@@ -867,7 +1009,7 @@ public class SeekBarView extends FrameLayout {
             }
             canvas.translate(0, -timestampLabel[1].getHeight() / 2f);
             timestampLabelPaint.setAlpha((int) (255 * (1f - changeT) * timestampsAppearing));
-            
+            //timestampLabel[1].draw(canvas);
             canvas.restore();
         }
         if (timestampLabel[0] != null) {
@@ -877,7 +1019,7 @@ public class SeekBarView extends FrameLayout {
             }
             canvas.translate(0, -timestampLabel[0].getHeight() / 2f);
             timestampLabelPaint.setAlpha((int) (255 * changeT * timestampsAppearing));
-            
+            //timestampLabel[0].draw(canvas);
             canvas.restore();
         }
         canvas.restore();

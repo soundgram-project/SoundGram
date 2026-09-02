@@ -39,6 +39,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.util.TypedValue;
+import android.widget.SeekBar;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -124,6 +126,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class ThemeActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
+    private org.telegram.ui.Components.WallpaperUpdater chatListWallpaperUpdater;
+
     public final static int THEME_TYPE_BASIC = 0;
     public final static int THEME_TYPE_NIGHT = 1;
     public final static int THEME_TYPE_OTHER = 2;
@@ -148,6 +152,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
     @Keep
     private int backgroundRow;
+    @Keep
+    private int chatListBackgroundRow;
     private int textSizeHeaderRow;
     @Keep
     private int textSizeRow;
@@ -582,6 +588,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
 
         textSizeRow = -1;
         backgroundRow = -1;
+        chatListBackgroundRow = -1;
         changeUserColor = -1;
         settingsRow = -1;
         directShareRow = -1;
@@ -659,6 +666,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             textSizeRow = rowCount++;
             backgroundRow = rowCount++;
             changeUserColor = rowCount++;
+            chatListBackgroundRow = rowCount++;
             newThemeInfoRow = rowCount++;
             themeHeaderRow = rowCount++;
 
@@ -2066,6 +2074,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         private final static int TYPE_SAVE_TO_GALLERY = 19;
         private final static int TYPE_APP_ICON = 20;
         private final static int TYPE_CHOOSE_COLOR = 21;
+        private final static int TYPE_CHAT_LIST_WALLPAPER = 22;
 
         private Context mContext;
         private boolean first = true;
@@ -2231,6 +2240,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             View view;
             switch (viewType) {
+                case TYPE_CHAT_LIST_WALLPAPER:
+                    view = new ChatListBackgroundCell(mContext);
+                    break;
                 case TYPE_TEXT_SETTING:
                     view = new TextSettingsCell(mContext);
                     break;
@@ -2673,7 +2685,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     if (position == backgroundRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
-                        cell.setTextAndIcon(getString(R.string.ChangeChatBackground), R.drawable.msg_background, changeUserColor >= 0);
+                        cell.setTextAndIcon(getString(R.string.ChangeChatBackground), R.drawable.msg_background, true);
                     } else if (position == editThemeRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
@@ -2784,6 +2796,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_APP_ICON;
             } else if (position == changeUserColor) {
                 return TYPE_CHOOSE_COLOR;
+            } else if (position == chatListBackgroundRow) {
+                return TYPE_CHAT_LIST_WALLPAPER;
             }
             return TYPE_TEXT_SETTING;
         }
@@ -2940,6 +2954,270 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     cell.updateDayNightMode();
                 }
             }
+        }
+    }
+
+    @Override
+    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        super.onActivityResultFragment(requestCode, resultCode, data);
+        if (chatListWallpaperUpdater != null) {
+            chatListWallpaperUpdater.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    private void applyAndRestart() {
+        soundgram.music.SoundGramConfig.save();
+        if (getParentActivity() != null) {
+            AndroidUtilities.runOnUIThread(() -> {
+                Intent intent = new Intent(getParentActivity(), LaunchActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                getParentActivity().startActivity(intent);
+                Runtime.getRuntime().exit(0);
+            }, 300);
+        }
+    }
+
+    private class ChatListBackgroundCell extends LinearLayout {
+        private TextView titleView;
+        private SeekBarView seekBar;
+        private FrameLayout previewCard;
+        private android.widget.ImageView previewBg;
+        private View previewDim;
+        private TextCell actionButton;
+
+        public ChatListBackgroundCell(Context context) {
+            super(context);
+            setOrientation(LinearLayout.VERTICAL);
+            setPadding(0, 0, 0, dp(16));
+
+            titleView = new TextView(context);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+            titleView.setTypeface(AndroidUtilities.bold());
+            titleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader));
+            addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 21, 16, 21, 0));
+
+            seekBar = new SeekBarView(context);
+            seekBar.setReportChanges(true);
+            seekBar.setProgress(soundgram.music.SoundGramConfig.chatListWallDimming);
+            seekBar.setDelegate(new SeekBarView.SeekBarViewDelegate() {
+                @Override
+                public void onSeekBarDrag(boolean stop, float progress) {
+                    soundgram.music.SoundGramConfig.chatListWallDimming = progress;
+                    soundgram.music.SoundGramConfig.save();
+                    NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.wallpapersDidLoad);
+                    if (previewDim != null) {
+                        previewDim.setAlpha(progress);
+                    }
+                    updateTitleText();
+                }
+            });
+            addView(seekBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 38, 5, 4, 39, 0));
+
+            previewCard = new FrameLayout(context);
+            if (Build.VERSION.SDK_INT >= 21) {
+                previewCard.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                    @Override
+                    public void getOutline(android.view.View view, android.graphics.Outline outline) {
+                        outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), AndroidUtilities.dp(12));
+                    }
+                });
+                previewCard.setClipToOutline(true);
+            }
+            previewCard.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+
+            previewBg = new android.widget.ImageView(context);
+            previewBg.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+            updatePreviewBackground();
+            previewCard.addView(previewBg, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+            previewDim = new View(context);
+            previewDim.setBackgroundColor(0xff000000);
+            previewDim.setAlpha(soundgram.music.SoundGramConfig.chatListWallDimming);
+            previewCard.addView(previewDim, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+            LinearLayout mockList = new LinearLayout(context);
+            mockList.setOrientation(LinearLayout.VERTICAL);
+
+            mockList.addView(createMockItem(context, "SoundGram Project", "@Soundgram_Project", 1L));
+            mockList.addView(createMockItem(context, "SoundGram Chat", "@soundgram_chat", 2L));
+
+            previewCard.addView(mockList, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+
+            addView(previewCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 160, 16, 12, 16, 12));
+
+            actionButton = new TextCell(context);
+            actionButton.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
+            actionButton.setTextAndIcon(org.telegram.messenger.LocaleController.getString("sg_change_chat_list_background", R.string.sg_change_chat_list_background), R.drawable.msg_background, false);
+            actionButton.setBackground(Theme.getSelectorDrawable(true));
+            actionButton.setOnClickListener(v -> handleButtonClick());
+            addView(actionButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 4, 0, 8));
+
+            updateTitleText();
+        }
+
+        private void updateTitleText() {
+            int percentage = (int) (soundgram.music.SoundGramConfig.chatListWallDimming * 100);
+            titleView.setText(org.telegram.messenger.LocaleController.getString("sg_chat_list_background_dimming", R.string.sg_chat_list_background_dimming) + ": " + percentage + "%");
+        }
+
+        private void updatePreviewBackground() {
+            if (!android.text.TextUtils.isEmpty(soundgram.music.SoundGramConfig.chatListWallPath)) {
+                try {
+                    String path = soundgram.music.SoundGramConfig.chatListWallPath;
+                    android.net.Uri uri;
+                    if (path.startsWith("content://") || path.startsWith("file://")) {
+                        uri = android.net.Uri.parse(path);
+                    } else {
+                        uri = android.net.Uri.fromFile(new File(path));
+                    }
+                    previewBg.setImageURI(uri);
+                } catch (Exception e) {
+                    previewBg.setImageDrawable(null);
+                }
+            } else {
+                previewBg.setImageDrawable(null);
+            }
+        }
+
+        private void resolveChatPreview(String username, org.telegram.ui.Components.BackupImageView avatarView, TextView nameView, TextView msgView, View itemLayout) {
+            int currentAccount = org.telegram.messenger.UserConfig.selectedAccount;
+            MessagesController mc = MessagesController.getInstance(currentAccount);
+
+            TLRPC.TL_contacts_resolveUsername req = new TLRPC.TL_contacts_resolveUsername();
+            req.username = username.replace("@", "");
+            org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
+                if (response != null) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        TLRPC.TL_contacts_resolvedPeer res = (TLRPC.TL_contacts_resolvedPeer) response;
+                        mc.putUsers(res.users, false);
+                        mc.putChats(res.chats, false);
+                        getMessagesStorage().putUsersAndChats(res.users, res.chats, true, true);
+
+                        Object peer = null;
+                        if (res.peer instanceof TLRPC.TL_peerUser) {
+                            peer = mc.getUser(res.peer.user_id);
+                        } else if (res.peer instanceof TLRPC.TL_peerChat) {
+                            peer = mc.getChat(res.peer.chat_id);
+                        } else if (res.peer instanceof TLRPC.TL_peerChannel) {
+                            peer = mc.getChat(res.peer.channel_id);
+                        }
+
+                        if (peer != null) {
+                            final Object finalPeer = peer;
+                            String title = "";
+                            if (peer instanceof TLRPC.User) {
+                                title = org.telegram.messenger.UserObject.getUserName((TLRPC.User) peer);
+                            } else if (peer instanceof TLRPC.Chat) {
+                                title = ((TLRPC.Chat) peer).title;
+                            }
+                            nameView.setText(title);
+
+                            org.telegram.ui.Components.AvatarDrawable avatarDrawable = new org.telegram.ui.Components.AvatarDrawable();
+                            if (finalPeer instanceof TLRPC.User) {
+                                avatarDrawable.setInfo(currentAccount, (TLRPC.User) finalPeer);
+                                avatarView.setForUserOrChat((TLRPC.User) finalPeer, avatarDrawable);
+                            } else if (finalPeer instanceof TLRPC.Chat) {
+                                avatarDrawable.setInfo(currentAccount, (TLRPC.Chat) finalPeer);
+                                avatarView.setForUserOrChat((TLRPC.Chat) finalPeer, avatarDrawable);
+                            }
+
+                            itemLayout.setOnClickListener(v -> {
+                                Bundle args = new Bundle();
+                                if (finalPeer instanceof TLRPC.User) {
+                                    args.putLong("user_id", ((TLRPC.User) finalPeer).id);
+                                } else if (finalPeer instanceof TLRPC.Chat) {
+                                    args.putLong("chat_id", ((TLRPC.Chat) finalPeer).id);
+                                }
+                                presentFragment(new ChatActivity(args));
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        private View createMockItem(Context context, String name, String username, long id) {
+            FrameLayout itemLayout = new FrameLayout(context);
+            itemLayout.setBackground(Theme.getSelectorDrawable(false));
+
+            org.telegram.ui.Components.BackupImageView avatarView = new org.telegram.ui.Components.BackupImageView(context);
+            avatarView.setRoundRadius(AndroidUtilities.dp(24));
+            org.telegram.ui.Components.AvatarDrawable avatarDrawable = new org.telegram.ui.Components.AvatarDrawable();
+            avatarDrawable.setInfo(id, name, "");
+            avatarView.setImageDrawable(avatarDrawable);
+            itemLayout.addView(avatarView, LayoutHelper.createFrame(48, 48, Gravity.LEFT | Gravity.CENTER_VERTICAL, 12, 0, 0, 0));
+
+            LinearLayout textLayout = new LinearLayout(context);
+            textLayout.setOrientation(LinearLayout.VERTICAL);
+
+            TextView nameView = new TextView(context);
+            nameView.setText(name);
+            nameView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+            nameView.setTypeface(AndroidUtilities.bold());
+            nameView.setTextColor(Theme.getColor(Theme.key_chats_name));
+            textLayout.addView(nameView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            TextView msgView = new TextView(context);
+            msgView.setText(username);
+            msgView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            msgView.setTextColor(Theme.getColor(Theme.key_chats_message));
+            textLayout.addView(msgView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
+
+            itemLayout.addView(textLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 72, 0, 16, 0));
+
+            if (id == 1L) {
+                View divider = new View(context);
+                divider.setBackgroundColor(Theme.getColor(Theme.key_divider));
+                itemLayout.addView(divider, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1, Gravity.BOTTOM, 72, 0, 0, 0));
+            }
+
+            resolveChatPreview(username, avatarView, nameView, msgView, itemLayout);
+
+            itemLayout.setLayoutParams(LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 72));
+
+            return itemLayout;
+        }
+
+        private void handleButtonClick() {
+            if (soundgram.music.SoundGramConfig.chatListWallPath.isEmpty() && soundgram.music.SoundGramConfig.chatListWallVideoPath.isEmpty()) {
+                chooseBackground();
+            } else {
+                AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+                builder.setTitle(org.telegram.messenger.LocaleController.getString("sg_chat_list_background", R.string.sg_chat_list_background));
+                builder.setItems(new CharSequence[]{
+                        org.telegram.messenger.LocaleController.getString("sg_choose_from_gallery", R.string.sg_choose_from_gallery),
+                        org.telegram.messenger.LocaleController.getString("sg_delete_background", R.string.sg_delete_background)
+                }, (dialog, which) -> {
+                    if (which == 0) {
+                        chooseBackground();
+                    } else {
+                        soundgram.music.SoundGramConfig.chatListWallPath = "";
+                        soundgram.music.SoundGramConfig.chatListWallVideoPath = "";
+                        applyAndRestart();
+                    }
+                });
+                showDialog(builder.create());
+            }
+        }
+
+        private void chooseBackground() {
+            if (chatListWallpaperUpdater == null) {
+                chatListWallpaperUpdater = new org.telegram.ui.Components.WallpaperUpdater(getParentActivity(), ThemeActivity.this, new org.telegram.ui.Components.WallpaperUpdater.WallpaperUpdaterDelegate() {
+                    @Override
+                    public void didSelectWallpaper(File file, android.graphics.Bitmap bitmap, boolean gallery) {
+                        if (file != null) {
+                            soundgram.music.SoundGramConfig.chatListWallPath = file.getAbsolutePath();
+                            soundgram.music.SoundGramConfig.chatListWallVideoPath = "";
+                        }
+                        applyAndRestart();
+                    }
+
+                    @Override
+                    public void needOpenColorPicker() {
+                    }
+                });
+            }
+            chatListWallpaperUpdater.openGallery();
         }
     }
 }

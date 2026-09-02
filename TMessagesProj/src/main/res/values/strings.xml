@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="AppName">NimarkoGram</string>
+    <string name="AppName">SoundGram</string>
     <string name="NM_CP_Header_ChatView">Chat view</string>
     <string name="NM_CP_Header_Interaction">Interaction</string>
     <string name="NM_CP_Header_Media">Media</string>
@@ -10,7 +10,9 @@
     <string name="NM_CP_WeekdayNearDate_Desc">Adds the day of the week next to the date in chat.</string>
     <string name="NM_CP_PreReformRussian">Pre-reform Russian spelling</string>
     <string name="NM_CP_PreReformRussian_Desc">Outgoing messages in pre-1918 spelling (ѣ, і, ѳ, ъ).</string>
-    <string name="AppNameBeta">NimarkoGram Beta</string>
+    <string name="EP_NavigationAnimationCrossfading">Smooth title transition</string>
+    <string name="NM_SettingsDesc_NavigationCrossfade">Crossfade animation when switching screens</string>
+    <string name="AppNameBeta">SoundGram Beta</string>
     <string name="LanguageName">English</string>
     <string name="English">English</string>
     <string name="LanguageNameInEnglish">English</string>
@@ -37,21 +39,21 @@
     <string name="WrongNumberFormat">Wrong format</string>
     <string name="ShortNumberInfo">The number you provided is too short for **%1$s**:\n\n**%2$s**\n\nPlease enter the correct number including your country code.</string>
     <string name="EditNumber">Edit number</string>
-    <string name="DidNotGetTheCodeInfo">If you didn\'t get the code by SMS or call, please check your **cellular data settings** and phone number:\n\n**%1$s**\n\nYour remaining options are to try another number or to contact NimarkoGram Support. Tap **Help** to send us the technical details so that we can identify the problem.</string>
+    <string name="DidNotGetTheCodeInfo">If you didn\'t get the code by SMS or call, please check your **cellular data settings** and phone number:\n\n**%1$s**\n\nYour remaining options are to try another number or to contact SoundGram Support. Tap **Help** to send us the technical details so that we can identify the problem.</string>
     <string name="DidNotGetTheCodeHelpButton">Help</string>
     <string name="DidNotGetTheCodeEditNumberButton">Edit number</string>
     <!--code enter view-->
     <string name="YourCode">Phone verification</string>
     <string name="SentSmsCode">We’ve sent an SMS with an activation code to your phone **%1$s**.</string>
-    <string name="SentAppCode">We\'ve sent the code to the **NimarkoGram** app on your other device.</string>
-    <string name="SentAppCodeWithPhone">We\'ve sent the code to the **NimarkoGram** app for %1$s on your other device.</string>
-    <string name="SentAppCodeTitle">Check your NimarkoGram messages</string>
+    <string name="SentAppCode">We\'ve sent the code to the **SoundGram** app on your other device.</string>
+    <string name="SentAppCodeWithPhone">We\'ve sent the code to the **SoundGram** app for %1$s on your other device.</string>
+    <string name="SentAppCodeTitle">Check your SoundGram messages</string>
     <string name="SentFragmentCode">Get the code for %1$s in the Anonymous Numbers section on Fragment.</string>
     <string name="SentSmsCodeTitle">Enter code</string>
     <string name="OpenFragment">Open Fragment</string>
-    <string name="SentCallCode">We\'re calling your phone **%1$s**.\n\nDon\'t accept the call, NimarkoGram will process everything automatically.</string>
+    <string name="SentCallCode">We\'re calling your phone **%1$s**.\n\nDon\'t accept the call, SoundGram will process everything automatically.</string>
     <string name="SentCallOnly">Calling your phone **%1$s** to dictate the code.</string>
-    <string name="CallText">NimarkoGram will call you in %1$d:%2$02d</string>
+    <string name="CallText">SoundGram will call you in %1$d:%2$02d</string>
     <string name="SmsText">Sending you an SMS in %1$d:%2$02d</string>
     <string name="Calling">Calling you...</string>
     <string name="SendingSms">Sending SMS...</string>
@@ -62,7 +64,7 @@
     <string name="DidNotGetTheCodeSms">Send the code as an SMS</string>
     <string name="DidNotGetTheCodeFragment">Get a code via Fragment</string>
     <string name="CancelAccountReset">Cancel account reset</string>
-    <string name="CancelAccountResetInfo2">Somebody with access to **%1$s** has requested to delete your NimarkoGram account and reset your 2-Step Verification password.\n\nIf this wasn\'t you, please enter the code we\'ve just sent you via SMS. You can also cancel this by *changing your phone number*.</string>
+    <string name="CancelAccountResetInfo2">Somebody with access to **%1$s** has requested to delete your SoundGram account and reset your 2-Step Verification password.\n\nIf this wasn\'t you, please enter the code we\'ve just sent you via SMS. You can also cancel this by *changing your phone number*.</string>
     <string name="ResetAccount">Reset account</string>
     <string name="ResetAccountInfo">Since the account **%1$s** is active and protected by a password, we will delete it in 1 week for security purposes.\n\nYou can cancel this process at any time.</string>
     <string name="ResetAccountStatus">You\'ll be able to reset your account in:</string>
@@ -70,7 +72,7 @@
     <string name="CancelLinkExpired">Link is invalid or expired.</string>
     <string name="CancelLinkSuccessTitle">Success</string>
     <string name="CancelLinkSuccess">The deletion process was cancelled for your account %1$s. You may close this window now.</string>
-    <string name="OtherLoginCode">Your login code is **%1$s**. Enter it in the NimarkoGram app where you are trying to log in.\n\nDo not give this code to anyone.</string>
+    <string name="OtherLoginCode">Your login code is **%1$s**. Enter it in the SoundGram app where you are trying to log in.\n\nDo not give this code to anyone.</string>
     <string name="SmsAvailableIn">You can request an SMS in %1$d:%2$02d</string>
     <string name="ResendSmsAvailableIn">You can request a new SMS in %1$d:%2$02d</string>
     <string name="RequestSmsButton">Get the code via SMS</string>
@@ -182,7 +184,7 @@
     <string name="NoResultFoundFor">No results found for \"%s\".</string>
     <string name="NoResultFoundForTag">No results found for %s</string>
     <string name="NoResultFoundFor2">There were no results for \"%s\".\nTry a new search.</string>
-    <string name="NoChats">Welcome to NimarkoGram</string>
+    <string name="NoChats">Welcome to SoundGram</string>
     <string name="RecentlyViewed">Recently viewed</string>
     <string name="RecentlyViewedHide">HIDE</string>
     <string name="NoChatsHelp">Start messaging by tapping the pencil button in the bottom right corner.</string>
@@ -650,13 +652,13 @@
     <string name="ChannelEditPermissions">Edit permissions</string>
     <string name="ChannelAntiSpamUser">Telegram Anti-Spam</string>
     <string name="ChannelAntiSpam">Aggressive Anti-Spam</string>
-    <string name="ChannelAntiSpamInfo">NimarkoGram will filter more spam, but may occasionally affect ordinary messages. You can report False Positives in Recent Actions.</string>
+    <string name="ChannelAntiSpamInfo">SoundGram will filter more spam, but may occasionally affect ordinary messages. You can report False Positives in Recent Actions.</string>
     <string name="ChannelAntiSpamInfo2">You can manage anti-spam settings in %s</string>
     <string name="ChannelHideMembers">Hide Members</string>
     <string name="ChannelHideMembersInfo">Switch on to hide the list of members in this group. Admins will remain visible.</string>
     <string name="ChannelMemberTags">Allow Member Tags</string>
     <string name="ChannelMemberTagsInfo">Turn this on to let members of the group to add short tags next to their names.</string>
-    <string name="ChannelAntiSpamFalsePositiveReported">NimarkoGram moderators will review your report. Thank you!</string>
+    <string name="ChannelAntiSpamFalsePositiveReported">SoundGram moderators will review your report. Thank you!</string>
     <string name="ChannelMembersInfo">Only channel administrators can see this list.</string>
     <string name="ChannelLinkInfo">Anyone on Telegram will be able to join your channel by following this link.</string>
     <string name="ChannelAdminsInfo">You can add administrators to help you manage your channel. Tap and hold to remove admins.</string>
@@ -1230,11 +1232,11 @@
     <string name="SponsoredMessageInfo">What are sponsored\nmessages?</string>
     <string name="SponsoredMessageInfo2Description1">Unlike other apps, Telegram never uses your private data to target ads. [Learn more in the Privacy Policy](https://telegram.org/privacy#5-6-no-ads-based-on-user-data)</string>
     <string name="SponsoredMessageInfo2Description2">Unlike other apps, Telegram doesn\'t track whether you tapped on a sponsored message and doesn\'t profile you based on your activity. We also prevent external links in sponsored messages to ensure that third parties can’t spy on our users. We believe that everyone has the right to privacy, and technological platforms should respect that.</string>
-    <string name="SponsoredMessageInfo2Description3">NimarkoGram offers free and unlimited service to hundreds of millions of users, which involves significant server and traffic costs. In order to remain independent and stay true to its values, NimarkoGram developed a paid tool to promote messages with user privacy in mind. We welcome responsible advertisers at:</string>
+    <string name="SponsoredMessageInfo2Description3">SoundGram offers free and unlimited service to hundreds of millions of users, which involves significant server and traffic costs. In order to remain independent and stay true to its values, SoundGram developed a paid tool to promote messages with user privacy in mind. We welcome responsible advertisers at:</string>
     <string name="SponsoredMessageInfo2Description4">Ads should no longer be synonymous with abuse of user privacy. Let us redefine how a tech company should operate – together.</string>
     <string name="SponsoredMessageAlertLearnMore">LEARN MORE</string>
     <string name="SponsoredMessageAlertLearnMoreUrl">https://telegram.org</string>
-    <string name="RevenueSharingAdsAlertSubtitle">NimarkoGram Ads are very different from ads on other platforms. Ads such as this one:</string>
+    <string name="RevenueSharingAdsAlertSubtitle">SoundGram Ads are very different from ads on other platforms. Ads such as this one:</string>
     <string name="RevenueSharingAdsInfo1Title">Respect Your Privacy</string>
     <string name="RevenueSharingAdsInfo1Subtitle">Ads on Telegram do not use your personal information and are based on the channel in which you see them.</string>
     <string name="RevenueSharingAdsInfo2Title">Help the Channel Creator</string>
@@ -1430,7 +1432,7 @@
     <string name="ReportInfo">Please enter any additional details relevant to your report.</string>
     <string name="ReportHint">Additional details...</string>
     <string name="ReportSend">Send Report</string>
-    <string name="ReportSentInfo">NimarkoGram moderators will study your report.\nThank you for your cooperation!</string>
+    <string name="ReportSentInfo">SoundGram moderators will study your report.\nThank you for your cooperation!</string>
     <string name="ReportChatSpam">Spam</string>
     <string name="ReportChatFakeAccount">Fake Account</string>
     <string name="ReportChatViolence">Violence</string>
@@ -1772,8 +1774,8 @@
     <string name="NotificationGroupFew">%1$s sent %3$s to the group %2$s</string>
     <string name="NotificationGroupAlbum">%1$s sent an album to the group %2$s</string>
     <string name="NotificationGroupForwardedFew">%1$s forwarded %3$s to the group %2$s</string>
-    <string name="NotificationHiddenName">NimarkoGram</string>
-    <string name="NotificationHiddenChatName">NimarkoGram</string>
+    <string name="NotificationHiddenName">SoundGram</string>
+    <string name="NotificationHiddenChatName">SoundGram</string>
     <string name="NotificationHiddenChatUserName">User</string>
     <string name="NotificationHiddenMessage">New message</string>
     <string name="Reply">Reply</string>
@@ -1843,7 +1845,7 @@
     <string name="NotificationActionMissedCallConference">You missed a call from %1$s</string>
     <string name="NotificationActionMissedCallConferenceOther_one">You missed a call from %2$s and %1$d other</string>
     <string name="NotificationActionMissedCallConferenceOther_other">You missed a call from %2$s and %1$d others</string>
-    <string name="SecretChatName">NimarkoGram</string>
+    <string name="SecretChatName">SoundGram</string>
     <!--contacts view-->
     <string name="SelectContact">Select Contact</string>
     <string name="ShareContactTitle">Share Contact</string>
@@ -1874,7 +1876,7 @@
     <string name="InviteToTelegram">INVITE TO TELEGRAM</string>
     <string name="ShareTelegram2">Share Telegram</string>
     <string name="UpdateContactsTitle">Update contacts?</string>
-    <string name="UpdateContactsMessage">NimarkoGram has detected many unsynced contacts, would you like to sync them now? Choose \'OK\' if you\'re using your own device, SIM card and Google account.</string>
+    <string name="UpdateContactsMessage">SoundGram has detected many unsynced contacts, would you like to sync them now? Choose \'OK\' if you\'re using your own device, SIM card and Google account.</string>
     <string name="SortedByName">Sorted by name</string>
     <string name="SortedByLastSeen">Sorted by last seen time</string>
     <string name="AddContactByPhone">Add %1$s</string>
@@ -2439,11 +2441,11 @@
     <string name="LanguageUnsupportedError">There is no such language.</string>
     <string name="LanguageSame">You are already using this language pack (**%1$s**). You can change your language at any time in Settings.</string>
     <string name="LanguageUnknownCustomAlert">Unfortunately, this custom language pack (**%1$s**) doesn\'t contain data for Telegram Android.</string>
-    <string name="AskAQuestionInfo">Please note that NimarkoGram Support is done by volunteers. We try to respond as quickly as possible, but it may take a while.\n\nPlease take a look at the <![CDATA[<a href=\"https://telegram.org/faq#general-questions\">NimarkoGram FAQ</a>]]>: it has answers to most questions and important tips for <![CDATA[<a href=\"https://telegram.org/faq#troubleshooting\">troubleshooting</a>]]>.</string>
+    <string name="AskAQuestionInfo">Please note that SoundGram Support is done by volunteers. We try to respond as quickly as possible, but it may take a while.\n\nPlease take a look at the <![CDATA[<a href=\"https://telegram.org/faq#general-questions\">SoundGram FAQ</a>]]>: it has answers to most questions and important tips for <![CDATA[<a href=\"https://telegram.org/faq#troubleshooting\">troubleshooting</a>]]>.</string>
     <string name="AskButton">Ask a volunteer</string>
-    <string name="TelegramFAQ">NimarkoGram FAQ</string>
-    <string name="TelegramFaq">NimarkoGram FAQ</string>
-    <string name="TelegramFeatures">NimarkoGram Features</string>
+    <string name="TelegramFAQ">SoundGram FAQ</string>
+    <string name="TelegramFaq">SoundGram FAQ</string>
+    <string name="TelegramFeatures">SoundGram Features</string>
     <string name="TelegramFeaturesUrl">https://t.me/TelegramTips</string>
     <string name="AddAccount">Add Account</string>
     <string name="SwitchAccountHint">"Long tap to switch accounts"</string>
@@ -2591,7 +2593,7 @@
     <string name="DirectShareInfo">Show recent chats in Android share menu</string>
     <string name="Emoji">Emoji</string>
     <string name="LargeEmoji">Large Emoji</string>
-    <string name="TelegramVersion">NimarkoGram for Android %1$s</string>
+    <string name="TelegramVersion">SoundGram for Android %1$s</string>
     <string name="DebugMenu">Debug Menu</string>
     <string name="DebugMenuLongPress">Long press again for debug menu</string>
     <string name="DebugSendLogs">Send Logs</string>
@@ -2796,7 +2798,7 @@
     <string name="Links">Links</string>
     <string name="Website">Website</string>
     <string name="Preferences">Preferences</string>
-    <string name="NimarkoGramSettings">NimarkoGram Settings</string>
+    <string name="NimarkoGramSettings">SoundGram Settings</string>
     <string name="Privacy">Privacy</string>
     <string name="ChatTweaks">Chat tweaks</string>
     <string name="HideProxySponsor">Hide proxy sponsor ads</string>
@@ -2834,7 +2836,7 @@
     <string name="PluginsRestartingEngine">Restarting plugin engine…</string>
     <string name="PluginsDocumentation">Documentation</string>
     <string name="PluginsTrusted">Trusted plugins</string>
-    <string name="ForkedByNimarko">Forked by Nimarko</string>
+    <string name="ForkedByNimarko">Forked by SoundGram</string>
     <string name="PluginsPoweredBy">Plugin engine adapted from <![CDATA[<a href="https://github.com/exteraSquad/exteraGram">exteraGram</a>]]>.</string>
     <string name="PluginsDevServerLaunched">Dev server is running.</string>
     <string name="PluginsDevServerStopped">Dev server is stopped.</string>
@@ -2842,7 +2844,7 @@
     <string name="PluginsPySdkAutoUpdate">Auto-update SDK</string>
     <string name="PluginsPySdkEnableBetaVersion">Use beta SDK</string>
     <string name="PluginsPySdkCheckUpdates">Check for SDK updates</string>
-    <string name="PluginsPySdkOffline">Online updates disabled in NimarkoGram.</string>
+    <string name="PluginsPySdkOffline">Online updates disabled in SoundGram.</string>
     <string name="RestoreSdkFromApk">Restore SDK from APK</string>
     <string name="PluginsNotFound">No plugins installed yet.</string>
     <string name="PluginNoDescription">No description</string>
@@ -3502,7 +3504,7 @@
     <string name="PleaseEnterNewSecondPasswordHint">Re-enter new password</string>
     <string name="RecoveryEmail">Recovery email</string>
     <string name="RecoveryEmailTitle">Recovery Email</string>
-    <string name="RecoveryEmailSubtitle">You can set a recovery email to be able to reset your password and restore access to your NimarkoGram account.</string>
+    <string name="RecoveryEmailSubtitle">You can set a recovery email to be able to reset your password and restore access to your SoundGram account.</string>
     <string name="YourEmail">Your email</string>
     <string name="YourNewEmail">Your new email</string>
     <string name="YourLoginEmailChangedSuccess">Your email has been changed.</string>
@@ -3578,7 +3580,7 @@
     <string name="VerificationCode">Verification code</string>
     <string name="EnterCode">Enter code</string>
     <string name="ResendCodeInfo">The verification code was sent to your email.</string>
-    <string name="EnabledPasswordText">You have enabled Two-Step verification.\nYou\'ll need the password you set up here to log in to your NimarkoGram account.</string>
+    <string name="EnabledPasswordText">You have enabled Two-Step verification.\nYou\'ll need the password you set up here to log in to your SoundGram account.</string>
     <string name="AddEmailTitle">Add Email</string>
     <string name="AddEmailSubtitle">Please enter your valid email address to protect your account.</string>
     <string name="EnterNewEmail">Enter New Email</string>
@@ -3594,8 +3596,8 @@
     <string name="StorageUsage">Storage Usage</string>
     <string name="StorageCleared">Storage Cleared</string>
     <string name="StorageUsageCalculating">Calculating cache size...</string>
-    <string name="StorageUsageTelegram">NimarkoGram uses %s of your device storage.</string>
-    <string name="StorageUsageTelegramLess">NimarkoGram uses %s of your device storage.</string>
+    <string name="StorageUsageTelegram">SoundGram uses %s of your device storage.</string>
+    <string name="StorageUsageTelegramLess">SoundGram uses %s of your device storage.</string>
     <string name="StorageCleared2">All media can be re-downloaded from the Telegram cloud if you need it again.</string>
     <string name="StorageUsageInfo">All media will stay in the Telegram cloud and can be re-downloaded if you need it again.</string>
     <string name="NetworkUsage">Data Usage</string>
@@ -4157,15 +4159,15 @@
     <string name="PermissionNoAudioVideoWithHint">**Telegram** needs microphone access so that you can send voice messages. Tap Settings -> Permissions, and turn **Microphone** on. </string>
     <string name="PermissionNoCameraWithHint">**Telegram** needs camera access so that you can take photos and videos. Tap Settings -> Permissions, and turn **Camera** on.</string>
     <string name="PermissionNoCameraMicVideo">**Telegram** needs camera and microphone access so that you can send video messages. Tap Settings -> Permissions, and turn **Microphone** and **Camera** on.</string>
-    <string name="PermissionNoLocation">NimarkoGram needs access to your location so that you can share it with your friends.</string>
-    <string name="PermissionNoLocationStory">NimarkoGram needs access to your location so that you can add your current weather widget to a story.</string>
+    <string name="PermissionNoLocation">SoundGram needs access to your location so that you can share it with your friends.</string>
+    <string name="PermissionNoLocationStory">SoundGram needs access to your location so that you can add your current weather widget to a story.</string>
     <string name="PermissionNoLocationFriends">**Telegram** needs access to location so that you can share it with your friends. Tap Settings -> Permissions, and turn **Location** on.</string>
     <string name="PermissionNoLocationNavigation">**Telegram** needs access to location so that you can get directions. Tap Settings -> Permissions, and turn **Location** on.</string>
     <string name="PermissionNoContactsSharing">**Telegram** needs access to contacts so that you can share them with your friends. Tap Settings -> Permissions, and turn **Contacts** on.</string>
     <string name="PermissionNoContactsSaving">**Telegram** needs access to contacts to save them on your phone. Tap Settings -> Permissions, and turn **Contacts** on.</string>
     <string name="PermissionNoStorageAvatar">**Telegram** needs storage access so you can upload profile picture. Tap Settings -> Permissions, and turn **Files and media** on.</string>
     <string name="PermissionNoAudioStorageStory">**Telegram** needs access to music files to upload with your story. Tap Settings -> Permissions, and turn **Music and Audio** on.</string>
-    <string name="PermissionDrawAboveOtherApps">NimarkoGram needs access to draw above other apps to play videos in Picture-in-Picture mode.</string>
+    <string name="PermissionDrawAboveOtherApps">SoundGram needs access to draw above other apps to play videos in Picture-in-Picture mode.</string>
     <string name="PermissionDrawAboveOtherAppsGroupCall">Overlay mode lets you use push-to-talk and see who is talking even when you are outside of Telegram.</string>
     <string name="PermissionOpenSettings">SETTINGS</string>
     <string name="PermissionXiaomiLockscreen">Please allow Telegram to be shown on the lock screen so that calls can work properly.</string>
@@ -4243,18 +4245,18 @@
     <string name="ViewMessageStatistic">Message Statistic</string>
     <string name="ViewMessage">Open Message</string>
     <!--Intro view-->
-    <string name="Page1Title">NimarkoGram</string>
+    <string name="Page1Title">SoundGram</string>
     <string name="Page2Title">Fast</string>
     <string name="Page3Title">Free</string>
     <string name="Page4Title">Secure</string>
     <string name="Page5Title">Powerful</string>
     <string name="Page6Title">Cloud-Based</string>
     <string name="Page1Message">The world\'s **fastest** messaging app.\nIt is **free** and **secure**.</string>
-    <string name="Page2Message">**NimarkoGram** delivers messages faster than\nany other application.</string>
-    <string name="Page3Message">**NimarkoGram** provides free unlimited cloud storage for chats and media.</string>
-    <string name="Page4Message">**NimarkoGram** keeps your messages safe\nfrom hacker attacks.</string>
-    <string name="Page5Message">**NimarkoGram** has no limits on\nthe size of your media and chats.</string>
-    <string name="Page6Message">**NimarkoGram** lets you access your messages\nfrom multiple devices.</string>
+    <string name="Page2Message">**SoundGram** delivers messages faster than\nany other application.</string>
+    <string name="Page3Message">**SoundGram** provides free unlimited cloud storage for chats and media.</string>
+    <string name="Page4Message">**SoundGram** keeps your messages safe\nfrom hacker attacks.</string>
+    <string name="Page5Message">**SoundGram** has no limits on\nthe size of your media and chats.</string>
+    <string name="Page6Message">**SoundGram** lets you access your messages\nfrom multiple devices.</string>
     <string name="StartMessaging">Start Messaging</string>
     <!-- VoIP -->
     <string name="AccountSettings">Account Settings</string>
@@ -4267,9 +4269,9 @@
     <string name="VoipFailed">Failed to connect</string>
     <string name="VoipRinging">Ringing</string>
     <string name="VoipBusy">Line busy</string>
-    <string name="VoipInCallBranding">NimarkoGram Call</string>
-    <string name="VoipInVideoCallBranding">NimarkoGram Video Call</string>
-    <string name="VoipInConferenceCallBranding">NimarkoGram Group Call</string>
+    <string name="VoipInCallBranding">SoundGram Call</string>
+    <string name="VoipInVideoCallBranding">SoundGram Video Call</string>
+    <string name="VoipInConferenceCallBranding">SoundGram Group Call</string>
     <string name="VoipOutgoingCall">Ongoing Telegram call</string>
     <string name="VoipVoiceChat">Ongoing Voice Chat</string>
     <string name="VoipLiveStream">Ongoing Live Stream</string>
@@ -4336,14 +4338,14 @@
     <string name="VoipRateCallAlert">Please rate the quality of your Telegram call</string>
     <string name="VoipNeedMicPermissionWithHint">**Telegram** needs microphone access so that you can make calls. Tap Settings -> Permissions, and turn **Microphone** on.</string>
     <string name="VoipNeedMicCameraPermissionWithHint">**Telegram** needs camera and microphone access so that you can make video calls. Tap Settings -> Permissions, and turn **Microphone** and **Camera** on.</string>
-    <string name="VoipNeedCameraPermission">NimarkoGram needs access to your camera so that you can make video calls.</string>
+    <string name="VoipNeedCameraPermission">SoundGram needs access to your camera so that you can make video calls.</string>
     <string name="VoipFeedbackCommentHint">Add an optional comment</string>
     <string name="CallBack">Call Back</string>
     <string name="CallAgain">Call Again</string>
     <string name="DefaultRingtone">Default</string>
-    <string name="CallViaTelegram">NimarkoGram Call</string>
-    <string name="VideoCallViaTelegram">NimarkoGram Video Call</string>
-    <string name="VoiceCallViaTelegram">NimarkoGram Voice Call</string>
+    <string name="CallViaTelegram">SoundGram Call</string>
+    <string name="VideoCallViaTelegram">SoundGram Video Call</string>
+    <string name="VoiceCallViaTelegram">SoundGram Voice Call</string>
     <string name="VoiceCallViaCarrier">Call via Carrier</string>
     <string name="VoipAudioRoutingEarpiece">Earpiece</string>
     <string name="VoipAudioRoutingHeadset">Headset</string>
@@ -4367,8 +4369,8 @@
     <string name="QuickReplyDefault3">I\'ll call you later.</string>
     <string name="QuickReplyDefault4">Can\'t talk now. Call me later?</string>
     <string name="AllowCustomQuickReply">Allow Custom</string>
-    <string name="VoipInCallBrandingWithName">NimarkoGram Call to %s</string>
-    <string name="VoipInVideoCallBrandingWithName">NimarkoGram Video Call to %s</string>
+    <string name="VoipInCallBrandingWithName">SoundGram Call to %s</string>
+    <string name="VoipInVideoCallBrandingWithName">SoundGram Video Call to %s</string>
     <string name="VoipErrorUnknown">Can\'t place a Telegram call at the moment.</string>
     <string name="RateCallEcho">I heard my own voice</string>
     <string name="RateCallNoise">I heard background noise</string>
@@ -5542,7 +5544,7 @@
     <string name="ManageDeviceStorage">Manage Device Storage</string>
     <string name="RemoveDocumentsAlertMessage">They will be deleted from your disk, but will remain accessible in the cloud.</string>
 
-    <string name="DownloadedFilesMessage">NimarkoGram lets you store all documents you send and receive in the cloud and save storage space on your device.</string>
+    <string name="DownloadedFilesMessage">SoundGram lets you store all documents you send and receive in the cloud and save storage space on your device.</string>
     <string name="ClearDownloadsList">Clear Download List</string>
     <string name="SearchEmptyViewDownloads">No recent downloads</string>
     <string name="ForceSetPasswordAlertMessageShort_one">If you do not set a password, you will only be able to log into your account via SMS once every %1$s day. Do you want to proceed without a password?</string>
@@ -6364,7 +6366,7 @@
     <string name="SdCardAlert">Storing on SD card will make Telegram slow. Proceed anyway?</string>
     <string name="Proceed">Proceed</string>
     <string name="SdCardError">SD Card Error</string>
-    <string name="SdCardErrorDescription">NimarkoGram is unable to save data on your SD card.</string>
+    <string name="SdCardErrorDescription">SoundGram is unable to save data on your SD card.</string>
     <string name="DoNotUseSDCard">Do not use SD card</string>
     <string name="NextMediaTap">Show next media on Tap</string>
     <string name="NextMediaTapInfo">Tap near the edge of the screen while viewing media to navigate between photos</string>
@@ -8017,7 +8019,7 @@
     <string name="Monetization">Monetization</string>
     <string name="MonetizationInfoTitle">Earn From Your Channel</string>
     <string name="MonetizationInfoFeature1Name">Telegram Ads</string>
-    <string name="MonetizationInfoFeature1Text">NimarkoGram can display ads in your channel.</string>
+    <string name="MonetizationInfoFeature1Text">SoundGram can display ads in your channel.</string>
     <string name="MonetizationInfoFeature2Name">50:50 revenue split</string>
     <string name="MonetizationInfoFeature2Text">You can receive 50% of the ad revenue in TON.</string>
     <string name="MonetizationInfoFeature3Name">Flexible withdrawals</string>
@@ -8025,7 +8027,7 @@
     <string name="MonetizationInfoTONTitle">What is 💎 TON?</string>
     <string name="MonetizationInfoTONText">**TON** is a blockchain platform and cryptocurrency that Telegram uses for its high speed and low commisions on transactions.</string>
     <string name="MonetizationInfoTONLink">https://telegram.org/privacy</string>
-    <string name="MonetizationInfo">NimarkoGram shares %1$d%% of the revenue from ads displayed in your channel. **Learn more >**</string>
+    <string name="MonetizationInfo">SoundGram shares %1$d%% of the revenue from ads displayed in your channel. **Learn more >**</string>
     <string name="MonetizationBalance">Available balance</string>
     <string name="MonetizationBalanceInfo">You can collect your reward using Fragment, a third-party platform used by advertisers to pay for ads. **Learn more >**</string>
     <string name="MonetizationBalanceInfoLink">https://telegram.org/tos/content-creator-rewards</string>
@@ -8295,7 +8297,7 @@
     <string name="ReturnEnteringWord">Return to entering the word ></string>
     <string name="ReturnEnteringPhrase">Return to entering the word ></string>
     <string name="SmsAvailableIn2">You can request another\nSMS in %1$d:%2$02d</string>
-    <string name="CallAvailableIn2">NimarkoGram can call you in %1$d:%2$02d</string>
+    <string name="CallAvailableIn2">SoundGram can call you in %1$d:%2$02d</string>
     <string name="ForwardedFrom">Forwarded from</string>
     <string name="RestrictedParticipantSending">Restricted **%s** from sending any messages</string>
     <string name="EventLogExpandMore_one">Show %d More Message</string>
@@ -8316,7 +8318,7 @@
     <string name="UsePIN">Use PIN</string>
     <string name="EnterPINorFingerprint">Enter your PIN or use a fingerprint</string>
     <string name="EnterPIN">Enter your PIN</string>
-    <string name="AppLocked">NimarkoGram Locked</string>
+    <string name="AppLocked">SoundGram Locked</string>
     <string name="ShowSensitiveContent">Show 18+ Content</string>
     <string name="ShowSensitiveContentInfo">Do not hide media that contain content suitable only for adults</string>
     <string name="ConfirmSensitiveContentTitle">18+ Content</string>
@@ -8684,7 +8686,7 @@
     <string name="BrowserSettingsAlwaysOpenInTitle2">Open in-app</string>
     <string name="BrowserSettingsNeverOpenInAdd">Add Website</string>
     <string name="BrowserSettingsNeverOpenInClearList">Clear List</string>
-    <string name="BrowserSettingsNeverOpenInInfo">NimarkoGram will always open links from these websites in the external browser.</string>
+    <string name="BrowserSettingsNeverOpenInInfo">SoundGram will always open links from these websites in the external browser.</string>
     <string name="BrowserSettingsNeverOpenInClearList2">Delete All Exceptions</string>
     <string name="BrowserSettingsNeverOpenInInfo2">These sites will always be opened in external browser.</string>
     <string name="BrowserSettingsAlwaysOpenInInfo2">These sites will still be opened in-app.</string>
@@ -9111,7 +9113,7 @@
     <string name="Gift2AuctionCountdownFinished">Finished</string>
     <string name="Gift2AuctionCountdownStartsIn">starts in %s</string>
     <string name="ExplainStarsTitle">What are Stars?</string>
-    <string name="ExplainStarsTitle2">NimarkoGram Stars allow users to:</string>
+    <string name="ExplainStarsTitle2">SoundGram Stars allow users to:</string>
     <string name="ExplainStarsFeature1Title">Send Gifts to Friends</string>
     <string name="ExplainStarsFeature1Text">Give your friends gifts that can be kept on their profiles or converted to Stars.</string>
     <string name="ExplainStarsFeature2Title">Use Stars in miniapps</string>
@@ -9149,7 +9151,7 @@
     <string name="Report2CommentInfoGroup">Please help us by telling what is wrong with the group you have selected.</string>
     <string name="Report2CommentInfoChannel">Please help us by telling what is wrong with the channel you have selected.</string>
     <string name="Report2Send">Send Report</string>
-    <string name="Reported2">NimarkoGram moderators will review your report. Thank you!</string>
+    <string name="Reported2">SoundGram moderators will review your report. Thank you!</string>
     <string name="Gift2TransactionRefundedAuctionBid">Refunded Auction Bid</string>
     <string name="Gift2TransactionRefundedSent">Refunded Sent Gift</string>
     <string name="Gift2TransactionRefundedUpgrade">Refunded Gift Upgrade</string>
@@ -9208,7 +9210,7 @@
     <string name="BotMonetizationOverviewTotal">Total lifetime proceeds</string>
     <string name="BotMonetizationBalance">Available balance</string>
     <string name="BotMonetizationTransactions">Transactions</string>
-    <string name="BotMonetizationInfo">NimarkoGram shares %1$d%% of the revenue from ads displayed in your bot. **Learn more >**</string>
+    <string name="BotMonetizationInfo">SoundGram shares %1$d%% of the revenue from ads displayed in your bot. **Learn more >**</string>
     <string name="BotMonetizationProceedsTONInfo">TON from your total balance become available for spending on ads and rewards 3 days after they are earned.</string>
     <string name="BotMonetizationProceedsTONInfoLink">https://telegram.org/tos/content-creator-rewards</string>
     <string name="BotMonetizationBalanceInfo">You can collect your reward using Fragment, a third-party platform used by advertisers to pay for ads. **Learn more >**</string>
@@ -9216,7 +9218,7 @@
     <string name="BotMonetizationBalanceInfoNotAvailable">In the coming weeks you will be able to collect your reward using Fragment, a third-party platform used by advertisers to pay ads. **Learn more >**</string>
     <string name="BotMonetizationInfoTitle">Earn From Your Bot</string>
     <string name="BotMonetizationInfoFeature1Name">Telegram Ads</string>
-    <string name="BotMonetizationInfoFeature1Text">NimarkoGram can display ads in your bot.</string>
+    <string name="BotMonetizationInfoFeature1Text">SoundGram can display ads in your bot.</string>
     <string name="BotMonetizationInfoFeature2Name">50:50 revenue split</string>
     <string name="BotMonetizationInfoFeature2Text">You can receive 50% of the ad revenue in TON.</string>
     <string name="BotMonetizationInfoFeature3Name">Flexible withdrawals</string>
@@ -9289,7 +9291,7 @@
     <string name="BotAffiliateProgramFeature1Title">Share revenue with affiliates</string>
     <string name="BotAffiliateProgramFeature1">Set the commission for revenue generated by users referred to you.</string>
     <string name="BotAffiliateProgramFeature2Title">Launch your affiliate program</string>
-    <string name="BotAffiliateProgramFeature2">NimarkoGram will feature your program for millions of potential affiliates.</string>
+    <string name="BotAffiliateProgramFeature2">SoundGram will feature your program for millions of potential affiliates.</string>
     <string name="BotAffiliateProgramFeature3Title">Let affiliates promote you</string>
     <string name="BotAffiliateProgramFeature3">Affiliates will share your referral link with their audience.</string>
     <string name="AffiliateProgramCommission">Commission</string>
@@ -9471,7 +9473,7 @@
     <string name="Gift2CollectionNumberBy_one">Collectible #%1$d by **%2$s**</string>
     <string name="Gift2CollectionNumberBy_other">Collectible #%1$d by **%2$s**</string>
     <string name="Gift2Owner">Owner</string>
-    <string name="Gift2Host">NimarkoGram</string>
+    <string name="Gift2Host">SoundGram</string>
     <string name="Gift2HostAddress">Owner</string>
     <string name="Gift2CantDoTitle">Action Locked</string>
     <string name="Gift2CantDoText">Transfer this gift to your Telegram account on Fragment to unlock this action.</string>
@@ -9662,7 +9664,7 @@
     <string name="SMSFee1Text">Telecom providers in your country charge Telegram very high prices for SMS.</string>
     <string name="SMSFee1TextCountry">Telecom providers in your country (%s) charge Telegram very high prices for SMS.</string>
     <string name="SMSFee2Title">Verification Required</string>
-    <string name="SMSFee2Text">NimarkoGram needs to send you an SMS with a verification code to confirm your phone number.</string>
+    <string name="SMSFee2Text">SoundGram needs to send you an SMS with a verification code to confirm your phone number.</string>
     <string name="SMSFee3Title">Support via **Telegram Premium >**</string>
     <string name="SMSFee3Text">Sign up for 1-week Telegram Premium subscription to help cover the SMS costs.</string>
     <string name="SMSFeePurchaseTitle">Sign up for %s</string>
@@ -9684,7 +9686,7 @@
     <string name="ForwardDialogYourChannel">Your Channel</string>
     <string name="ReplyDialogYourChats">Your Chats</string>
     <string name="SearchAdsAboutTitle">About These Ads</string>
-    <string name="SearchAdsAboutSubtitle">NimarkoGram Ads are very different from ads on other platforms. Ads such as this one:</string>
+    <string name="SearchAdsAboutSubtitle">SoundGram Ads are very different from ads on other platforms. Ads such as this one:</string>
     <string name="SearchAdsAbout1Title">Respect Your Privacy</string>
     <string name="SearchAdsAbout1Subtitle">Ads like this do not use your personal information and are based on the search query you entered.</string>
     <string name="SearchAdsAbout2Title">Can Be Removed</string>
@@ -10059,7 +10061,7 @@
     <string name="AgeVerificationFailedTitle">Age Check Failed</string>
     <string name="AgeVerificationFailedText">Sorry, you can\'t view 18+ content.</string>
     <string name="AgeVerificationPassedTitle">Age Check Passed</string>
-    <string name="AgeVerificationNeedCameraPermission">NimarkoGram needs access to your camera so that you can confirm your age.</string>
+    <string name="AgeVerificationNeedCameraPermission">SoundGram needs access to your camera so that you can confirm your age.</string>
     <string name="StoriesForwardTitle">Your Stories</string>
     <string name="StoriesForwardText">Forward to stories</string>
     <string name="Gift2CollectionEmptyTitle">Organize Your Gifts</string>
@@ -10505,7 +10507,7 @@
     <string name="GiftOfferOfferedTextTONExpired">Your offer to **%1$s** has expired. **%2$s TON** for **%3$s**.</string>
 
     <string name="FeaturePreviewGifts">Unique Collectibles</string>
-    <string name="FeaturePreviewGiftsDescription">NimarkoGram Gifts are collectible items you can trade or showcase on your profile.</string>
+    <string name="FeaturePreviewGiftsDescription">SoundGram Gifts are collectible items you can trade or showcase on your profile.</string>
     <string name="GiftsFeature1Title">Unique</string>
     <string name="GiftsFeature1Text">Upgrade your gifts to get a unique number, model, backdrop and symbol.</string>
     <string name="GiftsFeature2Title">Tradeable</string>
@@ -10877,7 +10879,7 @@
     <string name="AddCommaAfterMention">Add comma after @mention</string>
     <string name="AdminShortcuts">Admin shortcuts</string>
     <string name="AlwaysSendInHD">Always send in HD</string>
-    <string name="AnalyticsInfo">Help improve NimarkoGram by sending anonymous usage statistics.</string>
+    <string name="AnalyticsInfo">Help improve SoundGram by sending anonymous usage statistics.</string>
     <string name="AppNavigation">App navigation</string>
     <string name="AppNavigationInfo">Drawer, bottom navigation and menu layout.</string>
     <string name="ArchiveOnPull">Archive on pull</string>
@@ -10970,13 +10972,13 @@
     <string name="QuickTransitions">Quick transitions</string>
     <string name="RelativeLastSeen">Relative last seen (e.g. %1$s)</string>
     <string name="RememberLastUsedCamera">Remember last used camera</string>
-    <string name="RememberLastUsedCameraInfo">NimarkoGram will reopen the same camera you used last.</string>
+    <string name="RememberLastUsedCameraInfo">SoundGram will reopen the same camera you used last.</string>
     <string name="RemoveMessageTail">Remove message tail</string>
     <string name="Repeat">Repeat</string>
     <string name="ReplaceEditedWithIcon">Replace “%1$s” with icon</string>
     <string name="ReplyBackground">Reply background</string>
     <string name="ResetPreferences">Settings reset.</string>
-    <string name="ResetPreferencesInfo">Reset all **NimarkoGram** settings to defaults?</string>
+    <string name="ResetPreferencesInfo">Reset all **SoundGram** settings to defaults?</string>
     <string name="ResetSettings">Reset settings</string>
     <string name="SenderMiniAvatars">Mini avatars in dialogs</string>
     <string name="SeparateHeaders">Separate headers</string>
@@ -11017,7 +11019,7 @@
     <string name="VideoMessagesCameraAsk">Always ask</string>
     <string name="VideoMessagesCameraFront">Front</string>
     <string name="VideoMessagesCameraRear">Rear</string>
-    <string name="exteraAppName">NimarkoGram</string>
+    <string name="exteraAppName">SoundGram</string>
 
     <!-- NimarkoGram plugin manager (MD3 redesign) -->
     <string name="NM_AddPlugin">Add plugin</string>
@@ -11279,7 +11281,7 @@
     <string name="UP_ClearedUpdatesCache">Cleared %1$s of cache.</string>
     <string name="UP_NothingToClear">Nothing to clear.</string>
     <string name="UP_CheckForUpdates">Check for updates</string>
-    <string name="UP_Not_Found">NimarkoGram is up to date.</string>
+    <string name="UP_Not_Found">SoundGram is up to date.</string>
     <string name="UP_CheckFailed">Couldn\'t check for updates. Please try again later.</string>
     <string name="UP_Install">Install</string>
     <string name="UP_DownloadFailed">Download failed, tap to retry</string>
@@ -11295,7 +11297,7 @@
     <string name="NM_DownloadMedia_Done">Done</string>
     <string name="NM_DownloadMedia_Error">Download error</string>
     <string name="NM_DownloadMedia_VideoBy">Video by %1$s</string>
-    <string name="NM_MediaBuiltIn">**NimarkoMedia** is already built into the client</string>
+    <string name="NM_MediaBuiltIn">**SoundGramMedia** is already built into the client</string>
     <!-- NimarkoBanner native integration (replaces the Python plugin) -->
     <string name="NM_BAN_Title">Banners</string>
     <string name="NM_BAN_Enable">Banner system</string>
@@ -11363,7 +11365,7 @@
     <string name="NM_BAN_QualityHeader">Quality</string>
     <string name="NM_BAN_SoundOn">Sound on</string>
     <string name="NM_BAN_SoundOff">Sound off</string>
-    <string name="NM_BAN_PluginIntegrated">**NimarkoBanner** is already built into the client</string>
+    <string name="NM_BAN_PluginIntegrated">**SoundGramBanner** is already built into the client</string>
     <string name="NM_BT_TabEnabled">Enabled</string>
     <string name="NM_BT_TabDisabled">Disabled</string>
     <string name="NM_BT_MoveLeft">Move left</string>
@@ -11435,8 +11437,8 @@
     <string name="NM_Config_Info">Save settings to a file or restore them on another device.</string>
     <string name="NM_Config_Exported">Settings saved to file</string>
     <string name="NM_Config_Error">Failed</string>
-    <string name="NM_Config_ImportEmpty">Selected file is not a NimarkoGram config</string>
-    <string name="NM_NM_Title">NimarkoMedia</string>
+    <string name="NM_Config_ImportEmpty">Selected file is not a SoundGram config</string>
+    <string name="NM_NM_Title">SoundGramMedia</string>
     <string name="NM_NM_SupportedPlatforms">Supported platforms</string>
     <string name="NM_NM_PlatformsList">TikTok, YouTube, SoundCloud, Instagram, Twitter / X, Reddit, VK, Pinterest, Bluesky, Twitch, Vimeo, Dailymotion.</string>
     <string name="NM_NM_HowItWorks">Long-press a message that contains a supported link and choose “Download media”. The file is fetched server-side and sent into the current chat.</string>
@@ -11477,7 +11479,7 @@
     <string name="NM_HUB_Restart">Restart app</string>
     <string name="NM_HUB_SourceCode">Source code</string>
     <string name="NM_HUB_ForkedFromCherrygram">Ported from Cherrygram</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">NimarkoGram is built on the official Telegram client; features were ported from &lt;a href="https://github.com/arslan4k1390/Cherrygram"&gt;Cherrygram&lt;/a&gt; — thanks to the upstream project.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram is built on the official Telegram client; features were ported from &lt;a href="https://github.com/arslan4k1390/Cherrygram"&gt;Cherrygram&lt;/a&gt; — thanks to the upstream project.</string>
     <string name="NM_HUB_Debug">Debug</string>
     <string name="NM_HUB_Experimental">Experimental</string>
 
@@ -11611,7 +11613,7 @@
     <string name="NM_MP_ShowSeconds_Desc" translatable="false">12:34 -> 12:34:56</string>
     <string name="NM_MP_DisablePremiumStatuses_Desc">Hide Premium emoji statuses outside the side menu</string>
     <!-- Mock content used by the ported ProfileChannelCell.setNimarko() preview -->
-    <string name="NM_MP_PreviewChannelMessage">Welcome to NimarkoGram — a feature-rich Telegram fork.</string>
+    <string name="NM_MP_PreviewChannelMessage">Welcome to SoundGram — a feature-rich Telegram fork.</string>
 
     <!-- Misc CG flag-gap audit (Wave-N) -->
     <string name="NM_CH_UnarchiveOnSwipe">Unarchive chats on swipe</string>
@@ -11888,7 +11890,7 @@
     <string name="CG_SendPhotoAsSticker">Send as sticker</string>
     <string name="CG_Sleep">Sleep timer</string>
     <string name="CG_Sleep_Disabled">Sleep timer is disabled</string>
-    <string name="CG_Sleep_Permission">Please allow NimarkoGram to schedule exact alarms so that the sleep timer can work properly.</string>
+    <string name="CG_Sleep_Permission">Please allow SoundGram to schedule exact alarms so that the sleep timer can work properly.</string>
     <string name="CG_Sleep_Timer">Sleep timer is set to **%s**</string>
     <string name="CG_SortByDate">Sort by message date</string>
     <string name="CG_SortByUnread">Sort by unread first</string>
@@ -12179,7 +12181,7 @@
     <string name="NM_WSB_VoIP_Enable">Route calls through bypass</string>
     <string name="NM_WSB_Subscribe_Header">Subscription required</string>
     <string name="NM_WSB_Subscribe_Info">The bypass runs on the author\'s infrastructure. To keep using it, stay subscribed to the channel on at least one of your accounts.</string>
-    <string name="NM_WSB_Subscribe_Button">Subscribe to @NimarkoProject</string>
+    <string name="NM_WSB_Subscribe_Button">Subscribe to @soundgram_project</string>
     <string name="AIEditorStyleNotFound">AI Style not found.</string>
 
     <string name="WebBrowserExceptionsLimitTitle">Limit Reached</string>

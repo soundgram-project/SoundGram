@@ -342,6 +342,7 @@ public class IconPackManager {
         editor.commit();
 
         getInstance().loadActivePack();
+        app.nimarkogram.messenger.icons.NimarkoIconResources.clearAllCaches();
         if (org.telegram.ui.LaunchActivity.instance != null) {
             org.telegram.ui.LaunchActivity.instance.reloadResources();
         }

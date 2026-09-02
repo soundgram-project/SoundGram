@@ -39,7 +39,7 @@ import java.util.Locale;
 
 public class NimarkoUpdater {
 
-    private static final String ENDPOINT = "https://update.ettacent.dev/api/app-version?id=nimarkogram";
+    private static final String ENDPOINT = "https://raw.githubusercontent.com/soundgram-project/SoundGram_donate/main/update.json";
 
     public static final DispatchQueue otaQueue = new DispatchQueue("nimarkoOtaQueue");
 
@@ -344,24 +344,41 @@ public class NimarkoUpdater {
 
                 JSONObject obj = new JSONObject(responseBytes.toString(StandardCharsets.UTF_8.name()));
                 version = obj.optString("version", "");
-                if (version == null || !VERSION_PATTERN.matcher(version).matches() || version.equals(".") || version.equals("..")) {
+                if (version == null || version.isEmpty() || version.equals(".") || version.equals("..")) {
                     FileLog.e("NimarkoUpdater: rejecting unsafe version from server: " + version);
                     version = "";
                     if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
                     checkingForUpdates = false;
                     return;
                 }
-                versionCode = obj.optInt("versionCode", 0);
+                versionCode = obj.optInt("version_code", obj.optInt("versionCode", 0));
+
                 downloadURL = obj.optString("url", "");
-                if (!isHttps(downloadURL)) {
-                    FileLog.e("NimarkoUpdater: rejecting non-https download url: " + downloadURL);
+                if (obj.has("document")) {
+                    Object docObj = obj.get("document");
+                    if (docObj instanceof JSONObject) {
+                        JSONObject docJson = (JSONObject) docObj;
+                        String uniUrl = docJson.optString("uni", docJson.optString("universal", ""));
+                        if (uniUrl != null && !uniUrl.isEmpty()) {
+                            downloadURL = uniUrl;
+                        }
+                    } else if (docObj instanceof String) {
+                        String docStr = (String) docObj;
+                        if (docStr != null && !docStr.isEmpty()) {
+                            downloadURL = docStr;
+                        }
+                    }
+                }
+
+                if (!isHttps(downloadURL) && !downloadURL.startsWith("http://")) {
+                    FileLog.e("NimarkoUpdater: rejecting invalid download url: " + downloadURL);
                     version = "";
                     downloadURL = "";
                     if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
                     checkingForUpdates = false;
                     return;
                 }
-                changelog = obj.optString("changelog", "");
+                changelog = obj.optString("changelog", obj.optString("description", ""));
                 long sizeBytes = obj.optLong("size", 0);
                 if (sizeBytes < 0 || sizeBytes > MAX_APK_BYTES) {
                     throw new java.io.IOException("invalid APK size: " + sizeBytes);
@@ -370,15 +387,12 @@ public class NimarkoUpdater {
                 expectedSha256 = obj.optString("sha256", null);
                 if (expectedSha256 != null && expectedSha256.isEmpty()) expectedSha256 = null;
                 if (expectedSha256 != null && !SHA256_PATTERN.matcher(expectedSha256).matches()) {
-                    throw new java.io.IOException("invalid sha256");
+                    expectedSha256 = null;
                 }
                 if (expectedSha256 != null) expectedSha256 = expectedSha256.toLowerCase(Locale.ROOT);
-                if (expectedSizeBytes <= 0 && expectedSha256 == null) {
-                    throw new java.io.IOException("update has neither size nor sha256");
-                }
                 size = sizeBytes > 0 ? AndroidUtilities.formatFileSize(sizeBytes) : "";
-                long dateMs = obj.optLong("date", 0);
-                uploadDate = dateMs > 0 ? LocaleController.formatDateTime(dateMs / 1000, true) : "";
+                long dateMs = obj.optLong("build_timestamp", obj.optLong("date", 0));
+                uploadDate = dateMs > 0 ? LocaleController.formatDateTime(dateMs > 1000000000000L ? dateMs / 1000 : dateMs, true) : "";
 
                 Update update = new Update(version, versionCode, changelog, size, downloadURL, uploadDate);
                 lastUpdate = update;

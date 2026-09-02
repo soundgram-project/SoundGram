@@ -3995,8 +3995,6 @@ public class ChatActivity extends BaseFragment implements
                         undoView.showWithAction(0, UndoView.ACTION_TEXT_COPIED, null);
                     }
                     clearSelectionMode();
-                } else if (id == app.nimarkogram.messenger.NimarkoMessageMenuInjector.OPTION_CREATE_QUOTE) {
-                    app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.openSelection(ChatActivity.this);
                 } else if (id == delete) {
                     if (getParentActivity() == null) {
                         return;
@@ -10988,11 +10986,6 @@ public class ChatActivity extends BaseFragment implements
             actionModeViews.add(actionMode.addItemWithWidth(app.nimarkogram.messenger.utils.chats.NimarkoChatActivityHelper.OPTION_SELECT_BETWEEN, R.drawable.msg_select_between_solar, AndroidUtilities.dp(48), LocaleController.getString(R.string.Edit)));
             actionModeViews.add(actionMode.addItemWithWidth(star, R.drawable.msg_fave, AndroidUtilities.dp(48), LocaleController.getString(R.string.AddToFavorites)));
             actionModeViews.add(actionMode.addItemWithWidth(copy, R.drawable.msg_copy, AndroidUtilities.dp(48), LocaleController.getString(R.string.Copy)));
-            actionModeViews.add(actionMode.addItemWithWidth(
-                    app.nimarkogram.messenger.NimarkoMessageMenuInjector.OPTION_CREATE_QUOTE,
-                    R.drawable.menu_select_quote,
-                    AndroidUtilities.dp(48),
-                    LocaleController.getString(R.string.NM_QC_Create)));
             actionModeViews.add(actionMode.addItemWithWidth(share, R.drawable.msg_shareout, dp(48), LocaleController.getString(R.string.ShareFile)));
             actionModeViews.add(actionMode.addItemWithWidth(delete, R.drawable.msg_delete, dp(48), LocaleController.getString(R.string.Delete)));
         } else {
@@ -11001,7 +10994,6 @@ public class ChatActivity extends BaseFragment implements
             actionModeViews.add(actionMode.addItemWithWidth(copy, R.drawable.msg_copy, dp(48), LocaleController.getString(R.string.Copy)));
             actionModeViews.add(actionMode.addItemWithWidth(delete, R.drawable.msg_delete, dp(48), LocaleController.getString(R.string.Delete)));
         }
-        app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.updateActionModeVisibility(actionMode, this);
         actionMode.setItemVisibility(edit, canEditMessagesCount == 1 && selectedMessagesIds[0].size() + selectedMessagesIds[1].size() == 1 ? View.VISIBLE : View.GONE);
         actionMode.setItemVisibility(copy, !isPeerNoForwards() && selectedMessagesCanCopyIds[0].size() + selectedMessagesCanCopyIds[1].size() != 0 ? View.VISIBLE : View.GONE);
         actionMode.setItemVisibility(star, selectedMessagesCanStarIds[0].size() + selectedMessagesCanStarIds[1].size() != 0 ? View.VISIBLE : View.GONE);
@@ -19871,13 +19863,6 @@ public class ChatActivity extends BaseFragment implements
 
     @Override
     public void onRequestPermissionsResultFragment(int requestCode, String[] permissions, int[] grantResults) {
-        if (app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.onRequestPermissionsResult(
-                this,
-                requestCode,
-                grantResults
-        )) {
-            return;
-        }
         if (chatActivityEnterView != null) {
             chatActivityEnterView.onRequestPermissionsResultFragment(requestCode, permissions, grantResults);
         }
@@ -20409,7 +20394,6 @@ public class ChatActivity extends BaseFragment implements
         updateSelectedMessageReactions();
         if (last && actionBar.isActionModeShowed() && !isReport()) {
             ActionBarMenu actionMode = actionBar.createActionMode();
-            app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.updateActionModeVisibility(actionMode, this);
             updateSavedMessagesActionModeState(actionMode);
         }
     }
@@ -20509,7 +20493,6 @@ public class ChatActivity extends BaseFragment implements
             }
         }
         ActionBarMenu actionMode = actionBar.createActionMode();
-        app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.updateActionModeVisibility(actionMode, this);
         updateSavedMessagesActionModeState(actionMode);
     }
 
@@ -34350,7 +34333,6 @@ public class ChatActivity extends BaseFragment implements
         }
         // CG parity: refresh "select between" visibility when selection changes.
         app.nimarkogram.messenger.utils.chats.NimarkoChatActivityHelper.updateMultipleSelection(actionMode, this);
-        app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.updateActionModeVisibility(actionMode, this);
         updateVisibleRows(true);
         if (chatActivityEnterView != null) {
             chatActivityEnterView.hideBotCommands();
@@ -35355,25 +35337,6 @@ public class ChatActivity extends BaseFragment implements
                 }
                 break;
             }
-            case app.nimarkogram.messenger.NimarkoMessageMenuInjector.OPTION_CREATE_QUOTE: {
-                final MessageObject quoteObject = selectedObject;
-                final MessageObject.GroupedMessages quoteGroup = selectedObjectGroup;
-                AndroidUtilities.runOnUIThread(
-                        () -> app.nimarkogram.messenger.quotes.NimarkoQuoteCreator.open(
-                                ChatActivity.this,
-                                quoteObject,
-                                quoteGroup
-                        )
-                );
-                break;
-            }
-            // NG audit (v17): OPTION_DETAILS_JSON (206) case removed — the JSON
-            // row now emits {@link NimarkoChatActivityHelper#OPTION_DETAILS} (2021)
-            // which routes through NimarkoJsonBottomSheet (see the OPTION_DETAILS
-            // case below). 206 has no injection site since the deprecation, so
-            // the case was unreachable. The constant is still declared
-            // {@code @Deprecated} on the injector for source-compat with any
-            // out-of-tree code paths.
             case app.nimarkogram.messenger.NimarkoMessageMenuInjector.OPTION_VIEW_HISTORY: {
                 // CG parity (ChatActivityHelper#OPTION_VIEW_HISTORY): open chat search
                 // and filter to the selected message's sender peer so the user actually
@@ -44060,6 +44023,39 @@ public class ChatActivity extends BaseFragment implements
                 }
                 if (!handled) {
                     try {
+                        String attachPath = message.messageOwner != null ? message.messageOwner.attachPath : null;
+                        File path = null;
+                        if (attachPath != null && attachPath.length() != 0) {
+                            path = new File(attachPath);
+                        }
+                        if (path == null || !path.exists()) {
+                            path = FileLoader.getInstance(currentAccount).getPathToMessage(message.messageOwner);
+                        }
+                        if (path != null && path.exists()) {
+                            String name = message.getDocumentName();
+                            if (name == null) name = path.getName();
+                            if (name != null && (name.endsWith(".icons") || name.endsWith(".icons.zip"))) {
+                                soundgram.icons.IconPackManager.IconPackInfo packInfo = soundgram.icons.IconPackManager.parseZipMetadata(path);
+                                if (packInfo != null) {
+                                    File cachedZip = new File(soundgram.icons.IconPackManager.getIconPacksDir(), "cached_import.zip");
+                                    try {
+                                        AndroidUtilities.copyFile(path, cachedZip);
+                                    } catch (Exception ignore) {}
+                                    final File finalPath = path;
+                                    showDialog(new soundgram.icons.IconPackPreviewBottomSheet(getParentActivity(), packInfo, () -> {
+                                        soundgram.icons.IconPackManager.installIconPack(finalPath);
+                                        soundgram.icons.IconPackManager.setActivePack(packInfo.packId);
+                                    }));
+                                    handled = true;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    }
+                }
+                if (!handled) {
+                    try {
                         AndroidUtilities.openForView(message, getParentActivity(), themeDelegate, false);
                     } catch (Exception e) {
                         FileLog.e(e);
@@ -48857,15 +48853,6 @@ public class ChatActivity extends BaseFragment implements
         //  appears adjacent to the other CG-port custom rows instead of at the tail.)
         // Each gated by the matching NimarkoConfig.show* flag.
         app.nimarkogram.messenger.NimarkoMessageMenuInjector.injectClearFromCache(selectedObject, currentAccount, items, options, icons);
-        app.nimarkogram.messenger.NimarkoMessageMenuInjector.injectCreateQuote(
-                this,
-                selectedObject,
-                selectedObjectGroup,
-                noforwardsOrPaidMedia,
-                items,
-                options,
-                icons
-        );
         app.nimarkogram.messenger.NimarkoMessageMenuInjector.injectJSON(items, options, icons);
         // Wave-27 restored: separate "Details" entry opening the rich JSON inspector.
         app.nimarkogram.messenger.NimarkoMessageMenuInjector.injectDetails(items, options, icons);

@@ -3138,6 +3138,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
 
         MessageObject nextAudio = currentPlayList.get(nextIndex);
+        if (nextAudio.messageOwner != null && nextAudio.messageOwner.attachPath != null && (nextAudio.messageOwner.attachPath.startsWith("http://") || nextAudio.messageOwner.attachPath.startsWith("https://"))) {
+            return;
+        }
         File file = null;
         if (!TextUtils.isEmpty(nextAudio.messageOwner.attachPath)) {
             file = new File(nextAudio.messageOwner.attachPath);
@@ -3744,16 +3747,18 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         seekToProgressPending = 0;
         File file = null;
         boolean exists = false;
-        if (messageObject.messageOwner.attachPath != null && messageObject.messageOwner.attachPath.length() > 0) {
+        boolean isHttpUrl = messageObject.messageOwner != null && messageObject.messageOwner.attachPath != null &&
+                (messageObject.messageOwner.attachPath.startsWith("http://") || messageObject.messageOwner.attachPath.startsWith("https://"));
+        if (!isHttpUrl && messageObject.messageOwner.attachPath != null && messageObject.messageOwner.attachPath.length() > 0) {
             file = new File(messageObject.messageOwner.attachPath);
             exists = file.exists();
             if (!exists) {
                 file = null;
             }
         }
-        final File cacheFile = file != null ? file : FileLoader.getInstance(messageObject.currentAccount).getPathToMessage(messageObject.messageOwner);
-        boolean canStream = SharedConfig.streamMedia && (messageObject.isMusic() || messageObject.isRoundVideo() || messageObject.isVideo() && messageObject.canStreamVideo()) && !messageObject.shouldEncryptPhotoOrVideo() && !DialogObject.isEncryptedDialog(messageObject.getDialogId());
-        if (cacheFile != file && !(exists = cacheFile.exists()) && !canStream) {
+        final File cacheFile = file != null ? file : (isHttpUrl ? null : FileLoader.getInstance(messageObject.currentAccount).getPathToMessage(messageObject.messageOwner));
+        boolean canStream = isHttpUrl || (SharedConfig.streamMedia && (messageObject.isMusic() || messageObject.isRoundVideo() || messageObject.isVideo() && messageObject.canStreamVideo()) && !messageObject.shouldEncryptPhotoOrVideo() && !DialogObject.isEncryptedDialog(messageObject.getDialogId()));
+        if (!isHttpUrl && cacheFile != file && !(exists = cacheFile.exists()) && !canStream) {
             FileLoader.getInstance(messageObject.currentAccount).loadFile(messageObject.getDocument(), messageObject, FileLoader.PRIORITY_LOW, messageObject.shouldEncryptPhotoOrVideo() ? 2 : 0);
             downloadingCurrentMessage = true;
             isPaused = false;
@@ -4002,7 +4007,11 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         return Theme.getCurrentAudiVisualizerDrawable().getParentView() != null;
                     }
                 });
-                if (exists) {
+                if (isHttpUrl) {
+                    Uri uri = Uri.parse(messageObject.messageOwner.attachPath);
+                    audioPlayer.preparePlayer(uri, "other");
+                    isStreamingCurrentAudio = true;
+                } else if (exists) {
                     if (!messageObject.mediaExists && cacheFile != file) {
                         AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.fileLoaded, FileLoader.getAttachFileName(messageObject.getDocument()), cacheFile));
                     }
