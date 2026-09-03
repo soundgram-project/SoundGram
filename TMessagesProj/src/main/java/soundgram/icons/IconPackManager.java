@@ -90,6 +90,19 @@ public class IconPackManager {
         return currentPackDir.getName();
     }
 
+    private String resolveFromMap(String name) {
+        if (name == null || name.isEmpty()) return null;
+        String val = currentIconMap.get(name);
+        if (val != null) return val;
+        val = currentIconMap.get(name + ".png");
+        if (val != null) return val;
+        if (name.endsWith(".png")) {
+            val = currentIconMap.get(name.substring(0, name.length() - 4));
+            if (val != null) return val;
+        }
+        return null;
+    }
+
     public Drawable getDrawable(String resourceName) {
         if (currentPackDir == null) {
             return null;
@@ -113,21 +126,16 @@ public class IconPackManager {
             lookupName = "msg_data";
         }
 
-        String fileName = currentIconMap.get(lookupName);
+        String fileName = resolveFromMap(lookupName);
         if (fileName == null) {
             try {
                 int id = ApplicationLoader.applicationContext.getResources().getIdentifier(lookupName, "drawable", ApplicationLoader.applicationContext.getPackageName());
                 if (id != 0) {
-                    int solarId = app.nimarkogram.messenger.utils.icons.icon_replaces.SolarIconReplace.INSTANCE.getConversion(id);
-                    if (solarId != id) {
-                        String solarName = IconPackResources.apiBaseResources.getResourceEntryName(solarId);
-                        fileName = currentIconMap.get(solarName);
-                    } else {
-                        int origId = app.nimarkogram.messenger.utils.icons.icon_replaces.SolarIconReplace.INSTANCE.getReverseConversion(id);
-                        if (origId != id) {
-                            String origName = IconPackResources.apiBaseResources.getResourceEntryName(origId);
-                            fileName = currentIconMap.get(origName);
-                        }
+                    app.nimarkogram.messenger.icons.icon_replaces.SolarIconReplace solarReplace = new app.nimarkogram.messenger.icons.icon_replaces.SolarIconReplace();
+                    int solarId = solarReplace.wrap(id);
+                    if (solarId != id && solarId != 0) {
+                        String solarName = ApplicationLoader.applicationContext.getResources().getResourceEntryName(solarId);
+                        fileName = resolveFromMap(solarName);
                     }
                 }
             } catch (Exception ignore) {}
@@ -136,7 +144,7 @@ public class IconPackManager {
         if (fileName == null) {
             java.util.List<String> fallbacks = getFallbackNames(lookupName);
             for (String fallback : fallbacks) {
-                fileName = currentIconMap.get(fallback);
+                fileName = resolveFromMap(fallback);
                 if (fileName != null) {
                     break;
                 }
@@ -147,7 +155,6 @@ public class IconPackManager {
             return null;
         }
 
-
         if (drawableCache.containsKey(resourceName)) {
             Drawable cached = drawableCache.get(resourceName);
             if (cached != null && cached.getConstantState() != null) {
@@ -157,6 +164,9 @@ public class IconPackManager {
         }
 
         File imgFile = new File(currentPackDir, fileName);
+        if (!imgFile.exists() && !fileName.endsWith(".png")) {
+            imgFile = new File(currentPackDir, fileName + ".png");
+        }
         if (imgFile.exists()) {
             try {
                 Bitmap bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
@@ -520,7 +530,7 @@ public class IconPackManager {
         }
 
         String base = name;
-        String[] suffixes = {"_solar", "_remix", "_filled", "_round", "_outline", "_solid", "_colored", "2"};
+        String[] suffixes = {"_solar", "_remix", "_filled", "_round", "_outline", "_solid", "_colored", "2", "_24", "_dr", "_s", "_mini", "_active", "_pressed", "_fill", "_line", "_white", "_black"};
         for (String s : suffixes) {
             if (base.endsWith(s)) {
                 base = base.substring(0, base.length() - s.length());
@@ -536,7 +546,7 @@ public class IconPackManager {
         if (base.contains("arrow_left")) list.add(base.replace("arrow_left", "arrowleft"));
 
         String stripped = base;
-        String[] prefixes = {"msg_", "menu_", "chats_", "ic_ab_", "ic_", "chats_filter_", "filter_", "msg2_"};
+        String[] prefixes = {"msg_", "menu_", "chats_", "ic_ab_", "ic_", "chats_filter_", "filter_", "msg2_", "input_", "profile_", "calls_", "calls_menu_", "attach_"};
         for (String p : prefixes) {
             if (stripped.startsWith(p)) {
                 stripped = stripped.substring(p.length());
@@ -545,6 +555,20 @@ public class IconPackManager {
         }
 
         if (!list.contains(stripped)) list.add(stripped);
+
+        // Common aliases
+        if ("settings".equals(stripped)) { list.add("msg_settings"); list.add("menu_settings"); }
+        if ("calls".equals(stripped)) { list.add("msg_calls"); list.add("menu_calls"); }
+        if ("folders".equals(stripped)) { list.add("msg_folders"); list.add("files_folder"); }
+        if ("contacts".equals(stripped)) { list.add("msg_contacts"); list.add("menu_contacts"); }
+        if ("camera".equals(stripped)) { list.add("msg_camera"); list.add("camera_solar"); }
+        if ("secret".equals(stripped) || "privacy".equals(stripped)) { list.add("msg_secret"); list.add("msg_secret_solar"); }
+        if ("back".equals(stripped)) { list.add("ic_ab_back"); list.add("arrow_back"); list.add("ic_back"); }
+        if ("search".equals(stripped)) { list.add("ic_ab_search"); list.add("search"); list.add("outline_header_search"); }
+        if ("share".equals(stripped)) { list.add("msg_share"); list.add("share"); }
+        if ("delete".equals(stripped) || "trash".equals(stripped)) { list.add("msg_delete"); list.add("delete"); }
+        if ("edit".equals(stripped)) { list.add("msg_edit"); list.add("msg_pencil"); }
+        if ("send".equals(stripped)) { list.add("attach_send"); list.add("msg_send"); list.add("send_plane_24"); }
 
         for (String p : prefixes) {
             String candidate = p + stripped;

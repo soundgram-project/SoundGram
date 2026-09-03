@@ -404,6 +404,16 @@ public class NimarkoIconResources extends Resources {
                 if (custom != null) {
                     return custom;
                 }
+                if (replacement != null) {
+                    int wrappedId = replacement.wrap(stockId);
+                    if (wrappedId != stockId && wrappedId != 0) {
+                        String wrappedName = getResourceEntryName(wrappedId);
+                        custom = soundgram.icons.IconPackManager.getInstance().getDrawable(wrappedName);
+                        if (custom != null) {
+                            return custom;
+                        }
+                    }
+                }
             } catch (Throwable ignored) {}
         }
         if (NON_SKINNABLE_DRAWABLES.contains(stockId)

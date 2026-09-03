@@ -3489,6 +3489,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidStart);
+            hasOwnBackground = true;
             loadPlaylistData();
             return true;
         }
@@ -3536,6 +3537,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         @Override
         public View createView(Context context) {
+            hasOwnBackground = true;
             actionBar.setBackButtonImage(R.drawable.ic_ab_back);
             actionBar.setTitle("");
             actionBar.setOccupyStatusBar(true);
@@ -5327,6 +5329,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         @Override
         public boolean onFragmentCreate() {
             super.onFragmentCreate();
+            hasOwnBackground = true;
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidStart);
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
             return true;
@@ -5388,6 +5391,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 bar.setTitle("");
                 bar.setBackgroundColor(Color.TRANSPARENT);
                 bar.setItemsColor(0xFFFFFFFF, false);
+                bar.setAddToContainer(false);
+                bar.setCastShadows(false);
+                bar.setClipContent(true);
+                bar.setOccupyStatusBar(true);
                 bar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() {
                     @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
                 });
@@ -5397,12 +5404,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         @Override
         public View createView(Context context) {
+            hasOwnBackground = true;
             if (actionBar != null) {
                 actionBar.setBackButtonImage(org.telegram.messenger.R.drawable.ic_ab_back);
                 actionBar.setAllowOverlayTitle(false);
                 actionBar.setTitle("");
                 actionBar.setBackgroundColor(Color.TRANSPARENT);
                 actionBar.setItemsColor(0xFFFFFFFF, false);
+                actionBar.setAddToContainer(false);
+                actionBar.setCastShadows(false);
+                actionBar.setClipContent(true);
+                actionBar.setOccupyStatusBar(true);
                 actionBar.setActionBarMenuOnItemClick(new org.telegram.ui.ActionBar.ActionBar.ActionBarMenuOnItemClick() {
                     @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
                 });
@@ -5424,6 +5436,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             scrollView.setClipToPadding(false);
             scrollView.setPadding(0, 0, 0, AndroidUtilities.dp(80));
             rootFrame.addView(scrollView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+            if (actionBar != null) {
+                rootFrame.addView(actionBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            }
 
             contentLayout = new LinearLayout(context);
             contentLayout.setOrientation(LinearLayout.VERTICAL);
@@ -5988,6 +6004,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         @Override
         public boolean onFragmentCreate() {
             super.onFragmentCreate();
+            hasOwnBackground = true;
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
             NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidStart);
@@ -6010,6 +6027,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         @Override
         public View createView(Context context) {
+            hasOwnBackground = true;
             actionBar.setBackButtonImage(R.drawable.ic_ab_back);
             actionBar.setTitle("");
             actionBar.setOccupyStatusBar(true);

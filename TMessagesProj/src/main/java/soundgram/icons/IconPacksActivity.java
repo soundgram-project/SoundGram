@@ -244,7 +244,7 @@ public class IconPacksActivity extends BaseFragment {
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
             builder.setItems(new CharSequence[]{
                 isRu() ? "Создать новый набор" : "Create new pack",
-                isRu() ? "Импортировать из ZIP" : "Import from ZIP"
+                isRu() ? "Импортировать иконпак" : "Import icon pack"
             }, (dialogInterface, i) -> {
                 if (i == 0) {
                     showCreatePackDialog();
@@ -252,8 +252,7 @@ public class IconPacksActivity extends BaseFragment {
                     try {
                         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                         intent.setType("*/*");
-                        String[] mimeTypes = {"application/zip", "application/octet-stream"};
-                        intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+                        intent.addCategory(Intent.CATEGORY_OPENABLE);
                         startActivityForResult(intent, 100);
                     } catch (Exception e) {
                         FileLog.e(e);
@@ -398,7 +397,8 @@ public class IconPacksActivity extends BaseFragment {
                         
                         IconPackPreviewBottomSheet previewSheet = new IconPackPreviewBottomSheet(getParentActivity(), info, () -> {
                             if (IconPackManager.installIconPack(cachedZip)) {
-                                Toast.makeText(ApplicationLoader.applicationContext, isRu() ? "Набор иконок установлен" : "Icon pack installed", Toast.LENGTH_SHORT).show();
+                                IconPackManager.setActivePack(info.packId);
+                                Toast.makeText(ApplicationLoader.applicationContext, isRu() ? "Набор иконок установлен и применен" : "Icon pack installed and applied", Toast.LENGTH_SHORT).show();
                                 updateRows();
                                 if (listAdapter != null) {
                                     listAdapter.notifyDataSetChanged();

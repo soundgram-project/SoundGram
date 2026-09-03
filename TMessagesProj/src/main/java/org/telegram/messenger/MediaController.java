@@ -5405,7 +5405,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             if (Build.VERSION.SDK_INT >= 29) {
                 final ContentValues cv = new ContentValues();
                 final Uri uriToInsert = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-                final File dirDest = new File(Environment.DIRECTORY_DOWNLOADS, "NimarkoGram");
+                final File dirDest = new File(Environment.DIRECTORY_DOWNLOADS, "SoundGram");
                 cv.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 cv.put(MediaStore.Downloads.DISPLAY_NAME, filename);
                 cv.put(MediaStore.MediaColumns.MIME_TYPE, outputMime);
@@ -5427,7 +5427,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     }
                 }
             } else {
-                final File destDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "NimarkoGram");
+                final File destDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "SoundGram");
                 destDir.mkdirs();
                 File destFile = new File(destDir, filename);
                 if (!destFile.exists()) {

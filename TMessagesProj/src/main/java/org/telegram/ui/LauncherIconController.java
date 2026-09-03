@@ -24,23 +24,45 @@ public class LauncherIconController {
         return i == PackageManager.COMPONENT_ENABLED_STATE_ENABLED || i == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && icon == LauncherIcon.DEFAULT;
     }
 
+    private static final String[] ALL_LAUNCHER_KEYS = {
+        "DefaultIcon",
+        "BlueIcon",
+        "DarkBlueIcon",
+        "BlurBlueIcon",
+        "TelegramIcon",
+        "VintageIcon",
+        "AquaIcon",
+        "PremiumIcon",
+        "TurboIcon",
+        "NoxIcon"
+    };
+
     public static void setIcon(LauncherIcon icon) {
         Context ctx = ApplicationLoader.applicationContext;
         PackageManager pm = ctx.getPackageManager();
-        for (LauncherIcon i : LauncherIcon.values()) {
-            pm.setComponentEnabledSetting(i.getComponentName(ctx), i == icon ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED :
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+        try {
+            ComponentName newComponent = icon.getComponentName(ctx);
+            pm.setComponentEnabledSetting(newComponent, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+            String activeKey = icon.key;
+            for (String key : ALL_LAUNCHER_KEYS) {
+                if (!key.equals(activeKey)) {
+                    ComponentName comp = new ComponentName(ctx.getPackageName(), "org.telegram.messenger." + key);
+                    pm.setComponentEnabledSetting(comp, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                }
+            }
+        } catch (Exception e) {
+            org.telegram.messenger.FileLog.e(e);
         }
     }
 
     public enum LauncherIcon {
-        DEFAULT("DefaultIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconDefault),
+        DEFAULT("BlueIcon", R.mipmap.ic_launcher_background, R.mipmap.ic_launcher_foreground, R.string.AppIconDefault),
+        TELEGRAM("TelegramIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconTelegramOriginal),
         VINTAGE("VintageIcon", R.drawable.icon_6_background_sa, R.mipmap.icon_6_foreground_sa, R.string.AppIconVintage),
-        
-        AQUA("AquaIcon", R.drawable.icon_4_background_sa, R.mipmap.icon_4_foreground_sa, R.string.AppIconAqua),
-        PREMIUM("PremiumIcon", R.drawable.icon_3_background_sa, R.mipmap.icon_3_foreground_sa, R.string.AppIconPremium, true),
-        TURBO("TurboIcon", R.drawable.icon_5_background_sa, R.mipmap.icon_5_foreground_sa, R.string.AppIconTurbo, true),
-        NOX("NoxIcon", R.mipmap.icon_2_background_sa, R.mipmap.icon_2_foreground_sa, R.string.AppIconNox, true);
+        AQUA("AquaIcon", R.drawable.icon_4_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconAqua),
+        PREMIUM("PremiumIcon", R.drawable.icon_3_background_sa, R.mipmap.icon_3_foreground_sa, R.string.AppIconPremium),
+        TURBO("TurboIcon", R.drawable.icon_5_background_sa, R.mipmap.icon_5_foreground_sa, R.string.AppIconTurbo),
+        NOX("NoxIcon", R.mipmap.icon_2_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconNox);
 
         public final String key;
         public final int background;

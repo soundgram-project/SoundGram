@@ -31,7 +31,7 @@ public class NotificationsService extends Service {
         if (allowResidentNotification()) {
             try {
                 NotificationChannelCompat channel = new NotificationChannelCompat.Builder("nimarkoPush", NotificationManagerCompat.IMPORTANCE_DEFAULT)
-                        .setName("NimarkoGram")
+                        .setName("SoundGram")
                         .setLightsEnabled(false)
                         .setVibrationEnabled(false)
                         .setSound(null, null)
@@ -85,7 +85,7 @@ public class NotificationsService extends Service {
                         .setSmallIcon(R.drawable.notification)
                         .setShowWhen(false)
                         .setOngoing(true)
-                        .setContentText("NimarkoGram")
+                        .setContentText("SoundGram")
                         .setCategory(NotificationCompat.CATEGORY_STATUS)
                         .setContentIntent(pendingIntent)
                         .build());

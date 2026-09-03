@@ -123,10 +123,6 @@ final class NimarkoSettingsSearchIndex {
                 R.drawable.msg_secret_solar);
         page(entries, guid, SCREEN_PLUGINS, R.string.Plugins, R.string.NM_SettingsSummaryPlugins,
                 R.drawable.msg_plugins);
-        page(entries, guid, SCREEN_MEDIA, R.string.NM_DownloadMedia, R.string.NM_SettingsSummaryMedia,
-                R.drawable.msg_download_solar);
-        page(entries, guid, SCREEN_BANNERS, R.string.NM_BAN_Title, R.string.NM_SettingsSummaryBanners,
-                R.drawable.msg_photos_solar);
         page(entries, guid, SCREEN_BYPASS, R.string.NM_WSB_Title, R.string.NM_SettingsSummaryBypass,
                 R.drawable.msg_satellite_solar);
         page(entries, guid, SCREEN_TEXT_ANIMATION, R.string.NM_TA_Title, R.string.NM_SettingsSummaryTextAnimation,
@@ -373,12 +369,6 @@ final class NimarkoSettingsSearchIndex {
                 MessagesAndProfilesPreferencesActivity.SETTING_PROFILE_COLOR, R.string.NM_MP_ProfileBackgroundColor,
                 MessagesAndProfilesPreferencesActivity.SETTING_PROFILE_EMOJI, R.string.NM_MP_ProfileBackgroundEmoji);
 
-        rows(entries, guid, SCREEN_MEDIA, R.drawable.msg_download_solar,
-                R.string.NM_DownloadMedia, 0,
-                100, R.string.NM_NM_AutoDownload,
-                101, R.string.NM_NM_YtAsk,
-                102, R.string.NM_NM_FormatVideo,
-                103, R.string.NM_NM_FormatAudio);
         row(entries, guid, SCREEN_TEXT_ANIMATION, 200, R.string.NM_TA_Master, R.string.NM_TA_Master_Desc,
                 R.drawable.msg_edit_solar, R.string.NM_TA_Title, R.string.NM_TA_HeaderMain);
         rows(entries, guid, SCREEN_TEXT_ANIMATION, R.drawable.msg_edit_solar,
@@ -387,23 +377,6 @@ final class NimarkoSettingsSearchIndex {
                 202, R.string.NM_TA_Cursor,
                 203, R.string.NM_TA_Delete,
                 204, R.string.NM_TA_Spoiler);
-        row(entries, guid, SCREEN_BANNERS, 100, R.string.NM_BAN_Enable, R.string.NM_BAN_EnableHint,
-                R.drawable.msg_photos_solar, R.string.NM_BAN_Title, 0);
-        rows(entries, guid, SCREEN_BANNERS, R.drawable.msg_photos_solar,
-                R.string.NM_BAN_Title, R.string.NM_BAN_GlobalHeader,
-                101, R.string.NM_BAN_StatusLabel,
-                102, R.string.NM_BAN_ChangeGlobal,
-                103, R.string.NM_BAN_SubmitModeration,
-                105, R.string.NM_BAN_RefreshStatus);
-        row(entries, guid, SCREEN_BANNERS, 104, R.string.NM_BAN_HideAvatar, R.string.NM_BAN_HideAvatarHint,
-                R.drawable.msg_photos_solar, R.string.NM_BAN_Title, R.string.NM_SettingsSectionDisplay);
-        rows(entries, guid, SCREEN_BANNERS, R.drawable.msg_photos_solar,
-                R.string.NM_BAN_Title, R.string.NM_BAN_LocalHeader,
-                106, R.string.NM_BAN_PickLocal,
-                107, R.string.NM_BAN_DeleteLocal,
-                108, R.string.NM_BAN_AvatarBanner);
-        row(entries, guid, SCREEN_BANNERS, 109, R.string.NM_BAN_LiteMode, R.string.NM_BAN_LiteModeHint,
-                R.drawable.msg_photos_solar, R.string.NM_BAN_Title, R.string.NM_SettingsSectionDisplay);
         rows(entries, guid, SCREEN_BYPASS, R.drawable.msg_satellite_solar,
                 R.string.NM_WSB_Title, R.string.NM_SettingsSectionConnection,
                 200, R.string.NM_WSB_Enable,
@@ -568,9 +541,7 @@ final class NimarkoSettingsSearchIndex {
         if (owner instanceof BottomTabsPreferencesActivity) return SCREEN_BOTTOM_TABS;
         if (owner instanceof MessageMenuPreferencesActivity) return SCREEN_MESSAGE_MENU;
         if (owner instanceof MessageMenuItemsPreferencesActivity) return SCREEN_MESSAGE_MENU_ITEMS;
-        if (owner instanceof NimarkoMediaPreferencesActivity) return SCREEN_MEDIA;
-        if (owner instanceof NimarkoTextAnimPreferencesActivity) return SCREEN_TEXT_ANIMATION;
-        if (owner instanceof BannerPreferencesActivity) return SCREEN_BANNERS;
+        if (owner instanceof soundgram.animation.TextAnimationSettingsActivity) return SCREEN_TEXT_ANIMATION;
         if (owner instanceof DebugPreferencesActivity) return SCREEN_ADVANCED;
         if (owner instanceof RecentEmojisStickersPreferencesActivity) return SCREEN_RECENT;
         if (owner instanceof soundgram.wsproxy.NekoWsProxyActivity) return SCREEN_BYPASS;

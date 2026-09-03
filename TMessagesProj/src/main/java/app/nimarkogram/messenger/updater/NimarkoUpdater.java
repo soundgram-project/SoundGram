@@ -321,8 +321,9 @@ public class NimarkoUpdater {
                 connection.setConnectTimeout(15000);
                 connection.setReadTimeout(15000);
 
-                if (connection.getResponseCode() != 200) {
-                    if (onCheckFailed != null) AndroidUtilities.runOnUIThread(onCheckFailed::run);
+                int respCode = connection.getResponseCode();
+                if (respCode == 404 || respCode >= 400) {
+                    if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
                     checkingForUpdates = false;
                     return;
                 }

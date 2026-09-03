@@ -65,10 +65,6 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
         arrayList.add(UItem.asShadow(null));
 
         arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_HUB_Header_Misc)));
-        arrayList.add(category(ID_NIMARKO_MEDIA, IconBackgroundColors.BLUE_DEEP,
-                R.drawable.msg_download_solar, R.string.NM_DownloadMedia, "nimarko_media"));
-        arrayList.add(category(ID_BANNERS, IconBackgroundColors.ORANGE,
-                R.drawable.msg_photos_solar, R.string.NM_BAN_Title, "nimarko_banners"));
         arrayList.add(category(ID_WSBYPASS, IconBackgroundColors.GREEN,
                 R.drawable.msg_secret_solar, R.string.NM_WSB_Title, "nimarko_wsbypass"));
         arrayList.add(category(ID_TEXTANIM, IconBackgroundColors.PURPLE,
@@ -123,17 +119,11 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
             case ID_PRIVACY:
                 presentFragment(new PrivacyPreferencesActivity());
                 break;
-            case ID_NIMARKO_MEDIA:
-                presentFragment(new NimarkoMediaPreferencesActivity());
-                break;
-            case ID_BANNERS:
-                presentFragment(new BannerPreferencesActivity());
-                break;
             case ID_WSBYPASS:
                 presentFragment(new soundgram.wsproxy.NekoWsProxyActivity());
                 break;
             case ID_TEXTANIM:
-                presentFragment(new NimarkoTextAnimPreferencesActivity());
+                presentFragment(new soundgram.animation.TextAnimationSettingsActivity());
                 break;
             case ID_UPDATES:
                 app.nimarkogram.messenger.updater.NimarkoUpdaterSheet.showAlert(this, false, null);
