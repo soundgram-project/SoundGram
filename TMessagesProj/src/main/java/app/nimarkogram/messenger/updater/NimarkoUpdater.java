@@ -19,6 +19,11 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.DispatchQueue;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.FileLoader;
+import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.tgnet.TLRPC;
+import tw.nekomimi.nekogram.helpers.remote.BaseRemoteHelper;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
@@ -355,23 +360,41 @@ public class NimarkoUpdater {
                 versionCode = obj.optInt("version_code", obj.optInt("versionCode", 0));
 
                 downloadURL = obj.optString("url", "");
+                int uniMsgId = obj.optInt("uni", 0);
                 if (obj.has("document")) {
                     Object docObj = obj.get("document");
                     if (docObj instanceof JSONObject) {
                         JSONObject docJson = (JSONObject) docObj;
+                        if (uniMsgId == 0) {
+                            uniMsgId = docJson.optInt("uni", docJson.optInt("universal", 0));
+                        }
+                        if (uniMsgId == 0) {
+                            for (String abi : Build.SUPPORTED_ABIS) {
+                                if (docJson.has(abi)) {
+                                    uniMsgId = docJson.optInt(abi, 0);
+                                    if (uniMsgId != 0) break;
+                                }
+                            }
+                        }
                         String uniUrl = docJson.optString("uni", docJson.optString("universal", ""));
-                        if (uniUrl != null && !uniUrl.isEmpty()) {
+                        if (uniUrl != null && (uniUrl.startsWith("http://") || isHttps(uniUrl))) {
                             downloadURL = uniUrl;
                         }
+                    } else if (docObj instanceof Integer) {
+                        if (uniMsgId == 0) uniMsgId = (Integer) docObj;
                     } else if (docObj instanceof String) {
                         String docStr = (String) docObj;
-                        if (docStr != null && !docStr.isEmpty()) {
+                        if (docStr != null && (docStr.startsWith("http://") || isHttps(docStr))) {
                             downloadURL = docStr;
                         }
                     }
                 }
 
-                if (!isHttps(downloadURL) && !downloadURL.startsWith("http://")) {
+                if (uniMsgId > 0 && (downloadURL == null || downloadURL.isEmpty() || !downloadURL.startsWith("http"))) {
+                    downloadURL = "tg://msg/" + uniMsgId;
+                }
+
+                if (!isHttps(downloadURL) && !downloadURL.startsWith("http://") && !downloadURL.startsWith("tg://")) {
                     FileLog.e("NimarkoUpdater: rejecting invalid download url: " + downloadURL);
                     version = "";
                     downloadURL = "";
@@ -395,7 +418,7 @@ public class NimarkoUpdater {
                 long dateMs = obj.optLong("build_timestamp", obj.optLong("date", 0));
                 uploadDate = dateMs > 0 ? LocaleController.formatDateTime(dateMs > 1000000000000L ? dateMs / 1000 : dateMs, true) : "";
 
-                Update update = new Update(version, versionCode, changelog, size, downloadURL, uploadDate);
+                Update update = new Update(version, versionCode, changelog, size, downloadURL, uploadDate, uniMsgId);
                 lastUpdate = update;
                 NimarkoUpdateConfig.setLastUpdate(version, versionCode, downloadURL, changelog, size, uploadDate);
                 if (update.isNew() && fragment != null && fragment.getContext() != null) {
@@ -558,7 +581,140 @@ public class NimarkoUpdater {
             updateBoundButton(generation, 0, false);
             startProgressSmoother(generation);
         });
-        nmDownloadLoop(appContext, link, 0, generation, false);
+        if (link != null && (link.startsWith("tg://") || (lastUpdate != null && lastUpdate.uniMessageId > 0))) {
+            int targetMsgId = (lastUpdate != null && lastUpdate.uniMessageId > 0)
+                    ? lastUpdate.uniMessageId
+                    : Integer.parseInt(link.substring(link.lastIndexOf('/') + 1));
+            downloadFromTelegram(appContext, targetMsgId, generation);
+        } else {
+            nmDownloadLoop(appContext, link, 0, generation, false);
+        }
+    }
+
+    private static void downloadFromTelegram(Context context, int messageId, int myGeneration) {
+        otaQueue.postRunnable(() -> {
+            int account = UserConfig.selectedAccount;
+            Runnable fetchDocWithChannel = () -> {
+                TLRPC.TL_channels_getMessages req = new TLRPC.TL_channels_getMessages();
+                TLRPC.TL_inputChannel inputChannel = new TLRPC.TL_inputChannel();
+                inputChannel.channel_id = BaseRemoteHelper.getResolvedChannelId();
+                inputChannel.access_hash = BaseRemoteHelper.getResolvedChannelAccessHash();
+                req.channel = inputChannel;
+                req.id.add(messageId);
+                ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> {
+                    if (myGeneration != downloadGeneration) return;
+                    if (response instanceof TLRPC.messages_Messages) {
+                        TLRPC.messages_Messages res = (TLRPC.messages_Messages) response;
+                        if (res.messages != null && !res.messages.isEmpty()) {
+                            TLRPC.Message msg = res.messages.get(0);
+                            if (msg.media != null && msg.media.document != null) {
+                                startTgFileLoaderDownload(context, account, msg.media.document, myGeneration);
+                                return;
+                            }
+                        }
+                    }
+                    AndroidUtilities.runOnUIThread(() -> dispatchDownloadError(myGeneration));
+                });
+            };
+
+            long accessHash = BaseRemoteHelper.getResolvedChannelAccessHash();
+            if (accessHash == 0) {
+                TLRPC.TL_contacts_resolveUsername resolve = new TLRPC.TL_contacts_resolveUsername();
+                resolve.username = BaseRemoteHelper.CHANNEL_METADATA_NAME;
+                ConnectionsManager.getInstance(account).sendRequest(resolve, (res, err) -> {
+                    if (myGeneration != downloadGeneration) return;
+                    if (res instanceof TLRPC.TL_contacts_resolvedPeer) {
+                        TLRPC.TL_contacts_resolvedPeer peer = (TLRPC.TL_contacts_resolvedPeer) res;
+                        if (peer.chats != null && !peer.chats.isEmpty()) {
+                            TLRPC.Chat chat = peer.chats.get(0);
+                            ApplicationLoader.applicationContext.getSharedPreferences("remote", Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putLong("resolved_channel_id", chat.id)
+                                    .putLong("resolved_channel_access_hash", chat.access_hash)
+                                    .apply();
+                            fetchDocWithChannel.run();
+                            return;
+                        }
+                    }
+                    AndroidUtilities.runOnUIThread(() -> dispatchDownloadError(myGeneration));
+                });
+            } else {
+                fetchDocWithChannel.run();
+            }
+        });
+    }
+
+    private static void startTgFileLoaderDownload(Context context, int account, TLRPC.Document doc, int myGeneration) {
+        AndroidUtilities.runOnUIThread(() -> {
+            File targetDir = new File(context.getExternalFilesDir(null), "ota/" + version);
+            if (!targetDir.exists()) targetDir.mkdirs();
+            File targetApk = new File(targetDir, "update.apk");
+
+            NotificationCenter.NotificationCenterDelegate observer = new NotificationCenter.NotificationCenterDelegate() {
+                @Override
+                public void didReceivedNotification(int id, int accountNum, Object... args) {
+                    if (myGeneration != downloadGeneration) {
+                        NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoaded);
+                        NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadProgressChanged);
+                        NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadFailed);
+                        return;
+                    }
+                    if (id == NotificationCenter.fileLoadProgressChanged) {
+                        String location = (String) args[0];
+                        long loaded = (Long) args[1];
+                        long total = (Long) args[2];
+                        String fileName = FileLoader.getAttachFileName(doc);
+                        if (fileName.equals(location) && total > 0) {
+                            dlRealProgress = (int) (loaded * 100L / total);
+                            NimarkoUpdateConfig.setUpdateDownloadingProgress(dlRealProgress);
+                            showProgressNotification(context, dlRealProgress);
+                        }
+                    } else if (id == NotificationCenter.fileLoaded) {
+                        String location = (String) args[0];
+                        String fileName = FileLoader.getAttachFileName(doc);
+                        if (fileName.equals(location)) {
+                            NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoaded);
+                            NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadProgressChanged);
+                            NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadFailed);
+
+                            File downloadedFile = (File) args[1];
+                            if (downloadedFile == null || !downloadedFile.exists()) {
+                                downloadedFile = FileLoader.getInstance(account).getPathToAttach(doc, true);
+                            }
+                            try {
+                                AndroidUtilities.copyFile(downloadedFile, targetApk);
+                            } catch (Exception e) {
+                                FileLog.e(e);
+                            }
+                            apkFile = targetApk;
+                            updateDownloaded = isApkValid(apkFile);
+                            downloading = false;
+                            cancelUpdateNotification();
+                            showReadyNotification(context, apkFile);
+                            AndroidUtilities.runOnUIThread(() -> {
+                                dispatchDownloadComplete(myGeneration);
+                                installApk(context, apkFile.getAbsolutePath());
+                            });
+                        }
+                    } else if (id == NotificationCenter.fileLoadFailed) {
+                        String location = (String) args[0];
+                        String fileName = FileLoader.getAttachFileName(doc);
+                        if (fileName.equals(location)) {
+                            NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoaded);
+                            NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadProgressChanged);
+                            NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadFailed);
+                            dispatchDownloadError(myGeneration);
+                        }
+                    }
+                }
+            };
+
+            NotificationCenter.getInstance(account).addObserver(observer, NotificationCenter.fileLoaded);
+            NotificationCenter.getInstance(account).addObserver(observer, NotificationCenter.fileLoadProgressChanged);
+            NotificationCenter.getInstance(account).addObserver(observer, NotificationCenter.fileLoadFailed);
+
+            FileLoader.getInstance(account).loadFile(doc, "apk", 0, 1);
+        });
     }
 
     private static void nmDownloadLoop(Context context, String link, long startOffset,
@@ -1144,14 +1300,20 @@ public class NimarkoUpdater {
     public static class Update {
         public final String version, size, downloadURL, uploadDate, changelog;
         public final int versionCode;
+        public int uniMessageId = 0;
 
         public Update(String version, int versionCode, String changelog, String size, String downloadURL, String uploadDate) {
+            this(version, versionCode, changelog, size, downloadURL, uploadDate, 0);
+        }
+
+        public Update(String version, int versionCode, String changelog, String size, String downloadURL, String uploadDate, int uniMessageId) {
             this.version = version;
             this.versionCode = versionCode;
             this.changelog = changelog;
             this.size = size;
             this.downloadURL = downloadURL;
             this.uploadDate = uploadDate;
+            this.uniMessageId = uniMessageId;
         }
 
         public boolean isNew() {

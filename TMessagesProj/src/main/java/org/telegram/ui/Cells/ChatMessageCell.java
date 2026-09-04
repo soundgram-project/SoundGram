@@ -1918,6 +1918,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private boolean wouldBeInPip;
     private AnimatedFloat roundVideoPlayPipFloat = new AnimatedFloat(this, 200, CubicBezierInterpolator.EASE_OUT);
     private Paint roundVideoPipPaint;
+    private boolean ayuDeleted;
 
     // NimarkoGram online dot on group/supergroup sender avatars. AnimatedFloat is created once and reused
     // every frame (no per-frame alloc); it eases toward senderIsOnline and self-invalidates this cell while
@@ -7177,6 +7178,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             currentMessageObject = null;
         }
         messageObject.isOutOwnerCached = null;
+        ayuDeleted = messageObject != null && messageObject.isAyuDeleted();
         boolean widthChanged = lastWidth != getParentWidth();
         lastHeight = AndroidUtilities.displaySize.y;
         lastWidth = getParentWidth();
@@ -19161,6 +19163,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             timeString = LocaleController.formatSmallDateChat(currentMessageObject.realDate) + ", " + LocaleController.getInstance().getFormatterDay().format((long) (currentMessageObject.realDate) * 1000);
         } else if (currentMessageObject.isRepostPreview) {
             timeString = LocaleController.formatSmallDateChat(messageObject.messageOwner.date) + ", " + LocaleController.getInstance().getFormatterDay().format((long) (messageObject.messageOwner.date) * 1000);
+        } else if (!edited && ayuDeleted && shouldShowAyuDeletedMark(currentMessageObject)) {
+            timeString = tw.nekomimi.nekogram.helpers.TimeStringHelper.createDeletedString(currentMessageObject, edited, false, 0);
+        } else if (edited && ayuDeleted && shouldShowAyuDeletedMark(currentMessageObject)) {
+            timeString = tw.nekomimi.nekogram.helpers.TimeStringHelper.createDeletedString(currentMessageObject, edited, false, false, 0, currentMessagesGroup != null ? currentMessagesGroup.getMaxEditDate() : messageObject.messageOwner.edit_date);
         } else if (edited) {
             // NimarkoGram: when showPencilIcon is enabled, swap the "edited" text for a real
             // pencil drawable rendered through a ColoredImageSpan (parity with Cherrygram).
@@ -19242,6 +19248,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
         }
         timeTextWidth = timeWidth = (int) Math.ceil(Theme.chat_timePaint.measureText(currentTimeString, 0, currentTimeString == null ? 0 : currentTimeString.length()));
+        if (ayuDeleted && shouldShowAyuDeletedMark(currentMessageObject) && xyz.nextalone.nagram.NaConfig.INSTANCE.getUseDeletedIcon().Bool() && tw.nekomimi.nekogram.helpers.TimeStringHelper.deletedDrawable != null) {
+            timeTextWidth = timeWidth += tw.nekomimi.nekogram.helpers.TimeStringHelper.deletedDrawable.getIntrinsicWidth();
+        }
         // NimarkoGram: account for the pencil drawable's intrinsic width when icon mode replaces "edited".
         if (edited && app.nimarkogram.messenger.NimarkoConfig.showPencilIcon
                 && app.nimarkogram.messenger.utils.chats.NimarkoChatHelper.editedDrawable != null) {
@@ -20941,6 +20950,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         if (currentMessageObject == null) {
             return;
         }
+        if (shouldTranslucentDeleted() && ayuDeleted) {
+            canvas.saveLayerAlpha(null, (int) (255 * 0.75f), Canvas.ALL_SAVE_FLAG);
+        }
         if (isFilteredMessageCollapsed()) {
             drawFilteredMessageCollapsed(canvas);
             return;
@@ -21187,6 +21199,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
         if (transparentRestore != -1) {
             canvas.restoreToCount(transparentRestore);
+        }
+
+        if (shouldTranslucentDeleted() && ayuDeleted) {
+            canvas.restore();
         }
     }
 
@@ -30512,5 +30528,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
         }
         return text;
+    }
+
+    protected boolean shouldShowAyuDeletedMark(MessageObject messageObject) {
+        return true;
+    }
+
+    protected boolean shouldTranslucentDeleted() {
+        return xyz.nextalone.nagram.NaConfig.INSTANCE.getTranslucentDeletedMessages().Bool();
     }
 }

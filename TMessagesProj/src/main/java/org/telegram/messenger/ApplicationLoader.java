@@ -332,9 +332,9 @@ public class ApplicationLoader extends Application {
             if (Boolean.TRUE.equals(nmWrappingResources.get())) {
                 return base;
             }
-            if (nmAppAssets != base.getAssets()) {
+            if (nmAppResources == null || nmAppAssets != base.getAssets()) {
                 synchronized (nmAppResourcesLock) {
-                    if (nmAppAssets != base.getAssets()) {
+                    if (nmAppResources == null || nmAppAssets != base.getAssets()) {
                         nmWrappingResources.set(Boolean.TRUE);
                         try {
                             nmAppResources = new app.nimarkogram.messenger.icons.NimarkoIconResources(base);
@@ -354,8 +354,12 @@ public class ApplicationLoader extends Application {
     public static void reloadAppIconResources() {
         try {
             ApplicationLoader inst = applicationLoaderInstance;
-            if (inst != null && inst.nmAppResources != null) {
-                inst.nmAppResources.reloadReplacements(null);
+            if (inst != null) {
+                if (inst.nmAppResources != null) {
+                    inst.nmAppResources.reloadReplacements(null);
+                } else {
+                    inst.getResources();
+                }
             }
         } catch (Throwable ignore) {}
     }

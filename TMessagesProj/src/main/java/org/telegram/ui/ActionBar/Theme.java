@@ -8223,6 +8223,8 @@ public class Theme {
 
     public static void reloadAllResources(Context context) {
         destroyResources();
+        dividerPaint = null;
+        createCommonResources(context);
         if (chat_msgInDrawable != null) {
             chat_msgInDrawable = null;
             currentColor = 0;

@@ -20,7 +20,7 @@
     <string name="BypassNetwork">Bypass Restrictions</string>
     <string name="BypassNetworkSubtitle">Built-in high-speed WebSocket Proxy</string>
 
-    
+    <!-- Icon Packs -->
     <string name="CreateIconPack">Create Icon Pack</string>
 
     
@@ -35,4 +35,85 @@
     <string name="ChatListWallpaperDimming">Chat List Wallpaper Dimming</string>
     <string name="ChatWallpaperVideo">Chat Live Wallpaper (Video)</string>
     <string name="ResetWallpaper">Reset Wallpaper</string>
-    </resources>
+
+    <!-- Music & Accessibility -->
+    <string name="MusicStorageNeeded">A storage channel is required for your tracks to use the Music tab.</string>
+    <string name="MusicStorageCreateAuto">Create automatically</string>
+    <string name="MusicStorageLinkOwn">Link existing channel</string>
+    <string name="MusicStorageSelect">Select storage channel</string>
+    <string name="MusicStorageCreated">Storage channel created and linked!</string>
+    <string name="MusicStorageError">Error creating channel: %1$s</string>
+    <string name="MusicStorageNotFound">No channels or groups found where you are an admin.</string>
+    <string name="MusicStorageLinked">Linked channel: %1$s</string>
+    <string name="MusicStorageChannel">Channel</string>
+    <string name="MusicStorageGroup">Group</string>
+    <string name="MusicNewPlaylist">New playlist</string>
+    <string name="MusicNoPlaylists">No playlists yet</string>
+    <string name="MusicAlbum">Album</string>
+    <string name="MusicVerifiedArtist">✓ ARTIST</string>
+
+    <!-- TalkBack / TTS Accessibility Descriptions -->
+    <string name="AccDescrMusicTrack">%1$s, by %2$s, %3$s</string>
+    <string name="AccDescrMusicTrackPlaying">Now playing: %1$s, by %2$s</string>
+    <string name="AccDescrMusicMiniPlayer">Mini player: %1$s, by %2$s</string>
+    <string name="AccDescrMusicPlayTrack">Play %1$s by %2$s</string>
+    <string name="AccDescrMusicPauseTrack">Pause %1$s by %2$s</string>
+    <string name="AccDescrMusicOptions">Track options for %1$s</string>
+    <string name="AccDescrMusicCreatePlaylist">Create new playlist</string>
+    <string name="AccDescrMusicPlaylist">Playlist %1$s, %2$d tracks</string>
+    <string name="AccDescrMusicAlbum">Album %1$s, by %2$s</string>
+    <string name="AccDescrMusicArtist">Artist %1$s</string>
+    <string name="AccDescrMusicGenre">Genre %1$s</string>
+    <string name="AccDescrMusicGenreSelected">Genre %1$s, selected</string>
+    <string name="AccDescrMusicSettings">Music settings</string>
+    <string name="AccDescrMusicAdded">Track added</string>
+    <string name="AccDescrMusicAdd">Add track</string>
+    <string name="AccDescrMusicPlayPlaylist">Play playlist</string>
+    <string name="AccDescrMusicShuffle">Shuffle playback</string>
+    <string name="AccDescrMusicMyWave">My wave</string>
+    <string name="LocalTelegramPremium">Local Telegram Premium</string>
+    <string name="LocalTelegramPremiumNotice">Enables Telegram Premium UI features locally (double limits, folder tags, etc.)</string>
+
+    <!-- Player & Music Accessibility -->
+    <string name="AccDescrNext">Next track</string>
+    <string name="AccDescrPlay">Play</string>
+    <string name="AccDescrPause">Pause</string>
+    <string name="AccDescrRepeat">Repeat</string>
+    <string name="AccDescrShuffle">Shuffle</string>
+    <string name="AccDescrEqualizer">Equalizer</string>
+    <string name="ImportMusicTrack">Import music track</string>
+    <string name="edit">Edit</string>
+
+    <!-- Panic Code -->
+    <string name="PasscodePanicCodeTitle">Panic Code</string>
+    <string name="PasscodePanicCodeAccounts">Select accounts to logout</string>
+    <string name="PasscodePanicCodeEnabled">Enabled</string>
+    <string name="PasscodePanicCodeDisabled">Disabled</string>
+    <string name="PasscodePanicCodeRemoved">Panic code removed</string>
+    <string name="PasscodePanicCodeSuccess">Panic code set successfully</string>
+    <string name="PasscodePanicCodeShort">Code must be at least 4 digits</string>
+    <string name="EnterPasscode">Enter passcode</string>
+    <string name="NoAccounts">No accounts</string>
+
+    <!-- Ghost Mode & Deleted Messages -->
+    <string name="SendReadMessagePackets">Send read receipts</string>
+    <string name="SendReadMessagePacketsNotice">When disabled, others will not see that you read their messages</string>
+    <string name="SendOnlinePackets">Send online status</string>
+    <string name="SendOnlinePacketsNotice">When disabled, your online status will not be updated</string>
+    <string name="SendUploadProgress">Send typing &amp; upload status</string>
+    <string name="SendUploadProgressNotice">When disabled, others will not see typing or media upload indicators</string>
+    <string name="SendReadStoriesPackets">Send story view receipts</string>
+    <string name="SendReadStoriesPacketsNotice">When disabled, your story views will be anonymous</string>
+    <string name="SendOfflinePacketAfterOnlineNotice">Quickly marks you offline after actions</string>
+    <string name="SaveDeletedMessages">Save deleted messages</string>
+    <string name="SaveDeletedMessagesNotice">Keeps deleted messages visible locally</string>
+    <string name="SaveDeletedMedia">Save deleted media</string>
+    <string name="SaveDeletedMediaNotice">Automatically saves attachments of deleted messages locally</string>
+    <string name="SaveDeletedFromBots">Save deleted from bots</string>
+    <string name="SaveDeletedFromBotsUser">Save deleted from bots in private chats</string>
+    <string name="TranslucentDeleted">Translucent deleted messages</string>
+    <string name="SaveEditsHistory">Save edit history</string>
+    <string name="SaveEditsHistoryNotice">Stores previous revisions of edited messages</string>
+    <string name="ClearAyuDatabase">Clear saved messages database</string>
+    <string name="ClearAyuDatabaseConfirm">Are you sure you want to delete all saved deleted and edited messages?</string>
+</resources>

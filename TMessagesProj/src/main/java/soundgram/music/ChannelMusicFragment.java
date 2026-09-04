@@ -1109,9 +1109,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         });
 
-        waveTabBtn.setOnClickListener(v -> { applySpringClick(v); viewPager.setCurrentItem(0, true); });
-        libraryTabBtn.setOnClickListener(v -> { applySpringClick(v); viewPager.setCurrentItem(1, true); });
-        albumsTabBtn.setOnClickListener(v -> { applySpringClick(v); viewPager.setCurrentItem(2, true); });
+        waveTabBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, waveTabBtn.getText()); viewPager.setCurrentItem(0, true); });
+        libraryTabBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, libraryTabBtn.getText()); viewPager.setCurrentItem(1, true); });
+        albumsTabBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, albumsTabBtn.getText()); viewPager.setCurrentItem(2, true); });
 
         viewPager.setCurrentItem(1, false);
 
@@ -1179,6 +1179,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(listBottomPad));
 
         listView.setOnItemClickListener((view, position) -> {
+            if (view != null && view.getContentDescription() != null) {
+                SoundGramTTS.speak(view, view.getContentDescription());
+            }
             // При запуске из библиотеки (listView.setOnItemClickListener):
             AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_LIBRARY;
             AudioPlayerAlert.currentSourceLabel = "";
@@ -2655,9 +2658,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             String title = parts.length > 1 ? parts[1] : "Unknown";
             String url = parts.length > 2 ? parts[2] : "";
             String coverUrl = parts.length > 3 ? parts[3] : "";
+            String artist = parts.length > 4 ? parts[4] : "";
 
             titleText.setText(title);
             cover.setImage(coverUrl, "200_200", null);
+
+            layout.setContentDescription(LocaleController.formatString("AccDescrMusicAlbum", R.string.AccDescrMusicAlbum, title, artist));
+            layout.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
 
             layout.setOnClickListener(v -> {
                 applySpringClick(layout);
@@ -2684,14 +2691,19 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         statsBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN);
         statsBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
         statsBtn.setScaleType(ImageView.ScaleType.CENTER);
+        statsBtn.setContentDescription(LocaleController.getString(R.string.AccDescrMusicSettings));
+        statsBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         statsBtn.setOnClickListener(v -> {
             applySpringClick(v);
+            SoundGramTTS.speak(v, statsBtn.getContentDescription());
             setSphereVisible(false);
             // Показываем ПОЛНЫЙ ЭКРАН (не боттом-шит!)
             presentFragment(new SoundGramStyleSettingsFragment());
         });
         headerTitle = new TextView(context);
         headerTitle.setText("SoundGram");
+        headerTitle.setContentDescription("SoundGram");
+        headerTitle.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         headerTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
         headerTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         headerTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
@@ -2703,14 +2715,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchIconBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN);
         searchIconBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
         searchIconBtn.setScaleType(ImageView.ScaleType.CENTER);
-        searchIconBtn.setOnClickListener(v -> { applySpringClick(v); openSearch(); });
+        searchIconBtn.setContentDescription(LocaleController.getString(R.string.Search));
+        searchIconBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        searchIconBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, searchIconBtn.getContentDescription()); openSearch(); });
 
         refreshBtn = new ImageView(context);
         refreshBtn.setImageResource(R.drawable.msg_download);
         refreshBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN);
         refreshBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
         refreshBtn.setScaleType(ImageView.ScaleType.CENTER);
-        refreshBtn.setOnClickListener(v -> { applySpringClick(v); showImportDialog(); });
+        refreshBtn.setContentDescription(getString(R.string.ImportMusicTrack));
+        refreshBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        refreshBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, refreshBtn.getContentDescription()); showImportDialog(); });
 
         standardHeaderLayout.addView(statsBtn,
                 LayoutHelper.createLinear(48, 48));
@@ -2732,7 +2748,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchBackBtn.setColorFilter(accentColor, PorterDuff.Mode.SRC_IN);
         searchBackBtn.setScaleType(ImageView.ScaleType.CENTER);
         searchBackBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
-        searchBackBtn.setOnClickListener(v -> { applySpringClick(v); closeSearch(); });
+        searchBackBtn.setContentDescription(LocaleController.getString(R.string.Back));
+        searchBackBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        searchBackBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, searchBackBtn.getContentDescription()); closeSearch(); });
 
         // Стеклянный контейнер для строки поиска
         FrameLayout searchFieldContainer = new FrameLayout(context);
@@ -2752,6 +2770,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         searchField = new EditText(context);
         searchField.setHint(getString(R.string.searchtrc));
+        searchField.setContentDescription(getString(R.string.searchtrc));
+        searchField.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         searchField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         searchField.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         searchField.setHintTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
@@ -2947,6 +2967,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         playlistsListView.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(4), AndroidUtilities.dp(12), AndroidUtilities.dp(4));
         playlistsListView.setOnItemClickListener((view, position) -> {
             applySpringClick(view);
+            if (view != null && view.getContentDescription() != null) {
+                SoundGramTTS.speak(view, view.getContentDescription());
+            }
             if (position == 0) {
                 showCreatePlaylistDialog();
             } else {
@@ -2959,7 +2982,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         playlistsContainer.addView(playlistsListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 168));
 
         emptyPlaylistsText = new TextView(context);
-        emptyPlaylistsText.setText("Плейлистов пока нет");
+        emptyPlaylistsText.setText(getString(R.string.MusicNoPlaylists));
         emptyPlaylistsText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         emptyPlaylistsText.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         emptyPlaylistsText.setGravity(Gravity.CENTER);
@@ -3052,14 +3075,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         setupPromptShowing = true;
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
         builder.setTitle(getString(R.string.SoundGram));
-        builder.setMessage("Для работы вкладки «Музыка» требуется канал-хранилище для ваших треков.");
-        builder.setPositiveButton("Создать автоматически", (dialog, which) -> {
+        builder.setMessage(getString(R.string.MusicStorageNeeded));
+        builder.setPositiveButton(getString(R.string.MusicStorageCreateAuto), (dialog, which) -> {
             setupPromptShowing = false;
             long userId = getValidUserId(currentAccount);
             String title = userId != 0 ? "SoundGram Music (" + userId + ")" : "SoundGram Music";
             createMusicChannel(title);
         });
-        builder.setNegativeButton("Привязать свой", (dialog, which) -> {
+        builder.setNegativeButton(getString(R.string.MusicStorageLinkOwn), (dialog, which) -> {
             setupPromptShowing = false;
             showAdminChannelPicker();
         });
@@ -3109,8 +3132,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         if (adminChats.isEmpty()) {
             AlertDialog.Builder emptyBuilder = new AlertDialog.Builder(finalAct);
             emptyBuilder.setTitle(getString(R.string.SoundGram));
-            emptyBuilder.setMessage("Каналы или группы, где вы являетесь администратором, не найдены.");
-            emptyBuilder.setPositiveButton("Создать автоматически", (d, w) -> {
+            emptyBuilder.setMessage(getString(R.string.MusicStorageNotFound));
+            emptyBuilder.setPositiveButton(getString(R.string.MusicStorageCreateAuto), (d, w) -> {
                 long userId = getValidUserId(currentAccount);
                 String title = userId != 0 ? "SoundGram Music (" + userId + ")" : "SoundGram Music";
                 createMusicChannel(title);
@@ -3121,7 +3144,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(finalAct);
-        builder.setTitle("Выберите канал-хранилище");
+        builder.setTitle(getString(R.string.MusicStorageSelect));
 
         RecyclerListView listView = new RecyclerListView(finalAct);
         listView.setLayoutManager(new LinearLayoutManager(finalAct, LinearLayoutManager.VERTICAL, false));
@@ -3146,7 +3169,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
                 ProfileSearchCell cell = (ProfileSearchCell) holder.itemView;
                 TLRPC.Chat chat = adminChats.get(position);
-                String subtext = ChatObject.isChannelAndNotMegaGroup(chat) ? "Канал" : "Группа";
+                String subtext = ChatObject.isChannelAndNotMegaGroup(chat) ? getString(R.string.MusicStorageChannel) : getString(R.string.MusicStorageGroup);
                 if (chat.participants_count > 0) {
                     subtext += " • " + LocaleController.formatPluralString("Members", chat.participants_count);
                 }
@@ -3167,7 +3190,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 musicChannelHash = selectedChat.access_hash;
                 saveChannelIdToFile(musicChannelId, musicChannelHash);
                 if (dialogRef[0] != null) dialogRef[0].dismiss();
-                Toast.makeText(finalAct, "Привязан канал: " + selectedChat.title, Toast.LENGTH_SHORT).show();
+                Toast.makeText(finalAct, LocaleController.formatString("MusicStorageLinked", R.string.MusicStorageLinked, selectedChat.title), Toast.LENGTH_SHORT).show();
                 loadMessagesFromCache();
                 loadMusicFromChannel();
             }
@@ -3203,7 +3226,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             saveChannelIdToFile(musicChannelId, musicChannelHash);
                             loadMusicFromChannel();
                             if (finalAct != null) {
-                                Toast.makeText(finalAct, "Канал-хранилище создан и привязан!", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(finalAct, getString(R.string.MusicStorageCreated), Toast.LENGTH_SHORT).show();
                             }
                         });
                         break;
@@ -3212,7 +3235,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             } else {
                 AndroidUtilities.runOnUIThread(() -> {
                     if (finalAct != null) {
-                        Toast.makeText(finalAct, "Ошибка создания канала: " + (error != null ? error.text : "неизвестная ошибка"), Toast.LENGTH_LONG).show();
+                        Toast.makeText(finalAct, LocaleController.formatString("MusicStorageError", R.string.MusicStorageError, (error != null ? error.text : "unknown error")), Toast.LENGTH_LONG).show();
                     }
                 });
             }
@@ -3444,9 +3467,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
                 if (isAdded) {
                     cell.optionsButton.setImageResource(R.drawable.ic_ab_done);
+                    cell.optionsButton.setContentDescription(getString(R.string.AccDescrMusicAdded));
                     cell.optionsButton.setColorFilter(Theme.getColor(Theme.key_chats_actionBackground), PorterDuff.Mode.SRC_IN);
                 } else {
                     cell.optionsButton.setImageResource(R.drawable.msg_add);
+                    cell.optionsButton.setContentDescription(getString(R.string.AccDescrMusicAdd));
                     cell.optionsButton.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN);
                 }
                 cell.optionsButton.setClickable(false);
@@ -3543,11 +3568,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             actionBar.setOccupyStatusBar(true);
 
             ActionBarMenu menu = actionBar.createMenu();
-            menu.addItem(1, R.drawable.msg_add);
+            ActionBarMenuItem addBtn = menu.addItem(1, R.drawable.msg_add);
+            addBtn.setContentDescription(getString(R.string.addtrc));
             ActionBarMenuItem editItem = menu.addItem(2, R.drawable.msg_edit);
+            editItem.setContentDescription(getString(R.string.edit));
             ActionBarMenuItem iconItem = menu.addItem(4, R.drawable.msg_gallery_locked1);
             iconItem.setVisibility(View.GONE);
-            menu.addItem(3, R.drawable.msg_delete);
+            ActionBarMenuItem deleteBtn = menu.addItem(3, R.drawable.msg_delete);
+            deleteBtn.setContentDescription(getString(R.string.Delete));
 
             actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
             actionBar.setTitleColor(Theme.getColor(Theme.key_actionBarDefaultTitle));
@@ -3958,6 +3986,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     playButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
                     playButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
                     playButton.setGravity(Gravity.CENTER);
+                    playButton.setContentDescription(getString(R.string.AccDescrMusicPlayPlaylist));
+                    playButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
                     GradientDrawable playBg = new GradientDrawable();
                     playBg.setColor(Theme.getColor(Theme.key_chats_actionBackground));
                     playBg.setCornerRadius(AndroidUtilities.dp(24));
@@ -3969,6 +3999,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_PLAYLIST;
                         AudioPlayerAlert.currentSourceLabel = currentPlaylistName;
                         applySpringClick(playButton);
+                        SoundGramTTS.speak(v, playButton.getContentDescription());
                         if (!playlistMessages.isEmpty())
                             playStrictInPlaylist(playlistMessages.get(0));
                     });
@@ -3980,6 +4011,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     shuffleButton.setImageResource(R.drawable.msg_retry);
                     shuffleButton.setColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_IN);
                     shuffleButton.setScaleType(ImageView.ScaleType.CENTER);
+                    shuffleButton.setContentDescription(getString(R.string.AccDescrMusicShuffle));
+                    shuffleButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
                     shuffleButton.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_PLAYLISTS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYLISTS,
@@ -3990,6 +4023,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_PLAYLIST;
                         AudioPlayerAlert.currentSourceLabel = currentPlaylistName;
                         applySpringClick(shuffleButton);
+                        SoundGramTTS.speak(v, shuffleButton.getContentDescription());
                         if (!playlistMessages.isEmpty()) {
                             ArrayList<MessageObject> shuffled = new ArrayList<>(playlistMessages);
                             Collections.shuffle(shuffled);
@@ -4011,6 +4045,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     waveButton.setGravity(Gravity.CENTER);
                     waveButton.setSingleLine(true);
                     waveButton.setEllipsize(TextUtils.TruncateAt.END);
+                    waveButton.setContentDescription(getString(R.string.AccDescrMusicMyWave));
+                    waveButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
                     waveButton.setBackground(SoundGramStyleManager.buildGlassDrawable(
                             SoundGramStyleSettingsFragment.KEY_GLASS_PLAYLISTS,
                             SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYLISTS,
@@ -4024,6 +4060,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                         AudioPlayerAlert.currentSourceLabel = "";
                         applySpringClick(waveButton);
+                        SoundGramTTS.speak(v, waveButton.getContentDescription());
                         if (playlistMessages.isEmpty()) return;
                         Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                         ArrayList<MessageObject> originalList = new ArrayList<>(playlistMessages);
@@ -4224,7 +4261,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 createIconWrapper.setVisibility(View.VISIBLE);
                 nameText.setText(getString(R.string.create));
                 nameText.setTextColor(accent);
-                countText.setText("Новый плейлист");
+                countText.setText(getString(R.string.MusicNewPlaylist));
+                container.setContentDescription(LocaleController.getString(R.string.AccDescrMusicCreatePlaylist));
+                container.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             } else {
                 createIconWrapper.setVisibility(View.GONE);
 
@@ -4242,6 +4281,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
                 MessageObject coverMsg = null;
                 int trackCount = pData.trackLines != null ? pData.trackLines.size() : 0;
+                container.setContentDescription(LocaleController.formatString("AccDescrMusicPlaylist", R.string.AccDescrMusicPlaylist, pName, trackCount));
+                container.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
                 if (pData.trackLines != null) {
                     for (String line : pData.trackLines) {
                         if (coverMsg != null) break;
@@ -4396,6 +4437,19 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 coverImage.setScaleY(1f);
             }
             setAudioCover(coverImage, msg, "50_50", 12);
+
+            String title = msg.getMusicTitle();
+            if (TextUtils.isEmpty(title)) title = "";
+            String accText;
+            if (isPlaying) {
+                accText = LocaleController.formatString("AccDescrMusicTrackPlaying", R.string.AccDescrMusicTrackPlaying, title, !TextUtils.isEmpty(author) ? author : "");
+            } else {
+                accText = LocaleController.formatString("AccDescrMusicTrack", R.string.AccDescrMusicTrack, title, !TextUtils.isEmpty(author) ? author : "", !TextUtils.isEmpty(durStr) ? durStr : "");
+            }
+            setContentDescription(accText);
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+            optionsButton.setContentDescription(LocaleController.formatString("AccDescrMusicOptions", R.string.AccDescrMusicOptions, title));
+            coverImage.setContentDescription(title);
         }
     }
 
@@ -5038,8 +5092,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             prevBtn.setHasTransientState(true);
             prevBtn.setOnClickListener(v -> {
                 applyPlayerButtonSpring(v);
+                SoundGramTTS.speak(v, prevBtn.getContentDescription());
                 MediaController.getInstance().playPreviousMessage();
             });
+            prevBtn.setContentDescription(LocaleController.getString(R.string.AccDescrPrevious));
+            prevBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             addView(prevBtn, LayoutHelper.createFrame(44, 44, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 100, 0));
 
             playPauseBtn = new ImageView(context);
@@ -5050,6 +5107,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             playPauseBtn.setHasTransientState(true);
             playPauseBtn.setOnClickListener(v -> {
                 applyPlayerButtonSpring(v);
+                SoundGramTTS.speak(v, playPauseBtn.getContentDescription());
                 MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
                 if (playing != null) {
                     if (MediaController.getInstance().isMessagePaused()) MediaController.getInstance().playMessage(playing);
@@ -5064,8 +5122,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             nextBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN);
             nextBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
             nextBtn.setHasTransientState(true);
+            nextBtn.setContentDescription(LocaleController.getString(R.string.AccDescrNext));
+            nextBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             nextBtn.setOnClickListener(v -> {
                 applyPlayerButtonSpring(v);
+                SoundGramTTS.speak(v, nextBtn.getContentDescription());
                 MediaController.getInstance().playNextMessage();
             });
             addView(nextBtn, LayoutHelper.createFrame(44, 44, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 8, 0));
@@ -5073,6 +5134,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             // ПРОГРЕСС-БАР УДАЛЁН
 
             setOnClickListener(v -> {
+                SoundGramTTS.speak(v, getContentDescription());
                 try {
                     if (fragment.getParentActivity() != null) {
                         AudioPlayerAlert alert = new AudioPlayerAlert(fragment.getParentActivity(), fragment.getResourceProvider());
@@ -5139,6 +5201,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             boolean isPaused = MediaController.getInstance().isMessagePaused();
             playPauseBtn.setImageResource(isPaused ? R.drawable.ic_play : R.drawable.ic_pause);
+            playPauseBtn.setContentDescription(LocaleController.getString(isPaused ? R.string.AccActionPlay : R.string.AccActionPause));
+            playPauseBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+            coverImage.setContentDescription(playing.getMusicTitle());
+            setContentDescription(LocaleController.formatString("AccDescrMusicMiniPlayer", R.string.AccDescrMusicMiniPlayer, playing.getMusicTitle(), playing.getMusicAuthor()));
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         }
     }
 
@@ -6352,7 +6419,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     subTitleTv.setTextColor(0xCCFFFFFF);
                     subTitleTv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
                     subTitleTv.setGravity(Gravity.CENTER);
-                    subTitleTv.setText("Альбом");
+                    subTitleTv.setText(getString(R.string.MusicAlbum));
                     contentCol.addView(subTitleTv,
                             LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,
                                     LayoutHelper.WRAP_CONTENT,
@@ -6573,6 +6640,8 @@ public static class ChipCell extends FrameLayout {
 
         public void setChip(String text, boolean isSelected) {
             textView.setText(text);
+            setContentDescription(text + (isSelected ? ", " + LocaleController.getString(R.string.AccDescrMusicGenreSelected) : ""));
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             if (isSelected) {
                 textView.setTextColor(Theme.getColor(Theme.key_chats_actionIcon));
                 textView.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), Theme.getColor(Theme.key_chats_actionBackground)));
@@ -6621,7 +6690,8 @@ public static class ChipCell extends FrameLayout {
             TextView chip = (TextView) holder.itemView;
             String genre = items[position];
             boolean isSelected = (position == selectedIndex);
-            chip.setText(getLocalizedGenre(genre));
+            chip.setContentDescription(LocaleController.formatString(isSelected ? "AccDescrMusicGenreSelected" : "AccDescrMusicGenre", isSelected ? R.string.AccDescrMusicGenreSelected : R.string.AccDescrMusicGenre, getLocalizedGenre(genre)));
+            chip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
 
             int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
             GradientDrawable bg = new GradientDrawable();
@@ -6648,6 +6718,7 @@ public static class ChipCell extends FrameLayout {
             chip.setBackground(bg);
 
             chip.setOnClickListener(v -> {
+                SoundGramTTS.speak(v, chip.getContentDescription());
                 selectedIndex = position;
                 notifyDataSetChanged();
             });
@@ -6709,7 +6780,11 @@ public static class ChipCell extends FrameLayout {
             titleText.setText(album.title);
             cover.setImage(album.coverUrl, "100_100", null);
 
+            layout.setContentDescription(LocaleController.formatString("AccDescrMusicAlbum", R.string.AccDescrMusicAlbum, album.title, album.artist != null ? album.artist : ""));
+            layout.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+
             layout.setOnClickListener(v -> {
+                SoundGramTTS.speak(v, layout.getContentDescription());
                 presentFragment(new AlbumProfileFragment(album.title, album.albumUrl, album.coverUrl));
             });
 
@@ -6719,6 +6794,8 @@ public static class ChipCell extends FrameLayout {
     private TextView makeInlineGenreChip(Context context, String text, boolean active, int accent) {
         TextView chip = new TextView(context);
         chip.setText(text);
+        chip.setContentDescription(text + (active ? ", " + LocaleController.getString(R.string.AccDescrMusicGenreSelected) : ""));
+        chip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         chip.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         chip.setGravity(Gravity.CENTER);
@@ -6902,6 +6979,8 @@ public static class ChipCell extends FrameLayout {
     private void applyWaveChipStyle(TextView chip, boolean selected, int accent) {
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(AndroidUtilities.dp(10));
+        chip.setContentDescription(chip.getText() + (selected ? ", " + LocaleController.getString(R.string.AccDescrMusicGenreSelected) : ""));
+        chip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         if (selected) {
             bg.setColor(accent);
             bg.setStroke(0, 0);
@@ -6988,6 +7067,8 @@ public static class ChipCell extends FrameLayout {
 
             MusicWebSearcher.WebArtist artist = artists.get(position);
             nameText.setText(artist.name);
+            layout.setContentDescription(LocaleController.formatString("AccDescrMusicArtist", R.string.AccDescrMusicArtist, artist.name));
+            layout.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
 
             // Принудительно грузим с Deezer с высоким разрешением
             MusicWebSearcher.fetchArtistPictureFromDeezer(artist.name, url -> {
@@ -7000,6 +7081,7 @@ public static class ChipCell extends FrameLayout {
             });
 
             layout.setOnClickListener(v -> {
+                SoundGramTTS.speak(v, layout.getContentDescription());
                 presentFragment(new ArtistProfileFragment(artist.name, artist.artistUrl, artist.imageUrl));
             });
 

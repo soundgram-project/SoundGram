@@ -101,15 +101,20 @@ public class UpdateHelper extends BaseRemoteHelper {
     private Update getShouldUpdateVersion(List<JSONObject> responses) {
         int currentVersion = getCurrentVersionCode();
         long buildTimestamp = 0L;
+        try {
+            android.content.pm.PackageInfo pInfo = ApplicationLoader.applicationContext.getPackageManager().getPackageInfo(ApplicationLoader.applicationContext.getPackageName(), 0);
+            buildTimestamp = pInfo.lastUpdateTime;
+        } catch (Exception ignored) {
+        }
         Update ref = null;
         for (var string : responses) {
             try {
-                int remoteVersion = string.optInt("version_code", 0);
+                int remoteVersion = string.optInt("version_code", string.optInt("versionCode", 0));
                 long remoteBuildTimestamp = string.optLong("build_timestamp", 0L);
                 boolean shouldUpdate = false;
                 if (remoteVersion > currentVersion) {
                     shouldUpdate = true;
-                } else if (remoteVersion == currentVersion && remoteBuildTimestamp > buildTimestamp) {
+                } else if (remoteVersion == currentVersion && remoteBuildTimestamp > buildTimestamp && buildTimestamp > 0) {
                     shouldUpdate = true;
                 }
                 if (shouldUpdate || updateAlways) {
@@ -205,7 +210,14 @@ public class UpdateHelper extends BaseRemoteHelper {
             getNewVersionMessagesCallback(delegate, update, null, null);
         } else {
             var req = new TLRPC.TL_channels_getMessages();
-            req.channel = getMessagesController().getInputChannel(CHANNEL_METADATA_ID);
+            long resolvedId = getResolvedChannelId();
+            req.channel = getMessagesController().getInputChannel(resolvedId);
+            if (req.channel == null || req.channel.access_hash == 0) {
+                TLRPC.TL_inputChannel inputChannel = new TLRPC.TL_inputChannel();
+                inputChannel.channel_id = resolvedId;
+                inputChannel.access_hash = getResolvedChannelAccessHash();
+                req.channel = inputChannel;
+            }
             req.id = new ArrayList<>(ids.values());
             getConnectionsManager().sendRequest(req, (response1, error1) -> {
                 if (error1 == null) {

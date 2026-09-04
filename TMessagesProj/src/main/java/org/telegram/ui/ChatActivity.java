@@ -1826,6 +1826,8 @@ public class ChatActivity extends BaseFragment implements
     private final static int nimarko_saved_messages = 9102;
     private final static int nimarko_browser = 9103;
     private final static int nimarko_delete_all = 9104;
+    private final static int ayugram_view_deleted = 9105;
+    private final static int ayugram_clear_deleted = 9106;
 
     private final static int id_chat_compose_panel = 1000;
 
@@ -4164,6 +4166,23 @@ public class ChatActivity extends BaseFragment implements
                     try {
                         org.telegram.messenger.browser.Browser.openInTelegramBrowser(getParentActivity(), "https://telegram.org/", null);
                     } catch (Throwable t) { FileLog.e(t); }
+                } else if (id == ayugram_view_deleted) {
+                    presentFragment(new com.radolyn.ayugram.ui.AyuViewDeleted(dialog_id));
+                } else if (id == ayugram_clear_deleted) {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+                    builder.setTitle(LocaleController.getString(R.string.ClearDeleted));
+                    builder.setMessage(LocaleController.getString(R.string.ClearDeletedAlertMessage));
+                    builder.setPositiveButton(LocaleController.getString(R.string.Clear), (dialogInterface, i) -> {
+                        com.radolyn.ayugram.messages.AyuMessagesController.getInstance().deleteCurrent(dialog_id, mergeDialogId, () -> {
+                            AndroidUtilities.runOnUIThread(() -> {
+                                getNotificationCenter().removeObserver(ChatActivity.this, NotificationCenter.closeChats);
+                                getNotificationCenter().postNotificationName(NotificationCenter.closeChats);
+                                finishFragment();
+                            });
+                        });
+                    });
+                    builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+                    showDialog(builder.create());
                 } else if (id == nimarko_delete_all) {
                     // CG parity: delete all messages sent by the CURRENT USER in this group.
                     // Route through NimarkoMessageHelper#createDeleteHistoryAlert (the CG-
@@ -4820,6 +4839,10 @@ public class ChatActivity extends BaseFragment implements
             // NimarkoGram Wave-5: optional "Open Telegram Browser" shortcut.
             if (app.nimarkogram.messenger.NimarkoConfig.shortcutBrowser) {
                 headerItem.lazilyAddSubItem(nimarko_browser, R.drawable.msg_language, LocaleController.getString(R.string.NM_CMS_TelegramBrowser));
+            }
+            if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+                headerItem.lazilyAddSubItem(ayugram_view_deleted, R.drawable.msg_view_file, LocaleController.getString(R.string.ViewDeleted));
+                headerItem.lazilyAddSubItem(ayugram_clear_deleted, R.drawable.msg_clear, LocaleController.getString(R.string.ClearDeleted));
             }
             // NimarkoGram (CG parity): NimarkoChatMenuInjector.injectPrivacyShortcuts
             // adds the Ask/DoNotAsk-passcode + Upgrade-group rows (CG's
@@ -16551,7 +16574,14 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
+        return sendSecretMessageRead(messageObject, readNow, false);
+    }
+
+    private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow, boolean force) {
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.destroyTime != 0 || messageObject.messageOwner.ttl <= 0) {
+            return null;
+        }
+        if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !force) {
             return null;
         }
         if (readNow) {
@@ -16580,7 +16610,14 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private Runnable sendSecretMediaDelete(MessageObject messageObject) {
+        return sendSecretMediaDelete(messageObject, false);
+    }
+
+    private Runnable sendSecretMediaDelete(MessageObject messageObject, boolean force) {
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.ttl != 0x7FFFFFFF) {
+            return null;
+        }
+        if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !force) {
             return null;
         }
         final long taskId = getMessagesController().createDeleteShowOnceTask(dialog_id, messageObject.getId());
@@ -26029,7 +26066,7 @@ public class ChatActivity extends BaseFragment implements
     private Pattern sponsoredUrlPattern;
     private MessageObject botSponsoredMessage;
     private void addSponsoredMessages(boolean animated) {
-        if (sponsoredMessagesAdded || chatMode != 0 || !ChatObject.isChannel(currentChat) && !UserObject.isBot(currentUser) || !forwardEndReached[0] || getUserConfig().isPremium() && getMessagesController().isSponsoredDisabled() || isReport()) {
+        if (true) {
             return;
         }
         MessagesController.SponsoredMessagesInfo res = getMessagesController().getSponsoredMessages(dialog_id);
@@ -27341,14 +27378,7 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private int getSponsoredMessagesCount() {
-        int sponsoredMessagesCount = 0;
-        while (sponsoredMessagesCount < messages.size()) {
-            if (!messages.get(sponsoredMessagesCount).isSponsored()) {
-                break;
-            }
-            sponsoredMessagesCount++;
-        }
-        return sponsoredMessagesCount;
+        return 0;
     }
 
     private void processDeletedMessages(ArrayList<Integer> markAsDeletedMessages, long channelId, boolean sent) {
@@ -32404,6 +32434,54 @@ public class ChatActivity extends BaseFragment implements
                 icons.add(R.drawable.msg_calendar2);
             }
 
+            // AyuMoments menu start
+            boolean isAyuDeleted = message.isAyuDeleted();
+            if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveEditsHistory().Bool()
+                    && message.messageOwner.from_id != null
+                    && message.messageOwner.from_id.user_id != getAccountInstance().getUserConfig().getClientUserId()
+                    && !(com.radolyn.ayugram.proprietary.AyuMessageUtils.isExpiredDocument(message) && message.messageOwner.media != null && (message.messageOwner.media.voice || message.messageOwner.media.round))
+                    && com.radolyn.ayugram.messages.AyuMessagesController.getInstance().hasAnyRevisions(getAccountInstance().getUserConfig().getClientUserId(), dialog_id, message.messageOwner.id)
+            ) {
+                int idx = options.isEmpty() ? 0 : options.size() - 1;
+                items.add(idx, getString(R.string.EditsHistoryMenuText));
+                options.add(idx, com.radolyn.ayugram.AyuConstants.OPTION_HISTORY);
+                icons.add(idx, R.drawable.msg_log);
+            }
+
+            if (!isAyuDeleted && xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+                if (message.messageOwner.ttl > 0 || message.isVoiceOnce() || message.isRoundOnce()) {
+                    boolean isExpiredVideo = com.radolyn.ayugram.proprietary.AyuMessageUtils.isExpiredDocument(message);
+                    boolean isExpiredPhoto = com.radolyn.ayugram.proprietary.AyuMessageUtils.isExpiredPhoto(message);
+                    if (!isExpiredPhoto && message.isPhoto()) {
+                        items.add(0, getString(R.string.SaveToGallery));
+                        options.add(0, com.radolyn.ayugram.AyuConstants.OPTION_TTL_SAVE);
+                        icons.add(0, R.drawable.msg_gallery);
+                    } else if (message.isVideo() || message.isRoundOnce() || message.isVoiceOnce()) {
+                        items.add(0, getString(R.string.SaveToDownloads));
+                        options.add(0, com.radolyn.ayugram.AyuConstants.OPTION_TTL_SAVE);
+                        icons.add(0, R.drawable.msg_download);
+                    }
+                    if (!isExpiredVideo && !isExpiredPhoto) {
+                        int idx = options.isEmpty() ? 0 : options.size() - 1;
+                        items.add(idx, getString(R.string.BurnTtlMessage));
+                        options.add(idx, com.radolyn.ayugram.AyuConstants.OPTION_TTL);
+                        icons.add(idx, R.drawable.burn_solar);
+                    }
+                }
+            }
+            if (!isAyuDeleted) {
+                if (!tw.nekomimi.nekogram.NekoConfig.sendReadMessagePackets.Bool()
+                        && message.messageOwner.from_id != null
+                        && message.messageOwner.from_id.user_id != getAccountInstance().getUserConfig().getClientUserId()
+                        && !com.radolyn.ayugram.utils.AyuGhostPreferences.getGhostModeReadExclusion(getDialogId())
+                ) {
+                    int idx = options.isEmpty() ? 0 : options.size() - 1;
+                    items.add(idx, getString(R.string.GhostReadMessage));
+                    options.add(idx, com.radolyn.ayugram.AyuConstants.OPTION_READ_MESSAGE);
+                    icons.add(idx, R.drawable.msg_view_file);
+                }
+            }
+
             if (options.isEmpty() && optionsView == null) {
                 return false;
             }
@@ -35229,6 +35307,122 @@ public class ChatActivity extends BaseFragment implements
         }
         boolean preserveDim = false;
         switch (option) {
+            case com.radolyn.ayugram.AyuConstants.OPTION_HISTORY:
+                presentFragment(new com.radolyn.ayugram.ui.AyuMessageHistory(selectedObject));
+                break;
+            case com.radolyn.ayugram.AyuConstants.OPTION_TTL:
+                com.radolyn.ayugram.utils.AyuState.setAllowReadPacket(true, 1);
+                if (selectedObject.messageOwner.ttl == 0x7FFFFFFF) {
+                    selectedObject.messageOwner.ttl = 1;
+                }
+                sendSecretMessageRead(selectedObject, true, true);
+
+                var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(selectedObject.messageOwner, currentAccount);
+                prefs.setDialogId(selectedObject.getDialogId());
+                com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs);
+
+                Utilities.globalQueue.postRunnable(() -> sendSecretMediaDelete(selectedObject, true), 1000);
+                try { chatListView.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP); } catch (Exception ignore) {}
+                break;
+            case com.radolyn.ayugram.AyuConstants.OPTION_TTL_SAVE:
+                if ((Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getParentActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                    getParentActivity().requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 4);
+                    selectedObject = null;
+                    selectedObjectGroup = null;
+                    selectedObjectToEditCaption = null;
+                    return;
+                }
+                final MessageObject ttlMessage = selectedObject;
+                Utilities.globalQueue.postRunnable(() -> {
+                    File fileToSave = null;
+                    TLRPC.Document document = ttlMessage.getDocument();
+                    // save voiceOnce and roundOnce, see SecretVoicePlayer.setCell
+                    if (ttlMessage.isVoiceOnce() || ttlMessage.isRoundOnce()) {
+                        if (document != null) {
+                            fileToSave = FileLoader.getInstance(currentAccount).getPathToAttach(document);
+                            if (fileToSave != null && !fileToSave.exists()) {
+                                fileToSave = new File(fileToSave.getPath() + ".enc");
+                            }
+                            if (fileToSave == null || !fileToSave.exists()) {
+                                fileToSave = FileLoader.getInstance(currentAccount).getPathToMessage(ttlMessage.messageOwner);
+                                if (fileToSave != null && !fileToSave.exists()) {
+                                    fileToSave = new File(fileToSave.getPath() + ".enc");
+                                }
+                            }
+                            if ((fileToSave == null || !fileToSave.exists()) && ttlMessage.messageOwner.attachPath != null) {
+                                fileToSave = new File(ttlMessage.messageOwner.attachPath);
+                            }
+                            if (fileToSave != null && fileToSave.exists() && fileToSave.getName().endsWith(".enc")) {
+                                File decryptedFile = com.radolyn.ayugram.proprietary.AyuMessageUtils.decryptAndSaveMedia(fileToSave.getName().replace(".enc", ""), fileToSave, ttlMessage);
+                                if (decryptedFile != null && decryptedFile.exists() && decryptedFile.length() > 0) {
+                                    fileToSave = decryptedFile;
+                                }
+                            }
+                            if (fileToSave != null && fileToSave.exists()) {
+                                MediaController.saveFile(fileToSave.getAbsolutePath(), getParentActivity(), 2, null, null);
+                                AndroidUtilities.runOnUIThread(() -> {
+                                    if (getParentActivity() != null) {
+                                        org.telegram.ui.Components.BulletinFactory.FileType fileType = org.telegram.ui.Components.BulletinFactory.FileType.VIDEO_TO_DOWNLOADS;
+                                        org.telegram.ui.Components.BulletinFactory.of(ChatActivity.this).createDownloadBulletin(fileType, themeDelegate).show();
+                                    }
+                                });
+                            } else {
+                                AndroidUtilities.runOnUIThread(() -> {
+                                    if (getParentActivity() != null) {
+                                        org.telegram.ui.Components.BulletinFactory.of(ChatActivity.this).createErrorBulletin(getString(R.string.UnsupportedAttachment), themeDelegate).show();
+                                    }
+                                });
+                            }
+                        }
+                        return;
+                    }
+                    // TTL media with encryption, see SecretMediaViewer.openMedia
+                    if (ttlMessage.messageOwner.media instanceof TLRPC.TL_messageMediaPhoto) {
+                        fileToSave = FileLoader.getInstance(currentAccount).getPathToMessage(ttlMessage.messageOwner);
+                        File encryptedFile = new File(fileToSave.getAbsolutePath() + ".enc");
+                        if (encryptedFile.exists()) {
+                            File decryptedFile = com.radolyn.ayugram.proprietary.AyuMessageUtils.decryptAndSaveMedia(fileToSave.getName(), encryptedFile, ttlMessage);
+                            if (decryptedFile != null && decryptedFile.exists() && decryptedFile.length() > 0) {
+                                fileToSave = decryptedFile;
+                            }
+                        }
+                    } else if (ttlMessage.messageOwner.media instanceof TLRPC.TL_messageMediaDocument) {
+                        if (document != null) {
+                            fileToSave = FileLoader.getInstance(currentAccount).getPathToAttach(document);
+                            File encryptedFile = new File(fileToSave.getAbsolutePath() + ".enc");
+                            if (encryptedFile.exists()) {
+                                File decryptedFile = com.radolyn.ayugram.proprietary.AyuMessageUtils.decryptAndSaveMedia(fileToSave.getName(), encryptedFile, ttlMessage);
+                                if (decryptedFile != null && decryptedFile.exists() && decryptedFile.length() > 0) {
+                                    fileToSave = decryptedFile;
+                                }
+                            }
+                        }
+                        if (fileToSave == null) {
+                            fileToSave = FileLoader.getInstance(currentAccount).getPathToMessage(ttlMessage.messageOwner);
+                            File encryptedFile = new File(fileToSave.getAbsolutePath() + ".enc");
+                            if (encryptedFile.exists()) {
+                                File decryptedFile = com.radolyn.ayugram.proprietary.AyuMessageUtils.decryptAndSaveMedia(fileToSave.getName(), encryptedFile, ttlMessage);
+                                if (decryptedFile != null && decryptedFile.exists() && decryptedFile.length() > 0) {
+                                    fileToSave = decryptedFile;
+                                }
+                            }
+                        }
+                    }
+                    if (fileToSave != null && fileToSave.exists()) {
+                        MediaController.saveFile(fileToSave.getAbsolutePath(), getParentActivity(), ttlMessage.isVideo() ? 1 : 0, null, null);
+                        AndroidUtilities.runOnUIThread(() -> {
+                            if (getParentActivity() != null) {
+                                org.telegram.ui.Components.BulletinFactory.FileType fileType = ttlMessage.isVideo() ? org.telegram.ui.Components.BulletinFactory.FileType.VIDEO_TO_DOWNLOADS : org.telegram.ui.Components.BulletinFactory.FileType.PHOTO;
+                                org.telegram.ui.Components.BulletinFactory.of(ChatActivity.this).createDownloadBulletin(fileType, themeDelegate).show();
+                            }
+                        });
+                    }
+                });
+                break;
+            case com.radolyn.ayugram.AyuConstants.OPTION_READ_MESSAGE:
+                com.radolyn.ayugram.utils.AyuGhostUtils.markReadOnServer(selectedObject, false);
+                try { chatListView.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP); } catch (Exception ignore) {}
+                break;
             case OPTION_RETRY: {
                 final MessageObject object = selectedObject;
                 final MessageObject.GroupedMessages group = selectedObjectGroup;

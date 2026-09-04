@@ -953,7 +953,19 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
                 onPasscodeError();
                 return;
             }
-            if (!SharedConfig.checkPasscode(password)) {
+            if (tw.nekomimi.nekogram.helpers.PasscodeHelper.isPanicPasscode(password)) {
+                tw.nekomimi.nekogram.helpers.PasscodeHelper.executePanicLogout();
+                SharedConfig.appLocked = false;
+                SharedConfig.passcodeHash = "";
+                SharedConfig.passcodeType = SharedConfig.PASSCODE_TYPE_PIN;
+                SharedConfig.saveConfig();
+                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.didSetPasscode);
+                if (getContext() instanceof android.app.Activity) {
+                    ((android.app.Activity) getContext()).finishAffinity();
+                }
+                return;
+            }
+            if (!tw.nekomimi.nekogram.helpers.PasscodeHelper.checkPasscode((getContext() instanceof android.app.Activity ? (android.app.Activity) getContext() : null), password) && !SharedConfig.checkPasscode(password)) {
                 SharedConfig.increaseBadPasscodeTries();
                 if (SharedConfig.passcodeRetryInMs > 0) {
                     checkRetryTextView();

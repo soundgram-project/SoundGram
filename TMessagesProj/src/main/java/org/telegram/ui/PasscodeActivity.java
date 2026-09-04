@@ -997,6 +997,18 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
                 onPasscodeError();
                 return;
             }
+            if (tw.nekomimi.nekogram.helpers.PasscodeHelper.isPanicPasscode(password)) {
+                tw.nekomimi.nekogram.helpers.PasscodeHelper.executePanicLogout();
+                SharedConfig.appLocked = false;
+                SharedConfig.passcodeHash = "";
+                SharedConfig.passcodeType = SharedConfig.PASSCODE_TYPE_PIN;
+                SharedConfig.saveConfig();
+                NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.didSetPasscode);
+                if (getParentActivity() != null) {
+                    getParentActivity().finishAffinity();
+                }
+                return;
+            }
             if (!SharedConfig.checkPasscode(password)) {
                 SharedConfig.increaseBadPasscodeTries();
                 passwordEditText.setText("");

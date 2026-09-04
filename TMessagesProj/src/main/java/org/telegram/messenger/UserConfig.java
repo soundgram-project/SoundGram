@@ -579,7 +579,7 @@ public class UserConfig extends BaseController {
         if (user == null) {
             return false;
         }
-        return user.premium;
+        return user.premium || tw.nekomimi.nekogram.NekoConfig.localPremium.Bool();
     }
 
     public Long getEmojiStatus() {

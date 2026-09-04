@@ -4783,6 +4783,14 @@ public class MessagesStorage extends BaseController {
                             if (!addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, true)) {
                                 continue;
                             } else {
+                                // --- AyuGram hook
+                                if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveEditsHistory().Bool()) {
+                                    var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
+                                    prefs.setDialogId(dialogId);
+                                    com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageEditedForce(prefs);
+                                }
+                                // --- AyuGram hook
+
                                 if (message.media.document != null) {
                                     message.media.document = new TLRPC.TL_documentEmpty();
                                 } else if (message.media.photo != null) {
@@ -7967,7 +7975,26 @@ public class MessagesStorage extends BaseController {
         return result;
     }
 
+    public TLRPC.Message getMessageInternalSync(long dialogId, int msgId) {
+        return getMessageInternal(dialogId, msgId);
+    }
 
+    public ArrayList<Long> getDialogIdsToUpdate(long possibleDialogId, ArrayList<Integer> messageIds) {
+        ArrayList<Long> dialogIds = new ArrayList<>();
+        if (messageIds == null || messageIds.isEmpty()) {
+            return dialogIds;
+        }
+        try {
+            SQLiteCursor cursor = database.queryFinalized(String.format(Locale.US, "SELECT DISTINCT uid FROM messages_v2 WHERE mid IN(%s)", TextUtils.join(",", messageIds)));
+            while (cursor.next()) {
+                dialogIds.add(cursor.longValue(0));
+            }
+            cursor.dispose();
+        } catch (Exception e) {
+            checkSQLException(e);
+        }
+        return dialogIds;
+    }
 
     public boolean hasInviteMeMessage(long chatId) {
         CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -14545,9 +14572,30 @@ public class MessagesStorage extends BaseController {
                 cursor.dispose();
                 cursor = null;
                 if (!dialogs.isEmpty()) {
+                    if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+                        var ayuMessagesController = com.radolyn.ayugram.messages.AyuMessagesController.getInstance();
+                        for (int a = 0, N = dialogs.size(); a < N; a++) {
+                            long dialogId = dialogs.keyAt(a);
+                            ArrayList<Integer> mids = dialogs.valueAt(a);
+                            for (int msgId : mids) {
+                                TLRPC.Message msg = getMessageInternalSync(dialogId, msgId);
+                                if (msg != null) {
+                                    msg.dialog_id = dialogId;
+                                    var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, currentAccount);
+                                    prefs.setDialogId(dialogId);
+                                    ayuMessagesController.onMessageDeleted(prefs, true);
+                                }
+                            }
+                        }
+                    }
                     for (int a = 0, N = dialogs.size(); a < N; a++) {
                         long dialogId = dialogs.keyAt(a);
                         ArrayList<Integer> mids = dialogs.valueAt(a);
+                        if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+                            final long dialogIdFinal = dialogId;
+                            final ArrayList<Integer> midsFinal = new ArrayList<>(mids);
+                            AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, midsFinal));
+                        }
                         AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, mids, 0L, false));
                         updateDialogsWithReadMessagesInternal(mids, null, null, null, null);
                         markMessagesAsDeletedInternal(dialogId, mids, true, 0, 0);
@@ -16387,6 +16435,17 @@ public class MessagesStorage extends BaseController {
                                     if (oldMessage.out && !message.out) {
                                         message.out = oldMessage.out;
                                     }
+                                    // --- AyuGram hook
+                                    if (message.from_id != null) {
+                                        if (!oldMessage.message.equals(message.message) || !sameMedia) {
+                                            if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveEditsHistory().Bool()) {
+                                                var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(oldMessage, currentAccount);
+                                                prefs.setDialogId(dialogId);
+                                                com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageEdited(prefs, message);
+                                            }
+                                        }
+                                    }
+                                    // --- AyuGram hook
                                     if (!sameMedia) {
                                         addFilesToDelete(oldMessage, filesToDelete, idsToDelete, namesToDelete, false);
                                     }

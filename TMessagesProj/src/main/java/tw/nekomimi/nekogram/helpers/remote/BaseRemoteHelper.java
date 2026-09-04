@@ -76,19 +76,36 @@ public abstract class BaseRemoteHelper {
         }
     }
 
+    public static long getResolvedChannelId() {
+        return preferences.getLong("resolved_channel_id", CHANNEL_METADATA_ID);
+    }
+
+    public static long getResolvedChannelAccessHash() {
+        return preferences.getLong("resolved_channel_access_hash", 0L);
+    }
+
     private void onGetMessageSuccess(TLObject response, Delegate delegate) {
-        var tag = "#" + getTag();
         final var res = (TLRPC.messages_Messages) response;
         ArrayList<JSONObject> responses = new ArrayList<>();
         if (res != null && res.messages != null) {
             for (var message : res.messages) {
-                if (message == null || message instanceof TLRPC.TL_messageEmpty || TextUtils.isEmpty(message.message) || !message.message.startsWith(tag)) {
+                if (message == null || message instanceof TLRPC.TL_messageEmpty || TextUtils.isEmpty(message.message)) {
                     continue;
                 }
-                try {
-                    responses.add(new JSONObject(message.message.substring(tag.length()).trim()));
-                } catch (JSONException e) {
-                    FileLog.e(e);
+                String msgText = message.message.replace('\u00A0', ' ');
+                String tag = "#" + getTag();
+                if (!msgText.contains(tag) && !msgText.contains("#updateRelease") && !msgText.contains("#update")) {
+                    continue;
+                }
+                int firstBrace = msgText.indexOf('{');
+                int lastBrace = msgText.lastIndexOf('}');
+                if (firstBrace != -1 && lastBrace > firstBrace) {
+                    try {
+                        String jsonStr = msgText.substring(firstBrace, lastBrace + 1);
+                        responses.add(new JSONObject(jsonStr));
+                    } catch (JSONException e) {
+                        FileLog.e(e);
+                    }
                 }
             }
         }
@@ -104,59 +121,54 @@ public abstract class BaseRemoteHelper {
     }
 
     private void load(boolean forceRefreshAccessHash, Delegate delegate) {
-        var tag = "#" + getTag();
-        TLRPC.TL_messages_search req = new TLRPC.TL_messages_search();
-        req.limit = 10;
-        req.offset_id = 0;
-        req.filter = new TLRPC.TL_inputMessagesFilterEmpty();
-        req.q = tag;
-        req.peer = getMessagesController().getInputPeer(-CHANNEL_METADATA_ID);
-        if (req.peer == null || req.peer.access_hash == 0 || forceRefreshAccessHash) {
-            TLRPC.TL_contacts_resolveUsername req1 = new TLRPC.TL_contacts_resolveUsername();
-            req1.username = CHANNEL_METADATA_NAME;
-            getConnectionsManager().sendRequest(req1, (response1, error1) -> {
-                if (error1 != null) {
-                    if (delegate != null) {
-                        onError(error1.text, delegate);
-                    }
-                    return;
+        TLRPC.TL_contacts_resolveUsername req1 = new TLRPC.TL_contacts_resolveUsername();
+        req1.username = CHANNEL_METADATA_NAME;
+        getConnectionsManager().sendRequest(req1, (response1, error1) -> {
+            if (error1 != null) {
+                if (delegate != null) {
+                    onError(error1.text, delegate);
                 }
-                if (!(response1 instanceof TLRPC.TL_contacts_resolvedPeer)) {
-                    if (delegate != null) {
-                        onError("Not resolved", delegate);
-                    }
-                    return;
+                return;
+            }
+            if (!(response1 instanceof TLRPC.TL_contacts_resolvedPeer)) {
+                if (delegate != null) {
+                    onError("Not resolved", delegate);
                 }
-                TLRPC.TL_contacts_resolvedPeer resolvedPeer = (TLRPC.TL_contacts_resolvedPeer) response1;
-                getMessagesController().putUsers(resolvedPeer.users, false);
-                getMessagesController().putChats(resolvedPeer.chats, false);
-                getMessagesStorage().putUsersAndChats(resolvedPeer.users, resolvedPeer.chats, false, true);
-                if ((resolvedPeer.chats == null || resolvedPeer.chats.size() == 0)) {
-                    if (delegate != null) {
-                        onError("Channel not found", delegate);
-                    }
-                    return;
+                return;
+            }
+            TLRPC.TL_contacts_resolvedPeer resolvedPeer = (TLRPC.TL_contacts_resolvedPeer) response1;
+            getMessagesController().putUsers(resolvedPeer.users, false);
+            getMessagesController().putChats(resolvedPeer.chats, false);
+            getMessagesStorage().putUsersAndChats(resolvedPeer.users, resolvedPeer.chats, false, true);
+            if (resolvedPeer.chats == null || resolvedPeer.chats.isEmpty()) {
+                if (delegate != null) {
+                    onError("Channel not found", delegate);
                 }
-                req.peer = new TLRPC.TL_inputPeerChannel();
-                req.peer.channel_id = resolvedPeer.chats.get(0).id;
-                req.peer.access_hash = resolvedPeer.chats.get(0).access_hash;
-                getConnectionsManager().sendRequest(req, (response, error) -> {
-                    if (error == null) {
-                        onGetMessageSuccess(response, delegate);
-                    } else {
-                        onError(error.text, delegate);
-                    }
-                });
-            });
-        } else {
+                return;
+            }
+            TLRPC.Chat chat = resolvedPeer.chats.get(0);
+            preferences.edit()
+                    .putLong("resolved_channel_id", chat.id)
+                    .putLong("resolved_channel_access_hash", chat.access_hash)
+                    .apply();
+
+            TLRPC.TL_messages_search req = new TLRPC.TL_messages_search();
+            req.limit = 10;
+            req.offset_id = 0;
+            req.filter = new TLRPC.TL_inputMessagesFilterEmpty();
+            req.q = "#update";
+            req.peer = new TLRPC.TL_inputPeerChannel();
+            req.peer.channel_id = chat.id;
+            req.peer.access_hash = chat.access_hash;
+
             getConnectionsManager().sendRequest(req, (response, error) -> {
                 if (error == null) {
                     onGetMessageSuccess(response, delegate);
                 } else {
-                    load(true, delegate);
+                    onError(error.text, delegate);
                 }
             });
-        }
+        });
     }
 
     public interface Delegate {

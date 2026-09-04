@@ -158,6 +158,23 @@ public class NimarkoIconResources extends Resources {
 
     private android.graphics.Bitmap loadBackArrowBitmap(ReplacementState state) {
         try {
+            if (soundgram.icons.IconPackManager.getInstance().hasActivePack()) {
+                Drawable custom = soundgram.icons.IconPackManager.getInstance().getDrawable("ic_ab_back");
+                if (custom != null) {
+                    custom = custom.mutate();
+                    int w = custom.getIntrinsicWidth();
+                    int h = custom.getIntrinsicHeight();
+                    if (w <= 0 || h <= 0) {
+                        w = h = org.telegram.messenger.AndroidUtilities.dp(24);
+                    }
+                    android.graphics.Bitmap bmp =
+                            android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+                    android.graphics.Canvas canvas = new android.graphics.Canvas(bmp);
+                    custom.setBounds(0, 0, w, h);
+                    custom.draw(canvas);
+                    return bmp;
+                }
+            }
             final int stockId = org.telegram.messenger.R.drawable.ic_ab_back;
             final int wrappedId = state.replacement.wrap(stockId);
             if (wrappedId == stockId) {
@@ -200,13 +217,9 @@ public class NimarkoIconResources extends Resources {
         synchronized (replacementLock) {
             final int selection = NimarkoConfig.iconReplacement;
             ReplacementState state = replacementState;
-            if (state == null || state.selection != selection) {
-                generation = state == null ? 1L : state.generation + 1L;
-                applySelection(selection, generation);
-                clearCache();
-            } else {
-                generation = state.generation;
-            }
+            generation = state == null ? 1L : state.generation + 1L;
+            applySelection(selection, generation);
+            clearCache();
         }
         prepareBackArrowBitmap();
         prewarmFolderIconsAsync();
@@ -412,6 +425,21 @@ public class NimarkoIconResources extends Resources {
                         if (custom != null) {
                             return custom;
                         }
+                    }
+                    int unwrappedId = replacement.unwrap(stockId);
+                    if (unwrappedId != stockId && unwrappedId != 0) {
+                        String unwrappedName = getResourceEntryName(unwrappedId);
+                        custom = soundgram.icons.IconPackManager.getInstance().getDrawable(unwrappedName);
+                        if (custom != null) {
+                            return custom;
+                        }
+                    }
+                }
+                if (resName != null && resName.endsWith("_solar")) {
+                    String cleanName = resName.substring(0, resName.length() - 6);
+                    custom = soundgram.icons.IconPackManager.getInstance().getDrawable(cleanName);
+                    if (custom != null) {
+                        return custom;
                     }
                 }
             } catch (Throwable ignored) {}

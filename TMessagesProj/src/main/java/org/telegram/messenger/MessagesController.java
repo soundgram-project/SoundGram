@@ -854,7 +854,7 @@ public class MessagesController extends BaseController implements NotificationCe
         if (dialogFilters.isEmpty()) {
             return;
         }
-        if (!premium) {
+        if (!premium && !tw.nekomimi.nekogram.NekoConfig.localPremium.Bool()) {
             if (!dialogFilters.get(0).isDefault()) {
                 for (int i = 1; i < dialogFilters.size(); i++) {
                     if (dialogFilters.get(i).isDefault()) {
@@ -887,7 +887,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     if (!filtersSortedById.get(i).locked) {
                         changed = true;
                     }
-                    filtersSortedById.get(i).locked = true;
+                    filtersSortedById.get(i).locked = !tw.nekomimi.nekogram.NekoConfig.localPremium.Bool();
                 } else {
                     if (filtersSortedById.get(i).locked) {
                         changed = true;
@@ -926,7 +926,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isPremiumUser(TLRPC.User currentUser) {
-        return currentUser != null && currentUser.premium && !isSupportUser(currentUser);
+        return currentUser != null && (currentUser.premium || (currentUser.id == getUserConfig().getClientUserId() && tw.nekomimi.nekogram.NekoConfig.localPremium.Bool())) && !isSupportUser(currentUser);
     }
 
     public boolean didPressTranscribeButtonEnough() {
@@ -2505,8 +2505,9 @@ public class MessagesController extends BaseController implements NotificationCe
                 });
             } else if (response instanceof TLRPC.TL_messages_dialogFilters) {
                 TLRPC.TL_messages_dialogFilters res = (TLRPC.TL_messages_dialogFilters) response;
-                if (folderTags != res.tags_enabled) {
-                    setFolderTags(res.tags_enabled);
+                boolean effectiveTags = res.tags_enabled || (!getUserConfig().isPremium() && tw.nekomimi.nekogram.NekoConfig.localPremium.Bool());
+                if (folderTags != effectiveTags) {
+                    setFolderTags(effectiveTags);
                     AndroidUtilities.runOnUIThread(() -> {
                         getNotificationCenter().postNotificationName(NotificationCenter.dialogFiltersUpdated);
                     });
@@ -9369,6 +9370,78 @@ public class MessagesController extends BaseController implements NotificationCe
         if ((messages == null || messages.isEmpty()) && taskId == 0) {
             return;
         }
+
+        // --- AyuGram hook
+        int ayuDeletedMessagesCount = 0;
+        if (!scheduled && xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+            var ayuMessagesController = com.radolyn.ayugram.messages.AyuMessagesController.getInstance();
+            if (DialogObject.isEncryptedDialog(dialogId) && messages != null && !messages.isEmpty()) {
+                final ArrayList<Integer> messagesCopy = new ArrayList<>(messages);
+                final long dialogIdFinal = dialogId;
+                getMessagesStorage().getStorageQueue().postRunnable(() -> {
+                    for (int a = 0; a < messagesCopy.size(); a++) {
+                        int msgId = messagesCopy.get(a);
+                        if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogIdFinal, msgId)) {
+                            continue;
+                        }
+                        MessageObject obj = dialogMessagesByIds.get(msgId);
+                        TLRPC.Message msg;
+                        if (obj == null) {
+                            msg = tw.nekomimi.nekogram.helpers.MessageHelper.getInstance(currentAccount).getMessage(dialogIdFinal, msgId);
+                            if (msg != null) {
+                                obj = new MessageObject(currentAccount, msg, false, false);
+                            }
+                        }
+                        if (obj != null) {
+                            var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(obj.messageOwner, currentAccount);
+                            prefs.setDialogId(dialogIdFinal);
+                            ayuMessagesController.onMessageDeleted(prefs);
+                        }
+                    }
+                    AndroidUtilities.runOnUIThread(() -> {
+                        getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, messagesCopy);
+                    });
+                });
+            } else if (messages != null && !messages.isEmpty() && (taskId != 0 || cacheOnly)) {
+                final ArrayList<Integer> messagesCopy = new ArrayList<>(messages);
+                final long dialogIdFinal = dialogId;
+                getMessagesStorage().getStorageQueue().postRunnable(() -> {
+                    var invalidate = new ArrayList<Integer>();
+                    for (var msgId : messagesCopy) {
+                        if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogIdFinal, msgId)) {
+                            continue;
+                        }
+                        MessageObject obj = dialogMessagesByIds.get(msgId);
+                        TLRPC.Message msg = obj != null ? obj.messageOwner : tw.nekomimi.nekogram.helpers.MessageHelper.getInstance(currentAccount).getMessage(dialogIdFinal, msgId);
+                        if (msg != null) {
+                            if (msg.ttl > 0 || msg.ttl_period > 0) {
+                                invalidate.add(msgId);
+                                var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, currentAccount);
+                                prefs.setDialogId(dialogIdFinal);
+                                ayuMessagesController.onMessageDeleted(prefs);
+                            }
+                        }
+                    }
+                    AndroidUtilities.runOnUIThread(() -> {
+                        getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, invalidate);
+                    });
+                });
+            } else if ((messages != null && !messages.isEmpty())) {
+                var userId = UserConfig.getInstance(currentAccount).clientUserId;
+                ArrayList<Integer> permittedForAyuDeletion = new ArrayList<>();
+                for (var msgId : messages) {
+                    if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId)) {
+                        permittedForAyuDeletion.add(msgId);
+                    }
+                }
+                var existingMessageIds = ayuMessagesController.getExistingMessageIds(userId, dialogId, permittedForAyuDeletion);
+                if (!existingMessageIds.isEmpty()) {
+                    Utilities.globalQueue.postRunnable(() -> ayuMessagesController.deleteMessages(userId, dialogId, existingMessageIds));
+                    ayuDeletedMessagesCount = existingMessageIds.size();
+                }
+            }
+        }
+        // --- AyuGram hook
         ArrayList<Integer> toSend = null;
         long channelId;
         if (taskId == 0) {
@@ -9420,6 +9493,10 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
         if (cacheOnly) {
+            return;
+        }
+
+        if (messages != null && messages.size() == ayuDeletedMessagesCount) {
             return;
         }
 
@@ -19807,6 +19884,53 @@ public class MessagesController extends BaseController implements NotificationCe
                 updatesOnMainThread.add(baseUpdate);
             }
         }
+
+        // --- AyuGram request hook
+        if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && deletedMessages != null) {
+            var ayuMessagesController = com.radolyn.ayugram.messages.AyuMessagesController.getInstance();
+            var deletedMessagesFinal = deletedMessages.clone();
+            getMessagesStorage().getStorageQueue().postRunnable(() -> {
+                var notificationsToSend = new androidx.collection.LongSparseArray<ArrayList<Integer>>();
+                for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
+                    var possibleDialogId = deletedMessagesFinal.keyAt(a);
+                    var messageIds = deletedMessagesFinal.valueAt(a);
+                    var dialogIds = new ArrayList<Long>();
+                    if (possibleDialogId == 0) {
+                        var possibleIds = getMessagesStorage().getDialogIdsToUpdate(possibleDialogId, messageIds);
+                        if (possibleIds != null && !possibleIds.isEmpty()) {
+                            dialogIds = possibleIds;
+                        }
+                    }
+                    if (dialogIds.isEmpty()) {
+                        dialogIds.add(possibleDialogId);
+                    }
+                    for (var dialogId : dialogIds) {
+                        for (int msgId : messageIds) {
+                            TLRPC.Message msg = getMessagesStorage().getMessageInternalSync(dialogId, msgId);
+                            if (msg != null) {
+                                msg.dialog_id = dialogId;
+                                var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, currentAccount);
+                                prefs.setDialogId(dialogId);
+                                ayuMessagesController.onMessageDeleted(prefs);
+                                var notifs = notificationsToSend.get(dialogId);
+                                if (notifs == null) {
+                                    notifs = new ArrayList<>();
+                                    notificationsToSend.put(dialogId, notifs);
+                                }
+                                notifs.add(msgId);
+                            }
+                        }
+                    }
+                }
+                AndroidUtilities.runOnUIThread(() -> {
+                    for (int a = 0, size = notificationsToSend.size(); a < size; a++) {
+                        getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, notificationsToSend.keyAt(a), notificationsToSend.valueAt(a));
+                    }
+                });
+            });
+        }
+        // --- AyuGram request hook
+
         if (messages != null) {
             for (int a = 0, size = messages.size(); a < size; a++) {
                 long key = messages.keyAt(a);
@@ -21700,101 +21824,10 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
-        SponsoredMessagesInfo info = sponsoredMessages.get(dialogId);
-        if (info != null && (info.loading || Math.abs(SystemClock.elapsedRealtime() - info.loadTime) <= 5 * 60 * 1000)) {
-            return info;
-        }
-        if (dialogId < 0 ? !ChatObject.isChannel(getChat(-dialogId)) : !UserObject.isBot(getUser(dialogId))) {
-            return null;
-        }
-        info = new SponsoredMessagesInfo();
-        info.loading = true;
-        sponsoredMessages.put(dialogId, info);
-        SponsoredMessagesInfo infoFinal = info;
-        TLRPC.TL_messages_getSponsoredMessages req = new TLRPC.TL_messages_getSponsoredMessages();
-        req.peer = getInputPeer(dialogId);
-        getConnectionsManager().sendRequest(req, (response, error) -> {
-            ArrayList<MessageObject> result;
-            Integer posts_between;
-            if (response instanceof TLRPC.messages_SponsoredMessages) {
-                TLRPC.messages_SponsoredMessages res = (TLRPC.messages_SponsoredMessages) response;
-                if (res.messages.isEmpty()) {
-                    result = null;
-                    posts_between = null;
-                } else {
-                    if (res instanceof TLRPC.TL_messages_sponsoredMessages && (res.flags & 0x1) > 0) {
-                        posts_between = res.posts_between;
-                    } else {
-                        posts_between = null;
-                    }
-                    result = new ArrayList<>();
-                    AndroidUtilities.runOnUIThread(() -> {
-                        putUsers(res.users, false);
-                        putChats(res.chats, false);
-                    });
-                    final LongSparseArray<TLRPC.User> usersDict = new LongSparseArray<>();
-                    final LongSparseArray<TLRPC.Chat> chatsDict = new LongSparseArray<>();
+        return null;
+    }
 
-                    for (int a = 0; a < res.users.size(); a++) {
-                        TLRPC.User u = res.users.get(a);
-                        usersDict.put(u.id, u);
-                    }
-                    for (int a = 0; a < res.chats.size(); a++) {
-                        TLRPC.Chat c = res.chats.get(a);
-                        chatsDict.put(c.id, c);
-                    }
-
-                    int messageId = -10000000;
-                    for (int a = 0, N = res.messages.size(); a < N; a++) {
-                        TLRPC.TL_sponsoredMessage sponsoredMessage = res.messages.get(a);
-                        TLRPC.TL_message message = new TLRPC.TL_message();
-                        if (!sponsoredMessage.entities.isEmpty()) {
-                            message.entities = sponsoredMessage.entities;
-                            message.flags |= 128;
-                        }
-                        message.peer_id = getPeer(dialogId);
-                        message.flags |= 256;
-                        message.date = getConnectionsManager().getCurrentTime();
-                        message.id = messageId--;
-                        message.message = sponsoredMessage.message;
-                        if (sponsoredMessage.media != null) {
-                            message.flags |= 512;
-                        }
-                        message.media = sponsoredMessage.media;
-                        MessageObject messageObject = new MessageObject(currentAccount, message, usersDict, chatsDict, true, true);
-                        messageObject.sponsoredId = sponsoredMessage.random_id;
-                        messageObject.sponsoredTitle = sponsoredMessage.title;
-                        messageObject.sponsoredUrl = sponsoredMessage.url;
-                        messageObject.sponsoredRecommended = sponsoredMessage.recommended;
-                        messageObject.sponsoredPhoto = sponsoredMessage.photo;
-                        messageObject.sponsoredInfo = sponsoredMessage.sponsor_info;
-                        messageObject.sponsoredAdditionalInfo = sponsoredMessage.additional_info;
-                        messageObject.sponsoredButtonText = sponsoredMessage.button_text;
-                        messageObject.sponsoredCanReport = sponsoredMessage.can_report;
-                        messageObject.sponsoredColor = sponsoredMessage.color;
-                        messageObject.sponsoredMedia = sponsoredMessage.media;
-                        messageObject.setType();
-                        messageObject.textLayoutBlocks = new ArrayList<>();
-                        messageObject.generateThumbs(true);
-                        result.add(messageObject);
-                    }
-                }
-            } else {
-                result = null;
-                posts_between = null;
-            }
-            AndroidUtilities.runOnUIThread(() -> {
-                if (result == null) {
-                    sponsoredMessages.remove(dialogId);
-                } else {
-                    infoFinal.loadTime = SystemClock.elapsedRealtime();
-                    infoFinal.loading = false;
-                    infoFinal.messages = result;
-                    infoFinal.posts_between = posts_between;
-                    getNotificationCenter().postNotificationName(NotificationCenter.didLoadSponsoredMessages, dialogId, result);
-                }
-            });
-        });
+    public SponsoredMessagesInfo getSponsoredMessagesInternal(long dialogId) {
         return null;
     }
 
@@ -24429,9 +24462,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isSponsoredDisabled() {
-        TLRPC.UserFull userFull = getUserFull(getUserConfig().getClientUserId());
-        if (userFull == null) return false;
-        return !userFull.sponsored_enabled;
+        return true;
     }
 
     private boolean loadingAvailableEffects;

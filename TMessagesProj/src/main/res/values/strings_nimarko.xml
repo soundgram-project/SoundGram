@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- NimarkoGram settings UI (sorted alphabetically by key) -->
+    <string name="LocalPremiumNotice">Enables Telegram Premium UI features locally (double limits, folder tags, etc.)</string>
     <string name="NimarkoAbout">About SoundGram</string>
     <string name="NimarkoAboutAuthor">by @soundgram_project</string>
     <string name="NimarkoAccentAsNotif">Accent as notification color</string>

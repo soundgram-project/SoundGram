@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- NimarkoGram настройки (отсортировано по ключу) -->
+    <string name="LocalPremiumNotice">Включает функции Telegram Premium локально (удвоенные лимиты, теги папок и др.)</string>
     <string name="NimarkoAbout">О SoundGram</string>
     <string name="NimarkoAboutAuthor">от @soundgram_project</string>
     <string name="NimarkoAccentAsNotif">Акцент как цвет уведомлений</string>

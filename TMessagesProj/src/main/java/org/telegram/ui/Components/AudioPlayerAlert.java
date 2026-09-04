@@ -1341,6 +1341,12 @@ public class AudioPlayerAlert extends BottomSheet
         };
         textLayout.addView(titleTextView,
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
+        titleTextView.setOnClickListener(v -> {
+            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+            if (playing != null && !TextUtils.isEmpty(playing.getMusicTitle())) {
+                soundgram.music.SoundGramTTS.speak(v, playing.getMusicTitle());
+            }
+        });
 
         authorTextView = new ClippingTextViewSwitcher(context) {
             @Override
@@ -1438,6 +1444,7 @@ public class AudioPlayerAlert extends BottomSheet
         favButton.setBackground(
                 Theme.createSimpleSelectorRoundRectDrawable(dp(12), Theme.isCurrentThemeDark() ? 0x25FFFFFF : 0x25000000, Theme.isCurrentThemeDark() ? 0x35FFFFFF : 0x35000000));
         favButton.setOnClickListener(v -> {
+            soundgram.music.SoundGramTTS.speak(v, favButton.getContentDescription());
             MessageObject mo = MediaController.getInstance().getPlayingMessageObject();
             MessageObject libMatch = findInLibrary(mo);
             if (libMatch != null) {
@@ -1447,11 +1454,15 @@ public class AudioPlayerAlert extends BottomSheet
                 onSubItemClick(5);
             }
         });
+        favButton.setContentDescription(LocaleController.getString(R.string.AddToFavorites));
+        favButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         textAndButtonsContainer.addView(favButton,
                 LayoutHelper.createLinear(48, 48, Gravity.CENTER_VERTICAL, 0, 0, 2, 0));
 
         // Options Button (Three dots menu)
         buttons[6] = optionsButton = new ActionBarMenuItem(context, null, 0, Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, false, resourcesProvider);
+        optionsButton.setContentDescription(LocaleController.getString(R.string.AccDescrMoreOptions));
+        optionsButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         optionsButton.setIcon(R.drawable.ic_ab_other);
         optionsButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), Theme.isCurrentThemeDark() ? 0x25FFFFFF : 0x25000000, Theme.isCurrentThemeDark() ? 0x35FFFFFF : 0x35000000));
         optionsButton.setLongClickEnabled(false);
@@ -1569,6 +1580,8 @@ public class AudioPlayerAlert extends BottomSheet
 
         timeTextView.setTextColor(Theme.isCurrentThemeDark() ? 0xAAFFFFFF : 0xAA000000);
         durationTextView.setTextColor(Theme.isCurrentThemeDark() ? 0xAAFFFFFF : 0xAA000000);
+        timeTextView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        durationTextView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         seekFrame.addView(timeTextView,
                 LayoutHelper.createFrame(100, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.LEFT, 16, 0, 0, 0));
         seekFrame.addView(durationTextView,
@@ -1624,7 +1637,9 @@ public class AudioPlayerAlert extends BottomSheet
         playButton.setOnClickListener(v -> {
             if (MediaController.getInstance().isDownloadingCurrentMessage())
                 return;
-            if (MediaController.getInstance().isMessagePaused())
+            boolean willPlay = MediaController.getInstance().isMessagePaused();
+            soundgram.music.SoundGramTTS.speak(v, LocaleController.getString(willPlay ? R.string.AccActionPlay : R.string.AccActionPause));
+            if (willPlay)
                 MediaController.getInstance().playMessage(MediaController.getInstance().getPlayingMessageObject());
             else
                 MediaController.getInstance().pauseMessage(MediaController.getInstance().getPlayingMessageObject());
@@ -1738,6 +1753,7 @@ public class AudioPlayerAlert extends BottomSheet
                         AndroidUtilities.cancelRunOnUIThread(backSeek);
                         if (rewindingState == 0 && event.getAction() == MotionEvent.ACTION_UP
                                 && (System.currentTimeMillis() - startTime < 300)) {
+                            soundgram.music.SoundGramTTS.speak(prevButton, LocaleController.getString(R.string.AccDescrPrevious));
                             MediaController.getInstance().playPreviousMessage();
                             prevButton.setProgress(0f);
                             prevButton.playAnimation();
@@ -1762,6 +1778,8 @@ public class AudioPlayerAlert extends BottomSheet
         prevButton.setLayerColor("Triangle 4.**", Theme.isCurrentThemeDark() ? 0xFF101010 : 0xFF000000);
         prevButton.setLayerColor("Rectangle 4.**", Theme.isCurrentThemeDark() ? 0xFF101010 : 0xFF000000);
         prevButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(32), Theme.isCurrentThemeDark() ? 0xFFD8D2C9 : 0xFFB0AAA0, Theme.isCurrentThemeDark() ? 0xFFB8B2A9 : 0xFF908A80));
+        prevButton.setContentDescription(LocaleController.getString(R.string.AccDescrPrevious));
+        prevButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         mediaButtonsContainer.addView(prevButton, LayoutHelper.createFrame(64, 64, Gravity.CENTER, -88, 0, 0, 0));
 
         buttons[1] = queueButton = new RLottieImageView(context);
@@ -1769,7 +1787,12 @@ public class AudioPlayerAlert extends BottomSheet
         queueButton.setImageResource(R.drawable.menu_intro);
         queueButton.setColorFilter(new PorterDuffColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN));
         queueButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), Theme.isCurrentThemeDark() ? 0x25FFFFFF : 0x25000000, Theme.isCurrentThemeDark() ? 0x35FFFFFF : 0x35000000));
-        queueButton.setOnClickListener(v -> showQueueSheet());
+        queueButton.setContentDescription(LocaleController.getString(R.string.AccDescrOpenMenu2));
+        queueButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        queueButton.setOnClickListener(v -> {
+            soundgram.music.SoundGramTTS.speak(v, queueButton.getContentDescription());
+            showQueueSheet();
+        });
 
         buttons[4] = nextButton = new RLottieImageView(context) {
             float startX;
@@ -1833,6 +1856,7 @@ public class AudioPlayerAlert extends BottomSheet
                         animate().scaleX(1f).scaleY(1f).setDuration(300)
                                 .setInterpolator(new android.view.animation.OvershootInterpolator(2f)).start();
                         if (!pressed && event.getAction() == MotionEvent.ACTION_UP && isPressed()) {
+                            soundgram.music.SoundGramTTS.speak(nextButton, LocaleController.getString(R.string.AccDescrNext));
                             MediaController.getInstance().playNextMessage();
                             nextButton.setProgress(0f);
                             nextButton.playAnimation();
@@ -1861,6 +1885,8 @@ public class AudioPlayerAlert extends BottomSheet
         nextButton.setLayerColor("Rectangle 4.**", Theme.isCurrentThemeDark() ? 0xFF101010 : 0xFF000000);
         nextButton.setRotation(180f);
         nextButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(32), Theme.isCurrentThemeDark() ? 0xFFD8D2C9 : 0xFFB0AAA0, Theme.isCurrentThemeDark() ? 0xFFB8B2A9 : 0xFF908A80));
+        nextButton.setContentDescription(LocaleController.getString(R.string.AccDescrNext));
+        nextButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         mediaButtonsContainer.addView(nextButton, LayoutHelper.createFrame(64, 64, Gravity.CENTER, 88, 0, 0, 0));
 
         buttons[0] = repeatButton = new ActionBarMenuItem(context, null, 0, 0, false, resourcesProvider);
@@ -1938,7 +1964,12 @@ public class AudioPlayerAlert extends BottomSheet
         modeMenuButton.setLongClickEnabled(false);
         modeMenuButton.setShowSubmenuByMove(false);
         modeMenuButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), Theme.isCurrentThemeDark() ? 0x25FFFFFF : 0x25000000, Theme.isCurrentThemeDark() ? 0x35FFFFFF : 0x35000000));
-        modeMenuButton.setOnClickListener(v -> showModeMenu());
+        modeMenuButton.setContentDescription(LocaleController.getString(R.string.AccDescrRepeatList));
+        modeMenuButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        modeMenuButton.setOnClickListener(v -> {
+            soundgram.music.SoundGramTTS.speak(v, modeMenuButton.getContentDescription());
+            showModeMenu();
+        });
         bottomActionGroup.addView(modeMenuButton, LayoutHelper.createLinear(44, 44, 0, 0, 16, 0));
 
         // Queue button
@@ -1950,7 +1981,10 @@ public class AudioPlayerAlert extends BottomSheet
         eqBtn.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN);
         eqBtn.setScaleType(ImageView.ScaleType.CENTER);
         eqBtn.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), Theme.isCurrentThemeDark() ? 0x25FFFFFF : 0x25000000, Theme.isCurrentThemeDark() ? 0x35FFFFFF : 0x35000000));
+        eqBtn.setContentDescription(LocaleController.getString(R.string.SoundGramEqualizer));
+        eqBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         eqBtn.setOnClickListener(v -> {
+            soundgram.music.SoundGramTTS.speak(v, LocaleController.getString(R.string.SoundGramEqualizer));
             if (parentActivity != null)
                 new SoundGramEQAlert(parentActivity).show();
         });
@@ -1962,7 +1996,12 @@ public class AudioPlayerAlert extends BottomSheet
         lyricsBtnBottom.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN);
         lyricsBtnBottom.setScaleType(ImageView.ScaleType.CENTER);
         lyricsBtnBottom.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), Theme.isCurrentThemeDark() ? 0x25FFFFFF : 0x25000000, Theme.isCurrentThemeDark() ? 0x35FFFFFF : 0x35000000));
-        lyricsBtnBottom.setOnClickListener(view -> toggleLyrics());
+        lyricsBtnBottom.setContentDescription(LocaleController.getString(R.string.AccDescrOpenMenu));
+        lyricsBtnBottom.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        lyricsBtnBottom.setOnClickListener(view -> {
+            soundgram.music.SoundGramTTS.speak(view, LocaleController.getString(R.string.AccDescrOpenMenu));
+            toggleLyrics();
+        });
         bottomActionGroup.addView(lyricsBtnBottom, LayoutHelper.createLinear(44, 44, 0, 0, 0, 0));
 
         int bottomBarMargin = 300 + (navBarPad > 0 ? (int) (navBarPad / AndroidUtilities.density) : 8);
@@ -3412,6 +3451,19 @@ public class AudioPlayerAlert extends BottomSheet
             }
 
             setAudioCover(coverImage, msg, "50_50", 8);
+
+            String title = msg.getMusicTitle();
+            String author = msg.getMusicAuthor();
+            int duration = (int) msg.getDuration();
+            String durStr = duration > 0 ? String.format("%d:%02d", duration / 60, duration % 60) : "";
+            String accText;
+            if (isPlaying) {
+                accText = LocaleController.formatString("AccDescrMusicTrackPlaying", R.string.AccDescrMusicTrackPlaying, title != null ? title : "", author != null ? author : "");
+            } else {
+                accText = LocaleController.formatString("AccDescrMusicTrack", R.string.AccDescrMusicTrack, title != null ? title : "", author != null ? author : "", durStr);
+            }
+            setContentDescription(accText);
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         }
     }
 
@@ -4046,7 +4098,9 @@ public class AudioPlayerAlert extends BottomSheet
             String title = messageObject.getMusicTitle();
             String author = messageObject.getMusicAuthor();
             titleTextView.setText(title);
+            titleTextView.setContentDescription(title);
             authorTextView.setText(author);
+            authorTextView.setContentDescription(author);
             // ФИКС ТЕКСТА: Запрашиваем новый текст только если трек сменился
             // или лирика ещё не загружена (isFetchingLyrics или список пуст/placeholder)
             if (isLyricsVisible && messageObject != null) {

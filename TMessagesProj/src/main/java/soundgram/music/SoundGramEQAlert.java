@@ -138,6 +138,8 @@ public class SoundGramEQAlert extends BottomSheet {
         eqMasterSwitch = new Switch(context);
         boolean enabled = SoundGramAudioFX.isEqualizerEnabled();
         eqMasterSwitch.setChecked(enabled);
+        eqMasterSwitch.setContentDescription("Включить эквалайзер SoundGram");
+        eqMasterSwitch.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         if (Build.VERSION.SDK_INT >= 23) {
             android.content.res.ColorStateList thumbCsl = new android.content.res.ColorStateList(
                     new int[][]{ new int[]{ android.R.attr.state_checked }, new int[]{} },
@@ -191,6 +193,8 @@ public class SoundGramEQAlert extends BottomSheet {
 
         virtualizerLabel = createSliderLabel(context);
         virtualizerSeekBar = createSliderBar(context, 1000, SoundGramAudioFX.getVirtualizerLevel());
+        virtualizerSeekBar.setContentDescription("3D Объёмный звук");
+        virtualizerSeekBar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         virtualizerSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
@@ -207,6 +211,8 @@ public class SoundGramEQAlert extends BottomSheet {
 
         bassLabel = createSliderLabel(context);
         bassSeekBar = createSliderBar(context, 1000, SoundGramAudioFX.getBassLevel());
+        bassSeekBar.setContentDescription("Усиление басов");
+        bassSeekBar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         bassSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
@@ -224,6 +230,8 @@ public class SoundGramEQAlert extends BottomSheet {
         if (Build.VERSION.SDK_INT >= 19) {
             loudnessLabel = createSliderLabel(context);
             loudnessSeekBar = createSliderBar(context, 1500, SoundGramAudioFX.getLoudnessGain());
+            loudnessSeekBar.setContentDescription("Усилитель громкости");
+            loudnessSeekBar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             loudnessSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
@@ -243,6 +251,8 @@ public class SoundGramEQAlert extends BottomSheet {
 
         speedLabel = createSliderLabel(context);
         speedSeekBar = createSliderBar(context, 19, Math.round((SoundGramAudioFX.getCurrentSpeed() - 0.1f) / 0.1f));
+        speedSeekBar.setContentDescription("Скорость воспроизведения");
+        speedSeekBar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
@@ -261,6 +271,8 @@ public class SoundGramEQAlert extends BottomSheet {
 
         pitchLabel = createSliderLabel(context);
         pitchSeekBar = createSliderBar(context, 19, Math.round((SoundGramAudioFX.getCurrentPitch() - 0.1f) / 0.1f));
+        pitchSeekBar.setContentDescription("Тональность звука");
+        pitchSeekBar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         pitchSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
@@ -290,6 +302,8 @@ public class SoundGramEQAlert extends BottomSheet {
             final String key = modeKeys[i];
             TextView modeChip = new TextView(context);
             modeChip.setText(modes[i]);
+            modeChip.setContentDescription(modes[i]);
+            modeChip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             modeChip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11.5f);
             modeChip.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
             modeChip.setTextColor(0xFFFFFFFF);
@@ -717,6 +731,8 @@ public class SoundGramEQAlert extends BottomSheet {
         // 1. ПЕРВАЯ: Кнопка "+ Сохранить"
         TextView addPresetBtn = new TextView(getContext());
         addPresetBtn.setText("+ Сохранить пресет");
+        addPresetBtn.setContentDescription("Сохранить текущий пресет");
+        addPresetBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         addPresetBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11.5f);
         addPresetBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         addPresetBtn.setTextColor(accentColor);
@@ -739,6 +755,8 @@ public class SoundGramEQAlert extends BottomSheet {
             LinearLayout customChip = new LinearLayout(getContext());
             customChip.setOrientation(LinearLayout.HORIZONTAL);
             customChip.setGravity(Gravity.CENTER_VERTICAL);
+            customChip.setContentDescription("Пользовательский пресет " + cp.name);
+            customChip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             GradientDrawable cBg = new GradientDrawable();
             cBg.setColor(isSel ? Theme.getColor(Theme.key_chats_actionBackground) : ColorUtils.setAlphaComponent(accentColor, 40));
             cBg.setCornerRadius(AndroidUtilities.dp(10));
@@ -754,6 +772,8 @@ public class SoundGramEQAlert extends BottomSheet {
 
             TextView delBtn = new TextView(getContext());
             delBtn.setText(" ✕");
+            delBtn.setContentDescription("Удалить пресет " + cp.name);
+            delBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             delBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11.5f);
             delBtn.setTextColor(0xFFFF5252);
             delBtn.setPadding(AndroidUtilities.dp(4), 0, AndroidUtilities.dp(4), 0);
@@ -782,6 +802,8 @@ public class SoundGramEQAlert extends BottomSheet {
             final int presetIdx = i;
             TextView presetChip = new TextView(getContext());
             presetChip.setText(SoundGramAudioFX.EQ_PRESET_NAMES[i]);
+            presetChip.setContentDescription("Пресет " + SoundGramAudioFX.EQ_PRESET_NAMES[i]);
+            presetChip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             presetChip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11.5f);
             presetChip.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
             boolean isSel = (currentPreset == presetIdx);
@@ -837,6 +859,8 @@ public class SoundGramEQAlert extends BottomSheet {
             TextView rChip = new TextView(getContext());
             String icon = i < icons.length ? icons[i] + " " : "";
             rChip.setText(icon + SoundGramAudioFX.REVERB_PRESET_NAMES[i]);
+            rChip.setContentDescription("Реверберация " + SoundGramAudioFX.REVERB_PRESET_NAMES[i]);
+            rChip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             rChip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11.5f);
             rChip.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
             boolean isSel = (currentReverb == presetVal);

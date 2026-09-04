@@ -37,4 +37,86 @@
     <string name="ChatWallpaperVideo">Живые обои в чатах (видео)</string>
     <string name="ResetWallpaper">Сбросить обои</string>
     <string name="ChooseFromGallery">Выбрать из галереи</string>
+
+    <!-- Music & Accessibility -->
+    <string name="MusicStorageNeeded">Для работы вкладки «Музыка» требуется канал-хранилище для ваших треков.</string>
+    <string name="MusicStorageCreateAuto">Создать автоматически</string>
+    <string name="MusicStorageLinkOwn">Привязать свой</string>
+    <string name="MusicStorageSelect">Выберите канал-хранилище</string>
+    <string name="MusicStorageCreated">Канал-хранилище создан и привязан!</string>
+    <string name="MusicStorageError">Ошибка создания канала: %1$s</string>
+    <string name="MusicStorageNotFound">Каналы или группы, где вы являетесь администратором, не найдены.</string>
+    <string name="MusicStorageLinked">Привязан канал: %1$s</string>
+    <string name="MusicStorageChannel">Канал</string>
+    <string name="MusicStorageGroup">Группа</string>
+    <string name="MusicNewPlaylist">Новый плейлист</string>
+    <string name="MusicNoPlaylists">Плейлистов пока нет</string>
+    <string name="MusicAlbum">Альбом</string>
+    <string name="MusicVerifiedArtist">✓ ИСПОЛНИТЕЛЬ</string>
+
+    <!-- TalkBack / TTS Accessibility Descriptions -->
+    <string name="AccDescrMusicTrack">%1$s, %2$s, %3$s</string>
+    <string name="AccDescrMusicTrackPlaying">Сейчас играет: %1$s, %2$s</string>
+    <string name="AccDescrMusicMiniPlayer">Мини-плеер: %1$s, %2$s</string>
+    <string name="AccDescrMusicPlayTrack">Воспроизвести %1$s, исполнитель %2$s</string>
+    <string name="AccDescrMusicPauseTrack">Приостановить %1$s, исполнитель %2$s</string>
+    <string name="AccDescrMusicOptions">Параметры трека %1$s</string>
+    <string name="AccDescrMusicCreatePlaylist">Создать новый плейлист</string>
+    <string name="AccDescrMusicPlaylist">Плейлист %1$s, %2$d треков</string>
+    <string name="AccDescrMusicAlbum">Альбом %1$s, исполнитель %2$s</string>
+    <string name="AccDescrMusicArtist">Исполнитель %1$s</string>
+    <string name="AccDescrMusicGenre">Жанр %1$s</string>
+    <string name="AccDescrMusicGenreSelected">Жанр %1$s, выбран</string>
+    <string name="AccDescrMusicSettings">Настройки музыки</string>
+    <string name="AccDescrMusicAdded">Трек добавлен</string>
+    <string name="AccDescrMusicAdd">Добавить трек</string>
+    <string name="AccDescrMusicPlayPlaylist">Воспроизвести плейлист</string>
+    <string name="AccDescrMusicShuffle">Случайный порядок</string>
+    <string name="AccDescrMusicMyWave">Моя волна</string>
+    <string name="LocalTelegramPremium">Локальный Telegram Premium</string>
+    <string name="LocalTelegramPremiumNotice">Локальная активация функций Telegram Premium (двойные лимиты, теги папок и др.)</string>
+
+    <!-- Player & Music Accessibility -->
+    <string name="AccDescrNext">Следующий трек</string>
+    <string name="AccDescrPrevious">Предыдущий трек</string>
+    <string name="AccDescrPlay">Воспроизвести</string>
+    <string name="AccDescrPause">Пауза</string>
+    <string name="AccDescrRepeat">Повтор</string>
+    <string name="AccDescrShuffle">Случайный порядок</string>
+    <string name="AccDescrEqualizer">Эквалайзер</string>
+    <string name="ImportMusicTrack">Импортировать трек</string>
+    <string name="edit">Редактировать</string>
+
+    <!-- Panic Code -->
+    <string name="PasscodePanicCodeTitle">Экстренный код</string>
+    <string name="PasscodePanicCodeAccounts">Выберите аккаунты для выхода</string>
+    <string name="PasscodePanicCodeEnabled">Включен</string>
+    <string name="PasscodePanicCodeDisabled">Выключен</string>
+    <string name="PasscodePanicCodeRemoved">Экстренный код удален</string>
+    <string name="PasscodePanicCodeSuccess">Экстренный код успешно установлен</string>
+    <string name="PasscodePanicCodeShort">Код должен содержать не менее 4 символов</string>
+    <string name="EnterPasscode">Введите код</string>
+    <string name="NoAccounts">Нет аккаунтов</string>
+
+    <!-- Ghost Mode & Deleted Messages -->
+    <string name="SendReadMessagePackets">Отправлять статус прочтения</string>
+    <string name="SendReadMessagePacketsNotice">Если выключено, собеседник не увидит, что вы прочитали его сообщение</string>
+    <string name="SendOnlinePackets">Отправлять статус «В сети»</string>
+    <string name="SendOnlinePacketsNotice">Если выключено, ваш статус «В сети» не будет обновляться</string>
+    <string name="SendUploadProgress">Отправлять статус набора и загрузки</string>
+    <string name="SendUploadProgressNotice">Если выключено, собеседники не увидят статус «печатает...» или загрузку файлов</string>
+    <string name="SendReadStoriesPackets">Отправлять просмотр историй</string>
+    <string name="SendReadStoriesPacketsNotice">Если выключено, просмотр историй будет полностью анонимным</string>
+    <string name="SendOfflinePacketAfterOnlineNotice">Быстро переводит статус в офлайн после отправки сообщений</string>
+    <string name="SaveDeletedMessages">Сохранять удалённые сообщения</string>
+    <string name="SaveDeletedMessagesNotice">Удалённые сообщения остаются видны локально в клиенте</string>
+    <string name="SaveDeletedMedia">Сохранять медиа удалённых сообщений</string>
+    <string name="SaveDeletedMediaNotice">Автоматически сохраняет вложения удалённых сообщений</string>
+    <string name="SaveDeletedFromBots">Сохранять удалённые от ботов</string>
+    <string name="SaveDeletedFromBotsUser">Сохранять удалённые от ботов в ЛС</string>
+    <string name="TranslucentDeleted">Полупрозрачные удалённые сообщения</string>
+    <string name="SaveEditsHistory">Сохранять историю изменений</string>
+    <string name="SaveEditsHistoryNotice">Сохраняет предыдущие версии отредактированных сообщений</string>
+    <string name="ClearAyuDatabase">Очистить базу сохранённых сообщений</string>
+    <string name="ClearAyuDatabaseConfirm">Вы уверены, что хотите удалить все сохранённые удалённые и изменённые сообщения?</string>
 </resources>

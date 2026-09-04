@@ -49,6 +49,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
     private final int onlineIndicatorRow = 19;
     private final int hideStickerTimeRow = 20;
     private final int iosStyleComposerRow = 21;
+    private final int localPremiumRow = 22;
 
     private final int foldersRow = 7;
     private final int bottomTabsRow = 8;
@@ -71,6 +72,11 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
     @Override
     public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asHeader(getString(R.string.AP_Header_Appearance)));
+        items.add(SettingsHelper.asSwitchCG(localPremiumRow,
+                        getString(R.string.LocalTelegramPremium),
+                        getString(R.string.LocalTelegramPremiumNotice))
+                .setChecked(tw.nekomimi.nekogram.NekoConfig.localPremium.Bool())
+        );
         items.add(UItem.asButton(iconPackRow, getString(R.string.AP_IconReplacements), getIconPackValueText()));
         items.add(UItem.asButton(oneUISwitchesRow, getString(R.string.NM_SwitchStyle), getSwitchStyleValueText()));
         items.add(SettingsHelper.asSwitchCG(disableDividersRow, getString(R.string.AP_DisableDividers))
@@ -157,7 +163,20 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
 
     @Override
     public void onClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == centerTitleRow) {
+        if (item.id == localPremiumRow) {
+            tw.nekomimi.nekogram.NekoConfig.localPremium.toggleConfigBool();
+            updateCheckState(view, tw.nekomimi.nekogram.NekoConfig.localPremium.Bool());
+            for (int a = 0; a < org.telegram.messenger.UserConfig.MAX_ACCOUNT_COUNT; a++) {
+                org.telegram.messenger.UserConfig.getInstance(a).loadConfig();
+            }
+            org.telegram.messenger.NotificationCenter.getGlobalInstance().postNotificationName(org.telegram.messenger.NotificationCenter.currentUserPremiumStatusChanged);
+            org.telegram.messenger.NotificationCenter.getGlobalInstance().postNotificationName(org.telegram.messenger.NotificationCenter.dialogFiltersUpdated);
+            getMessagesController().getStoriesController().onPremiumChanged();
+            if (getParentLayout() != null) {
+                getParentLayout().rebuildAllFragmentViews(false, false);
+            }
+            return;
+        } else if (item.id == centerTitleRow) {
             if (getActionBar() != null) {
                 getActionBar().prepareCenterTitleAnimation();
             }

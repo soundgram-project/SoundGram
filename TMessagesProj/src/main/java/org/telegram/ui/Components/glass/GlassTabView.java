@@ -321,6 +321,27 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
             return;
         }
 
+        if (soundgram.icons.IconPackManager.getInstance().hasActivePack()) {
+            String tabName = tabAnimation.name().toLowerCase(java.util.Locale.ROOT);
+            android.graphics.drawable.Drawable customTab = null;
+            if (isSelected) {
+                customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("tab_" + tabName + "_active");
+                if (customTab == null) customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("tab_" + tabName + "_filled");
+                if (customTab == null) customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("tab_" + tabName + "_selected");
+            }
+            if (customTab == null) {
+                customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("tab_" + tabName);
+            }
+            if (customTab == null) {
+                customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(tabName);
+            }
+            if (customTab != null) {
+                imageView.setImageDrawable(customTab);
+                updateColors();
+                return;
+            }
+        }
+
         if (tabAnimation.iconStatic != -1) {
             imageView.setImageResource(tabAnimation.iconStatic);
             updateColors();

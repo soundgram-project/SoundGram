@@ -14,8 +14,20 @@ public abstract class BaseIconReplace {
 
     protected final HashSet<Integer> noTint = new HashSet<>();
 
+    protected final HashMap<Integer, Integer> reverseReplaces = new HashMap<>();
+
     public final int wrap(int id) {
         Integer mapped = replaces.get(id);
+        return mapped != null ? mapped : id;
+    }
+
+    public final int unwrap(int id) {
+        if (reverseReplaces.isEmpty() && !replaces.isEmpty()) {
+            for (java.util.Map.Entry<Integer, Integer> entry : replaces.entrySet()) {
+                reverseReplaces.put(entry.getValue(), entry.getKey());
+            }
+        }
+        Integer mapped = reverseReplaces.get(id);
         return mapped != null ? mapped : id;
     }
 

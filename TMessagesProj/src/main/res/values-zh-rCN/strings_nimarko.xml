@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">在个人资料中显示企业信息</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">在展开的顶部区域使用个人资料颜色</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">在展开的顶部区域显示个人资料表情</string>
+    <string name="LocalPremiumNotice">本地启用 Telegram Premium 功能（双倍上限、文件夹标签等）</string>
 </resources>

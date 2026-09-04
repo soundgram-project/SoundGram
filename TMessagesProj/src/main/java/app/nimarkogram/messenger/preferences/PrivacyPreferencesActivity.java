@@ -4,7 +4,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.provider.Settings;
+import android.text.InputType;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 
 import androidx.biometric.BiometricPrompt;
 
@@ -16,9 +19,12 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.AlertDialog;
+import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.IconBackgroundColors;
+import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
 
@@ -27,6 +33,7 @@ import app.nimarkogram.messenger.preferences.helpers.PopupHelper;
 import app.nimarkogram.messenger.preferences.helpers.SettingsHelper;
 import app.nimarkogram.messenger.security.NimarkoBiometricPrompt;
 import app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector;
+import tw.nekomimi.nekogram.NekoConfig;
 
 public class PrivacyPreferencesActivity extends BasePreferencesActivity {
     private static final int ID_HIDE_PROXY = 1;
@@ -44,6 +51,8 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
     private static final int ID_PROTECT_ARCHIVE = 13;
     private static final int ID_OPEN_ARCHIVE = 14;
     private static final int ID_PROTECT_SAVED_MESSAGES = 15;
+    private static final int ID_PANIC_CODE = 16;
+    private static final int ID_GHOST_LINK = 17;
 
     @Override
     public String getTitle() {
@@ -61,6 +70,18 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
                 R.drawable.msg_pin_code,
                 LocaleController.getString(R.string.NM_PR_TestFingerprint),
                 LocaleController.getString(R.string.NM_PR_TestFingerprint_Desc)));
+        items.add(asSettingsValue(ID_PANIC_CODE, IconBackgroundColors.RED,
+                R.drawable.msg_secret_solar,
+                LocaleController.getString(R.string.PasscodePanicCodeTitle),
+                tw.nekomimi.nekogram.helpers.PasscodeHelper.hasPanicCode()
+                        ? LocaleController.getString(R.string.PasscodePanicCodeEnabled)
+                        : LocaleController.getString(R.string.PasscodePanicCodeDisabled)));
+        items.add(asSettingsValue(ID_GHOST_LINK, IconBackgroundColors.PURPLE,
+                R.drawable.ghost_solar,
+                LocaleController.getString(R.string.GhostMode),
+                NekoConfig.isGhostModeActive()
+                        ? LocaleController.getString(R.string.GhostModeEnabled)
+                        : LocaleController.getString(R.string.GhostModeDisabled)));
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.NM_PR_Header_ChatProtection)));
@@ -123,7 +144,11 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
     @Override
     public void onClick(UItem item, View view, int position, float x, float y) {
         int id = item.id;
-        if (id == ID_HIDE_PROXY) {
+        if (id == ID_PANIC_CODE) {
+            handlePanicCodeClick();
+        } else if (id == ID_GHOST_LINK) {
+            presentFragment(new GhostPreferencesActivity());
+        } else if (id == ID_HIDE_PROXY) {
             NimarkoConfig.toggleHideProxySponsor();
             applyCheck(item, view, NimarkoConfig.hideProxySponsor);
             for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
@@ -194,6 +219,34 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
             }
         } else if (id == ID_TEST_FINGERPRINT) {
             testFingerprint();
+        }
+    }
+
+    private void handlePanicCodeClick() {
+        if (getParentActivity() == null) return;
+        if (tw.nekomimi.nekogram.helpers.PasscodeHelper.hasPanicCode()) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+            builder.setTitle(LocaleController.getString(R.string.PasscodePanicCodeTitle));
+            CharSequence[] items = new CharSequence[] {
+                    LocaleController.getString(R.string.ChangePasscode),
+                    LocaleController.getString(R.string.PasscodePanicCodeAccounts),
+                    LocaleController.getString(R.string.DisablePasscodeTurnOff)
+            };
+            builder.setItems(items, (dialog, which) -> {
+                if (which == 0) {
+                    showSetPanicCodeDialog();
+                } else if (which == 1) {
+                    showPanicAccountsDialog();
+                } else if (which == 2) {
+                    tw.nekomimi.nekogram.helpers.PasscodeHelper.removePanicCode();
+                    refreshItems();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.done, LocaleController.getString(R.string.PasscodePanicCodeRemove)).show();
+                }
+            });
+            builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            showDialog(builder.create());
+        } else {
+            showSetPanicCodeDialog();
         }
     }
 
@@ -354,5 +407,77 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
                         listView.adapter.update(true);
                     }
                 });
+    }
+
+    private void showSetPanicCodeDialog() {
+        if (getParentActivity() == null) return;
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle(LocaleController.getString(R.string.PasscodePanicCodeTitle));
+
+        final EditText input = new EditText(getParentActivity());
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        input.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+        input.setHint(LocaleController.getString(R.string.EnterPasscode));
+        FrameLayout container = new FrameLayout(getParentActivity());
+        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(8), AndroidUtilities.dp(24), AndroidUtilities.dp(8));
+        container.addView(input, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        builder.setView(container);
+
+        builder.setPositiveButton(LocaleController.getString(R.string.Save), (dialog, which) -> {
+            String code = input.getText().toString().trim();
+            if (code.length() >= 4) {
+                tw.nekomimi.nekogram.helpers.PasscodeHelper.setPanicCode(code);
+                refreshItems();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.done, LocaleController.getString(R.string.PasscodePanicCodeSuccess)).show();
+            } else {
+                BulletinFactory.of(this).createErrorBulletin(LocaleController.getString(R.string.PasscodePanicCodeShort)).show();
+            }
+        });
+        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        showDialog(builder.create());
+    }
+
+    private void showPanicAccountsDialog() {
+        if (getParentActivity() == null) return;
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle(LocaleController.getString(R.string.PasscodePanicCodeAccounts));
+        ArrayList<Integer> activeAccounts = new ArrayList<>();
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()) {
+                activeAccounts.add(a);
+            }
+        }
+        if (activeAccounts.isEmpty()) {
+            builder.setMessage(LocaleController.getString(R.string.NoAccounts));
+            builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
+            showDialog(builder.create());
+            return;
+        }
+
+        android.widget.LinearLayout linearLayout = new android.widget.LinearLayout(getParentActivity());
+        linearLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        linearLayout.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(8));
+
+        for (int i = 0; i < activeAccounts.size(); i++) {
+            final int acc = activeAccounts.get(i);
+            TLRPC.User u = UserConfig.getInstance(acc).getCurrentUser();
+            String name = u != null ? org.telegram.messenger.UserObject.getUserName(u) : "Account " + (acc + 1);
+
+            org.telegram.ui.Cells.CheckBoxCell cell = new org.telegram.ui.Cells.CheckBoxCell(getParentActivity(), 1);
+            cell.setBackground(Theme.getSelectorDrawable(false));
+            cell.setText(name, "", tw.nekomimi.nekogram.helpers.PasscodeHelper.isAccountAllowPanic(acc), true);
+            cell.setOnClickListener(v -> {
+                boolean checked = !cell.isChecked();
+                cell.setChecked(checked, true);
+                tw.nekomimi.nekogram.helpers.PasscodeHelper.setAccountAllowPanic(acc, checked);
+            });
+            linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50));
+        }
+
+        android.widget.ScrollView scrollView = new android.widget.ScrollView(getParentActivity());
+        scrollView.addView(linearLayout);
+        builder.setView(scrollView);
+        builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
+        showDialog(builder.create());
     }
 }

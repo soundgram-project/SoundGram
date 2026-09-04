@@ -24,6 +24,7 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
     public static final int ID_CHATS        = 3;
     public static final int ID_CAMERA       = 4;
     public static final int ID_PRIVACY      = 6;
+    public static final int ID_GHOST        = 7;
 
     public static final int ID_RESTART      = 10;
 
@@ -62,6 +63,8 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
                 R.drawable.camera_solar, R.string.NM_Cat_Camera, "nimarko_camera"));
         arrayList.add(category(ID_PRIVACY, IconBackgroundColors.GREEN,
                 R.drawable.msg_secret_solar, R.string.NM_Cat_Privacy, "nimarko_privacy"));
+        arrayList.add(category(ID_GHOST, IconBackgroundColors.PURPLE,
+                R.drawable.ghost_solar, R.string.GhostMode, "nimarko_ghost"));
         arrayList.add(UItem.asShadow(null));
 
         arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_HUB_Header_Misc)));
@@ -118,6 +121,9 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
                 break;
             case ID_PRIVACY:
                 presentFragment(new PrivacyPreferencesActivity());
+                break;
+            case ID_GHOST:
+                presentFragment(new GhostPreferencesActivity());
                 break;
             case ID_WSBYPASS:
                 presentFragment(new soundgram.wsproxy.NekoWsProxyActivity());
