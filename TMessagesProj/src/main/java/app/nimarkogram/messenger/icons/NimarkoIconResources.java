@@ -448,10 +448,18 @@ public class NimarkoIconResources extends Resources {
                 || STOCK_COMPOSER_DRAWABLES.contains(stockId)) {
             return loadRaw(stockId, density, theme);
         }
-        final int wrappedId = replacement.wrap(stockId);
-        if (wrappedId == stockId) return loadRaw(wrappedId, density, theme);
+        final int wrappedId = replacement != null ? replacement.wrap(stockId) : stockId;
+        if (wrappedId == stockId || wrappedId == 0) return loadRaw(stockId, density, theme);
         final boolean noTint = replacement.isNoTint(stockId);
-        Drawable twin = loadRaw(wrappedId, android.util.DisplayMetrics.DENSITY_XXXHIGH, theme);
+        Drawable twin = null;
+        try {
+            twin = loadRaw(wrappedId, android.util.DisplayMetrics.DENSITY_XXXHIGH, theme);
+        } catch (Throwable t) {
+            return loadRaw(stockId, density, theme);
+        }
+        if (twin == null) {
+            return loadRaw(stockId, density, theme);
+        }
         if (!(twin instanceof android.graphics.drawable.BitmapDrawable)) return twin;
         android.graphics.Bitmap bmp = ((android.graphics.drawable.BitmapDrawable) twin).getBitmap();
         if (bmp == null) return twin;

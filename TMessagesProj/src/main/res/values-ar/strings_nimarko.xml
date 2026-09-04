@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">عرض تفاصيل العمل في الملفات الشخصية</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">استخدم ألوان ملف التعريف في الرأس الموسع</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">إظهار الرموز التعبيرية للملف الشخصي في الرأس الموسع</string>
+    <string name="NM_HUB_SupportDevelopment">دعم التطوير</string>
 </resources>

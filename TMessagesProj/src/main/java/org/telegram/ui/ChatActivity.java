@@ -27479,6 +27479,27 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                 }
+                boolean keepForAyu = xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()
+                        && !obj.scheduled
+                        && (obj.messageOwner != null && !(obj.messageOwner instanceof TLRPC.TL_messageEmpty))
+                        && (currentChat == null || !currentChat.creator || !com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialog_id, mid))
+                        && com.radolyn.ayugram.messages.AyuSavePreferences.saveDeletedMessageFor(currentAccount, dialog_id, obj);
+                if (keepForAyu) {
+                    obj.deleted = true;
+                    if (obj.messageOwner != null) {
+                        obj.messageOwner.ayuDeleted = true;
+                    }
+                    var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(obj.messageOwner, currentAccount);
+                    prefs.setDialogId(dialog_id);
+                    com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs, true);
+                    int itemPos = chatAdapter != null && chatAdapter.isFiltered && filteredMessagesDict != null
+                            ? (chatAdapter.filteredMessages != null ? chatAdapter.filteredMessages.indexOf(filteredMessagesDict.get(mid)) : -1)
+                            : messages.indexOf(obj);
+                    if (itemPos != -1 && chatAdapter != null) {
+                        chatAdapter.notifyItemChanged(chatAdapter.messagesStartRow + itemPos);
+                    }
+                    continue;
+                }
                 obj.deleted = true;
                 if (obj.scheduled && sent) {
                     obj.scheduledSent = true;

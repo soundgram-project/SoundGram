@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Profillarda biznes tafsilotlarini ko\'rsatish</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Kengaytirilgan sarlavhada profil ranglarini ishlating</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Kengaytirilgan sarlavhada profil emojilarini ko\'rsatish</string>
+    <string name="NM_HUB_SupportDevelopment">Rivojlanishni qo\'llab-quvvatlash</string>
 </resources>

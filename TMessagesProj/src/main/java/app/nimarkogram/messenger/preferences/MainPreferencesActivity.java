@@ -38,7 +38,7 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
     public static final int ID_WSBYPASS       = 27;
     public static final int ID_TEXTANIM       = 28;
     public static final int ID_PILLSTACK      = 29;
-    public static final int ID_SOURCE_CODE    = 30;
+    public static final int ID_SUPPORT_DEVELOPMENT    = 30;
 
     private static final String SOURCE_REPOSITORY_URL = "https://github.com/Ettacent/NimarkoGram";
 
@@ -77,8 +77,8 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
         arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_HUB_Header_Advanced)));
         arrayList.add(category(ID_DEBUG, IconBackgroundColors.GRAY,
                 R.drawable.msg_info_solar, R.string.NM_HUB_Debug, "nimarko_debug"));
-        arrayList.add(category(ID_SOURCE_CODE, IconBackgroundColors.BLUE_DEEP,
-                R.drawable.msg_link_2_solar, R.string.NM_HUB_SourceCode, "nimarko_source_code"));
+        arrayList.add(category(ID_SUPPORT_DEVELOPMENT, IconBackgroundColors.ORANGE_DEEP,
+                R.drawable.msg_gift_premium_solar, R.string.NM_HUB_SupportDevelopment, "nimarko_support_development"));
         arrayList.add(UItem.asShadow(null));
 
         arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_HUB_Header_Other)));
@@ -143,10 +143,10 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
             case ID_RESTART:
                 AppRestartHelper.triggerRebirth(getParentActivity() != null ? getParentActivity() : getContext());
                 break;
-            case ID_SOURCE_CODE:
-                org.telegram.messenger.browser.Browser.openUrl(
+            case ID_SUPPORT_DEVELOPMENT:
+                showDialog(new soundgram.ui.SoundGramBadgeBottomSheet(
                         getParentActivity() != null ? getParentActivity() : getContext(),
-                        SOURCE_REPOSITORY_URL);
+                        getResourceProvider()));
                 break;
             case ID_CHERRYGRAM_FORK:
                 org.telegram.messenger.browser.Browser.openUrl(getParentActivity(),

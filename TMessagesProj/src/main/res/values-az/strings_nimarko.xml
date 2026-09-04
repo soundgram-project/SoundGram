@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Profillərdə biznes təfərrüatlarını göstərin</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Genişlənmiş başlıqda profil rənglərindən istifadə edin</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Genişlənmiş başlıqda profil emojisini göstərin</string>
+    <string name="NM_HUB_SupportDevelopment">İnkişafı dəstəkləyin</string>
 </resources>

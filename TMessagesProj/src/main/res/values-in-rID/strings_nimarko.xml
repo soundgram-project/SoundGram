@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Tampilkan detail bisnis di profil</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Gunakan warna profil di header yang diperluas</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Tampilkan emoji profil di header yang diperluas</string>
+    <string name="NM_HUB_SupportDevelopment">Dukung pengembangan</string>
 </resources>

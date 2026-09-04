@@ -69,7 +69,7 @@ public class AyuSavePreferences {
 
     public static boolean saveDeletedMessageFor(int accountId, long dialogId, MessageObject messageObject) {
         if (messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.from_id != null) {
-            return saveDeletedMessageFor(accountId, dialogId, messageObject.messageOwner.from_id.user_id);
+            return saveDeletedMessageFor(accountId, dialogId, MessageObject.getPeerId(messageObject.messageOwner.from_id));
         }
         return saveDeletedMessageFor(accountId, dialogId, 0);
     }
@@ -83,7 +83,7 @@ public class AyuSavePreferences {
             return false;
         }
 
-        if (userId != 0) {
+        if (userId > 0) {
             if (getSaveDeletedExclusion(userId)) {
                 return false;
             }
@@ -92,15 +92,19 @@ public class AyuSavePreferences {
                 return !fromUser.bot || NaConfig.INSTANCE.getSaveDeletedMessageForBotUser().Bool();
             } else {
                 final MessagesStorage messagesStorage = MessagesStorage.getInstance(accountId);
-                final CountDownLatch countDownLatch = new CountDownLatch(1);
                 final TLRPC.User[] user = {null};
-                messagesStorage.getStorageQueue().postRunnable(() -> {
+                if (Thread.currentThread() == messagesStorage.getStorageQueue()) {
                     user[0] = messagesStorage.getUser(userId);
-                    countDownLatch.countDown();
-                });
-                try {
-                    countDownLatch.await();
-                } catch (Exception ignored) {
+                } else {
+                    final CountDownLatch countDownLatch = new CountDownLatch(1);
+                    messagesStorage.getStorageQueue().postRunnable(() -> {
+                        user[0] = messagesStorage.getUser(userId);
+                        countDownLatch.countDown();
+                    });
+                    try {
+                        countDownLatch.await();
+                    } catch (Exception ignored) {
+                    }
                 }
                 if (user[0] != null) {
                     return !user[0].bot || NaConfig.INSTANCE.getSaveDeletedMessageForBotUser().Bool();
@@ -108,12 +112,14 @@ public class AyuSavePreferences {
             }
         }
 
-        var user = MessagesController.getInstance(accountId).getUser(Math.abs(dialogId));
-        if (user == null) {
-            return true;
+        if (org.telegram.messenger.DialogObject.isUserDialog(dialogId)) {
+            var user = MessagesController.getInstance(accountId).getUser(dialogId);
+            if (user != null) {
+                return !user.bot || NaConfig.INSTANCE.getSaveDeletedMessageForBot().Bool();
+            }
         }
 
-        return !user.bot || NaConfig.INSTANCE.getSaveDeletedMessageForBot().Bool();
+        return true;
     }
 
     public static void setSaveDeletedExclusion(long chatId, boolean value) {
@@ -186,7 +192,7 @@ public class AyuSavePreferences {
         if (message == null || message.from_id == null) {
             return 0;
         }
-        return message.from_id.user_id;
+        return MessageObject.getPeerId(message.from_id);
     }
 
 }

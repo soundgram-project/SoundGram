@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Mostrar detalhes da empresa nos perfis</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Use cores de perfil no cabeçalho expandido</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Mostrar emoji de perfil no cabeçalho expandido</string>
+    <string name="NM_HUB_SupportDevelopment">Apoiar o desenvolvimento</string>
 </resources>

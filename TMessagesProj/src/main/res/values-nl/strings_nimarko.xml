@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Toon bedrijfsgegevens in profielen</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Gebruik profielkleuren in de uitgevouwen koptekst</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Toon profielemoji in de uitgevouwen koptekst</string>
+    <string name="NM_HUB_SupportDevelopment">Ontwikkeling ondersteunen</string>
 </resources>

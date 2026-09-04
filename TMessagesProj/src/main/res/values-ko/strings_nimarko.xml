@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">프로필에 비즈니스 세부정보 표시</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">확장된 헤더에 프로필 색상 사용</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">확장된 헤더에 프로필 이모티콘 표시</string>
+    <string name="NM_HUB_SupportDevelopment">개발 지원</string>
 </resources>

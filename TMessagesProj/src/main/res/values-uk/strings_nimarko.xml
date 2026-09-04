@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Показати інформацію про компанію в профілях</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Використовуйте кольори профілю в розгорнутому заголовку</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Показати емодзі профілю в розгорнутому заголовку</string>
+    <string name="NM_HUB_SupportDevelopment">Підтримати розробку</string>
 </resources>

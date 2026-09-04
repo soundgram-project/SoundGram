@@ -498,4 +498,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Показывать данные бизнеса в профиле</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Использовать цвета профиля в раскрытой шапке</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Показывать эмодзи профиля в раскрытой шапке</string>
+    <string name="NM_HUB_SupportDevelopment">Поддержать разработку</string>
 </resources>

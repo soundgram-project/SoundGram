@@ -163,11 +163,33 @@ public abstract class BaseRemoteHelper {
 
             getConnectionsManager().sendRequest(req, (response, error) -> {
                 if (error == null) {
-                    onGetMessageSuccess(response, delegate);
+                    final var res = (TLRPC.messages_Messages) response;
+                    if (res != null && res.messages != null && !res.messages.isEmpty()) {
+                        onGetMessageSuccess(response, delegate);
+                    } else {
+                        fetchHistoryFallback(chat, delegate);
+                    }
                 } else {
-                    onError(error.text, delegate);
+                    fetchHistoryFallback(chat, delegate);
                 }
             });
+        });
+    }
+
+    private void fetchHistoryFallback(TLRPC.Chat chat, Delegate delegate) {
+        TLRPC.TL_messages_getHistory req = new TLRPC.TL_messages_getHistory();
+        TLRPC.TL_inputPeerChannel inputPeer = new TLRPC.TL_inputPeerChannel();
+        inputPeer.channel_id = chat.id;
+        inputPeer.access_hash = chat.access_hash;
+        req.peer = inputPeer;
+        req.limit = 20;
+        req.offset_id = 0;
+        getConnectionsManager().sendRequest(req, (response, error) -> {
+            if (error == null) {
+                onGetMessageSuccess(response, delegate);
+            } else {
+                onError(error.text, delegate);
+            }
         });
     }
 

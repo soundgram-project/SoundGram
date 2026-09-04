@@ -57,8 +57,7 @@ public class UpdateHelper extends BaseRemoteHelper {
 
     @Override
     protected String getTag() {
-        if (BuildConfig.DEBUG) return "updateRelease";
-        return "updateRelease";
+        return "update";
     }
 
     @SuppressWarnings("ConstantConditions")
@@ -92,50 +91,40 @@ public class UpdateHelper extends BaseRemoteHelper {
 
     public static int getCurrentVersionCode() {
         try {
-            return ApplicationLoader.applicationContext.getPackageManager().getPackageInfo(ApplicationLoader.applicationContext.getPackageName(), 0).versionCode;
+            android.content.Context ctx = ApplicationLoader.applicationContext;
+            android.content.pm.PackageInfo pInfo = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0);
+            return (int) androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(pInfo);
         } catch (Exception e) {
             return 0;
         }
     }
 
+    public Update lastParsedUpdate;
+
     private Update getShouldUpdateVersion(List<JSONObject> responses) {
         int currentVersion = getCurrentVersionCode();
-        long buildTimestamp = 0L;
-        try {
-            android.content.pm.PackageInfo pInfo = ApplicationLoader.applicationContext.getPackageManager().getPackageInfo(ApplicationLoader.applicationContext.getPackageName(), 0);
-            buildTimestamp = pInfo.lastUpdateTime;
-        } catch (Exception ignored) {
-        }
         Update ref = null;
         for (var string : responses) {
             try {
                 int remoteVersion = string.optInt("version_code", string.optInt("versionCode", 0));
-                long remoteBuildTimestamp = string.optLong("build_timestamp", 0L);
-                boolean shouldUpdate = false;
                 if (remoteVersion > currentVersion) {
-                    shouldUpdate = true;
-                } else if (remoteVersion == currentVersion && remoteBuildTimestamp > buildTimestamp && buildTimestamp > 0) {
-                    shouldUpdate = true;
-                }
-                if (shouldUpdate || updateAlways) {
-                    if (updateAlways) {
-                        updateAlways = false;
+                    if (ref == null || remoteVersion > ref.versionCode) {
+                        JSONObject docObj = string.optJSONObject("document");
+                        ref = new Update(
+                                string.optBoolean("can_not_skip", false),
+                                string.optString("version", ""),
+                                remoteVersion,
+                                string.optInt("sticker", 0),
+                                string.optInt("message", 0),
+                                docObj != null ? jsonToMap(docObj) : new HashMap<>(),
+                                string.optString("url", "")
+                        );
                     }
-                    JSONObject docObj = string.optJSONObject("document");
-                    ref = new Update(
-                            string.optBoolean("can_not_skip", false),
-                            string.optString("version", ""),
-                            remoteVersion,
-                            string.optInt("sticker", 0),
-                            string.optInt("message", 0),
-                            docObj != null ? jsonToMap(docObj) : new HashMap<>(),
-                            string.optString("url", "")
-                    );
-                    break;
                 }
             } catch (Exception ignored) {
             }
         }
+        lastParsedUpdate = ref;
         return ref;
     }
 

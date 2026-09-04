@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Zeigen Sie Geschäftsdetails in Profilen an</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Verwenden Sie Profilfarben im erweiterten Header</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Profil-Emoji im erweiterten Header anzeigen</string>
+    <string name="NM_HUB_SupportDevelopment">Entwicklung unterstützen</string>
 </resources>

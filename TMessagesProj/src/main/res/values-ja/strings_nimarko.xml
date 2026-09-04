@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">プロフィールにビジネスの詳細を表示する</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">展開されたヘッダーでプロファイルの色を使用する</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">展開されたヘッダーにプロフィール絵文字を表示する</string>
+    <string name="NM_HUB_SupportDevelopment">開発を支援</string>
 </resources>

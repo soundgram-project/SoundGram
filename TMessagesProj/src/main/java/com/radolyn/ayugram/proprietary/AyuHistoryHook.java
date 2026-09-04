@@ -40,12 +40,34 @@ public abstract class AyuHistoryHook {
             Set<Integer> replyIds = new HashSet<>();
             List<DeletedMessageFull> deletedMessages;
 
-            if (isChannelComment) {
-                deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
-            } else if (isTopic && topicId != 0) {
-                deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, topicId, startId, endId, limit);
+            if (loadType == 0) {
+                if (isChannelComment) {
+                    deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, 0, Integer.MAX_VALUE, limit);
+                } else if (isTopic && topicId != 0) {
+                    deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, topicId, 0, Integer.MAX_VALUE, limit);
+                } else {
+                    deletedMessages = ayuController.getLatestMessages(clientUserId, dialogId, limit);
+                }
+            } else if (loadType == 1) {
+                if (isChannelComment) {
+                    deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, 0, Math.max(1, endId), limit);
+                } else if (isTopic && topicId != 0) {
+                    deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, topicId, 0, Math.max(1, endId), limit);
+                } else {
+                    int beforeId = (int) (startId > 0 ? startId : endId);
+                    if (beforeId <= 0) beforeId = Integer.MAX_VALUE;
+                    deletedMessages = ayuController.getOlderMessagesBefore(clientUserId, dialogId, beforeId, limit);
+                }
             } else {
-                deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, limit);
+                long effectiveStartId = Math.max(0, startId);
+                long effectiveEndId = endId <= 0 ? Integer.MAX_VALUE : endId;
+                if (isChannelComment) {
+                    deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, effectiveStartId, effectiveEndId, limit);
+                } else if (isTopic && topicId != 0) {
+                    deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, topicId, effectiveStartId, effectiveEndId, limit);
+                } else {
+                    deletedMessages = ayuController.getMessages(clientUserId, dialogId, effectiveStartId, effectiveEndId, limit);
+                }
             }
 
             if (deletedMessages.isEmpty()) {
@@ -195,7 +217,7 @@ public abstract class AyuHistoryHook {
                 }
             }
         }
-        return new Pair<>(minId, maxId);
+        return new Pair<>(minId == ConnectionsManager.DEFAULT_DATACENTER_ID ? 0 : minId, maxId == Integer.MIN_VALUE ? 0 : maxId);
     }
 
     private static int doHook_compareMessages(MessageObject a, MessageObject b) {
@@ -256,6 +278,6 @@ public abstract class AyuHistoryHook {
     }
 
     private static boolean hasContent(DeletedMessageFull messageFull) {
-        return messageFull != null && messageFull.message != null && (!TextUtils.isEmpty(messageFull.message.text) || !TextUtils.isEmpty(messageFull.message.mediaPath) || messageFull.message.documentSerialized != null);
+        return messageFull != null && messageFull.message != null;
     }
 }

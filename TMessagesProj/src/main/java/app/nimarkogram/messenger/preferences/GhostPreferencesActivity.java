@@ -163,7 +163,7 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
         // Section: Maintenance
         items.add(UItem.asHeader(LocaleController.getString(R.string.ClearMessageDatabase)));
         items.add(asSettingsLink(ID_CLEAR_DATABASE, IconBackgroundColors.RED,
-                R.drawable.msg_clear,
+                R.drawable.msg_clear_solar,
                 LocaleController.getString(R.string.ClearMessageDatabase)).red());
         items.add(UItem.asShadow(null));
     }

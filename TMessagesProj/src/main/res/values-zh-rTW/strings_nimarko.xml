@@ -490,4 +490,5 @@
     <string name="NM_MP_ProfileBackgroundColor_Desc">在展開的頂端區域使用個人資料顏色</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">在展開的頂端區域顯示個人資料表情</string>
     <string name="LocalPremiumNotice">本機啟用 Telegram Premium 功能（雙倍上限、資料夾標籤等）</string>
+    <string name="NM_HUB_SupportDevelopment">支持開發</string>
 </resources>

@@ -296,6 +296,8 @@ public class NimarkoUpdater {
         checkUpdates(fragment, manual, onUpdateNotFound, onUpdateFound, null);
     }
 
+    public static TLRPC.Document lastDocument = null;
+
     public static void checkUpdates(BaseFragment fragment, boolean manual, OnUpdateNotFound onUpdateNotFound, Runnable onUpdateFound, OnCheckFailed onCheckFailed) {
         long lastThrottle = NimarkoUpdateConfig.getUpdateScheduleTimestamp();
         if (System.currentTimeMillis() - lastThrottle < updateCheckInterval && !manual) {
@@ -316,131 +318,54 @@ public class NimarkoUpdater {
                 return;
             }
         }
-        otaQueue.postRunnable(() -> {
+        tw.nekomimi.nekogram.helpers.remote.UpdateHelper.getInstance().checkNewVersionAvailable((res, error) -> {
             NimarkoUpdateConfig.setLastUpdateCheckTime(System.currentTimeMillis());
-            try {
-                HttpURLConnection connection = (HttpURLConnection) new URI(ENDPOINT).toURL().openConnection();
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty("User-Agent", "NimarkoGram-OTA");
-                connection.setRequestProperty("Content-Type", "application/json");
-                connection.setConnectTimeout(15000);
-                connection.setReadTimeout(15000);
-
-                int respCode = connection.getResponseCode();
-                if (respCode == 404 || respCode >= 400) {
-                    if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
-                    checkingForUpdates = false;
-                    return;
-                }
-
-                long responseLength = connection.getContentLengthLong();
-                if (responseLength > MAX_RESPONSE_BYTES) throw new java.io.IOException("response body too large");
-                java.io.ByteArrayOutputStream responseBytes = new java.io.ByteArrayOutputStream(
-                        responseLength > 0 ? (int) responseLength : 4096);
-                try (InputStream input = connection.getInputStream()) {
-                    byte[] buffer = new byte[4096];
-                    int total = 0;
-                    int read;
-                    while ((read = input.read(buffer)) != -1) {
-                        total += read;
-                        if (total > MAX_RESPONSE_BYTES) throw new java.io.IOException("response body too large");
-                        responseBytes.write(buffer, 0, read);
-                    }
-                }
-
-                JSONObject obj = new JSONObject(responseBytes.toString(StandardCharsets.UTF_8.name()));
-                version = obj.optString("version", "");
-                if (version == null || version.isEmpty() || version.equals(".") || version.equals("..")) {
-                    FileLog.e("NimarkoUpdater: rejecting unsafe version from server: " + version);
-                    version = "";
-                    if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
-                    checkingForUpdates = false;
-                    return;
-                }
-                versionCode = obj.optInt("version_code", obj.optInt("versionCode", 0));
-
-                downloadURL = obj.optString("url", "");
-                int uniMsgId = obj.optInt("uni", 0);
-                if (obj.has("document")) {
-                    Object docObj = obj.get("document");
-                    if (docObj instanceof JSONObject) {
-                        JSONObject docJson = (JSONObject) docObj;
-                        if (uniMsgId == 0) {
-                            uniMsgId = docJson.optInt("uni", docJson.optInt("universal", 0));
-                        }
-                        if (uniMsgId == 0) {
-                            for (String abi : Build.SUPPORTED_ABIS) {
-                                if (docJson.has(abi)) {
-                                    uniMsgId = docJson.optInt(abi, 0);
-                                    if (uniMsgId != 0) break;
-                                }
-                            }
-                        }
-                        String uniUrl = docJson.optString("uni", docJson.optString("universal", ""));
-                        if (uniUrl != null && (uniUrl.startsWith("http://") || isHttps(uniUrl))) {
-                            downloadURL = uniUrl;
-                        }
-                    } else if (docObj instanceof Integer) {
-                        if (uniMsgId == 0) uniMsgId = (Integer) docObj;
-                    } else if (docObj instanceof String) {
-                        String docStr = (String) docObj;
-                        if (docStr != null && (docStr.startsWith("http://") || isHttps(docStr))) {
-                            downloadURL = docStr;
-                        }
-                    }
-                }
-
-                if (uniMsgId > 0 && (downloadURL == null || downloadURL.isEmpty() || !downloadURL.startsWith("http"))) {
-                    downloadURL = "tg://msg/" + uniMsgId;
-                }
-
-                if (!isHttps(downloadURL) && !downloadURL.startsWith("http://") && !downloadURL.startsWith("tg://")) {
-                    FileLog.e("NimarkoUpdater: rejecting invalid download url: " + downloadURL);
-                    version = "";
-                    downloadURL = "";
-                    if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
-                    checkingForUpdates = false;
-                    return;
-                }
-                changelog = obj.optString("changelog", obj.optString("description", ""));
-                long sizeBytes = obj.optLong("size", 0);
-                if (sizeBytes < 0 || sizeBytes > MAX_APK_BYTES) {
-                    throw new java.io.IOException("invalid APK size: " + sizeBytes);
-                }
-                expectedSizeBytes = sizeBytes;
-                expectedSha256 = obj.optString("sha256", null);
-                if (expectedSha256 != null && expectedSha256.isEmpty()) expectedSha256 = null;
-                if (expectedSha256 != null && !SHA256_PATTERN.matcher(expectedSha256).matches()) {
-                    expectedSha256 = null;
-                }
-                if (expectedSha256 != null) expectedSha256 = expectedSha256.toLowerCase(Locale.ROOT);
-                size = sizeBytes > 0 ? AndroidUtilities.formatFileSize(sizeBytes) : "";
-                long dateMs = obj.optLong("build_timestamp", obj.optLong("date", 0));
-                uploadDate = dateMs > 0 ? LocaleController.formatDateTime(dateMs > 1000000000000L ? dateMs / 1000 : dateMs, true) : "";
-
-                Update update = new Update(version, versionCode, changelog, size, downloadURL, uploadDate, uniMsgId);
-                lastUpdate = update;
-                NimarkoUpdateConfig.setLastUpdate(version, versionCode, downloadURL, changelog, size, uploadDate);
-                if (update.isNew() && fragment != null && fragment.getContext() != null) {
-                    checkDirs();
-                    AndroidUtilities.runOnUIThread(() -> {
-                        NimarkoUpdaterSheet.showAlert(fragment, true, update);
-                        if (onUpdateFound != null) onUpdateFound.run();
-                    });
-                    NimarkoUpdateConfig.setUpdateIsDownloading(false);
-                    NimarkoUpdateConfig.setUpdateAvailable(true);
-                    if (version != null && !version.isEmpty()) NimarkoUpdateConfig.setUpdateVersionName(version);
-                    NimarkoUpdateConfig.setUpdateSize(size);
-                } else {
-                    if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
-                    cleanOtaDir();
-                }
-            } catch (Exception e) {
-                FileLog.e(e);
-                if (onCheckFailed != null) AndroidUtilities.runOnUIThread(onCheckFailed::run);
-            }
             checkingForUpdates = false;
-        }, 200);
+            if (error != null) {
+                if (onCheckFailed != null) AndroidUtilities.runOnUIThread(onCheckFailed::run);
+                return;
+            }
+            if (res == null) {
+                if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
+                cleanOtaDir();
+                return;
+            }
+            lastDocument = res.document;
+            version = res.version != null ? res.version : "";
+            int vCode = tw.nekomimi.nekogram.helpers.remote.UpdateHelper.getInstance().lastParsedUpdate != null
+                    ? tw.nekomimi.nekogram.helpers.remote.UpdateHelper.getInstance().lastParsedUpdate.versionCode : 0;
+            versionCode = vCode;
+            changelog = res.text != null ? res.text : "";
+            long sizeBytes = res.document != null ? res.document.size : 0L;
+            expectedSizeBytes = sizeBytes;
+            size = sizeBytes > 0 ? AndroidUtilities.formatFileSize(sizeBytes) : "";
+            long dateMs = res.document != null ? ((long) res.document.date) * 1000L : 0L;
+            uploadDate = dateMs > 0 ? LocaleController.formatDateTime(dateMs / 1000, true) : "";
+            int uniMsgId = 0;
+            if (tw.nekomimi.nekogram.helpers.remote.UpdateHelper.getInstance().lastParsedUpdate != null
+                    && tw.nekomimi.nekogram.helpers.remote.UpdateHelper.getInstance().lastParsedUpdate.document != null) {
+                Integer docIdVal = tw.nekomimi.nekogram.helpers.remote.UpdateHelper.getInstance().lastParsedUpdate.document.get("uni");
+                if (docIdVal != null) uniMsgId = docIdVal;
+            }
+            downloadURL = "tg://msg/" + uniMsgId;
+            Update update = new Update(version, versionCode, changelog, size, downloadURL, uploadDate, uniMsgId);
+            lastUpdate = update;
+            NimarkoUpdateConfig.setLastUpdate(version, versionCode, downloadURL, changelog, size, uploadDate);
+            if (update.isNew() && fragment != null && fragment.getContext() != null) {
+                checkDirs();
+                AndroidUtilities.runOnUIThread(() -> {
+                    NimarkoUpdaterSheet.showAlert(fragment, true, update);
+                    if (onUpdateFound != null) onUpdateFound.run();
+                });
+                NimarkoUpdateConfig.setUpdateIsDownloading(false);
+                NimarkoUpdateConfig.setUpdateAvailable(true);
+                if (version != null && !version.isEmpty()) NimarkoUpdateConfig.setUpdateVersionName(version);
+                NimarkoUpdateConfig.setUpdateSize(size);
+            } else {
+                if (onUpdateNotFound != null) AndroidUtilities.runOnUIThread(onUpdateNotFound::run);
+                cleanOtaDir();
+            }
+        }, manual);
     }
 
     private static volatile boolean downloadCanceled = false;
@@ -581,7 +506,9 @@ public class NimarkoUpdater {
             updateBoundButton(generation, 0, false);
             startProgressSmoother(generation);
         });
-        if (link != null && (link.startsWith("tg://") || (lastUpdate != null && lastUpdate.uniMessageId > 0))) {
+        if (lastDocument != null) {
+            startTgFileLoaderDownload(appContext, UserConfig.selectedAccount, lastDocument, generation);
+        } else if (link != null && (link.startsWith("tg://") || (lastUpdate != null && lastUpdate.uniMessageId > 0))) {
             int targetMsgId = (lastUpdate != null && lastUpdate.uniMessageId > 0)
                     ? lastUpdate.uniMessageId
                     : Integer.parseInt(link.substring(link.lastIndexOf('/') + 1));
@@ -627,7 +554,7 @@ public class NimarkoUpdater {
                         TLRPC.TL_contacts_resolvedPeer peer = (TLRPC.TL_contacts_resolvedPeer) res;
                         if (peer.chats != null && !peer.chats.isEmpty()) {
                             TLRPC.Chat chat = peer.chats.get(0);
-                            ApplicationLoader.applicationContext.getSharedPreferences("remote", Context.MODE_PRIVATE)
+                            ApplicationLoader.applicationContext.getSharedPreferences("nekoremoteconfig", Context.MODE_PRIVATE)
                                     .edit()
                                     .putLong("resolved_channel_id", chat.id)
                                     .putLong("resolved_channel_access_hash", chat.access_hash)

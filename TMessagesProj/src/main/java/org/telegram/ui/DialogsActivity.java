@@ -7583,6 +7583,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
         } else {
+            if (getUserConfig().isClientActivated() && !getMessagesController().isLoadingRemoteFilters()) {
+                getMessagesController().loadRemoteFilters(true);
+            }
             if (filterTabsView.getVisibility() != View.GONE) {
                 filterTabsView.setIsEditing(false);
                 showDoneItem(false);
@@ -7731,6 +7734,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onResume() {
         super.onResume();
+        if (getUserConfig().isClientActivated() && getMessagesController().getDialogFilters().size() <= 1 && !getMessagesController().isLoadingRemoteFilters()) {
+            getMessagesController().loadRemoteFilters(true);
+        }
         if (chatListWallDimView != null) {
             chatListWallDimView.setAlpha(soundgram.music.SoundGramConfig.chatListWallDimming);
         }

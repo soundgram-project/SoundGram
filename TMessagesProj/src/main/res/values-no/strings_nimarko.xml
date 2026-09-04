@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Vis bedriftsdetaljer i profiler</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Bruk profilfarger i den utvidede overskriften</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Vis profil-emoji i den utvidede overskriften</string>
+    <string name="NM_HUB_SupportDevelopment">Støtt utviklingen</string>
 </resources>

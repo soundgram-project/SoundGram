@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Mostra i dettagli dell\'attività nei profili</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Utilizza i colori del profilo nell\'intestazione espansa</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Mostra le emoji del profilo nell\'intestazione espansa</string>
+    <string name="NM_HUB_SupportDevelopment">Supporta lo sviluppo</string>
 </resources>

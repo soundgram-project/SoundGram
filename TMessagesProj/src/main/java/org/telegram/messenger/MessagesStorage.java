@@ -374,13 +374,18 @@ public class MessagesStorage extends BaseController {
                     }
                 }
                 try {
-                    // NG (CG parity): folder emoticon column for already-installed DBs.
-                    // Safe-idempotent: ALTER fails silently if column already exists,
-                    // we just swallow the exception (existing rows get NULL emoticon).
+                    // NG (CG parity): ensure dialog_filter columns for already-installed / legacy DBs.
+                    database.executeFast("ALTER TABLE dialog_filter ADD COLUMN color INTEGER DEFAULT -1").stepThis().dispose();
+                } catch (Exception ignored) {}
+                try {
+                    database.executeFast("ALTER TABLE dialog_filter ADD COLUMN entities BLOB").stepThis().dispose();
+                } catch (Exception ignored) {}
+                try {
+                    database.executeFast("ALTER TABLE dialog_filter ADD COLUMN noanimate INTEGER").stepThis().dispose();
+                } catch (Exception ignored) {}
+                try {
                     database.executeFast("ALTER TABLE dialog_filter ADD COLUMN emoticon TEXT").stepThis().dispose();
-                } catch (Exception e) {
-                    // column already exists or other benign migration error
-                }
+                } catch (Exception ignored) {}
                 if (version < LAST_DB_VERSION) {
                     try {
                         updateDbToLastVersion(version);
@@ -2723,6 +2728,7 @@ public class MessagesStorage extends BaseController {
                 getMessagesController().processLoadedDialogFilters(new ArrayList<>(dialogFilters), dialogs, null, users, chats, encryptedChats, 0, null);
             } catch (Exception e) {
                 checkSQLException(e);
+                AndroidUtilities.runOnUIThread(() -> getMessagesController().loadRemoteFilters(true));
             } finally {
                 if (filtersCursor != null) {
                     filtersCursor.dispose();
@@ -14763,32 +14769,41 @@ public class MessagesStorage extends BaseController {
                                 }
                             }
                         }
-                        if (!DialogObject.isEncryptedDialog(did) && !deleteFiles && did != currentUser) {
+                        boolean saveDeleted = xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool();
+                        if (!DialogObject.isEncryptedDialog(did) && !deleteFiles && did != currentUser && !saveDeleted) {
                             continue;
                         }
                         NativeByteBuffer data = cursor.byteBufferValue(1);
                         if (data != null) {
                             TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
-                            message.readAttachPath(data, currentUser);
-                            if (deletedMessages != null) {
-                                deletedMessages.add(message);
-                            }
-                            data.reuse();
-                            if (DialogObject.isEncryptedDialog(did) || deleteFiles) {
-                                addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, false);
-                            }
+                            if (message != null) {
+                                message.readAttachPath(data, currentUser);
+                                if (saveDeleted && !(message instanceof TLRPC.TL_messageEmpty)) {
+                                    message.dialog_id = did;
+                                    var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
+                                    prefs.setDialogId(did);
+                                    com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs, false);
+                                }
+                                if (deletedMessages != null) {
+                                    deletedMessages.add(message);
+                                }
+                                if ((DialogObject.isEncryptedDialog(did) || deleteFiles) && !saveDeleted) {
+                                    addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, false);
+                                }
 
-                            if (did == currentUser) {
-                                long savedDialogId = MessageObject.getSavedDialogId(currentUser, message);
-                                if (savedDialogId != 0) {
-                                    ArrayList<Integer> mids2 = savedMessagesByDialogs.get(savedDialogId);
-                                    if (mids2 == null) {
-                                        mids2 = new ArrayList<>();
-                                        savedMessagesByDialogs.put(savedDialogId, mids2);
+                                if (did == currentUser) {
+                                    long savedDialogId = MessageObject.getSavedDialogId(currentUser, message);
+                                    if (savedDialogId != 0) {
+                                        ArrayList<Integer> mids2 = savedMessagesByDialogs.get(savedDialogId);
+                                        if (mids2 == null) {
+                                            mids2 = new ArrayList<>();
+                                            savedMessagesByDialogs.put(savedDialogId, mids2);
+                                        }
+                                        mids2.add(mid);
                                     }
-                                    mids2.add(mid);
                                 }
                             }
+                            data.reuse();
                         }
                     }
                 } catch (Exception e) {
@@ -14814,16 +14829,26 @@ public class MessagesStorage extends BaseController {
                         NativeByteBuffer data = cursor.byteBufferValue(1);
                         if (data != null) {
                             TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
-                            message.readAttachPath(data, getUserConfig().clientUserId);
-                            data.reuse();
-                            addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, false);
-                            if (message.action instanceof TLRPC.TL_messageActionTopicCreate) {
-                                if (topicsToDelete == null) {
-                                    topicsToDelete = new ArrayList<>();
+                            if (message != null) {
+                                message.readAttachPath(data, getUserConfig().clientUserId);
+                                if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !(message instanceof TLRPC.TL_messageEmpty)) {
+                                    message.dialog_id = did;
+                                    var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
+                                    prefs.setDialogId(did);
+                                    com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs, false);
                                 }
-                                topicsToDelete.add(TopicKey.of(did, message.id));
+                                if (!xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+                                    addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, false);
+                                }
+                                if (message.action instanceof TLRPC.TL_messageActionTopicCreate) {
+                                    if (topicsToDelete == null) {
+                                        topicsToDelete = new ArrayList<>();
+                                    }
+                                    topicsToDelete.add(TopicKey.of(did, message.id));
+                                }
+                                topicId = MessageObject.getTopicId(currentAccount, message, getForumTypeFlags(did));
                             }
-                            topicId = MessageObject.getTopicId(currentAccount, message, getForumTypeFlags(did));
+                            data.reuse();
                         }
                         if (topicId != 0) {
                             TopicKey topicKey = TopicKey.of(did, topicId);
@@ -15023,6 +15048,11 @@ public class MessagesStorage extends BaseController {
                     database.executeFast(String.format(Locale.US, "DELETE FROM polls_v2 WHERE mid IN(%s) AND uid = %d", ids, did)).stepThis().dispose();
                     database.executeFast(String.format(Locale.US, "DELETE FROM bot_keyboard WHERE mid IN(%s) AND uid = %d", ids, did)).stepThis().dispose();
                     database.executeFast(String.format(Locale.US, "DELETE FROM bot_keyboard_topics WHERE mid IN(%s) AND uid = %d", ids, did)).stepThis().dispose();
+                    if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+                        final long didFinal = did;
+                        final ArrayList<Integer> midsFinal = new ArrayList<>(mids);
+                        AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, didFinal, midsFinal));
+                    }
                     if (unknownMessages.isEmpty()) {
                         cursor = database.queryFinalized(String.format(Locale.US, "SELECT uid, type FROM media_v4 WHERE mid IN(%s) AND uid = %d", ids, did));
                         SparseArray<LongSparseArray<Integer>> mediaCounts = null;
@@ -15489,15 +15519,26 @@ public class MessagesStorage extends BaseController {
                             }
                         }
                     }
-                    if (!DialogObject.isEncryptedDialog(did) && !deleteFiles) {
+                    boolean saveDeleted = xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool();
+                    if (!DialogObject.isEncryptedDialog(did) && !deleteFiles && !saveDeleted) {
                         continue;
                     }
                     NativeByteBuffer data = cursor.byteBufferValue(1);
                     if (data != null) {
                         TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
-                        message.readAttachPath(data, getUserConfig().clientUserId);
+                        if (message != null) {
+                            message.readAttachPath(data, getUserConfig().clientUserId);
+                            if (saveDeleted && !(message instanceof TLRPC.TL_messageEmpty)) {
+                                message.dialog_id = did;
+                                var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
+                                prefs.setDialogId(did);
+                                com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs, false);
+                            }
+                            if ((DialogObject.isEncryptedDialog(did) || deleteFiles) && !saveDeleted) {
+                                addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, false);
+                            }
+                        }
                         data.reuse();
-                        addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, false);
                     }
                 }
             } catch (Exception e) {
@@ -15566,6 +15607,10 @@ public class MessagesStorage extends BaseController {
             database.executeFast(String.format(Locale.US, "DELETE FROM media_v4 WHERE uid = %d AND mid <= %d", -channelId, mid)).stepThis().dispose();
             database.executeFast(String.format(Locale.US, "UPDATE media_counts_v2 SET old = 1 WHERE uid = %d", -channelId)).stepThis().dispose();
             database.executeFast(String.format(Locale.US, "UPDATE media_counts_topics SET old = 1 WHERE uid = %d", -channelId)).stepThis().dispose();
+            if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+                final long channelIdFinal = channelId;
+                AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, -channelIdFinal, new ArrayList<Integer>()));
+            }
             updateWidgets(dialogsIds);
             return dialogsIds;
         } catch (Exception e) {

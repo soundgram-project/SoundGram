@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">הצג את פרטי העסק בפרופילים</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">השתמש בצבעי פרופיל בכותרת המורחבת</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">הצג אמוג\'י פרופיל בכותרת המורחבת</string>
+    <string name="NM_HUB_SupportDevelopment">תמיכה בפיתוח</string>
 </resources>

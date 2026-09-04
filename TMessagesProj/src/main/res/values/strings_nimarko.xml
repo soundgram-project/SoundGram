@@ -500,4 +500,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">Show business details in profiles</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">Use profile colors in the expanded header</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">Show profile emoji in the expanded header</string>
+    <string name="NM_HUB_SupportDevelopment">Support development</string>
 </resources>

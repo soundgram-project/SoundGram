@@ -489,4 +489,5 @@
     <string name="NM_MP_ProfileBusinessPreview_Desc">نمایش جزئیات کسب و کار در نمایه ها</string>
     <string name="NM_MP_ProfileBackgroundColor_Desc">از رنگ های نمایه در هدر گسترش یافته استفاده کنید</string>
     <string name="NM_MP_ProfileBackgroundEmoji_Desc">ایموجی نمایه را در سرصفحه بازشده نمایش دهید</string>
+    <string name="NM_HUB_SupportDevelopment">حمایت از توسعه</string>
 </resources>
