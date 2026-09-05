@@ -42,6 +42,27 @@ public class AyuMessagesController {
     private static AyuMessagesController instance;
     private EditedMessageDao editedMessageDao;
     private DeletedMessageDao deletedMessageDao;
+    private final java.util.concurrent.ConcurrentHashMap<Long, java.util.HashSet<Integer>> skipSavingMessages = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public void skipSavingNextDelete(long dialogId, int messageId) {
+        skipSavingMessages.computeIfAbsent(dialogId, k -> new java.util.HashSet<>()).add(messageId);
+    }
+
+    public void skipSavingNextDelete(long dialogId, List<Integer> messageIds) {
+        if (messageIds == null || messageIds.isEmpty()) return;
+        skipSavingMessages.computeIfAbsent(dialogId, k -> new java.util.HashSet<>()).addAll(messageIds);
+    }
+
+    public boolean shouldSkipSaving(long dialogId, int messageId) {
+        java.util.HashSet<Integer> set = skipSavingMessages.get(dialogId);
+        if (set != null && set.remove(messageId)) {
+            if (set.isEmpty()) {
+                skipSavingMessages.remove(dialogId);
+            }
+            return true;
+        }
+        return false;
+    }
 
     private AyuMessagesController() {
         initializeAttachmentsFolder();
@@ -202,6 +223,10 @@ public class AyuMessagesController {
     }
 
     private void onMessageDeletedInner(AyuSavePreferences prefs) {
+        if (shouldSkipSaving(prefs.getDialogId(), prefs.getMessageId())) {
+            delete(prefs.getUserId(), prefs.getDialogId(), prefs.getMessageId());
+            return;
+        }
         if (!AyuSavePreferences.saveDeletedMessageFor(prefs.getAccountId(), prefs.getDialogId(), prefs.getFromUserId())) {
             return;
         }

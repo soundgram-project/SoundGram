@@ -1,6 +1,7 @@
 package app.nimarkogram.messenger.preferences;
 
 import android.view.View;
+import android.widget.LinearLayout;
 
 import com.radolyn.ayugram.messages.AyuMessagesController;
 import com.radolyn.ayugram.utils.AyuState;
@@ -12,8 +13,11 @@ import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.AlertDialog;
+import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Cells.CheckBoxCell;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.IconBackgroundColors;
+import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
 
@@ -56,7 +60,6 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
     @Override
     public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         // Section: Ghost Mode Master
-        items.add(UItem.asHeader(LocaleController.getString(R.string.GhostMode)));
         items.add(SettingsHelper.asSwitchCG(ID_GHOST_MASTER,
                         LocaleController.getString(R.string.GhostMode),
                         NekoConfig.isGhostModeActive()
@@ -114,7 +117,7 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
         items.add(UItem.asShadow(null));
 
         // Section: Deleted Messages (удалёнки)
-        items.add(UItem.asHeader(LocaleController.getString(R.string.EnableSaveDeletedMessages)));
+        items.add(UItem.asHeader(LocaleController.getString(R.string.SaveDeletedExclusionMenu)));
         items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED,
                         LocaleController.getString(R.string.EnableSaveDeletedMessages),
                         null)
@@ -153,7 +156,7 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
         items.add(UItem.asShadow(null));
 
         // Section: Edited Messages (изменёнки)
-        items.add(UItem.asHeader(LocaleController.getString(R.string.EnableSaveEditsHistory)));
+        items.add(UItem.asHeader(LocaleController.getString(R.string.EditsHistoryMenuText)));
         items.add(SettingsHelper.asSwitchCG(ID_SAVE_EDITS,
                         LocaleController.getString(R.string.EnableSaveEditsHistory),
                         null)
@@ -161,7 +164,7 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
         items.add(UItem.asShadow(null));
 
         // Section: Maintenance
-        items.add(UItem.asHeader(LocaleController.getString(R.string.ClearMessageDatabase)));
+        items.add(UItem.asHeader(LocaleController.getString(R.string.LocalDatabase)));
         items.add(asSettingsLink(ID_CLEAR_DATABASE, IconBackgroundColors.RED,
                 R.drawable.msg_clear_solar,
                 LocaleController.getString(R.string.ClearMessageDatabase)).red());
@@ -237,9 +240,20 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
                 listView.adapter.update(true);
             }
         } else if (id == ID_SAVE_MEDIA) {
-            NaConfig.INSTANCE.getMessageSavingSaveMedia().toggleConfigBool();
-            if (listView != null && listView.adapter != null) {
-                listView.adapter.update(true);
+            boolean clickedSwitch = view != null && x > view.getMeasuredWidth() - AndroidUtilities.dp(72);
+            if (clickedSwitch) {
+                NaConfig.INSTANCE.getMessageSavingSaveMedia().toggleConfigBool();
+                if (listView != null && listView.adapter != null) {
+                    listView.adapter.update(true);
+                }
+            } else {
+                if (!NaConfig.INSTANCE.getMessageSavingSaveMedia().Bool()) {
+                    NaConfig.INSTANCE.getMessageSavingSaveMedia().setConfigBool(true);
+                    if (listView != null && listView.adapter != null) {
+                        listView.adapter.update(true);
+                    }
+                }
+                showSaveMediaDialog();
             }
         } else if (id == ID_SAVE_DELETED_BOT) {
             NaConfig.INSTANCE.getSaveDeletedMessageForBot().toggleConfigBool();
@@ -288,5 +302,63 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
                     .makeRed(AlertDialog.BUTTON_POSITIVE)
                     .show();
         }
+    }
+
+    private void showSaveMediaDialog() {
+        if (getParentActivity() == null) return;
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle(LocaleController.getString(R.string.MessageSavingSaveMedia));
+
+        LinearLayout linearLayout = new LinearLayout(getParentActivity());
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+
+        String[] items = new String[] {
+            LocaleController.getString(R.string.MessageSavingSaveMediaInPrivateChats),
+            LocaleController.getString(R.string.MessageSavingSaveMediaInPublicChannels),
+            LocaleController.getString(R.string.MessageSavingSaveMediaInPrivateChannels),
+            LocaleController.getString(R.string.MessageSavingSaveMediaInPublicGroups),
+            LocaleController.getString(R.string.MessageSavingSaveMediaInPrivateGroups)
+        };
+
+        boolean[] checks = new boolean[] {
+            NaConfig.INSTANCE.getSaveMediaInPrivateChats().Bool(),
+            NaConfig.INSTANCE.getSaveMediaInPublicChannels().Bool(),
+            NaConfig.INSTANCE.getSaveMediaInPrivateChannels().Bool(),
+            NaConfig.INSTANCE.getSaveMediaInPublicGroups().Bool(),
+            NaConfig.INSTANCE.getSaveMediaInPrivateGroups().Bool()
+        };
+
+        for (int i = 0; i < items.length; i++) {
+            final int index = i;
+            CheckBoxCell cell = new CheckBoxCell(getParentActivity(), 1);
+            cell.setBackground(Theme.getSelectorDrawable(false));
+            cell.setText(items[i], "", checks[i], false);
+            cell.setOnClickListener(v -> {
+                checks[index] = !checks[index];
+                cell.setChecked(checks[index], true);
+                switch (index) {
+                    case 0:
+                        NaConfig.INSTANCE.getSaveMediaInPrivateChats().setConfigBool(checks[index]);
+                        break;
+                    case 1:
+                        NaConfig.INSTANCE.getSaveMediaInPublicChannels().setConfigBool(checks[index]);
+                        break;
+                    case 2:
+                        NaConfig.INSTANCE.getSaveMediaInPrivateChannels().setConfigBool(checks[index]);
+                        break;
+                    case 3:
+                        NaConfig.INSTANCE.getSaveMediaInPublicGroups().setConfigBool(checks[index]);
+                        break;
+                    case 4:
+                        NaConfig.INSTANCE.getSaveMediaInPrivateGroups().setConfigBool(checks[index]);
+                        break;
+                }
+            });
+            linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        }
+
+        builder.setView(linearLayout);
+        builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
+        showDialog(builder.create());
     }
 }

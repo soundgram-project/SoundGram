@@ -15536,7 +15536,57 @@ public class ChatActivity extends BaseFragment implements
         showFieldPanel(show, null, null, messageObjectsToForward, null, true, 0, null, false, 0, null, true, options);
     }
 
+    private void replyToDeletedMessage(MessageObject messageObjectToReply, ReplyQuote quote) {
+        if (messageObjectToReply == null || chatActivityEnterView == null) return;
+        String senderName = null;
+        if (messageObjectToReply.getSenderId() != 0) {
+            senderName = getMessagesController().getPeerName(messageObjectToReply.getSenderId());
+        }
+        if (TextUtils.isEmpty(senderName)) {
+            senderName = LocaleController.getString(R.string.HiddenName);
+        }
+
+        CharSequence replyText = null;
+        if (quote != null && !TextUtils.isEmpty(quote.text)) {
+            replyText = quote.text;
+        } else if (!TextUtils.isEmpty(messageObjectToReply.messageText)) {
+            replyText = messageObjectToReply.messageText;
+        } else if (messageObjectToReply.caption != null) {
+            replyText = messageObjectToReply.caption;
+        }
+
+        if (TextUtils.isEmpty(replyText)) {
+            if (messageObjectToReply.isPhoto()) replyText = "📷 " + LocaleController.getString(R.string.AttachPhoto);
+            else if (messageObjectToReply.isVideo()) replyText = "📹 " + LocaleController.getString(R.string.AttachVideo);
+            else if (messageObjectToReply.isVoice()) replyText = "🎤 " + LocaleController.getString(R.string.AttachAudio);
+            else if (messageObjectToReply.isMusic()) replyText = "🎵 " + LocaleController.getString(R.string.AttachMusic);
+            else if (messageObjectToReply.isDocument()) replyText = "📁 " + LocaleController.getString(R.string.AttachDocument);
+            else replyText = "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("**").append(senderName).append("**:\n");
+        String[] lines = replyText.toString().split("\n");
+        for (String line : lines) {
+            sb.append("> ").append(line).append("\n");
+        }
+        sb.append("\n");
+
+        CharSequence currentText = chatActivityEnterView.getFieldText();
+        String fullText = (TextUtils.isEmpty(currentText) ? "" : currentText.toString().trim() + "\n\n") + sb.toString();
+        chatActivityEnterView.setFieldText(fullText);
+        if (chatActivityEnterView.getEditField() != null) {
+            chatActivityEnterView.getEditField().setSelection(chatActivityEnterView.getEditField().length());
+            chatActivityEnterView.getEditField().requestFocus();
+        }
+        chatActivityEnterView.openKeyboard();
+    }
+
     public void showFieldPanelForReply(MessageObject messageObjectToReply) {
+        if (messageObjectToReply != null && messageObjectToReply.isAyuDeleted()) {
+            replyToDeletedMessage(messageObjectToReply, null);
+            return;
+        }
         // NimarkoGram (CG parity): auto-quote the full message text when the flag is on.
         // Skip in topics (matches CherrygramChatsConfig.autoQuoteReplies + !ChatsHelper.isTopic
         // gate in showFieldPanel's reply-icon branch).
@@ -15555,6 +15605,10 @@ public class ChatActivity extends BaseFragment implements
 
     public Runnable onHideFieldPanelRunnable;
     public void showFieldPanelForReplyQuote(MessageObject messageObjectToReply, ReplyQuote quote) {
+        if (messageObjectToReply != null && messageObjectToReply.isAyuDeleted()) {
+            replyToDeletedMessage(messageObjectToReply, quote);
+            return;
+        }
         showFieldPanel(true, messageObjectToReply, null, null, null, true, 0, quote, false, 0, true);
     }
 
@@ -27479,7 +27533,14 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                 }
-                boolean keepForAyu = xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()
+                boolean isAlreadyDeleted = obj.isAyuDeleted();
+                boolean shouldSkip = com.radolyn.ayugram.messages.AyuMessagesController.getInstance().shouldSkipSaving(dialog_id, mid);
+                if (isAlreadyDeleted || shouldSkip) {
+                    com.radolyn.ayugram.messages.AyuMessagesController.getInstance().delete(UserConfig.getInstance(currentAccount).clientUserId, dialog_id, mid);
+                }
+                boolean keepForAyu = !isAlreadyDeleted
+                        && !shouldSkip
+                        && xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()
                         && !obj.scheduled
                         && (obj.messageOwner != null && !(obj.messageOwner instanceof TLRPC.TL_messageEmpty))
                         && (currentChat == null || !currentChat.creator || !com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialog_id, mid))

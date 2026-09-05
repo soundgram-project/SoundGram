@@ -3957,8 +3957,11 @@ public class AudioPlayerAlert extends BottomSheet
             else
                 currentMs = (long) (playing.audioProgress * playing.getDuration() * 1000L);
         }
-        long adjustedMs = currentMs + 150;
-        int idx = 0;
+        float speed = soundgram.music.SoundGramAudioFX.getCurrentSpeed();
+        if (speed <= 0f) speed = 1.0f;
+        long leadMs = Math.round(30 * speed);
+        long adjustedMs = currentMs + leadMs;
+        int idx = -1;
         for (int i = lyricsLines.size() - 1; i >= 0; i--) {
             if (adjustedMs >= lyricsLines.get(i).timeMs) {
                 idx = i;
@@ -3966,15 +3969,18 @@ public class AudioPlayerAlert extends BottomSheet
             }
         }
         currentLyricIndex = idx;
-        lyricsView.jumpToIndex(idx);
+        lyricsView.jumpToIndex(Math.max(0, idx));
     }
 
     private void updateHighlight(long currentMs) {
-        if (isFetchingLyrics)
+        if (isFetchingLyrics || lyricsLines.isEmpty())
             return;
-        long adjustedMs = currentMs + 150;
+        float speed = soundgram.music.SoundGramAudioFX.getCurrentSpeed();
+        if (speed <= 0f) speed = 1.0f;
+        long leadMs = Math.round(30 * speed);
+        long adjustedMs = currentMs + leadMs;
 
-        int newActiveIndex = 0;
+        int newActiveIndex = -1;
         for (int i = lyricsLines.size() - 1; i >= 0; i--) {
             if (adjustedMs >= lyricsLines.get(i).timeMs) {
                 newActiveIndex = i;
@@ -5919,30 +5925,52 @@ public class AudioPlayerAlert extends BottomSheet
 
     // Вынесенный метод парсинга LRC в ArrayList (заменяет parseLrc)
     private void parseLrcIntoList(String lrcContent, ArrayList<LrcLine> out) {
+        if (TextUtils.isEmpty(lrcContent)) return;
         String[] lines = lrcContent.split("\n");
+        long offsetMs = 0;
+        java.util.regex.Pattern timePattern = java.util.regex.Pattern.compile("\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,3}))?\\]");
+        java.util.regex.Pattern offsetPattern = java.util.regex.Pattern.compile("(?i)\\[offset:\\s*([+-]?\\d+)\\]");
+
         for (String line : lines) {
             line = line.trim();
-            java.util.regex.Matcher matcher = java.util.regex.Pattern
-                    .compile("\\[(\\d{2,}):(\\d{2})(?:\\.(\\d{1,3}))?\\](.*)")
-                    .matcher(line);
-            while (matcher.find()) {
+            if (line.isEmpty()) continue;
+
+            java.util.regex.Matcher offsetMatcher = offsetPattern.matcher(line);
+            if (offsetMatcher.find()) {
                 try {
-                    int min = Integer.parseInt(matcher.group(1));
-                    int sec = Integer.parseInt(matcher.group(2));
-                    String msStr = matcher.group(3);
+                    offsetMs = Long.parseLong(offsetMatcher.group(1));
+                } catch (Exception ignored) {}
+                continue;
+            }
+
+            java.util.regex.Matcher timeMatcher = timePattern.matcher(line);
+            ArrayList<Long> timestamps = new ArrayList<>();
+            int lastMatchEnd = 0;
+            while (timeMatcher.find()) {
+                try {
+                    int min = Integer.parseInt(timeMatcher.group(1));
+                    int sec = Integer.parseInt(timeMatcher.group(2));
+                    String msStr = timeMatcher.group(3);
                     int ms = 0;
                     if (msStr != null) {
                         ms = Integer.parseInt(msStr);
-                        if (msStr.length() == 1)
-                            ms *= 100;
-                        else if (msStr.length() == 2)
-                            ms *= 10;
+                        if (msStr.length() == 1) ms *= 100;
+                        else if (msStr.length() == 2) ms *= 10;
                     }
                     long timeMs = min * 60000L + sec * 1000L + ms;
-                    String text = matcher.group(4).trim();
-                    if (!TextUtils.isEmpty(text))
-                        out.add(new LrcLine(timeMs, text));
-                } catch (Exception ignored) {
+                    timestamps.add(timeMs);
+                    lastMatchEnd = timeMatcher.end();
+                } catch (Exception ignored) {}
+            }
+
+            if (!timestamps.isEmpty()) {
+                String text = line.substring(lastMatchEnd).trim();
+                if (!TextUtils.isEmpty(text)) {
+                    for (long t : timestamps) {
+                        long finalTime = t + offsetMs;
+                        if (finalTime < 0) finalTime = 0;
+                        out.add(new LrcLine(finalTime, text));
+                    }
                 }
             }
         }
@@ -5974,6 +6002,10 @@ public class AudioPlayerAlert extends BottomSheet
         private int activeIndex = 0;
         private final java.util.HashMap<String, android.text.StaticLayout> layoutCache = new java.util.HashMap<>();
 
+        private float touchDownY;
+        private float touchDownX;
+        private boolean isClick;
+
         public LyricsView(Context context) {
             super(context);
             textPaint.setTextSize(BASE_TEXT_SIZE);
@@ -5988,6 +6020,39 @@ public class AudioPlayerAlert extends BottomSheet
                 scrollOffset = value;
                 invalidate();
             });
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    touchDownX = event.getX();
+                    touchDownY = event.getY();
+                    isClick = true;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (Math.abs(event.getX() - touchDownX) > AndroidUtilities.dp(10) ||
+                        Math.abs(event.getY() - touchDownY) > AndroidUtilities.dp(10)) {
+                        isClick = false;
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    if (isClick && !lyricsLines.isEmpty()) {
+                        int dynamicActiveY = Math.min(ACTIVE_Y, Math.max(AndroidUtilities.dp(120), getHeight() / 2));
+                        float deltaY = event.getY() - (dynamicActiveY + scrollOffset);
+                        int clickedIdx = Math.round(activeIndex + deltaY / ROW_HEIGHT);
+                        if (clickedIdx >= 0 && clickedIdx < lyricsLines.size()) {
+                            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+                            if (playing != null) {
+                                long targetMs = lyricsLines.get(clickedIdx).timeMs;
+                                MediaController.getInstance().seekToProgressMs(playing, targetMs);
+                                setActiveIndex(clickedIdx, true);
+                            }
+                        }
+                    }
+                    return true;
+            }
+            return super.onTouchEvent(event);
         }
 
         public void reset() {
@@ -6008,7 +6073,7 @@ public class AudioPlayerAlert extends BottomSheet
         }
 
         public void setActiveIndex(int index, boolean animate) {
-            if (index < 0 || lyricsLines.isEmpty()) return;
+            if (index < -1 || lyricsLines.isEmpty()) return;
             if (index == activeIndex && animate) return;
 
             if (!animate) {

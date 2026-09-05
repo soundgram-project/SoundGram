@@ -333,6 +333,12 @@ public final class NimarkoConfig {
         getEditor().putBoolean("iosStyleComposer", iosStyleComposer).apply();
     }
 
+    public static boolean swapAttachAndEmoji = getPreferences().getBoolean("swapAttachAndEmoji", false);
+    public static void toggleSwapAttachAndEmoji() {
+        swapAttachAndEmoji = !swapAttachAndEmoji;
+        getEditor().putBoolean("swapAttachAndEmoji", swapAttachAndEmoji).apply();
+    }
+
     public static final int SWITCH_STYLE_DEFAULT = 0;
     public static final int SWITCH_STYLE_ONEUI = 1;
     public static final int SWITCH_STYLE_MD3 = 2;

@@ -49,6 +49,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
     private final int onlineIndicatorRow = 19;
     private final int hideStickerTimeRow = 20;
     private final int iosStyleComposerRow = 21;
+    private final int swapAttachAndEmojiRow = 23;
     private final int localPremiumRow = 22;
 
     private final int foldersRow = 7;
@@ -106,6 +107,10 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
                         getString(R.string.NM_IOSStyleComposer),
                         getString(R.string.NM_IOSStyleComposer_Desc))
                 .setChecked(NimarkoConfig.iosStyleComposer));
+        items.add(SettingsHelper.asSwitchCG(swapAttachAndEmojiRow,
+                        getString(R.string.NM_SwapAttachAndEmoji),
+                        getString(R.string.NM_SwapAttachAndEmoji_Desc))
+                .setChecked(NimarkoConfig.swapAttachAndEmoji));
         items.add(SettingsHelper.asSwitchCG(hideBubbleTailRow,
                         getString(R.string.NM_HideBubbleTail),
                         getString(R.string.NM_HideBubbleTail_Desc))
@@ -254,6 +259,12 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         } else if (item.id == iosStyleComposerRow) {
             NimarkoConfig.toggleIosStyleComposer();
             updateCheckState(view, NimarkoConfig.iosStyleComposer);
+            if (getParentLayout() != null) {
+                getParentLayout().rebuildAllFragmentViews(false, false);
+            }
+        } else if (item.id == swapAttachAndEmojiRow) {
+            NimarkoConfig.toggleSwapAttachAndEmoji();
+            updateCheckState(view, NimarkoConfig.swapAttachAndEmoji);
             if (getParentLayout() != null) {
                 getParentLayout().rebuildAllFragmentViews(false, false);
             }

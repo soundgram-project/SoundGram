@@ -129,24 +129,52 @@ public class IconPackManager {
             addIconMapping(base.replace('_', '-'), relPath);
         }
 
-        // Strip common prefixes
-        String[] prefixes = {"ic_", "ic-", "icon_", "icon-", "msg_", "menu_", "chats_"};
-        String strippedPrefix = base;
-        for (String p : prefixes) {
-            if (strippedPrefix.startsWith(p)) {
-                strippedPrefix = strippedPrefix.substring(p.length());
-                addIconMapping(strippedPrefix, relPath);
-                if (strippedPrefix.contains("-")) addIconMapping(strippedPrefix.replace('-', '_'), relPath);
-                if (strippedPrefix.contains("_")) addIconMapping(strippedPrefix.replace('_', '-'), relPath);
-                break;
+        // Recursively strip common suffixes first
+        String[] suffixes = {"_solar", "_remix", "_filled", "_round", "_outline", "_solid", "_colored", "_24", "_dr", "_s", "_mini", "_active", "_pressed", "_fill", "_line", "_white", "_black", "2"};
+        String strippedSuffix = base;
+        boolean foundSuffix;
+        do {
+            foundSuffix = false;
+            for (String s : suffixes) {
+                if (strippedSuffix.endsWith(s)) {
+                    strippedSuffix = strippedSuffix.substring(0, strippedSuffix.length() - s.length());
+                    addIconMapping(strippedSuffix, relPath);
+                    if (strippedSuffix.contains("-")) addIconMapping(strippedSuffix.replace('-', '_'), relPath);
+                    if (strippedSuffix.contains("_")) addIconMapping(strippedSuffix.replace('_', '-'), relPath);
+                    foundSuffix = true;
+                    break;
+                }
             }
-        }
+        } while (foundSuffix && strippedSuffix.length() > 2);
+
+        // Recursively strip common prefixes
+        String[] prefixes = {"chats_filter_", "calls_menu_", "msg_mini_", "ic_ab_", "ic_", "ic-", "icon_", "icon-", "msg_", "menu_", "chats_", "filter_", "input_", "profile_", "calls_", "attach_", "tab_"};
+        String strippedPrefix = strippedSuffix;
+        boolean foundPrefix;
+        do {
+            foundPrefix = false;
+            for (String p : prefixes) {
+                if (strippedPrefix.startsWith(p)) {
+                    strippedPrefix = strippedPrefix.substring(p.length());
+                    addIconMapping(strippedPrefix, relPath);
+                    if (strippedPrefix.contains("-")) addIconMapping(strippedPrefix.replace('-', '_'), relPath);
+                    if (strippedPrefix.contains("_")) addIconMapping(strippedPrefix.replace('_', '-'), relPath);
+                    foundPrefix = true;
+                    break;
+                }
+            }
+        } while (foundPrefix && strippedPrefix.length() > 2);
 
         // Add all bidirectional aliases so Telegram resource names match pack icons immediately
         for (String fb : getFallbackNames(base)) {
             addIconMapping(fb, relPath);
         }
-        if (!strippedPrefix.equals(base)) {
+        if (!strippedSuffix.equals(base)) {
+            for (String fb : getFallbackNames(strippedSuffix)) {
+                addIconMapping(fb, relPath);
+            }
+        }
+        if (!strippedPrefix.equals(strippedSuffix)) {
             for (String fb : getFallbackNames(strippedPrefix)) {
                 addIconMapping(fb, relPath);
             }
@@ -725,12 +753,18 @@ public class IconPackManager {
 
         String base = name;
         String[] suffixes = {"_solar", "_remix", "_filled", "_round", "_outline", "_solid", "_colored", "2", "_24", "_dr", "_s", "_mini", "_active", "_pressed", "_fill", "_line", "_white", "_black"};
-        for (String s : suffixes) {
-            if (base.endsWith(s)) {
-                base = base.substring(0, base.length() - s.length());
-                if (!list.contains(base)) list.add(base);
+        boolean foundSuffix;
+        do {
+            foundSuffix = false;
+            for (String s : suffixes) {
+                if (base.endsWith(s)) {
+                    base = base.substring(0, base.length() - s.length());
+                    if (!list.contains(base)) list.add(base);
+                    foundSuffix = true;
+                    break;
+                }
             }
-        }
+        } while (foundSuffix && base.length() > 2);
 
         if (base.contains("arrowright")) list.add(base.replace("arrowright", "arrow_right"));
         if (base.contains("arrowleft")) list.add(base.replace("arrowleft", "arrow_left"));
@@ -740,15 +774,24 @@ public class IconPackManager {
         if (base.contains("arrow_left")) list.add(base.replace("arrow_left", "arrowleft"));
 
         String stripped = base;
-        String[] prefixes = {"msg_", "menu_", "chats_", "ic_ab_", "ic_", "chats_filter_", "filter_", "msg2_", "input_", "profile_", "calls_", "calls_menu_", "attach_"};
-        for (String p : prefixes) {
-            if (stripped.startsWith(p)) {
-                stripped = stripped.substring(p.length());
-                break;
+        String[] prefixes = {"chats_filter_", "calls_menu_", "msg_mini_", "ic_ab_", "ic_", "msg2_", "input_", "profile_", "calls_", "attach_", "tab_", "menu_", "chats_", "filter_", "msg_"};
+        boolean foundPrefix;
+        do {
+            foundPrefix = false;
+            for (String p : prefixes) {
+                if (stripped.startsWith(p)) {
+                    stripped = stripped.substring(p.length());
+                    foundPrefix = true;
+                    break;
+                }
             }
-        }
+        } while (foundPrefix && stripped.length() > 2);
 
         if (!list.contains(stripped)) list.add(stripped);
+
+        // Common aliases
+        if ("close".equals(stripped) || "cancel".equals(stripped) || "clear".equals(stripped) || "cross".equals(stripped)) { list.add("msg_close"); list.add("close"); list.add("cancel"); list.add("clear"); list.add("ic_close"); list.add("navigation_close"); }
+        if ("add".equals(stripped) || "plus".equals(stripped) || "create".equals(stripped)) { list.add("msg_add"); list.add("add"); list.add("plus"); list.add("create"); }
 
         // Common aliases
         if ("settings".equals(stripped) || "preferences".equals(stripped)) { list.add("msg_settings"); list.add("menu_settings"); list.add("tab_settings"); list.add("settings_tab"); list.add("preferences"); list.add("settings"); list.add("gear"); list.add("cog"); }

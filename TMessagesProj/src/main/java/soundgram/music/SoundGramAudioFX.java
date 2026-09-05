@@ -10,8 +10,10 @@ import android.media.audiofx.Virtualizer;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MessageObject;
+import org.telegram.messenger.R;
 import java.util.ArrayList;
 
 public class SoundGramAudioFX {
@@ -67,30 +69,55 @@ public class SoundGramAudioFX {
         PresetReverb.PRESET_PLATE
     };
 
+    public static String getLocalizedReverbPresetName(int i) {
+        int[] resIds = {
+            R.string.sg_reverb_none,
+            R.string.sg_reverb_smallroom,
+            R.string.sg_reverb_mediumroom,
+            R.string.sg_reverb_largeroom,
+            R.string.sg_reverb_mediumhall,
+            R.string.sg_reverb_largehall,
+            R.string.sg_reverb_plate
+        };
+        if (i >= 0 && i < resIds.length) {
+            return LocaleController.getString(resIds[i]);
+        }
+        return (i >= 0 && i < REVERB_PRESET_NAMES.length) ? REVERB_PRESET_NAMES[i] : "";
+    }
+
     private static SharedPreferences getPrefs() {
         return ApplicationLoader.applicationContext.getSharedPreferences("soundgram_fx", Context.MODE_PRIVATE);
     }
 
+    public static void releaseEffects() {
+        if (equalizer != null) { try { equalizer.release(); } catch (Exception ignored) {} equalizer = null; }
+        if (bassBoost != null) { try { bassBoost.release(); } catch (Exception ignored) {} bassBoost = null; }
+        if (reverb != null) { try { reverb.release(); } catch (Exception ignored) {} reverb = null; }
+        if (virtualizer != null) { try { virtualizer.release(); } catch (Exception ignored) {} virtualizer = null; }
+        if (android.os.Build.VERSION.SDK_INT >= 19 && loudnessEnhancer != null) {
+            try { loudnessEnhancer.release(); } catch (Exception ignored) {} loudnessEnhancer = null;
+        }
+    }
+
     public static void attach(int audioSessionId) {
-        initFX(audioSessionId);
+        initFX(audioSessionId, true);
     }
 
     public static void detach() {
         currentSessionId = -1;
         applyEqualizerState(false);
+        releaseEffects();
     }
 
     public static void initFX(int audioSessionId) {
+        initFX(audioSessionId, true);
+    }
+
+    public static void initFX(int audioSessionId, boolean force) {
         if (audioSessionId <= 0) return;
         try {
-            if (currentSessionId != audioSessionId) {
-                if (equalizer != null) { equalizer.release(); equalizer = null; }
-                if (bassBoost != null) { bassBoost.release(); bassBoost = null; }
-                if (reverb != null) { reverb.release(); reverb = null; }
-                if (virtualizer != null) { virtualizer.release(); virtualizer = null; }
-                if (android.os.Build.VERSION.SDK_INT >= 19 && loudnessEnhancer != null) {
-                    loudnessEnhancer.release(); loudnessEnhancer = null;
-                }
+            if (force || currentSessionId != audioSessionId || equalizer == null) {
+                releaseEffects();
                 currentSessionId = audioSessionId;
             }
 

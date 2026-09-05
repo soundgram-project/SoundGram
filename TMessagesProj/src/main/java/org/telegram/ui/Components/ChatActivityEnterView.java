@@ -16107,7 +16107,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachLayout.setTranslationX(attachLayoutPaddingTranslationX + attachLayoutTranslationX);
             attachLayout.setAlpha(attachLayoutAlpha * attachLayoutPaddingAlpha);
             attachLayout.setVisibility(attachLayout.getAlpha() > 0 ? View.VISIBLE : View.GONE);
-            if (attachButton != null && (isStories || separatedComposerLayout)) {
+            if (attachButton != null && (isStories || (separatedComposerLayout && !app.nimarkogram.messenger.NimarkoConfig.swapAttachAndEmoji))) {
                 attachButton.setAlpha(attachButtonAlpha * attachLayoutPaddingAlpha);
             }
         }
@@ -16122,8 +16122,11 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     private void updateAttachButtonTranslationX() {
         if (attachButton == null) return;
-        if (separatedComposerLayout) {
+        boolean swap = app.nimarkogram.messenger.NimarkoConfig.swapAttachAndEmoji;
+        if (separatedComposerLayout && !swap) {
             attachButton.setTranslationX(separatedAttachPaddingTranslationX);
+        } else if (separatedComposerLayout && swap) {
+            attachButton.setTranslationX(0);
         } else {
             attachButton.setTranslationX(attachLayoutPaddingTranslationX + attachLayoutTranslationX + (sendButton != null ? (
                 -Math.max(0, sendButton.width() - dp(DEFAULT_HEIGHT + 12)) * sendButton.getAlpha()
@@ -16135,6 +16138,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         emojiButton.setScaleX(emojiButtonPaddingScale * emojiButtonScale);
         emojiButton.setScaleY(emojiButtonPaddingScale * emojiButtonScale);
         emojiButton.setAlpha(emojiButtonPaddingAlpha * emojiButtonAlpha);
+        if (separatedComposerLayout && app.nimarkogram.messenger.NimarkoConfig.swapAttachAndEmoji) {
+            emojiButton.setTranslationX(separatedAttachPaddingTranslationX);
+        }
     }
 
     public void setOverrideHint(CharSequence overrideHint) {
@@ -16947,12 +16953,17 @@ public class ChatActivityEnterView extends FrameLayout implements
             richButton.setLayoutParams(richParams);
         }
 
-        updateComposerTrailingButtonLayout(emojiButton, enabled);
+        final boolean swap = app.nimarkogram.messenger.NimarkoConfig.swapAttachAndEmoji;
+        View leadingButton = swap ? emojiButton : attachButton;
+        View trailingButton = swap ? attachButton : emojiButton;
+
+        updateComposerTrailingButtonLayout(trailingButton, enabled);
         updateComposerTrailingButtonLayout(deleteRichDraftButton, enabled);
-        attachButton.setBackground(enabled
+        leadingButton.setBackground(enabled
                 ? Theme.createInsetRoundRectDrawable(
                     getThemedColor(Theme.key_listSelector), dp(22), 0, 0)
                 : Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
+        trailingButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
         if (audioVideoButtonContainer != null) {
             audioVideoButtonContainer.setBackground(enabled
                     ? Theme.createInsetRoundRectDrawable(
@@ -16976,13 +16987,17 @@ public class ChatActivityEnterView extends FrameLayout implements
 
         if (enabled) {
             ensureSeparatedComposerLeadingContainer();
-            reparentComposerControl(attachButton, separatedComposerLeadingContainer,
+            reparentComposerControl(leadingButton, separatedComposerLeadingContainer,
                     LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT));
+            reparentComposerControl(trailingButton, messageEditTextContainer,
+                    LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 2, 0));
             reparentComposerControl(aiButton, separatedComposerLeadingContainer,
                     LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.TOP | Gravity.LEFT));
             separatedComposerLeadingContainer.setVisibility(VISIBLE);
         } else {
-            reparentComposerControl(attachButton, messageEditTextContainer,
+            reparentComposerControl(swap ? attachButton : emojiButton, messageEditTextContainer,
+                    LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT, 2, 0, 0, 0));
+            reparentComposerControl(swap ? emojiButton : attachButton, messageEditTextContainer,
                     LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
             reparentComposerControl(aiButton, textFieldContainer,
                     LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.TOP | Gravity.LEFT, 0, 1, 0, 0));

@@ -5567,7 +5567,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             // Бейдж верификации «✓ ИСПОЛНИТЕЛЬ»
             TextView verifiedBadge = new TextView(context);
-            verifiedBadge.setText("✓ ИСПОЛНИТЕЛЬ");
+            verifiedBadge.setText(getString(R.string.MusicVerifiedArtist));
             verifiedBadge.setTextColor(0xFFFFFFFF);
             verifiedBadge.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
             verifiedBadge.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
@@ -6682,13 +6682,23 @@ public static class ChipCell extends FrameLayout {
 
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            return new RecyclerListView.Holder(new ChipCell(mContext));
+            TextView chip = new TextView(mContext);
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            chip.setGravity(Gravity.CENTER);
+            chip.setSingleLine(true);
+            chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            chip.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8));
+            chip.setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    AndroidUtilities.dp(40)));
+            return new RecyclerListView.Holder(chip);
         }
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
             TextView chip = (TextView) holder.itemView;
             String genre = items[position];
+            chip.setText(getLocalizedGenre(genre));
             boolean isSelected = (position == selectedIndex);
             chip.setContentDescription(LocaleController.formatString(isSelected ? "AccDescrMusicGenreSelected" : "AccDescrMusicGenre", isSelected ? R.string.AccDescrMusicGenreSelected : R.string.AccDescrMusicGenre, getLocalizedGenre(genre)));
             chip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);

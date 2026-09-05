@@ -4133,6 +4133,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         isPaused = false;
         lastProgress = 0;
         playingMessageObject = messageObject;
+        if (messageObject != null && messageObject.isMusic()) {
+            soundgram.music.SoundGramAudioFX.applyFXForCurrentMessage();
+        }
         if (!SharedConfig.enabledRaiseTo(true)) {
             startRaiseToEarSensors(raiseChat);
         }

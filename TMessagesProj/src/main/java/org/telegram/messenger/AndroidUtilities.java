@@ -2055,21 +2055,24 @@ public class AndroidUtilities {
                 }
             }
         }
-        if (pathString != null) {
+        if (pathString != null && !pathString.isEmpty()) {
             try {
                 String path = new File(pathString).getCanonicalPath();
                 if (path != null) {
                     pathString = path;
                 }
             } catch (Exception e) {
-                pathString.replace("/./", "/");
+                pathString = pathString.replace("/./", "/");
                 //igonre
             }
+        }
+        if (pathString == null || pathString.isEmpty()) {
+            return false;
         }
         if (pathString.endsWith(".attheme")) {
             return false;
         }
-        return pathString != null && pathString.toLowerCase().contains("/data/data/" + ApplicationLoader.applicationContext.getPackageName());
+        return pathString.toLowerCase().contains("/data/data/" + ApplicationLoader.applicationContext.getPackageName());
     }
 
     @SuppressLint("WrongConstant")

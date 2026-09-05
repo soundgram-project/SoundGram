@@ -7930,6 +7930,7 @@ public class AlertsCreator {
         // NimarkoGram (CG parity): default the delete-for-all checkbox to the user's
         // saved preference so they don't have to re-check it each time.
         final boolean[] deleteForAll = {app.nimarkogram.messenger.NimarkoConfig.deleteForAll};
+        final boolean[] saveForMyself = {true};
         boolean canRevokeInbox = user != null && MessagesController.getInstance(currentAccount).canRevokePmInbox;
         int revokeTimeLimit;
         if (user != null) {
@@ -8063,7 +8064,8 @@ public class AlertsCreator {
                 return;
             } else if (!hasNotOut && myMessagesCount > 0 && hasNonDiceMessages) {
                 hasDeleteForAllCheck = true;
-                FrameLayout frameLayout = new FrameLayout(activity);
+                LinearLayout linearLayout = new LinearLayout(activity);
+                linearLayout.setOrientation(LinearLayout.VERTICAL);
                 CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
                 cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
                 if (chat != null && hasNotOut) {
@@ -8077,13 +8079,25 @@ public class AlertsCreator {
                     deleteForAll[0] = true;
                     cell.setChecked(true, false);
                 }
-                frameLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
+                linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
                 cell.setOnClickListener(v -> {
                     CheckBoxCell cell12 = (CheckBoxCell) v;
                     deleteForAll[0] = !deleteForAll[0];
                     cell12.setChecked(deleteForAll[0], true);
                 });
-                builder.setView(frameLayout);
+
+                CheckBoxCell saveCell = new CheckBoxCell(activity, 1, resourcesProvider);
+                saveCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+                saveCell.setText(LocaleController.getString(R.string.SaveForMyself), "", saveForMyself[0], false);
+                saveCell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
+                saveCell.setChecked(saveForMyself[0], false);
+                saveCell.setOnClickListener(v -> {
+                    saveForMyself[0] = !saveForMyself[0];
+                    saveCell.setChecked(saveForMyself[0], true);
+                });
+                linearLayout.addView(saveCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+
+                builder.setView(linearLayout);
                 builder.setCustomViewOffset(9);
             }
         } else if (!scheduled && !isSavedMessages && !ChatObject.isChannel(chat) && encryptedChat == null) {
@@ -8125,7 +8139,8 @@ public class AlertsCreator {
             }
             if (myMessagesCount > 0 && hasNonDiceMessages && (user == null || !UserObject.isDeleted(user))) {
                 hasDeleteForAllCheck = true;
-                FrameLayout frameLayout = new FrameLayout(activity);
+                LinearLayout linearLayout = new LinearLayout(activity);
+                linearLayout.setOrientation(LinearLayout.VERTICAL);
                 CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
                 cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
                 // NimarkoGram (CG parity): show the checkbox pre-checked when the user
@@ -8143,13 +8158,25 @@ public class AlertsCreator {
                     deleteForAll[0] = true;
                     cell.setChecked(true, false);
                 }
-                frameLayout.addView(cell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
+                linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
                 cell.setOnClickListener(v -> {
                     CheckBoxCell cell1 = (CheckBoxCell) v;
                     deleteForAll[0] = !deleteForAll[0];
                     cell1.setChecked(deleteForAll[0], true);
                 });
-                builder.setView(frameLayout);
+
+                CheckBoxCell saveCell = new CheckBoxCell(activity, 1, resourcesProvider);
+                saveCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+                saveCell.setText(LocaleController.getString(R.string.SaveForMyself), "", saveForMyself[0], false);
+                saveCell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
+                saveCell.setChecked(saveForMyself[0], false);
+                saveCell.setOnClickListener(v -> {
+                    saveForMyself[0] = !saveForMyself[0];
+                    saveCell.setChecked(saveForMyself[0], true);
+                });
+                linearLayout.addView(saveCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+
+                builder.setView(linearLayout);
                 builder.setCustomViewOffset(9);
             }
         }
@@ -8195,6 +8222,12 @@ public class AlertsCreator {
                     thisDialogId = mergeDialogId;
                 }
                 if (!ids.isEmpty()) {
+                    if (!saveForMyself[0]) {
+                        com.radolyn.ayugram.messages.AyuMessagesController.getInstance().skipSavingNextDelete(thisDialogId, ids);
+                        for (int mid : ids) {
+                            com.radolyn.ayugram.utils.AyuState.permitDeleteMessage(thisDialogId, mid);
+                        }
+                    }
                     MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, thisDialogId, topicId, deleteForAll[0], mode);
                 }
                 for (MessageObject msg: ephemeralMessages) {
@@ -8216,7 +8249,14 @@ public class AlertsCreator {
                             }
                         }
                     }
-                    MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, (a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId, topicId, deleteForAll[0], mode);
+                    long targetDid = (a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId;
+                    if (!saveForMyself[0]) {
+                        com.radolyn.ayugram.messages.AyuMessagesController.getInstance().skipSavingNextDelete(targetDid, ids);
+                        for (int mid : ids) {
+                            com.radolyn.ayugram.utils.AyuState.permitDeleteMessage(targetDid, mid);
+                        }
+                    }
+                    MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, targetDid, topicId, deleteForAll[0], mode);
                     selectedMessages[a].clear();
                 }
             }

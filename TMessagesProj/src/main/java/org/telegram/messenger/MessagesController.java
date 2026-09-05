@@ -9438,16 +9438,23 @@ public class MessagesController extends BaseController implements NotificationCe
                 });
             } else if ((messages != null && !messages.isEmpty())) {
                 var userId = UserConfig.getInstance(currentAccount).clientUserId;
-                ArrayList<Integer> permittedForAyuDeletion = new ArrayList<>();
+                ArrayList<Integer> toDeleteFromAyu = new ArrayList<>();
                 for (var msgId : messages) {
-                    if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId)) {
-                        permittedForAyuDeletion.add(msgId);
+                    if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId) || ayuMessagesController.shouldSkipSaving(dialogId, msgId)) {
+                        toDeleteFromAyu.add(msgId);
                     }
                 }
-                var existingMessageIds = ayuMessagesController.getExistingMessageIds(userId, dialogId, permittedForAyuDeletion);
-                if (!existingMessageIds.isEmpty()) {
-                    Utilities.globalQueue.postRunnable(() -> ayuMessagesController.deleteMessages(userId, dialogId, existingMessageIds));
-                    ayuDeletedMessagesCount = existingMessageIds.size();
+                var existingMessageIds = ayuMessagesController.getExistingMessageIds(userId, dialogId, messages);
+                if (existingMessageIds != null) {
+                    for (int mid : existingMessageIds) {
+                        if (!toDeleteFromAyu.contains(mid)) {
+                            toDeleteFromAyu.add(mid);
+                        }
+                    }
+                }
+                if (!toDeleteFromAyu.isEmpty()) {
+                    Utilities.globalQueue.postRunnable(() -> ayuMessagesController.deleteMessages(userId, dialogId, toDeleteFromAyu));
+                    ayuDeletedMessagesCount = toDeleteFromAyu.size();
                 }
             }
         }
