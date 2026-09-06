@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">Kein Online-Status senden</string>
+    <string name="DontReadStoriesPackets">Stories nicht lesen</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… in öffentlichen Gruppen</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… in öffentlichen Kanälen</string>
+    <string name="GhostEssentialsHeader">Geist-Modus</string>
+    <string name="SaveDeletedMessageForBotUser">Bot-Nachrichten speichern</string>
+    <string name="EnableSaveEditsHistory">Bearbeitungsverlauf speichern</string>
+    <string name="ClearMessageDatabase">Nachrichtendatenbank leeren</string>
+    <string name="DontSendReadMessagePackets">Nachrichten nicht lesen</string>
+    <string name="SaveDeletedMessageForBot">In Bot-Chats speichern</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… in privaten Gruppen</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… in privaten Chats</string>
+    <string name="ClearMessageDatabaseNotification">Nachrichtendatenbank geleert.</string>
+    <string name="MessageSavingSaveMedia">Medien speichern</string>
+    <string name="MessageSavingSaveMediaHint">Klicken für mehr.</string>
+    <string name="TranslucentDeletedMessages">Halbtransparente gelöschte Nachrichten</string>
+    <string name="DontSendUploadProgress">Tipp-Status nicht senden</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… in privaten Kanälen</string>
+    <string name="EnableSaveDeletedMessages">Gelöschte Nachrichten speichern</string>
+</resources>

@@ -1846,3 +1846,129 @@ STRINGS_UZ = {
     'AccDescrEqualizer': 'Ekvayzer',
 }
 
+
+# Added SoundGram Settings Localization
+STRINGS_TR.update({
+    'NimarkoGramSettings': 'SoundGram Ayarları',
+    'NM_Cat_General': 'Genel',
+    'NM_Cat_Appearance': 'Görünüm',
+    'NM_Cat_Chats': 'Sohbetler',
+    'NM_Cat_Camera': 'Kamera',
+    'NM_Cat_Privacy': 'Gizlilik',
+    'NM_WSB_Title': 'Engelleme Aşma',
+    'NM_HUB_Debug': 'Hata Ayıklama',
+    'NM_HUB_Restart': 'Uygulamayı Yeniden Başlat',
+    'UP_CheckForUpdates': 'Uygulamayı Güncelle',
+    'NM_TA_Title': 'Metin Animasyonu',
+    'NM_HUB_SupportDevelopment': 'Geliştirmeyi Destekle',
+    'AP_Header_General': 'Genel',
+    'NM_HUB_Header_Misc': 'Çeşitli',
+    'NM_HUB_Header_Advanced': 'Gelişmiş',
+    'NM_HUB_Header_Other': 'Diğer',
+    'NM_Cat_Miscellaneous': 'Çeşitli',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_AR.update({
+    'NimarkoGramSettings': 'إعدادات SoundGram',
+    'NM_Cat_General': 'عام',
+    'NM_Cat_Appearance': 'المظهر',
+    'NM_Cat_Chats': 'المحادثات',
+    'NM_Cat_Camera': 'الكاميرا',
+    'NM_Cat_Privacy': 'الخصوصية',
+    'NM_WSB_Title': 'تجاوز الحجب',
+    'NM_HUB_Debug': 'تصحيح الأخطاء',
+    'NM_HUB_Restart': 'إعادة تشغيل التطبيق',
+    'UP_CheckForUpdates': 'تحديث التطبيق',
+    'NM_TA_Title': 'حركة النص',
+    'NM_HUB_SupportDevelopment': 'دعم التطوير',
+    'AP_Header_General': 'عام',
+    'NM_HUB_Header_Misc': 'متنوعات',
+    'NM_HUB_Header_Advanced': 'متقدم',
+    'NM_HUB_Header_Other': 'أخرى',
+    'NM_Cat_Miscellaneous': 'متنوعات',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_FA.update({
+    'NimarkoGramSettings': 'تنظیمات SoundGram',
+    'NM_Cat_General': 'عمومی',
+    'NM_Cat_Appearance': 'ظاهر',
+    'NM_Cat_Chats': 'گفتگوها',
+    'NM_Cat_Camera': 'دوربین',
+    'NM_Cat_Privacy': 'حریم خصوصی',
+    'NM_WSB_Title': 'دور زدن محدودیت',
+    'NM_HUB_Debug': 'اشکال‌زدایی',
+    'NM_HUB_Restart': 'راه‌اندازی مجدد برنامه',
+    'UP_CheckForUpdates': 'به‌روزرسانی برنامه',
+    'NM_TA_Title': 'متحرک‌سازی متن',
+    'NM_HUB_SupportDevelopment': 'حمایت از توسعه',
+    'AP_Header_General': 'عمومی',
+    'NM_HUB_Header_Misc': 'متفرقه',
+    'NM_HUB_Header_Advanced': 'پیشرفته',
+    'NM_HUB_Header_Other': 'دیگر',
+    'NM_Cat_Miscellaneous': 'متفرقه',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_IW.update({
+    'NimarkoGramSettings': 'הגדרות SoundGram',
+    'NM_Cat_General': 'כללי',
+    'NM_Cat_Appearance': 'מראה',
+    'NM_Cat_Chats': 'צ\'אטים',
+    'NM_Cat_Camera': 'מצלמה',
+    'NM_Cat_Privacy': 'פרטיות',
+    'NM_WSB_Title': 'עקיפת חסימות',
+    'NM_HUB_Debug': 'ניפוי שגיאות',
+    'NM_HUB_Restart': 'הפעל מחדש את האפליקציה',
+    'UP_CheckForUpdates': 'עדכן אפליקציה',
+    'NM_TA_Title': 'אנימציית טקסט',
+    'NM_HUB_SupportDevelopment': 'תמיכה בפיתוח',
+    'AP_Header_General': 'כללי',
+    'NM_HUB_Header_Misc': 'שונות',
+    'NM_HUB_Header_Advanced': 'מתקדם',
+    'NM_HUB_Header_Other': 'אחר',
+    'NM_Cat_Miscellaneous': 'שונות',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_AZ.update({
+    'NimarkoGramSettings': 'SoundGram Parametrləri',
+    'NM_Cat_General': 'Ümumi',
+    'NM_Cat_Appearance': 'Görünüş',
+    'NM_Cat_Chats': 'Söhbətlər',
+    'NM_Cat_Camera': 'Kamera',
+    'NM_Cat_Privacy': 'Məxfilik',
+    'NM_WSB_Title': 'Blokadadan yan keçmə',
+    'NM_HUB_Debug': 'Sazlama',
+    'NM_HUB_Restart': 'Tətbiqi yenidən başlat',
+    'UP_CheckForUpdates': 'Tətbiqi yenilə',
+    'NM_TA_Title': 'Mətn animasiyası',
+    'NM_HUB_SupportDevelopment': 'İnkişafı dəstəklə',
+    'AP_Header_General': 'Ümumi',
+    'NM_HUB_Header_Misc': 'Müxtəlif',
+    'NM_HUB_Header_Advanced': 'Təkmilləşdirilmiş',
+    'NM_HUB_Header_Other': 'Digər',
+    'NM_Cat_Miscellaneous': 'Müxtəlif',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_UZ.update({
+    'NimarkoGramSettings': 'SoundGram Sozlamalari',
+    'NM_Cat_General': 'Umumiy',
+    'NM_Cat_Appearance': 'Ko‘rinish',
+    'NM_Cat_Chats': 'Chatlar',
+    'NM_Cat_Camera': 'Kamera',
+    'NM_Cat_Privacy': 'Maxfiylik',
+    'NM_WSB_Title': 'Blokirovkani aylanib o‘tish',
+    'NM_HUB_Debug': 'Nosozliklarni tuzatish',
+    'NM_HUB_Restart': 'Ilovani qayta ishga tushirish',
+    'UP_CheckForUpdates': 'Ilovani yangilash',
+    'NM_TA_Title': 'Matn animatsiyasi',
+    'NM_HUB_SupportDevelopment': 'Rivojlanishni qo‘llab-quvvatlash',
+    'AP_Header_General': 'Umumiy',
+    'NM_HUB_Header_Misc': 'Turli',
+    'NM_HUB_Header_Advanced': 'Kengaytirilgan',
+    'NM_HUB_Header_Other': 'Boshqa',
+    'NM_Cat_Miscellaneous': 'Turli',
+})

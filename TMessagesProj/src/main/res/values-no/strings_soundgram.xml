@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Gjenta</string>
     <string name="AccDescrShuffle">Tilfeldig rekkefølge</string>
     <string name="AccDescrEqualizer">Equalizer</string>
+    <string name="NimarkoGramSettings">SoundGram-innstillinger</string>
+    <string name="NM_Cat_General">Generelt</string>
+    <string name="NM_Cat_Appearance">Utseende</string>
+    <string name="NM_Cat_Chats">Chatter</string>
+    <string name="NM_Cat_Camera">Kamera</string>
+    <string name="NM_Cat_Privacy">Personvern</string>
+    <string name="NM_WSB_Title">Omgåelse</string>
+    <string name="NM_HUB_Debug">Feilsøking</string>
+    <string name="NM_HUB_Restart">Start appen på nytt</string>
+    <string name="UP_CheckForUpdates">Oppdater appen</string>
+    <string name="AP_Header_General">Generelt</string>
+    <string name="NM_HUB_Header_Misc">Diverse</string>
+    <string name="NM_HUB_Header_Advanced">Avansert</string>
+    <string name="NM_HUB_Header_Other">Annet</string>
+    <string name="NM_Cat_Miscellaneous">Diverse</string>
 </resources>

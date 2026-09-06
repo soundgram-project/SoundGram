@@ -910,11 +910,13 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public int getMaxUserReactionsCount() {
-        return getUserConfig().isPremium() ? reactionsUserMaxPremium : reactionsUserMaxDefault;
+        TLRPC.User user = getUserConfig().getCurrentUser();
+        return (user != null && user.premium) ? reactionsUserMaxPremium : reactionsUserMaxDefault;
     }
 
     public int getChatReactionsCount() {
-        return getUserConfig().isPremium() ? reactionsInChatMax : 1;
+        TLRPC.User user = getUserConfig().getCurrentUser();
+        return (user != null && user.premium) ? reactionsInChatMax : 1;
     }
 
     public int getChatMaxUniqReactions(long dialogId) {
@@ -9442,14 +9444,6 @@ public class MessagesController extends BaseController implements NotificationCe
                 for (var msgId : messages) {
                     if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId) || ayuMessagesController.shouldSkipSaving(dialogId, msgId)) {
                         toDeleteFromAyu.add(msgId);
-                    }
-                }
-                var existingMessageIds = ayuMessagesController.getExistingMessageIds(userId, dialogId, messages);
-                if (existingMessageIds != null) {
-                    for (int mid : existingMessageIds) {
-                        if (!toDeleteFromAyu.contains(mid)) {
-                            toDeleteFromAyu.add(mid);
-                        }
                     }
                 }
                 if (!toDeleteFromAyu.isEmpty()) {

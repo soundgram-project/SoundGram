@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">Onlayn göndərmə</string>
+    <string name="DontReadStoriesPackets">Hekayələri oxuma</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… açıq qruplarda</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… açıq kanallarda</string>
+    <string name="GhostEssentialsHeader">Ruh rejimi</string>
+    <string name="SaveDeletedMessageForBotUser">Bot mesajlarını saxla</string>
+    <string name="EnableSaveEditsHistory">Düzəliş tarixçəsini saxla</string>
+    <string name="ClearMessageDatabase">Mesaj məlumat bazasını təmizlə</string>
+    <string name="DontSendReadMessagePackets">Mesajları oxuma</string>
+    <string name="SaveDeletedMessageForBot">Bot çatlarında saxla</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… gizli qruplarda</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… şəxsi çatlarda</string>
+    <string name="ClearMessageDatabaseNotification">Mesaj məlumat bazası təmizləndi.</string>
+    <string name="MessageSavingSaveMedia">Medianı saxla</string>
+    <string name="MessageSavingSaveMediaHint">Ətraflı məlumat üçün klikləyin.</string>
+    <string name="TranslucentDeletedMessages">Yarımşəffaf silinmiş mesajlar</string>
+    <string name="DontSendUploadProgress">Yazır göndərmə</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… gizli kanallarda</string>
+    <string name="EnableSaveDeletedMessages">Silinmiş mesajları saxla</string>
+</resources>

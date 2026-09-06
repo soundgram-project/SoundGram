@@ -8225,19 +8225,13 @@ public class Theme {
         destroyResources();
         dividerPaint = null;
         createCommonResources(context);
-        if (chat_msgInDrawable != null) {
-            chat_msgInDrawable = null;
-            currentColor = 0;
-            createChatResources(context, false);
-        }
-        if (dialogs_namePaint != null) {
-            dialogs_namePaint = null;
-            createDialogsResources(context);
-        }
-        if (profile_verifiedDrawable != null) {
-            profile_verifiedDrawable = null;
-            createProfileResources(context);
-        }
+        chat_msgInDrawable = null;
+        currentColor = 0;
+        createChatResources(context, false);
+        dialogs_namePaint = null;
+        createDialogsResources(context);
+        profile_verifiedDrawable = null;
+        createProfileResources(context);
     }
 
     public static void createCommonMessageResources() {

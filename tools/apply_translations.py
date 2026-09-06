@@ -105,18 +105,19 @@ def clean_strings_nax(folder_path, soundgram_keys):
 def write_strings_soundgram(folder_path, lang_dict, is_base_values):
     sg_path = os.path.join(folder_path, "strings_soundgram.xml")
     
-    # Check if any keys are in strings.xml in this folder
+    # Check if any keys are in strings.xml or strings_nimarko.xml in this folder
     existing_strings_in_folder = set()
-    other_xml = os.path.join(folder_path, "strings.xml")
-    if os.path.exists(other_xml):
-        try:
-            tree = ET.parse(other_xml)
-            for elem in tree.getroot().findall("string"):
-                name = elem.attrib.get("name")
-                if name:
-                    existing_strings_in_folder.add(name)
-        except Exception:
-            pass
+    for fname in ["strings.xml", "strings_nimarko.xml"]:
+        other_xml = os.path.join(folder_path, fname)
+        if os.path.exists(other_xml):
+            try:
+                tree = ET.parse(other_xml)
+                for elem in tree.getroot().findall("string"):
+                    name = elem.attrib.get("name")
+                    if name:
+                        existing_strings_in_folder.add(name)
+            except Exception:
+                pass
     
     lines = []
     lines.append('<?xml version="1.0" encoding="utf-8"?>\n')

@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Təkrarla</string>
     <string name="AccDescrShuffle">Qarışdır</string>
     <string name="AccDescrEqualizer">Ekvayzer</string>
+    <string name="NimarkoGramSettings">SoundGram Parametrləri</string>
+    <string name="NM_Cat_General">Ümumi</string>
+    <string name="NM_Cat_Appearance">Görünüş</string>
+    <string name="NM_Cat_Chats">Söhbətlər</string>
+    <string name="NM_Cat_Camera">Kamera</string>
+    <string name="NM_Cat_Privacy">Məxfilik</string>
+    <string name="NM_WSB_Title">Blokadadan yan keçmə</string>
+    <string name="NM_HUB_Debug">Sazlama</string>
+    <string name="NM_HUB_Restart">Tətbiqi yenidən başlat</string>
+    <string name="UP_CheckForUpdates">Tətbiqi yenilə</string>
+    <string name="AP_Header_General">Ümumi</string>
+    <string name="NM_HUB_Header_Misc">Müxtəlif</string>
+    <string name="NM_HUB_Header_Advanced">Təkmilləşdirilmiş</string>
+    <string name="NM_HUB_Header_Other">Digər</string>
+    <string name="NM_Cat_Miscellaneous">Müxtəlif</string>
 </resources>

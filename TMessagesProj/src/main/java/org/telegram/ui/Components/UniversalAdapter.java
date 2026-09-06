@@ -749,7 +749,7 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
             case VIEW_TYPE_TEXT_CHECK:
                 NotificationsCheckCell checkCell1 = (NotificationsCheckCell) holder.itemView;
                 // Parity with Cherrygram: force multiline layout regardless of explicit \n in subtext.
-                final boolean multiline = true;
+                final boolean multiline = !android.text.TextUtils.isEmpty(item.subtext);
                 checkCell1.setAnimationsEnabled(checkCell1.itemId == item.id);
                 checkCell1.setTextAndValueAndCheck(item.text, item.subtext, item.checked, 0, multiline, divider);
                 checkCell1.itemId = item.id;

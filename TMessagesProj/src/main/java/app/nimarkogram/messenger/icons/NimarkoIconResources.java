@@ -109,6 +109,16 @@ public class NimarkoIconResources extends Resources {
     }
 
     public static Drawable getStockDrawable(android.content.Context context, int id) {
+        if (soundgram.icons.IconPackManager.getInstance().hasActivePack()) {
+            final Resources resources = context.getResources();
+            try {
+                String name = resources.getResourceEntryName(id);
+                Drawable custom = soundgram.icons.IconPackManager.getInstance().getDrawable(name);
+                if (custom != null) {
+                    return custom;
+                }
+            } catch (Throwable ignore) {}
+        }
         final Resources resources = context.getResources();
         final Theme theme = context.getTheme();
         if (resources instanceof NimarkoIconResources) {
@@ -375,6 +385,15 @@ public class NimarkoIconResources extends Resources {
         synchronized (cacheLock) {
             drawableCache.clear();
         }
+        synchronized (backArrowLock) {
+            backArrowBitmapResolved = false;
+            if (backArrowBitmap != null) {
+                try {
+                    backArrowBitmap.recycle();
+                } catch (Throwable ignore) {}
+                backArrowBitmap = null;
+            }
+        }
     }
 
     private Drawable cached(CacheKey key, Drawable loaded) {
@@ -410,6 +429,9 @@ public class NimarkoIconResources extends Resources {
     }
 
     private Drawable skinned(int stockId, int density, Theme theme, BaseIconReplace replacement) {
+        if (Boolean.TRUE.equals(soundgram.icons.IconPackManager.getInstance().isFetchingOrig())) {
+            return loadRaw(stockId, density, theme);
+        }
         if (soundgram.icons.IconPackManager.getInstance().hasActivePack()) {
             try {
                 String resName = getResourceEntryName(stockId);

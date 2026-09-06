@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Ulangi</string>
     <string name="AccDescrShuffle">Acak</string>
     <string name="AccDescrEqualizer">Equalizer</string>
+    <string name="NimarkoGramSettings">Pengaturan SoundGram</string>
+    <string name="NM_Cat_General">Umum</string>
+    <string name="NM_Cat_Appearance">Tampilan</string>
+    <string name="NM_Cat_Chats">Obrolan</string>
+    <string name="NM_Cat_Camera">Kamera</string>
+    <string name="NM_Cat_Privacy">Privasi</string>
+    <string name="NM_WSB_Title">Bypass</string>
+    <string name="NM_HUB_Debug">Debug</string>
+    <string name="NM_HUB_Restart">Mulai ulang aplikasi</string>
+    <string name="UP_CheckForUpdates">Perbarui aplikasi</string>
+    <string name="AP_Header_General">Umum</string>
+    <string name="NM_HUB_Header_Misc">Lain-lain</string>
+    <string name="NM_HUB_Header_Advanced">Lanjutan</string>
+    <string name="NM_HUB_Header_Other">Lainnya</string>
+    <string name="NM_Cat_Miscellaneous">Lain-lain</string>
 </resources>

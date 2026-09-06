@@ -304,4 +304,5 @@
     <string name="AccDescrRepeat">單曲循環</string>
     <string name="AccDescrShuffle">隨機播放</string>
     <string name="AccDescrEqualizer">等化器</string>
+    <string name="NM_Cat_Miscellaneous">其他</string>
 </resources>

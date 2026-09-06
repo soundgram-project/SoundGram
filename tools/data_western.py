@@ -2201,3 +2201,150 @@ STRINGS_NO = {
     'AccDescrShuffle': 'Tilfeldig rekkefølge',
     'AccDescrEqualizer': 'Equalizer'
 }
+
+# Added SoundGram Settings Localization
+STRINGS_DE.update({
+    'NimarkoGramSettings': 'SoundGram-Einstellungen',
+    'NM_Cat_General': 'Allgemein',
+    'NM_Cat_Appearance': 'Erscheinungsbild',
+    'NM_Cat_Chats': 'Chats',
+    'NM_Cat_Camera': 'Kamera',
+    'NM_Cat_Privacy': 'Privatsphäre',
+    'NM_WSB_Title': 'Bypass',
+    'NM_HUB_Debug': 'Debugging',
+    'NM_HUB_Restart': 'App neu starten',
+    'UP_CheckForUpdates': 'App aktualisieren',
+    'NM_TA_Title': 'Textanimation',
+    'NM_HUB_SupportDevelopment': 'Entwicklung unterstützen',
+    'AP_Header_General': 'Allgemein',
+    'NM_HUB_Header_Misc': 'Verschiedenes',
+    'NM_HUB_Header_Advanced': 'Erweitert',
+    'NM_HUB_Header_Other': 'Sonstiges',
+    'NM_Cat_Miscellaneous': 'Verschiedenes',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_FR.update({
+    'NimarkoGramSettings': 'Paramètres SoundGram',
+    'NM_Cat_General': 'Général',
+    'NM_Cat_Appearance': 'Apparence',
+    'NM_Cat_Chats': 'Échanges',
+    'NM_Cat_Camera': 'Appareil photo',
+    'NM_Cat_Privacy': 'Confidentialité',
+    'NM_WSB_Title': 'Contournement',
+    'NM_HUB_Debug': 'Débogage',
+    'NM_HUB_Restart': 'Redémarrer l\'application',
+    'UP_CheckForUpdates': 'Mettre à jour l\'application',
+    'NM_TA_Title': 'Animation de texte',
+    'NM_HUB_SupportDevelopment': 'Soutenir le développement',
+    'AP_Header_General': 'Général',
+    'NM_HUB_Header_Misc': 'Divers',
+    'NM_HUB_Header_Advanced': 'Avancé',
+    'NM_HUB_Header_Other': 'Autre',
+    'NM_Cat_Miscellaneous': 'Divers',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_ES.update({
+    'NimarkoGramSettings': 'Ajustes de SoundGram',
+    'NM_Cat_General': 'General',
+    'NM_Cat_Appearance': 'Apariencia',
+    'NM_Cat_Chats': 'Chats',
+    'NM_Cat_Camera': 'Cámara',
+    'NM_Cat_Privacy': 'Privacidad',
+    'NM_WSB_Title': 'Evasión',
+    'NM_HUB_Debug': 'Depuración',
+    'NM_HUB_Restart': 'Reiniciar la aplicación',
+    'UP_CheckForUpdates': 'Actualizar la aplicación',
+    'NM_TA_Title': 'Animación de texte',
+    'NM_HUB_SupportDevelopment': 'Apoyar el desarrollo',
+    'AP_Header_General': 'General',
+    'NM_HUB_Header_Misc': 'Varios',
+    'NM_HUB_Header_Advanced': 'Avanzado',
+    'NM_HUB_Header_Other': 'Otro',
+    'NM_Cat_Miscellaneous': 'Varios',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_IT.update({
+    'NimarkoGramSettings': 'Impostazioni SoundGram',
+    'NM_Cat_General': 'Generali',
+    'NM_Cat_Appearance': 'Aspetto',
+    'NM_Cat_Chats': 'Chat',
+    'NM_Cat_Camera': 'Fotocamera',
+    'NM_Cat_Privacy': 'Privacy',
+    'NM_WSB_Title': 'Bypass',
+    'NM_HUB_Debug': 'Debug',
+    'NM_HUB_Restart': 'Riavvia l\'applicazione',
+    'UP_CheckForUpdates': 'Aggiorna applicazione',
+    'NM_TA_Title': 'Animazione testo',
+    'NM_HUB_SupportDevelopment': 'Supporta lo sviluppo',
+    'AP_Header_General': 'Generali',
+    'NM_HUB_Header_Misc': 'Varie',
+    'NM_HUB_Header_Advanced': 'Avanzate',
+    'NM_HUB_Header_Other': 'Altro',
+    'NM_Cat_Miscellaneous': 'Varie',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_PT.update({
+    'NimarkoGramSettings': 'Configurações do SoundGram',
+    'NM_Cat_General': 'Geral',
+    'NM_Cat_Appearance': 'Aparência',
+    'NM_Cat_Chats': 'Conversas',
+    'NM_Cat_Camera': 'Câmera',
+    'NM_Cat_Privacy': 'Privacidade',
+    'NM_WSB_Title': 'Ignorar bloqueios',
+    'NM_HUB_Debug': 'Depuração',
+    'NM_HUB_Restart': 'Reiniciar aplicativo',
+    'UP_CheckForUpdates': 'Atualizar aplicativo',
+    'NM_TA_Title': 'Animação de texto',
+    'NM_HUB_SupportDevelopment': 'Apoiar desenvolvimento',
+    'AP_Header_General': 'Geral',
+    'NM_HUB_Header_Misc': 'Diversos',
+    'NM_HUB_Header_Advanced': 'Avançado',
+    'NM_HUB_Header_Other': 'Outro',
+    'NM_Cat_Miscellaneous': 'Diversos',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_NL.update({
+    'NimarkoGramSettings': 'SoundGram-instellingen',
+    'NM_Cat_General': 'Algemeen',
+    'NM_Cat_Appearance': 'Uiterlijk',
+    'NM_Cat_Chats': 'Chats',
+    'NM_Cat_Camera': 'Camera',
+    'NM_Cat_Privacy': 'Privacy',
+    'NM_WSB_Title': 'Omzeiling',
+    'NM_HUB_Debug': 'Debuggen',
+    'NM_HUB_Restart': 'App herstarten',
+    'UP_CheckForUpdates': 'App bijwerken',
+    'NM_TA_Title': 'Tekstanimatie',
+    'NM_HUB_SupportDevelopment': 'Ondersteun ontwikkeling',
+    'AP_Header_General': 'Algemeen',
+    'NM_HUB_Header_Misc': 'Diversen',
+    'NM_HUB_Header_Advanced': 'Geavanceerd',
+    'NM_HUB_Header_Other': 'Overige',
+    'NM_Cat_Miscellaneous': 'Diversen',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_NO.update({
+    'NimarkoGramSettings': 'SoundGram-innstillinger',
+    'NM_Cat_General': 'Generelt',
+    'NM_Cat_Appearance': 'Utseende',
+    'NM_Cat_Chats': 'Chatter',
+    'NM_Cat_Camera': 'Kamera',
+    'NM_Cat_Privacy': 'Personvern',
+    'NM_WSB_Title': 'Omgåelse',
+    'NM_HUB_Debug': 'Feilsøking',
+    'NM_HUB_Restart': 'Start appen på nytt',
+    'UP_CheckForUpdates': 'Oppdater appen',
+    'NM_TA_Title': 'Tekstanimasjon',
+    'NM_HUB_SupportDevelopment': 'Støtt utviklingen',
+    'AP_Header_General': 'Generelt',
+    'NM_HUB_Header_Misc': 'Diverse',
+    'NM_HUB_Header_Advanced': 'Avansert',
+    'NM_HUB_Header_Other': 'Annet',
+    'NM_Cat_Miscellaneous': 'Diverse',
+})

@@ -646,3 +646,45 @@ STRINGS_RU = {
     'AccDescrShuffle': 'Случайный порядок',
     'AccDescrEqualizer': 'Эквалайзер'
 }
+
+# Added SoundGram Settings Localization
+STRINGS_EN.update({
+    'NimarkoGramSettings': 'SoundGram Settings',
+    'NM_Cat_General': 'General',
+    'NM_Cat_Appearance': 'Appearance',
+    'NM_Cat_Chats': 'Chats',
+    'NM_Cat_Camera': 'Camera',
+    'NM_Cat_Privacy': 'Privacy',
+    'NM_WSB_Title': 'Bypass',
+    'NM_HUB_Debug': 'Debug',
+    'NM_HUB_Restart': 'Restart app',
+    'UP_CheckForUpdates': 'Update app',
+    'NM_TA_Title': 'Text Animation',
+    'NM_HUB_SupportDevelopment': 'Support Development',
+    'AP_Header_General': 'General',
+    'NM_HUB_Header_Misc': 'Miscellaneous',
+    'NM_HUB_Header_Advanced': 'Advanced',
+    'NM_HUB_Header_Other': 'Other',
+    'NM_Cat_Miscellaneous': 'Miscellaneous',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_RU.update({
+    'NimarkoGramSettings': 'Настройки SoundGram',
+    'NM_Cat_General': 'Основные',
+    'NM_Cat_Appearance': 'Внешний вид',
+    'NM_Cat_Chats': 'Чаты',
+    'NM_Cat_Camera': 'Камера',
+    'NM_Cat_Privacy': 'Приватность',
+    'NM_WSB_Title': 'Обход',
+    'NM_HUB_Debug': 'Отладка',
+    'NM_HUB_Restart': 'Перезапустить приложение',
+    'UP_CheckForUpdates': 'Обновить приложение',
+    'NM_TA_Title': 'Анимация текста',
+    'NM_HUB_SupportDevelopment': 'Поддержать разработку',
+    'AP_Header_General': 'Основные',
+    'NM_HUB_Header_Misc': 'Разное',
+    'NM_HUB_Header_Advanced': 'Расширенные',
+    'NM_HUB_Header_Other': 'Другое',
+    'NM_Cat_Miscellaneous': 'Разное',
+})

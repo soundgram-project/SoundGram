@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="SoundGram">SoundGram</string>
     <string name="SoundGramSubtitle">Мобильный клиент с премиальным звуком</string>
@@ -304,4 +304,5 @@
     <string name="AccDescrRepeat">Повтор</string>
     <string name="AccDescrShuffle">Случайный порядок</string>
     <string name="AccDescrEqualizer">Эквалайзер</string>
+    <string name="NM_Cat_Miscellaneous">Разное</string>
 </resources>

@@ -7930,7 +7930,7 @@ public class AlertsCreator {
         // NimarkoGram (CG parity): default the delete-for-all checkbox to the user's
         // saved preference so they don't have to re-check it each time.
         final boolean[] deleteForAll = {app.nimarkogram.messenger.NimarkoConfig.deleteForAll};
-        final boolean[] saveForMyself = {true};
+        final boolean[] saveForMyself = {false};
         boolean canRevokeInbox = user != null && MessagesController.getInstance(currentAccount).canRevokePmInbox;
         int revokeTimeLimit;
         if (user != null) {

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">Onlayn holatni yubormaslik</string>
+    <string name="DontReadStoriesPackets">Hikoyalarni o‘qimaslik</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… ommaviy guruhlarda</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… ommaviy kanallarda</string>
+    <string name="GhostEssentialsHeader">Kashfiyotchi rejimi</string>
+    <string name="SaveDeletedMessageForBotUser">Bot xabarlarini saqlash</string>
+    <string name="EnableSaveEditsHistory">Tahrirlar tarixini saqlash</string>
+    <string name="ClearMessageDatabase">Xabarlar ma’lumotlar bazasini tozalash</string>
+    <string name="DontSendReadMessagePackets">Xabarlarni o‘qimaslik</string>
+    <string name="SaveDeletedMessageForBot">Bot chatlarida saqlash</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… xususiy guruhlarda</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… shaxsiy chatlarda</string>
+    <string name="ClearMessageDatabaseNotification">Xabarlar ma’lumotlar bazasi tozalandi.</string>
+    <string name="MessageSavingSaveMedia">Mediani saqlash</string>
+    <string name="MessageSavingSaveMediaHint">Batafsil bilish uchun bosing.</string>
+    <string name="TranslucentDeletedMessages">Yarim shaffof o‘chirilgan xabarlar</string>
+    <string name="DontSendUploadProgress">Yozmoqda holatini yubormaslik</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… xususiy kanallarda</string>
+    <string name="EnableSaveDeletedMessages">O‘chirilgan xabarlarni saqlash</string>
+</resources>

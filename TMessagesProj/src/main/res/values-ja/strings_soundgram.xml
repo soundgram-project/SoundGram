@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">リピート</string>
     <string name="AccDescrShuffle">シャッフル</string>
     <string name="AccDescrEqualizer">イコライザー</string>
+    <string name="NimarkoGramSettings">SoundGram設定</string>
+    <string name="NM_Cat_General">一般</string>
+    <string name="NM_Cat_Appearance">外観</string>
+    <string name="NM_Cat_Chats">チャット</string>
+    <string name="NM_Cat_Camera">カメラ</string>
+    <string name="NM_Cat_Privacy">プライバシー</string>
+    <string name="NM_WSB_Title">迂回設定</string>
+    <string name="NM_HUB_Debug">デバッグ</string>
+    <string name="NM_HUB_Restart">アプリを再起動</string>
+    <string name="UP_CheckForUpdates">アプリを更新</string>
+    <string name="AP_Header_General">一般</string>
+    <string name="NM_HUB_Header_Misc">その他</string>
+    <string name="NM_HUB_Header_Advanced">高度な設定</string>
+    <string name="NM_HUB_Header_Other">その他</string>
+    <string name="NM_Cat_Miscellaneous">その他</string>
 </resources>

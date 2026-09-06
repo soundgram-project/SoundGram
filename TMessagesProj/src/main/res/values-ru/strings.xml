@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="AppName">SoundGram</string>
     <string name="NM_CP_Header_ChatView">Вид чата</string>
@@ -332,7 +332,7 @@
     <string name="ChatShortcutJumpToBegin">Кнопка «в начало чата»</string>
     <string name="ChatShortcutSavedMessages">Кнопка «Избранное»</string>
 
-    <!-- Менеджер плагинов (MD3) -->
+    
     <string name="NM_AddPlugin">Добавить плагин</string>
     <string name="NM_AddPluginFailed">Не удалось прочитать выбранный файл</string>
     <string name="NM_PluginsEmpty">Плагины ещё не установлены</string>
@@ -341,7 +341,7 @@
     <string name="NM_PluginIsDisabled">Сначала включите плагин **%1$s**.</string>
     <string name="NM_PluginEnabling">Включаем **%1$s**…</string>
 
-    <!-- Категории настроек -->
+    
     <string name="NM_Cat_Appearance">Внешний вид</string>
     <string name="NM_Cat_Chats">Чаты</string>
     <string name="NM_Cat_Camera">Камера</string>
@@ -350,14 +350,14 @@
     <string name="NM_Cat_Messages">Сообщения</string>
     <string name="NM_Cat_MessageMenu">Меню сообщения</string>
 
-    <!-- Внешний вид -->
+    
     <string name="NM_AP_Header">Заголовок</string>
     <string name="NM_AP_CenterTitle">Центрирование заголовка</string>
     <string name="NM_AP_HideSearchBar">Скрыть поле поиска в чатах</string>
     <string name="NM_AP_Snowflakes">Снежинки</string>
     <string name="NM_AP_DisableDividers">Отключить разделители</string>
 
-    <!-- Чаты -->
+    
     <string name="NM_CH_Header">Чаты</string>
     <string name="NM_CH_CenterChatTitle">Центрировать заголовок чата</string>
     <string name="NM_CH_UnreadBadgeBack">Показать счетчик непрочитанных</string>
@@ -383,7 +383,7 @@
     <string name="NM_CH_Admins_RecentActions">Действия</string>
     <string name="NM_CH_Admins_Statistics">Статистика</string>
 
-    <!-- Камера -->
+    
     <string name="NM_CA_Header">Камера</string>
     <string name="NM_CA_CameraStabilisation">Стабилизация камеры</string>
     <string name="NM_CA_RearCam">Использовать заднюю камеру</string>
@@ -392,7 +392,7 @@
     <string name="NM_CA_DisableAttachCamera">Кнопка камеры внизу</string>
     <string name="NM_CA_CenterControls">Центрировать кнопки управления</string>
 
-    <!-- Основные -->
+    
     <string name="NM_GE_Header">Основные</string>
     <string name="NM_GE_HideStories">Скрыть истории</string>
     <string name="NM_GE_ArchiveStoriesUsers">Архивировать истории пользователей</string>
@@ -411,7 +411,7 @@
     <string name="EP_Network">Сеть</string>
     <string name="CP_Header_Record">Медиа</string>
 
-    <!-- Приватность (доп.) -->
+    
     <string name="NM_PR_AllowSystemPasscode">Разрешить код устройства</string>
     <string name="NM_PR_AllowSystemPasscode_Desc">Разрешить PIN-код, пароль или графический ключ вместо биометрии.</string>
     <string name="NM_PR_AskBioOpenArchive">Защищать архив</string>
@@ -425,7 +425,7 @@
     <string name="NM_PR_HideArchivedStories">Скрыть архивированные истории</string>
     <string name="NM_PR_HideArchivedStories_Desc">Скрывает раздел архивированных историй в профиле.</string>
 
-    <!-- Сообщения -->
+    
     <string name="NM_MS_Header">Сообщения</string>
     <string name="NM_MS_DeleteForAll">Использовать \"Удалить для всех\" по умолчанию</string>
     <string name="NM_MS_DisablePremStickAnim">Отключить нажатия на Premium стикеры</string>
@@ -443,13 +443,13 @@
     <string name="NM_MS_StickersShare">На стикерах</string>
     <string name="NM_MS_ShareStoryButton">Кнопка «Поделиться историей»</string>
 
-    <!-- Меню сообщения -->
+    
     <string name="NM_MM_Header">Меню сообщения</string>
     <string name="NM_MM_CompactView">Компактная компоновка меню</string>
     <string name="NM_MM_CompactView_Desc">Отображает основные действия сообщения в компактном виде в нижней части меню.</string>
     <string name="NM_MM_CompactView_Dot">Точка рядом с кнопкой означает, что у неё есть действие по долгому нажатию.</string>
 
-    <!-- CG-faithful additions -->
+    
     <string name="NM_AP_IconReplacements">Пакет иконок</string>
     <string name="NM_AP_Folders">Папки</string>
     <string name="NM_AP_BottomTabs">Органайзер нижних вкладок</string>
@@ -480,7 +480,7 @@
     <string name="NM_CH_UpgradeGroup">Преобразовать в супергруппу</string>
     <string name="NM_CH_SortByDate">Сортировать по дате</string>
 
-    <!-- Callback buttons / inline data -->
+    
     <string name="NM_CB_CopyTitle">Копировать название</string>
     <string name="NM_CB_CopyCallback">Копировать callback-данные</string>
     <string name="NM_CB_CopyInlineQuery">Копировать инлайн-запрос</string>
@@ -553,7 +553,7 @@
     <string name="NM_RestartRequired">Требуется перезапуск для применения изменений</string>
     <string name="NM_Restart">Перезапустить</string>
 
-    <!-- NimarkoGram: меню сообщения (порядок, виброотклик, режим на чат) -->
+    
     <string name="NM_Menu_Reorder">Порядок пунктов меню</string>
     <string name="NM_Menu_Reorder_Desc">Перетаскивайте пункты контекстного меню сообщения. Удерживайте строку, чтобы начать перетаскивание.</string>
     <string name="NM_Menu_Reorder_Reset">Сбросить порядок</string>
@@ -562,7 +562,7 @@
     <string name="NM_Menu_CompactPerChat_On">Компактное меню включено для этого чата</string>
     <string name="NM_Menu_CompactPerChat_Off">Компактное меню выключено для этого чата</string>
 
-    <!-- Debug sub-screen -->
+    
     <string name="NM_DBG_Title">Отладка</string>
     <string name="NM_DBG_Header_Misc">Разное</string>
     <string name="NM_DBG_Header_Danger">Опасная зона</string>
@@ -579,7 +579,7 @@
     <string name="NM_DBG_SendMaxQuality">Отправлять видео в макс. качестве</string>
     <string name="NM_DBG_SendMaxQuality_Desc">Максимальное качество выбирается автоматически при отправке видео.</string>
 
-    <!-- Experimental sub-screen -->
+    
     <string name="NM_EXP_Title">Экспериментальные</string>
     <string name="NM_EXP_Header_Beta">Бета-функции</string>
     <string name="NM_EXP_EdgeToEdge">Режим edge-to-edge</string>
@@ -592,10 +592,10 @@
     <string name="NM_GEN_LocalPremiumEmoji">Локальные премиум-эмодзи</string>
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Отправляйте премиум-эмодзи без подписки Premium.</string>
 
-    <!-- Icon pack sub-screen -->
+    
     <string name="NM_AP_IconReplacement_Solar">Иконки Solar от @Design480</string>
 
-    <!-- Folders sub-screen -->
+    
     <string name="NM_FO_TabsHeader">Вкладки папок</string>
     <string name="NM_FO_MiscHeader">Прочее</string>
     <string name="NM_FO_TabsHideAllChats">Скрыть вкладку \"Все чаты\"</string>
@@ -611,7 +611,7 @@
     <string name="NM_FO_FoldersAtBottom">Показывать папки снизу</string>
     <string name="NM_FO_FoldersAtBottom_Desc">Переносит вкладки папок вниз списка чатов.</string>
 
-    <!-- NG-extension: per-folder customisation (no CG analog) -->
+    
     <string name="NM_Folder_Color">Цвет папки</string>
     <string name="NM_Folder_Color_Desc">Выберите цвет акцента для индикатора активной вкладки. Оставьте пустым, чтобы использовать цвет темы.</string>
     <string name="NM_Folder_Color_Reset">Сбросить до цвета темы</string>
@@ -626,7 +626,7 @@
     <string name="NM_Folder_Group_New">Новая группа...</string>
     <string name="NM_Folder_Group_None">Без группы</string>
 
-    <!-- Bottom tabs sub-screen -->
+    
     <string name="NM_BT_LayoutHeader">Вкладки</string>
     <string name="NM_BT_AppearanceHeader">Внешний вид</string>
     <string name="NM_BT_ActionsHeader">Действия</string>
@@ -647,7 +647,7 @@
     <string name="NM_BT_MoveDown">Вниз</string>
     <string name="NM_BT_OpenEditor">Редактор вкладок</string>
 
-    <!-- Tabs preview quick-edit dialog (long-press a preview tab) -->
+    
     <string name="NM_TabsPreview_QuickEdit_Title">Редактировать вкладку</string>
     <string name="NM_TabsPreview_Rename">Своё название (пусто — по умолчанию)</string>
     <string name="NM_TabsPreview_PickIcon">Иконка</string>
@@ -655,7 +655,7 @@
     <string name="NM_TabsPreview_ToggleOn">Нажмите, чтобы включить эту вкладку</string>
     <string name="NM_TabsPreview_ToggleOff">Нажмите, чтобы скрыть эту вкладку</string>
 
-    <!-- Messages and profiles sub-screen -->
+    
     <string name="NM_MP_CustomizeMessage">Настроить сообщение</string>
     <string name="NM_MP_CustomizeProfile">Настроить профиль</string>
     <string name="NM_MP_ShowSeconds">Показывать время с секундами</string>
@@ -677,18 +677,18 @@
     <string name="NM_ApplyProfileBackground">Применить фон</string>
     <string name="NM_UserInfo">Информация о пользователе</string>
 
-    <!-- Camera engine / video message parameters -->
+    
     <string name="NM_CA_Type">Камера</string>
     <string name="NM_CA_Resolution">Разрешение</string>
     <string name="NM_CA_FpsRange">Частота кадров</string>
 
-    <!-- Vibration patterns -->
+    
     <string name="NM_CH_VibrateClick">Щелчок</string>
     <string name="NM_CH_VibrateLong">Длинная</string>
     <string name="NM_CH_VibrateKeyboard">Как клавиатура</string>
     <string name="NM_CH_VibrateWave">Волна</string>
 
-    <!-- Download boost / spring / tablet mode options -->
+    
     <string name="NM_GE_DownloadBoostNone">Отключено</string>
     <string name="NM_GE_DownloadBoostAverage">Среднее</string>
     <string name="NM_GE_DownloadBoostExtreme">Максимальное</string>
@@ -698,7 +698,7 @@
     <string name="NM_GE_TabletEnable">Включён</string>
     <string name="NM_GE_TabletDisable">Отключён</string>
 
-    <!-- Message context menu items -->
+    
     <string name="NM_MI_SaveToSaved">Сохранить в «Избранное»</string>
     <string name="NM_MI_Details">Подробности</string>
     <string name="NM_MI_ForwardWoAuthorship">Переслать без автора</string>
@@ -709,7 +709,7 @@
     <string name="NM_MI_ClearFromCache">Очистить из кэша</string>
     <string name="NM_MI_ClearedFromCache">Файл удалён из кэша</string>
 
-    <!-- NimarkoGram OTA updater (дизайн из Cherrygram) -->
+    
     <string name="UP_UpdateAvailable">Доступно обновление!</string>
     <string name="UP_Version">Версия</string>
     <string name="UP_CurrentVersion">Текущая версия</string>
@@ -718,7 +718,7 @@
     <string name="UP_ClearUpdatesCache">Очистить кэш обновлений</string>
     <string name="UP_ClearedUpdatesCache">Очищено %1$s кэша.</string>
     <string name="UP_NothingToClear">Нечего очищать.</string>
-    <string name="UP_CheckForUpdates">Проверить обновления</string>
+    <string name="UP_CheckForUpdates">Обновить приложение</string>
     <string name="UP_Not_Found">У вас последняя версия SoundGram.</string>
     <string name="UP_CheckFailed">Не удалось проверить наличие обновлений. Повторите попытку позже.</string>
     <string name="UP_Install">Установить</string>
@@ -729,14 +729,14 @@
     <string name="NM_UpdatePaused">Загрузка приостановлена</string>
     <string name="NM_UpdateReady">Обновление загружено</string>
     <string name="NM_UpdateReadyText">Нажмите, чтобы установить %1$s</string>
-    <!-- NimarkoMedia native (заменяет Python-плагин) -->
+    
     <string name="NM_DownloadMedia">Загрузчик медиа</string>
     <string name="NM_DownloadMedia_Progress">Скачивание…</string>
     <string name="NM_DownloadMedia_Done">Готово</string>
     <string name="NM_DownloadMedia_Error">Ошибка скачивания</string>
     <string name="NM_DownloadMedia_VideoBy">Видео от %1$s</string>
     <string name="NM_MediaBuiltIn">**SoundGramMedia** уже встроен в клиент</string>
-    <!-- NimarkoBanner native integration (replaces the Python plugin) -->
+    
     <string name="NM_BAN_Title">Баннеры</string>
     <string name="NM_BAN_Enable">Система баннеров</string>
     <string name="NM_BAN_Enable_Desc">Видео- и фото-баннеры в профилях. По умолчанию выключено.</string>
@@ -901,20 +901,20 @@
     <string name="NM_CreateCodeLanguage">Язык</string>
     <string name="NM_CreateMention">Создать упоминание</string>
 
-    <!-- Message actions / share / voice -->
+    
     <string name="NM_MS_DoubleTapAction">Двойное нажатие</string>
     <string name="NM_MS_SlideAction">Свайп по сообщению</string>
     <string name="NM_MS_LeftBottomButton">Действие левой кнопки</string>
     <string name="NM_MS_VoiceProvider">Сервис распознавания голоса</string>
 
-    <!-- Message size amplifiers -->
+    
     <string name="NM_MZ_StickerAmplifier">Стикеры</string>
     <string name="NM_MZ_GifsAmplifier">GIF</string>
     <string name="NM_MZ_MediaAmplifier">Фото и видео</string>
     <string name="NM_MZ_MediaAmplifier_Hint">Примечание: фото и видео могут быть уменьшены по ширине чата.</string>
     <string name="NM_MZ_LargerVoiceMessages">Адаптивная длина аудиосообщений</string>
 
-    <!-- Privacy -->
+    
     <string name="NM_PR_LockedChats">Защищённые чаты</string>
     <string name="NM_PR_LockedChatsTtl">Повторная проверка</string>
     <string name="NM_PR_LockedChatsTtl_Always">Каждый раз</string>
@@ -923,7 +923,7 @@
     <string name="NM_PR_LockedChatsTtl_15Min">Через 15 минут</string>
     <string name="NM_PR_LockedChatsTtl_UntilRestart">До перезапуска</string>
 
-    <!-- Misc CG flag-gap audit (Wave-N) -->
+    
     <string name="NM_CH_UnarchiveOnSwipe">Разархивировать чат по свайпу</string>
     <string name="NM_CH_SortByUnread">Сначала непрочитанные</string>
     <string name="NM_CH_ShowSearchInTabs">Показать поиск в табах</string>
@@ -957,8 +957,8 @@
     <string name="NM_CH_SearchFilter_Geolocation">Геолокация</string>
     <string name="NM_CH_SearchFilter_Contacts">Контакты</string>
     <string name="NM_CH_SearchFilter_MyMentions">Мои упоминания</string>
-    <!-- NG: CG-parity additions (auto-injected; matches cg_strings.xml verbatim) -->
-    <!-- Appearance -->
+    
+    
     <string name="AP_Header_Appearance">Внешний вид</string>
     <string name="AP_Header">Заголовок</string>
     <string name="AP_HideSearchBar">Скрыть поиск в чатах</string>
@@ -972,7 +972,7 @@
     <string name="CP_ProfileReplyBackground">Сообщения и профили</string>
     <string name="AP_IconReplacement_Solar">Иконки Solar от @Design480</string>
     <string name="AP_CenterTitle">Заголовок по центру</string>
-    <!-- Chats -->
+    
     <string name="CP_UnreadBadgeOnBackButton">Счётчик непрочитанных</string>
     <string name="CP_UnreadBadgeOnBackButton_Desc">Показывать число непрочитанных на кнопке «Назад».</string>
     <string name="CP_CustomWallpapers">Обои отдельных чатов</string>
@@ -1003,7 +1003,7 @@
     <string name="NM_Vibrate_Keyboard">Клавиатура</string>
     <string name="NM_Vibrate_Long">Долгое нажатие</string>
     <string name="CP_ChatMenuShortcuts">Действия в меню чата</string>
-    <!-- Wave-27 restored: Dialog list + sending islands -->
+    
     <string name="CP_Header_DialogList">Список чатов</string>
     <string name="CP_SortByUnread">Сортировка по непрочитанным</string>
     <string name="CP_UnarchiveOnSwipe">Разархивировать свайпом</string>
@@ -1020,7 +1020,7 @@
     <string name="NM_StickerSavedHint">Стикер сохранен в загрузки</string>
     <string name="ConvertGroupAlert">Это действие необратимо. Преобразовать супергруппу обратно в обычную группу нельзя.</string>
     <string name="CP_AdminActions">Действия для админов</string>
-    <!-- General -->
+    
     <string name="AP_Header_General">Основные</string>
     <string name="EP_NavigationAnimation">Анимация навигации</string>
     <string name="NM_PredictiveBackAnimation">Предиктивный жест назад</string>
@@ -1039,10 +1039,10 @@
     <string name="EP_NavigationAnimationBezier">Обычная</string>
     <string name="EP_NavigationAnimationSpring">Пружинная</string>
     <string name="EP_DownloadSpeedBoostExtreme">Экстра</string>
-    <!-- Privacy -->
+    
     <string name="NM_PR_RequireBiometricsToDelete">Подтверждать удаление</string>
     <string name="NM_PR_RequireBiometricsToDelete_Desc">Запрашивать подтверждение устройства перед удалением сообщений и чатов или очисткой истории.</string>
-    <!-- Messages -->
+    
     <string name="CP_MessageMenu">Меню сообщения</string>
     <string name="CP_Messages_Size">Размер облачка</string>
     <string name="CP_TimeOnStick">Скрыть время у стикеров</string>
@@ -1065,14 +1065,14 @@
     <string name="NM_ToSaved">Сохранить</string>
     <string name="NM_Without_Authorship">без авторства</string>
     <string name="NM_Without_Caption">без подписи</string>
-    <!-- MessageMenu -->
+    
     <string name="CP_MessageMenuItems">Элементы меню сообщения</string>
     <string name="NM_Menu_TelegramPlus">Современное меню сообщений</string>
     <string name="NM_Menu_TelegramPlus_Desc">Меню Liquid Glass с группировкой действий и плавным откликом.</string>
     <string name="CP_MessageMenuCompactLayout">Компактная компоновка меню</string>
     <string name="CP_MessageMenuCompactLayout_Desc">До четырёх основных действий в виде крупных кнопок.</string>
     <string name="CP_MessageMenuCompactLayout_Dot">Точка отмечает действие по удержанию.</string>
-    <!-- Camera -->
+    
     <string name="CP_Category_Camera">Камера</string>
     <string name="CP_CameraType">Тип камеры</string>
     <string name="CP_DisableCam">Кнопка камеры внизу</string>
@@ -1117,17 +1117,17 @@
     <string name="CP_ZoomSliderPosition_Left">Слева</string>
     <string name="CP_CameraTypeSystem">Системная</string>
     <string name="CP_DefaultCameraDesc">Встроенная камера Telegram.</string>
-    <string name="CP_CameraXDesc">CameraX поддерживается только на <![CDATA[<a href="https://developer.android.com/training/camerax/devices">выбранных устройствах</a>]]>, эффекты и линзы зависят от Вашего производителя.</string>
+    <string name="CP_CameraXDesc">CameraX поддерживается только на &lt;a href="https://developer.android.com/training/camerax/devices"&gt;выбранных устройствах&lt;/a&gt;, эффекты и линзы зависят от Вашего производителя.</string>
     <string name="CP_Camera2Desc">С Camera2 не будут работать все функции, которые скрываются при включении Camera2.</string>
     <string name="CP_SystemCameraDesc">Позволяет получить доступ напрямую к системной камере (не применимо к видеосообщениям).</string>
-    <!-- MAndP -->
+    
     <string name="NM_MP_DisablePremiumStatuses_Desc">Скрывать Premium-статусы вне бокового меню</string>
     <string name="NM_ChooseFolderIcon">Выбрать иконку</string>
 
-    <!-- ============================================================= -->
-    <!-- CG strings ported from Cherrygram res-cherrygram/cg_strings.xml -->
-    <!-- (verbatim, generic / non-branded entries only; ported 2026-05-22) -->
-    <!-- ============================================================= -->
+    
+    
+    
+    
     <string name="CG_ChooseFolderIcon">Выберите иконку</string>
     <string name="CG_ClearFromCache">Удалить из кеша</string>
     <string name="CG_ClearedFromCache">Удалено из кеша</string>
@@ -1273,7 +1273,7 @@
     <string name="CP_Slider_MediaAmplifier">Фото и видео</string>
     <string name="CP_Slider_MediaAmplifier_Hint">Не работает с альбомами</string>
 
-    <!-- Cherrygram-style relative last-seen strings (formatDateOnlineIOS / formatUserStatusIOS) -->
+    
     <string name="CG_LastSeenNow">был(а) только что</string>
     <string name="CG_LastSeenMinutes_one">был(а) %1$d минуту назад</string>
     <string name="CG_LastSeenMinutes_few">был(а) %1$d минуты назад</string>
@@ -1283,21 +1283,21 @@
     <string name="CG_LastSeenHours_few">был(а) %1$d часа назад</string>
     <string name="CG_LastSeenHours_many">был(а) %1$d часов назад</string>
     <string name="CG_LastSeenHours_other">был(а) %1$d часов назад</string>
-    <!-- NimarkoGram start (ported from Cherrygram): SafeStars -->
+    
     <string name="CG_SafeStars_buy">Купить через SafeStars</string>
     <string name="CG_SafeStars_Desc">Мультичейн и без KYC</string>
     <string name="CG_SafeStars_BuyPremiumButton">Проверить на сайте</string>
     <string name="CG_SafeStars_buy_Telegram">Купить звёзды через Telegram</string>
-    <!-- NimarkoGram finish -->
+    
 
-    <!-- NimarkoCameraXController extensions (NG-only, no CG equivalent) -->
+    
     <string name="NM_Camera_HDR">HDR</string>
     <string name="NM_Camera_Night">Ночной режим</string>
     <string name="NM_Camera_SlowMo">Замедленная съёмка</string>
     <string name="NM_Camera_Exposure">Экспозиция</string>
     <string name="NM_Camera_AELocked">Экспозиция зафиксирована</string>
     <string name="NM_Camera_AFLocked">Фокус зафиксирован</string>
-    <!-- exteraGram-ported components: QR login (QrCodeLoginView) + subtitle picker (ChooseSubtitlesLayout) -->
+    
     <string name="LoginQrTitle">Вход по QR-коду</string>
     <string name="LoginQrSubtitle">Откройте Telegram на телефоне, перейдите в Настройки &gt; Устройства &gt; Подключить устройство и отсканируйте этот код.</string>
     <string name="ChooseSubtitles">Выбрать субтитры</string>
@@ -1323,4 +1323,6 @@
     <string name="NM_WSB_Subscribe_Button">Подписаться на @soundgram_project</string>
     <string name="NM_CP_LatexRendering">Отображать формулы LaTeX</string>
     <string name="NM_CP_LatexRendering_Desc">Распознаёт формулы внутри $…$ и $$…$$ в сообщениях.</string>
-</resources>
+<string name="AccActionPause">Пауза</string><string name="AccActionPlay">Воспроизведение</string><string name="AccDescrCustomEmoji">Пользовательские эмодзи</string><string name="AccDescrGIFs">GIF</string><string name="AccDescrStickers">Стикеры</string><string name="ActionsChartTitle">Действия</string><string name="AddAccount">Добавить аккаунт</string><string name="AddEmojiNotFound">Набор эмодзи не найден.</string><string name="AddStickersNotFound">Стикеры не найдены</string><string name="AnonymousNumber">Анонимный номер</string><string name="AppUpdateDownloadNow">Загрузить сейчас</string><string name="AppUpdateDownloading">Загрузка %1$d%%...</string><string name="AppUpdateRemindMeLater">Напомнить позже</string><string name="ArchivedChats">В архиве</string><string name="AreYouSure">Вы уверены?</string><string name="AuthAnotherClient">Сканировать QR-код</string><string name="AutomaticTranslation">Автоматический перевод</string><string name="AvatarPreviewSearchMessages">Поиск сообщений</string><string name="Back">Назад</string><string name="BoostChannel">Усилить канал</string><string name="BusinessHoursProfile">Часы работы</string><string name="BusinessHoursProfileNowOpen">Открыто</string><string name="BusinessProfileLocation">Адрес</string><string name="Call">Позвонить</string><string name="Calls">Звонки</string><string name="Cancel">Отмена</string><string name="CardNumberCopied">Номер карты скопирован в буфер обмена</string><string name="ChangePasscode">Сменить код-пароль</string><string name="ChangePermissions">Изменить разрешения</string><string name="ChannelAdministrators">Администраторы</string><string name="ChannelBlacklist">Удалённые пользователи</string><string name="ChannelMembers">Участники</string><string name="ChannelPermissions">Разрешения</string><string name="Clear">Очистить</string><string name="Close">Закрыть</string><string name="Copy">Копировать</string><string name="CopyLink">Скопировать ссылку</string><string name="CustomAvatarTooltip">фотография, установленная вами</string><string name="Deactivate">УДАЛИТЬ СЕЙЧАС</string><string name="Default">По умолчанию</string><string name="Delete">Удалить</string><string name="DeleteAll">Удалить всё</string><string name="DirectShare">Прямая отправка</string><string name="DirectShareInfo">Показывать недавние чаты в меню «Поделиться» Android</string><string name="DisablePasscodeTurnOff">Отключить</string><string name="Done">Готово</string><string name="Edit">Изменить</string><string name="EditAdminRights">Изменить права</string><string name="EditedMessage">изменено</string><string name="Emoji">Эмодзи</string><string name="ErrorOccurred">Произошла ошибка.</string><string name="EventLog">Недавние действия</string><string name="FallbackTooltip">публичная фотография</string><string name="FilterAddChats">Добавить чаты</string><string name="FilterAllChats">Все чаты</string><string name="FilterBots">Боты</string><string name="FilterChannels">Каналы</string><string name="FilterChats">Чаты</string><string name="FilterContacts">Контакты</string><string name="FilterGroups">Группы</string><string name="FilterNameNonMuted">Со звуком</string><string name="FilterNameUnread">Непрочитанные</string><string name="FilterNonContacts">Не из контактов</string><string name="FilterStories">Истории</string><string name="Forward">Переслать</string><string name="ForwardsRestrictedInfoChannel">Копирование и пересылка запрещены в этом канале.</string><string name="ForwardsRestrictedInfoGroup">Копирование и пересылка запрещены в этой группе.</string><string name="General">Основные</string><string name="Gift2TitleSelf1">Купить подарок</string><string name="Info">Информация</string><string name="InvalidFormatError">Неверный формат</string><string name="KickFromGroup">Удалить из группы</string><string name="Language">Язык</string><string name="LiteBatteryDisabled">Выкл.</string><string name="LiteBatteryEnabled">Вкл.</string><string name="LiteMode">Анимации</string><string name="LocalMiscellaneousCache">Прочее</string><string name="LogOut">Выйти</string><string name="MainTabsChats">Чаты</string><string name="MainTabsProfile">Профиль</string><string name="Mention">Упоминание</string><string name="Message">Сообщение</string><string name="MessagesSettings">Сообщения</string><string name="Music">Музыка</string><string name="MyProfile">Мой профиль</string><string name="NG_OpenEmojiPack">Открыть набор эмодзи</string><string name="NG_OpenStickerPack">Открыть набор стикеров</string><string name="NM_BT_MoveLeft">Переместить влево</string><string name="NM_BT_MoveRight">Переместить вправо</string><string name="NM_BT_TabDisabled">Выключено</string><string name="NM_BT_TabEnabled">Включено</string><string name="NewChannel">Создать канал</string><string name="NoHandleAppInstalled">Нет приложения для открытия файлов типа «%1$s», установите подходящее</string><string name="NoResultFoundFor">Ничего не найдено по запросу «%s».</string><string name="None">Нет</string><string name="Notifications">Уведомления</string><string name="NotificationsService">Фоновая служба соединения</string><string name="NotificationsSound">Звук уведомления</string><string name="NumberUnknown">Неизвестный</string><string name="OK">ОК</string><string name="Online">в сети</string><string name="PhoneMobile">Мобильный</string><string name="PinMessage">Закрепить</string><string name="PopupDisabled">Выключено</string><string name="ProfileBirthday">День рождения</string><string name="ProxySettings">Настройки прокси</string><string name="Quality1440Short">2K</string><string name="QualityAuto">Авто</string><string name="Reactions">Реакции</string><string name="Reply">Ответить</string><string name="ReportChat">Пожаловаться</string><string name="RepostToStory">Репост в историю</string><string name="Reset">Сбросить</string><string name="SafetyNetErrorOccurred">Произошла внутренняя ошибка. Повторите попытку позже.</string><string name="Save">Сохранить</string><string name="SaveForNotifications">Сохранить для уведомлений</string><string name="SaveToDownloads">Сохранить в Загрузки</string><string name="SaveToGallery">Сохранить в галерею</string><string name="SavedMessages">Избранное</string><string name="Search">Поиск</string><string name="SendMessage">Отправить сообщение</string><string name="Set">Установить</string><string name="Settings">Настройки</string><string name="SettingsAccount">Аккаунт</string><string name="SettingsAccountInfo">Номер, имя пользователя, описание</string><string name="SettingsAccounts">Аккаунты</string><string name="SettingsNotifications">Уведомления</string><string name="ShareFile">Поделиться</string><string name="ShareLink">Поделиться ссылкой</string><string name="ShortToday">сегодня</string><string name="StatisticsAndBoosts">Статистика и бусты</string><string name="StickersName">Стикеры</string><string name="TelegramPremium">Telegram Premium</string><string name="TextCopied">Текст скопирован в буфер обмена</string><string name="TosDeclineDeleteAccount">Внимание: это действие необратимо удалит ваш аккаунт Telegram вместе со всеми данными в облаке Telegram.
+
+Вы можете отменить удаление и сначала экспортировать данные в Telegram Desktop.</string><string name="TranslateMessage">Перевести</string><string name="TranslateTo">Перевести на</string><string name="TranslationTarget">Язык перевода</string><string name="UserColorApplied">Цвет вашего имени обновлен!</string><string name="UserColorTabProfile">Профиль</string><string name="UserRestrictionsCustom">Настроить</string><string name="VibrationDisabled">Отключена</string><string name="VideoCall">Видеозвонок</string><string name="ViewProfile">Просмотреть профиль &gt;</string><string name="ViewStatistics">Статистика</string><string name="Warning">Предупреждение</string><string name="Yesterday">вчера</string><string name="exteraAppName">SoundGram</string></resources>

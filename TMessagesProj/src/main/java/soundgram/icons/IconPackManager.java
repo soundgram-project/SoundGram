@@ -19,16 +19,135 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class IconPackManager {
 
-    private static IconPackManager Instance = null;
-    private HashMap<String, String> currentIconMap = new HashMap<>();
-    private HashMap<String, Drawable> drawableCache = new HashMap<>();
+    private static volatile IconPackManager Instance = null;
+    private final HashMap<String, String> currentIconMap = new HashMap<>();
+    private final HashMap<String, Drawable> drawableCache = new HashMap<>();
     private File currentPackDir;
-    private ThreadLocal<Boolean> isFetchingOrig = new ThreadLocal<>();
+    private final ThreadLocal<Boolean> isFetchingOrig = new ThreadLocal<>();
+
+    private static final HashMap<String, String[]> ALIASES = new HashMap<>();
+    private static void addAliasBidirectional(String... items) {
+        if (items == null || items.length <= 1) return;
+        for (String item : items) {
+            ArrayList<String> rest = new ArrayList<>();
+            for (String other : items) {
+                if (!other.equals(item)) rest.add(other);
+            }
+            ALIASES.put(item, rest.toArray(new String[0]));
+        }
+    }
+
+    static {
+        // Proxy
+        addAliasBidirectional("proxy_on", "drawer_proxy_on", "proxy_on_solar", "menu_proxy", "proxy_check");
+        addAliasBidirectional("proxy_off", "drawer_proxy_off", "proxy_off_solar");
+
+        // Ghost
+        addAliasBidirectional("ghost", "ghost_status", "ghost_solar", "ayu_ghost", "ayu_ghost_solar", "ayu_ghost_crossed");
+
+        // Delete / Trash
+        addAliasBidirectional("msg_delete", "delete", "ayu_trash_bin", "ayu_trash_bin_preview", "msg_delete_solar", "msg_delete_24_solar");
+
+        // Close / Cross
+        addAliasBidirectional("msg_close", "close", "ayu_cross", "ayu_cross_preview", "ic_ab_close", "ic_close_white", "ic_close", "msg_cancel", "pip_close", "pip_video_close", "miniplayer_close");
+
+        // Secret / Lock / Spy
+        addAliasBidirectional("msg_secret", "ayu_eye_crossed", "ayu_eye_crossed_preview", "msg_unseen", "msg_secret_solar", "list_secret", "msg_mini_lock2", "ic_lock_header", "msg2_secret", "outline_header_lock_24");
+
+        // Block
+        addAliasBidirectional("msg_block", "block", "msg2_block2", "msg_block2", "msg_block_solar", "msg_filled_blocked");
+
+        // Edit / Pencil / FAB Compose
+        addAliasBidirectional("msg_edit", "pencil", "mini_checklist_edited", "msg_edit_solar", "msg_edit_24", "filled_fab_compose_32", "floating_pencil", "edit_pencil", "intro_ic_pencil", "fab_compose", "write_pencil");
+
+        // Boost
+        addAliasBidirectional("msg_boost", "boosts", "msg_boost_solar", "large_boosts", "filled_boost_plus");
+
+        // Bot / AI
+        addAliasBidirectional("msg_bot", "ai_chat", "msg_bots", "msg_bots_solar", "filter_bots", "input_bot1", "input_bot2");
+
+        // Bottom Navigation Tabs
+        addAliasBidirectional("msg_chats", "tabs_chats_24", "tabs_chats", "tab_chats", "tab_chats_24", "chats_tab", "chats");
+        addAliasBidirectional("tabs_chats_active_24", "tabs_chats_active", "tab_chats_active", "tab_chats_active_24", "tab_chats_filled", "tab_chats_selected", "tabs_chats_filled", "tabs_chats_selected");
+        addAliasBidirectional("msg_calls", "tabs_calls_24", "tabs_calls", "tab_calls", "tab_calls_24", "calls_tab", "calls", "calls_call");
+        addAliasBidirectional("tabs_calls_active_24", "tabs_calls_active", "tab_calls_active", "tab_calls_active_24", "tab_calls_filled", "tab_calls_selected", "tabs_calls_filled", "tabs_calls_selected");
+        addAliasBidirectional("msg_contacts", "tabs_contacts_24", "tabs_contact_24", "tabs_contacts", "tabs_contact", "tab_contacts", "tab_contact", "contacts_tab", "contacts", "profile_list");
+        addAliasBidirectional("tabs_contact_active_24", "tabs_contacts_active_24", "tabs_contacts_active", "tabs_contact_active", "tab_contacts_active", "tab_contact_active", "tab_contacts_filled", "tab_contact_filled", "tab_contacts_selected", "tab_contact_selected");
+        addAliasBidirectional("msg_settings", "menu_settings", "msg_settings_old", "tab_settings", "tab_settings_active", "tab_settings_filled", "tab_settings_selected", "tabs_settings_24", "tab_settings_24", "settings");
+
+        // Folder Tabs (singular / plural)
+        addAliasBidirectional("filter_groups", "filter_group", "ayu_filter_groups", "msg_folders_groups");
+        addAliasBidirectional("filter_channels", "filter_channel", "ayu_filter_channels", "msg_folders_channels");
+        addAliasBidirectional("filter_all", "ayu_filter_all");
+
+        // Search
+        addAliasBidirectional("outline_header_search", "ic_ab_search", "menu_browser_search", "search", "msg_search", "msg_search_solar", "menu_search", "baseline_search_24");
+
+        // Checkmarks: DOUBLE check
+        addAliasBidirectional("msg_check", "msg_check_s", "round_check", "round_check2", "checkbig", "check_big", "list_check", "done", "msg_check_solar", "floating_check", "ic_ab_done", "account_check");
+        // Checkmarks: SINGLE check
+        addAliasBidirectional("msg_halfcheck", "msg_halfcheck_s", "list_halfcheck", "msg_halfcheck_solar");
+
+        // Pins
+        addAliasBidirectional("msg_pin", "chats_pin", "list_pin", "msg_pin_solar", "msg_pin_mini", "msg_pin_filled", "msg_pinnedlist");
+        addAliasBidirectional("msg_unpin", "chats_unpin", "msg_unpin_solar");
+
+        // Navigation
+        addAliasBidirectional("msg_arrowright", "arrow_newchat", "msg_arrowright_solar", "arrow_more", "ic_mtrl_arrow_circle");
+        addAliasBidirectional("msg_arrow_back", "msg_to_beginning", "ic_ab_back", "ic_ab_back_solar", "arrow_back", "preview_back", "msg_photo_back");
+        addAliasBidirectional("ic_ab_other", "msg_actions", "preview_dots", "media_more");
+
+        // Camera
+        addAliasBidirectional("msg_camera", "camera", "msg_rear_camera", "camera_solar", "filled_premium_camera");
+
+        // Info
+        addAliasBidirectional("msg_info", "msg_info_filled", "filled_info", "msg_info_solar");
+
+        // Data & Storage
+        addAliasBidirectional("msg_data", "msg2_data", "msg_data_solar", "settings_data");
+
+        // Share & Views
+        addAliasBidirectional("msg_share", "filled_share", "outline_share_out_24", "msg_share_solar", "msg_shareout", "share", "action_share", "filled_button_share");
+        addAliasBidirectional("msg_views", "filled_views", "msg_views_solar");
+
+        // Gift & Link
+        addAliasBidirectional("msg_gift", "filled_gift_premium", "msg_gift_solar", "filled_gift_simple", "gift", "settings_gift");
+        addAliasBidirectional("msg_link", "filled_link", "msg_link_solar", "msg_link2", "msg2_link2", "tabs_link_24");
+
+        // TTL / Burn
+        addAliasBidirectional("msg_autodelete", "msg2_autodelete", "ttl_burn", "ttl_burnt", "filled_fire", "burn_solar", "ttl_oneview");
+
+        // Send & Input
+        addAliasBidirectional("send_plane_24", "send_plane_26", "send_outline", "attach_send", "ic_send", "msg_send", "send_extera_24");
+        addAliasBidirectional("input_attach", "msg_input_attach2", "ayu_input_attach", "mini_attach", "nav_edit_attach");
+
+        // Reactions & Mentions
+        addAliasBidirectional("reactionbutton", "menu_reactions", "msg_reactions", "msg_reactions2", "msg_reactions_filled", "filled_chatlist_reaction");
+        addAliasBidirectional("mentionbutton", "filled_chatlist_mention");
+
+        // Reply & Forward
+        addAliasBidirectional("msg_reply", "menu_reply", "msg_reply_small", "input_reply", "filled_button_reply");
+        addAliasBidirectional("msg_forward", "input_forward", "filled_forward");
+
+        // Saved Messages & Archive
+        addAliasBidirectional("chats_saved", "msg_saved", "menu_saved", "outline_saved_24");
+        addAliasBidirectional("chats_archive", "msg_archive", "large_archive", "msg2_archived_stickers");
+
+        // Audio player
+        addAliasBidirectional("player_new_repeatall", "player_repeat", "miniplayer_repeat", "msg_repeat");
+        addAliasBidirectional("player_new_repeatone", "player_repeat1");
+        addAliasBidirectional("player_new_shuffle", "player_shuffle");
+        addAliasBidirectional("player_new_order", "player_order");
+
+        // Crop / draw
+        addAliasBidirectional("media_crop", "msg_photo_crop");
+    }
 
     public static IconPackManager getInstance() {
         if (Instance == null) {
@@ -42,13 +161,22 @@ public class IconPackManager {
     }
 
     public IconPackManager() {
+        Instance = this;
         loadActivePack();
+    }
+
+    public Boolean isFetchingOrig() {
+        return isFetchingOrig.get();
     }
 
     private void loadActivePack() {
         currentIconMap.clear();
         drawableCache.clear();
         currentPackDir = null;
+
+        if (ApplicationLoader.applicationContext == null) {
+            return;
+        }
 
         SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("iconpacks", Context.MODE_PRIVATE);
         boolean enabled = prefs.getBoolean("enabled", true);
@@ -77,13 +205,92 @@ public class IconPackManager {
                                         val = alt;
                                     }
                                 }
-                                currentIconMap.put(key, val);
+                                registerIconKey(key, val);
                             }
                         }
                     } catch (Exception e) {
                         FileLog.e("IconPackManager: Failed to load active pack", e);
                     }
                 }
+            }
+        }
+    }
+
+    private void registerIconKey(String key, String val) {
+        if (key == null || key.isEmpty() || val == null || val.isEmpty()) return;
+        addIconMapping(key, val);
+        String lowerKey = key.toLowerCase(Locale.ROOT);
+        if (!lowerKey.equals(key)) {
+            addIconMapping(lowerKey, val);
+        }
+        if (key.contains("-")) {
+            addIconMapping(key.replace('-', '_'), val);
+        }
+        if (key.contains("_")) {
+            addIconMapping(key.replace('_', '-'), val);
+        }
+        if (key.endsWith(".png") || key.endsWith(".svg") || key.endsWith(".webp")) {
+            int dot = key.lastIndexOf('.');
+            String base = key.substring(0, dot);
+            addIconMapping(base, val);
+            addIconMapping(base.toLowerCase(Locale.ROOT), val);
+        }
+
+        String[] suffixes = {
+            "_solar", "_remix", "_liquid", "_plumpy", "_filled", "_outline",
+            "_round", "_solid", "_colored", "_24", "_32", "_16", "_20",
+            "_s", "_w", "_b", "_hw", "_ny", "_mini", "_small", "_large",
+            "_active", "_selected"
+        };
+        String stripped = key;
+        for (int round = 0; round < 3; round++) {
+            boolean changed = false;
+            for (String s : suffixes) {
+                if (stripped.endsWith(s)) {
+                    stripped = stripped.substring(0, stripped.length() - s.length());
+                    addIconMapping(stripped, val);
+                    addIconMapping(stripped.toLowerCase(Locale.ROOT), val);
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) break;
+        }
+
+        if (key.endsWith("s") && key.length() > 3) {
+            addIconMapping(key.substring(0, key.length() - 1), val);
+        } else if (!key.endsWith("s")) {
+            addIconMapping(key + "s", val);
+        }
+
+        if (key.startsWith("tabs_")) {
+            addIconMapping("tab_" + key.substring(5), val);
+        } else if (key.startsWith("tab_")) {
+            addIconMapping("tabs_" + key.substring(4), val);
+        }
+
+        if (key.startsWith("filled_")) {
+            addIconMapping(key.substring(7), val);
+        } else if (key.startsWith("outline_")) {
+            addIconMapping(key.substring(8), val);
+        }
+
+        if (key.startsWith("msg2_")) {
+            addIconMapping("msg_" + key.substring(5), val);
+        } else if (key.startsWith("msg_")) {
+            addIconMapping("msg2_" + key.substring(4), val);
+            addIconMapping("menu_" + key.substring(4), val);
+        } else if (key.startsWith("menu_")) {
+            addIconMapping("msg_" + key.substring(5), val);
+        } else if (key.startsWith("settings_")) {
+            addIconMapping("msg_" + key.substring(9), val);
+            addIconMapping("menu_" + key.substring(9), val);
+        }
+
+        String[] aliases = ALIASES.get(key);
+        if (aliases != null) {
+            for (String alias : aliases) {
+                addIconMapping(alias, val);
             }
         }
     }
@@ -97,15 +304,23 @@ public class IconPackManager {
             } else {
                 String fname = f.getName();
                 String relPath = (relPrefix.isEmpty() ? "" : relPrefix + "/") + fname;
-                String lower = fname.toLowerCase(java.util.Locale.ROOT);
+                String lower = fname.toLowerCase(Locale.ROOT);
                 if (lower.endsWith(".png") || lower.endsWith(".svg") || lower.endsWith(".webp")) {
                     addIconMapping(fname, relPath);
                     addIconMapping(lower, relPath);
                     int dot = fname.lastIndexOf('.');
                     if (dot > 0) {
                         String base = fname.substring(0, dot);
-                        addIconVariants(base, relPath);
-                        addIconVariants(base.toLowerCase(java.util.Locale.ROOT), relPath);
+                        boolean isPureDigits = true;
+                        for (int i = 0; i < base.length(); i++) {
+                            if (!Character.isDigit(base.charAt(i))) {
+                                isPureDigits = false;
+                                break;
+                            }
+                        }
+                        if (!isPureDigits) {
+                            registerIconKey(base, relPath);
+                        }
                     }
                 }
             }
@@ -113,72 +328,8 @@ public class IconPackManager {
     }
 
     private void addIconMapping(String key, String relPath) {
-        if (key == null || key.isEmpty()) return;
+        if (key == null || key.isEmpty() || relPath == null || relPath.isEmpty()) return;
         currentIconMap.putIfAbsent(key, relPath);
-    }
-
-    private void addIconVariants(String base, String relPath) {
-        if (base == null || base.isEmpty()) return;
-        addIconMapping(base, relPath);
-
-        // Normalize dashes and underscores
-        if (base.contains("-")) {
-            addIconMapping(base.replace('-', '_'), relPath);
-        }
-        if (base.contains("_")) {
-            addIconMapping(base.replace('_', '-'), relPath);
-        }
-
-        // Recursively strip common suffixes first
-        String[] suffixes = {"_solar", "_remix", "_filled", "_round", "_outline", "_solid", "_colored", "_24", "_dr", "_s", "_mini", "_active", "_pressed", "_fill", "_line", "_white", "_black", "2"};
-        String strippedSuffix = base;
-        boolean foundSuffix;
-        do {
-            foundSuffix = false;
-            for (String s : suffixes) {
-                if (strippedSuffix.endsWith(s)) {
-                    strippedSuffix = strippedSuffix.substring(0, strippedSuffix.length() - s.length());
-                    addIconMapping(strippedSuffix, relPath);
-                    if (strippedSuffix.contains("-")) addIconMapping(strippedSuffix.replace('-', '_'), relPath);
-                    if (strippedSuffix.contains("_")) addIconMapping(strippedSuffix.replace('_', '-'), relPath);
-                    foundSuffix = true;
-                    break;
-                }
-            }
-        } while (foundSuffix && strippedSuffix.length() > 2);
-
-        // Recursively strip common prefixes
-        String[] prefixes = {"chats_filter_", "calls_menu_", "msg_mini_", "ic_ab_", "ic_", "ic-", "icon_", "icon-", "msg_", "menu_", "chats_", "filter_", "input_", "profile_", "calls_", "attach_", "tab_"};
-        String strippedPrefix = strippedSuffix;
-        boolean foundPrefix;
-        do {
-            foundPrefix = false;
-            for (String p : prefixes) {
-                if (strippedPrefix.startsWith(p)) {
-                    strippedPrefix = strippedPrefix.substring(p.length());
-                    addIconMapping(strippedPrefix, relPath);
-                    if (strippedPrefix.contains("-")) addIconMapping(strippedPrefix.replace('-', '_'), relPath);
-                    if (strippedPrefix.contains("_")) addIconMapping(strippedPrefix.replace('_', '-'), relPath);
-                    foundPrefix = true;
-                    break;
-                }
-            }
-        } while (foundPrefix && strippedPrefix.length() > 2);
-
-        // Add all bidirectional aliases so Telegram resource names match pack icons immediately
-        for (String fb : getFallbackNames(base)) {
-            addIconMapping(fb, relPath);
-        }
-        if (!strippedSuffix.equals(base)) {
-            for (String fb : getFallbackNames(strippedSuffix)) {
-                addIconMapping(fb, relPath);
-            }
-        }
-        if (!strippedPrefix.equals(strippedSuffix)) {
-            for (String fb : getFallbackNames(strippedPrefix)) {
-                addIconMapping(fb, relPath);
-            }
-        }
     }
 
     public boolean hasActivePack() {
@@ -196,7 +347,7 @@ public class IconPackManager {
         if (name == null || name.isEmpty()) return null;
         String val = currentIconMap.get(name);
         if (val != null) return val;
-        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        String lower = name.toLowerCase(Locale.ROOT);
         val = currentIconMap.get(lower);
         if (val != null) return val;
 
@@ -219,18 +370,6 @@ public class IconPackManager {
             if (val != null) return val;
             val = currentIconMap.get(lower + ext);
             if (val != null) return val;
-            if (name.contains("_")) {
-                val = currentIconMap.get(name.replace('_', '-') + ext);
-                if (val != null) return val;
-                val = currentIconMap.get(lower.replace('_', '-') + ext);
-                if (val != null) return val;
-            }
-            if (name.contains("-")) {
-                val = currentIconMap.get(name.replace('-', '_') + ext);
-                if (val != null) return val;
-                val = currentIconMap.get(lower.replace('-', '_') + ext);
-                if (val != null) return val;
-            }
         }
 
         if (name.endsWith(".png") || name.endsWith(".svg") || name.endsWith(".webp")) {
@@ -243,6 +382,102 @@ public class IconPackManager {
         return null;
     }
 
+    private String resolveIconFileName(String resourceName) {
+        if (resourceName == null || resourceName.isEmpty()) return null;
+
+        String fileName = resolveFromMap(resourceName);
+        if (fileName != null) return fileName;
+
+        String[] aliases = ALIASES.get(resourceName);
+        if (aliases != null) {
+            for (String alias : aliases) {
+                fileName = resolveFromMap(alias);
+                if (fileName != null) return fileName;
+            }
+        }
+
+        String stripped = resourceName;
+        String[] suffixes = {
+            "_solar", "_remix", "_liquid", "_plumpy", "_filled", "_outline",
+            "_round", "_solid", "_colored", "_24", "_32", "_16", "_20",
+            "_s", "_w", "_b", "_hw", "_ny", "_mini", "_small", "_large",
+            "_active", "_selected"
+        };
+        for (int round = 0; round < 3; round++) {
+            boolean changed = false;
+            for (String s : suffixes) {
+                if (stripped.endsWith(s)) {
+                    stripped = stripped.substring(0, stripped.length() - s.length());
+                    fileName = resolveFromMap(stripped);
+                    if (fileName != null) return fileName;
+                    String[] strippedAliases = ALIASES.get(stripped);
+                    if (strippedAliases != null) {
+                        for (String a : strippedAliases) {
+                            fileName = resolveFromMap(a);
+                            if (fileName != null) return fileName;
+                        }
+                    }
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) break;
+        }
+
+        if (resourceName.startsWith("msg2_")) {
+            fileName = resolveFromMap("msg_" + resourceName.substring(5));
+            if (fileName != null) return fileName;
+        } else if (resourceName.startsWith("msg_")) {
+            fileName = resolveFromMap("msg2_" + resourceName.substring(4));
+            if (fileName != null) return fileName;
+            fileName = resolveFromMap("menu_" + resourceName.substring(4));
+            if (fileName != null) return fileName;
+        } else if (resourceName.startsWith("menu_")) {
+            fileName = resolveFromMap("msg_" + resourceName.substring(5));
+            if (fileName != null) return fileName;
+        }
+
+        if (resourceName.startsWith("tabs_")) {
+            fileName = resolveFromMap("tab_" + resourceName.substring(5));
+            if (fileName != null) return fileName;
+        } else if (resourceName.startsWith("tab_")) {
+            fileName = resolveFromMap("tabs_" + resourceName.substring(4));
+            if (fileName != null) return fileName;
+        }
+
+        if (resourceName.startsWith("filled_")) {
+            fileName = resolveFromMap(resourceName.substring(7));
+            if (fileName != null) return fileName;
+        } else if (resourceName.startsWith("outline_")) {
+            fileName = resolveFromMap(resourceName.substring(8));
+            if (fileName != null) return fileName;
+        } else if (resourceName.startsWith("ic_ab_")) {
+            fileName = resolveFromMap("msg_" + resourceName.substring(6));
+            if (fileName != null) return fileName;
+        }
+
+        if (resourceName.endsWith("s") && resourceName.length() > 3) {
+            String sing = resourceName.substring(0, resourceName.length() - 1);
+            fileName = resolveFromMap(sing);
+            if (fileName != null) return fileName;
+            String[] singAliases = ALIASES.get(sing);
+            if (singAliases != null) {
+                for (String a : singAliases) {
+                    fileName = resolveFromMap(a);
+                    if (fileName != null) return fileName;
+                }
+            }
+        }
+
+        String[] tryAdd = {"_24", "_solar", "_s", "_active_24", "_active", "_filled"};
+        for (String add : tryAdd) {
+            fileName = resolveFromMap(resourceName + add);
+            if (fileName != null) return fileName;
+        }
+
+        return null;
+    }
+
     public Drawable getDrawable(String resourceName) {
         if (currentPackDir == null || resourceName == null) {
             return null;
@@ -251,7 +486,6 @@ public class IconPackManager {
             return null;
         }
 
-        // Fast memory cache check including negative cache (null value)
         if (drawableCache.containsKey(resourceName)) {
             Drawable cached = drawableCache.get(resourceName);
             if (cached != null) {
@@ -261,58 +495,7 @@ public class IconPackManager {
             return null;
         }
 
-        String lookupName = resourceName;
-        if (lookupName.endsWith("_solar")) {
-            lookupName = lookupName.substring(0, lookupName.length() - 6);
-        }
-        if ("proxy_on".equals(lookupName) || "proxy_on_solar".equals(resourceName)) {
-            lookupName = "drawer_proxy_on";
-        } else if ("proxy_off".equals(lookupName) || "proxy_off_solar".equals(resourceName)) {
-            lookupName = "drawer_proxy_off";
-        } else if ("ghost".equals(lookupName) || "ghost_solar".equals(resourceName)) {
-            lookupName = "ghost_status";
-        } else if ("ic_ab_search_solar".equals(resourceName)) {
-            lookupName = "ic_ab_search";
-        } else if ("msg_info_filled_solar".equals(resourceName)) {
-            lookupName = "msg_info_filled";
-        } else if ("msg_data_solar".equals(resourceName)) {
-            lookupName = "msg_data";
-        }
-
-        String fileName = resolveFromMap(lookupName);
-        if (fileName == null && !lookupName.equals(resourceName)) {
-            fileName = resolveFromMap(resourceName);
-        }
-        if (fileName == null) {
-            java.util.List<String> fallbacks = getFallbackNames(lookupName);
-            for (String fallback : fallbacks) {
-                fileName = resolveFromMap(fallback);
-                if (fileName != null) {
-                    break;
-                }
-            }
-        }
-
-        if (fileName == null) {
-            try {
-                int id = ApplicationLoader.applicationContext.getResources().getIdentifier(lookupName, "drawable", ApplicationLoader.applicationContext.getPackageName());
-                if (id != 0) {
-                    app.nimarkogram.messenger.icons.icon_replaces.SolarIconReplace solarReplace = new app.nimarkogram.messenger.icons.icon_replaces.SolarIconReplace();
-                    int unwrapId = solarReplace.unwrap(id);
-                    if (unwrapId != id && unwrapId != 0) {
-                        String unwrapName = ApplicationLoader.applicationContext.getResources().getResourceEntryName(unwrapId);
-                        fileName = resolveFromMap(unwrapName);
-                    }
-                    if (fileName == null) {
-                        int solarId = solarReplace.wrap(id);
-                        if (solarId != id && solarId != 0) {
-                            String solarName = ApplicationLoader.applicationContext.getResources().getResourceEntryName(solarId);
-                            fileName = resolveFromMap(solarName);
-                        }
-                    }
-                }
-            } catch (Exception ignore) {}
-        }
+        String fileName = resolveIconFileName(resourceName);
 
         if (fileName == null) {
             drawableCache.put(resourceName, null);
@@ -324,91 +507,97 @@ public class IconPackManager {
             drawableCache.put(resourceName, null);
             return null;
         }
-        if (imgFile != null && imgFile.exists()) {
+
+        try {
+            int origW = 0;
+            int origH = 0;
             try {
-                int origW = -1;
-                int origH = -1;
-                try {
-                    int id = ApplicationLoader.applicationContext.getResources().getIdentifier(resourceName, "drawable", ApplicationLoader.applicationContext.getPackageName());
-                    if (id == 0) {
-                        for (String fb : getFallbackNames(resourceName)) {
-                            id = ApplicationLoader.applicationContext.getResources().getIdentifier(fb, "drawable", ApplicationLoader.applicationContext.getPackageName());
-                            if (id != 0) break;
-                        }
-                    }
-                    if (id != 0 && IconPackResources.apiBaseResources != null) {
-                        isFetchingOrig.set(true);
-                        try {
-                            Drawable orig = IconPackResources.apiBaseResources.getDrawable(id);
-                            if (orig != null) {
-                                origW = orig.getIntrinsicWidth();
-                                origH = orig.getIntrinsicHeight();
+                isFetchingOrig.set(Boolean.TRUE);
+                if (IconPackResources.apiBaseResources != null && ApplicationLoader.applicationContext != null) {
+                    String pkg = ApplicationLoader.applicationContext.getPackageName();
+                    int resId = IconPackResources.apiBaseResources.getIdentifier(resourceName, "drawable", pkg);
+                    if (resId == 0) {
+                        String[] aliases = ALIASES.get(resourceName);
+                        if (aliases != null) {
+                            for (String alias : aliases) {
+                                resId = IconPackResources.apiBaseResources.getIdentifier(alias, "drawable", pkg);
+                                if (resId != 0) break;
                             }
-                        } finally {
-                            isFetchingOrig.set(false);
                         }
                     }
-                } catch (Exception ignore) {
-                    isFetchingOrig.set(false);
-                }
-
-                if (origW <= 0) origW = AndroidUtilities.dp(24);
-                if (origH <= 0) origH = AndroidUtilities.dp(24);
-
-                Bitmap bitmap = null;
-                if (imgFile.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".svg")) {
-                    try (FileInputStream fis = new FileInputStream(imgFile)) {
-                        com.caverock.androidsvg.SVG svg = com.caverock.androidsvg.SVG.getFromInputStream(fis);
-                        int targetW = origW > 0 ? origW : AndroidUtilities.dp(24);
-                        int targetH = origH > 0 ? origH : AndroidUtilities.dp(24);
-                        if (svg.getDocumentViewBox() != null) {
-                            svg.setDocumentWidth(targetW);
-                            svg.setDocumentHeight(targetH);
-                        } else {
-                            float docW = svg.getDocumentWidth();
-                            float docH = svg.getDocumentHeight();
-                            if (docW > 0 && docH > 0) {
-                                svg.setDocumentViewBox(0, 0, docW, docH);
-                            }
-                            svg.setDocumentWidth(targetW);
-                            svg.setDocumentHeight(targetH);
+                    if (resId != 0) {
+                        Drawable orig = IconPackResources.apiBaseResources.getDrawable(resId);
+                        if (orig != null) {
+                            origW = orig.getIntrinsicWidth();
+                            origH = orig.getIntrinsicHeight();
                         }
-                        bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
-                        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
-                        svg.renderToCanvas(canvas);
-                    } catch (Throwable e) {
-                        FileLog.e("IconPackManager: Failed to render SVG " + imgFile, e);
                     }
-                } else {
-                    bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
                 }
+            } catch (Throwable ignore) {
+            } finally {
+                isFetchingOrig.set(Boolean.FALSE);
+            }
 
-                if (bitmap != null) {
-                    if (origW > 0 && origH > 0 && (bitmap.getWidth() != origW || bitmap.getHeight() != origH)) {
+            if (origW <= 0 || origH <= 0) {
+                origW = AndroidUtilities.dp(24);
+                origH = AndroidUtilities.dp(24);
+            }
+
+            Bitmap bitmap = null;
+            if (imgFile.getName().toLowerCase(Locale.ROOT).endsWith(".svg")) {
+                try (FileInputStream fis = new FileInputStream(imgFile)) {
+                    com.caverock.androidsvg.SVG svg = com.caverock.androidsvg.SVG.getFromInputStream(fis);
+                    int targetW = origW;
+                    int targetH = origH;
+                    if (svg.getDocumentViewBox() != null) {
+                        svg.setDocumentWidth(targetW);
+                        svg.setDocumentHeight(targetH);
+                    } else {
+                        float docW = svg.getDocumentWidth();
+                        float docH = svg.getDocumentHeight();
+                        if (docW > 0 && docH > 0) {
+                            svg.setDocumentViewBox(0, 0, docW, docH);
+                        }
+                        svg.setDocumentWidth(targetW);
+                        svg.setDocumentHeight(targetH);
+                    }
+                    bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
+                    android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+                    svg.renderToCanvas(canvas);
+                } catch (Throwable e) {
+                    FileLog.e("IconPackManager: Failed to render SVG " + imgFile, e);
+                }
+            } else {
+                bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+                if (bitmap != null && origW > 0 && origH > 0) {
+                    if (bitmap.getWidth() != origW || bitmap.getHeight() != origH) {
                         Bitmap scaled = Bitmap.createScaledBitmap(bitmap, origW, origH, true);
                         if (scaled != bitmap) {
                             bitmap.recycle();
                             bitmap = scaled;
                         }
                     }
-
-                    bitmap.setDensity(ApplicationLoader.applicationContext.getResources().getDisplayMetrics().densityDpi);
-                    Drawable d;
-                    if (shouldDisableTinting(bitmap)) {
-                        d = new NonTintableDrawable(new BitmapDrawable(ApplicationLoader.applicationContext.getResources(), bitmap));
-                    } else {
-                        d = new BitmapDrawable(ApplicationLoader.applicationContext.getResources(), bitmap);
-                    }
-                    drawableCache.put(resourceName, d);
-                    if (d.getConstantState() != null) {
-                        return d.getConstantState().newDrawable().mutate();
-                    }
-                    return d;
                 }
-            } catch (Exception e) {
-                FileLog.e(e);
             }
+
+            if (bitmap != null) {
+                bitmap.setDensity(ApplicationLoader.applicationContext.getResources().getDisplayMetrics().densityDpi);
+                Drawable d;
+                if (shouldDisableTinting(bitmap)) {
+                    d = new NonTintableDrawable(new BitmapDrawable(ApplicationLoader.applicationContext.getResources(), bitmap));
+                } else {
+                    d = new BitmapDrawable(ApplicationLoader.applicationContext.getResources(), bitmap);
+                }
+                drawableCache.put(resourceName, d);
+                if (d.getConstantState() != null) {
+                    return d.getConstantState().newDrawable().mutate();
+                }
+                return d;
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
         }
+
         drawableCache.put(resourceName, null);
         return null;
     }
@@ -482,7 +671,7 @@ public class IconPackManager {
                     info.version = json.optString("version", "1.0");
                     return info;
                 }
-                String lower = entryName.toLowerCase(java.util.Locale.ROOT);
+                String lower = entryName.toLowerCase(Locale.ROOT);
                 if (lower.endsWith(".png") || lower.endsWith(".svg") || lower.endsWith(".webp")) {
                     hasAnyIcons = true;
                 }
@@ -705,6 +894,22 @@ public class IconPackManager {
         }
 
         @Override
+        public void setBounds(int left, int top, int right, int bottom) {
+            super.setBounds(left, top, right, bottom);
+            if (wrapped != null) {
+                wrapped.setBounds(left, top, right, bottom);
+            }
+        }
+
+        @Override
+        public void setBounds(android.graphics.Rect bounds) {
+            super.setBounds(bounds);
+            if (wrapped != null) {
+                wrapped.setBounds(bounds);
+            }
+        }
+
+        @Override
         protected void onBoundsChange(android.graphics.Rect bounds) {
             super.onBoundsChange(bounds);
             if (wrapped != null) {
@@ -743,176 +948,5 @@ public class IconPackManager {
                 }
             };
         }
-    }
-
-    private java.util.List<String> getFallbackNames(String name) {
-        java.util.List<String> list = new java.util.ArrayList<>();
-        if (name == null || name.isEmpty()) {
-            return list;
-        }
-
-        String base = name;
-        String[] suffixes = {"_solar", "_remix", "_filled", "_round", "_outline", "_solid", "_colored", "2", "_24", "_dr", "_s", "_mini", "_active", "_pressed", "_fill", "_line", "_white", "_black"};
-        boolean foundSuffix;
-        do {
-            foundSuffix = false;
-            for (String s : suffixes) {
-                if (base.endsWith(s)) {
-                    base = base.substring(0, base.length() - s.length());
-                    if (!list.contains(base)) list.add(base);
-                    foundSuffix = true;
-                    break;
-                }
-            }
-        } while (foundSuffix && base.length() > 2);
-
-        if (base.contains("arrowright")) list.add(base.replace("arrowright", "arrow_right"));
-        if (base.contains("arrowleft")) list.add(base.replace("arrowleft", "arrow_left"));
-        if (base.contains("arrowup")) list.add(base.replace("arrowup", "arrow_up"));
-        if (base.contains("arrowdown")) list.add(base.replace("arrowdown", "arrow_down"));
-        if (base.contains("arrow_right")) list.add(base.replace("arrow_right", "arrowright"));
-        if (base.contains("arrow_left")) list.add(base.replace("arrow_left", "arrowleft"));
-
-        String stripped = base;
-        String[] prefixes = {"chats_filter_", "calls_menu_", "msg_mini_", "ic_ab_", "ic_", "msg2_", "input_", "profile_", "calls_", "attach_", "tab_", "menu_", "chats_", "filter_", "msg_"};
-        boolean foundPrefix;
-        do {
-            foundPrefix = false;
-            for (String p : prefixes) {
-                if (stripped.startsWith(p)) {
-                    stripped = stripped.substring(p.length());
-                    foundPrefix = true;
-                    break;
-                }
-            }
-        } while (foundPrefix && stripped.length() > 2);
-
-        if (!list.contains(stripped)) list.add(stripped);
-
-        // Common aliases
-        if ("close".equals(stripped) || "cancel".equals(stripped) || "clear".equals(stripped) || "cross".equals(stripped)) { list.add("msg_close"); list.add("close"); list.add("cancel"); list.add("clear"); list.add("ic_close"); list.add("navigation_close"); }
-        if ("add".equals(stripped) || "plus".equals(stripped) || "create".equals(stripped)) { list.add("msg_add"); list.add("add"); list.add("plus"); list.add("create"); }
-
-        // Common aliases
-        if ("settings".equals(stripped) || "preferences".equals(stripped)) { list.add("msg_settings"); list.add("menu_settings"); list.add("tab_settings"); list.add("settings_tab"); list.add("preferences"); list.add("settings"); list.add("gear"); list.add("cog"); }
-        if ("calls".equals(stripped) || "call".equals(stripped) || "phone".equals(stripped)) { list.add("msg_calls"); list.add("menu_calls"); list.add("tab_calls"); list.add("calls_tab"); list.add("call"); list.add("calls"); list.add("phone"); list.add("profile_phone"); list.add("telephone"); }
-        if ("folders".equals(stripped) || "folder".equals(stripped)) { list.add("msg_folders"); list.add("files_folder"); list.add("folder"); list.add("folders"); list.add("folder_open"); list.add("folder-open"); }
-        if ("contacts".equals(stripped) || "contact".equals(stripped) || "users".equals(stripped) || "people".equals(stripped) || "user".equals(stripped)) { list.add("msg_contacts"); list.add("menu_contacts"); list.add("tab_contacts"); list.add("contacts_tab"); list.add("users"); list.add("contacts"); list.add("user"); list.add("people"); list.add("profile"); }
-        if ("chats".equals(stripped) || "dialogs".equals(stripped) || "messages".equals(stripped) || "chat".equals(stripped) || "message".equals(stripped)) { list.add("tab_chats"); list.add("chats_tab"); list.add("msg_chats"); list.add("chats"); list.add("chat"); list.add("dialogs"); list.add("messages"); list.add("message"); list.add("bubble"); list.add("comment"); }
-        if ("camera".equals(stripped)) { list.add("msg_camera"); list.add("camera_solar"); list.add("camera"); list.add("photo_camera"); }
-        if ("secret".equals(stripped) || "privacy".equals(stripped) || "lock".equals(stripped) || "security".equals(stripped) || "shield".equals(stripped) || "permissions".equals(stripped)) { list.add("msg_secret"); list.add("msg_secret_solar"); list.add("msg_permissions"); list.add("list_secret"); list.add("lock"); list.add("privacy"); list.add("security"); list.add("shield"); list.add("msg_mini_lock2"); list.add("lock_outline"); list.add("lock-closed"); }
-        if ("back".equals(stripped)) { list.add("ic_ab_back"); list.add("arrow_back"); list.add("ic_back"); list.add("arrow_left"); list.add("arrow-left"); list.add("chevron_left"); list.add("chevron-left"); }
-        if ("search".equals(stripped) || "find".equals(stripped)) { list.add("ic_ab_search"); list.add("search"); list.add("outline_header_search"); list.add("ic_search"); list.add("magnifier"); list.add("find"); }
-        if ("other".equals(stripped) || "more".equals(stripped) || "dots".equals(stripped) || "menu".equals(stripped)) { list.add("ic_ab_other"); list.add("menu_other"); list.add("more"); list.add("dots"); list.add("ic_more"); list.add("dots_vertical"); list.add("dots-vertical"); list.add("more_vert"); list.add("ellipsis"); }
-        if ("share".equals(stripped)) { list.add("msg_share"); list.add("share"); list.add("share_arrow"); }
-        if ("delete".equals(stripped) || "trash".equals(stripped) || "bin".equals(stripped)) { list.add("msg_delete"); list.add("delete"); list.add("trash"); list.add("bin"); list.add("remove"); }
-        if ("edit".equals(stripped) || "pencil".equals(stripped) || "pen".equals(stripped)) { list.add("msg_edit"); list.add("msg_pencil"); list.add("edit"); list.add("pencil"); list.add("pen"); }
-        if ("send".equals(stripped) || "plane".equals(stripped)) { list.add("attach_send"); list.add("msg_send"); list.add("send_plane_24"); list.add("send"); list.add("ic_send"); list.add("paper_plane"); list.add("paper-plane"); }
-        if ("attach".equals(stripped) || "clip".equals(stripped) || "paperclip".equals(stripped)) { list.add("input_attach"); list.add("msg_input_attach2"); list.add("attach"); list.add("clip"); list.add("paperclip"); }
-        if ("mic".equals(stripped) || "voice".equals(stripped) || "microphone".equals(stripped)) { list.add("input_mic"); list.add("msg_voice"); list.add("mic"); list.add("voice"); list.add("microphone"); }
-        if ("video".equals(stripped) || "videocam".equals(stripped)) { list.add("input_video"); list.add("video"); list.add("videocam"); }
-        if ("smile".equals(stripped) || "emoji".equals(stripped) || "sticker".equals(stripped) || "stickers".equals(stripped)) { list.add("input_smile"); list.add("smile"); list.add("emoji"); list.add("stickers"); list.add("sticker"); list.add("msg_stickers"); }
-        if ("keyboard".equals(stripped)) { list.add("input_keyboard"); list.add("keyboard"); }
-        if ("saved".equals(stripped) || "bookmarks".equals(stripped) || "bookmark".equals(stripped)) { list.add("chats_saved"); list.add("msg_saved"); list.add("saved"); list.add("msg_fave"); list.add("bookmarks"); list.add("bookmark"); list.add("star"); }
-        if ("media".equals(stripped) || "photos".equals(stripped) || "photo".equals(stripped) || "gallery".equals(stripped) || "image".equals(stripped) || "images".equals(stripped)) { list.add("msg_media"); list.add("media"); list.add("photos"); list.add("photo"); list.add("gallery"); list.add("image"); list.add("images"); list.add("picture"); }
-        if ("files".equals(stripped) || "file".equals(stripped) || "document".equals(stripped) || "docs".equals(stripped)) { list.add("msg_files"); list.add("msg_docs"); list.add("files"); list.add("file"); list.add("document"); list.add("doc"); }
-        if ("music".equals(stripped) || "audio".equals(stripped) || "song".equals(stripped)) { list.add("msg_music"); list.add("music"); list.add("audio"); list.add("song"); list.add("sound"); list.add("note"); list.add("music_note"); }
-        if ("archive".equals(stripped)) { list.add("chats_archive"); list.add("msg_archive"); list.add("archive"); list.add("box"); }
-        if ("mute".equals(stripped) || "unmute".equals(stripped) || "bell".equals(stripped)) { list.add("list_mute"); list.add("list_unmute"); list.add("msg_mute"); list.add("msg_unmute"); list.add("mute"); list.add("unmute"); list.add("bell_off"); list.add("bell-off"); }
-        if ("pin".equals(stripped) || "unpin".equals(stripped)) { list.add("list_pin"); list.add("msg_pin"); list.add("msg_unpin"); list.add("pin"); list.add("unpin"); list.add("pushpin"); }
-        if ("notifications".equals(stripped) || "notification".equals(stripped) || "bell".equals(stripped)) { list.add("msg_notifications"); list.add("menu_notifications"); list.add("notifications"); list.add("notification"); list.add("bell"); }
-        if ("theme".equals(stripped) || "night".equals(stripped) || "dark".equals(stripped) || "palette".equals(stripped)) { list.add("msg_theme"); list.add("msg_palette"); list.add("menu_night"); list.add("night"); list.add("moon"); list.add("palette"); list.add("theme"); }
-        if ("qrcode".equals(stripped) || "qr".equals(stripped)) { list.add("header_qr_24"); list.add("msg_qrcode"); list.add("qr"); list.add("qrcode"); }
-        if ("check".equals(stripped) || "halfcheck".equals(stripped) || "verified".equals(stripped) || "tick".equals(stripped) || "done".equals(stripped)) {
-            list.add("list_check"); list.add("list_halfcheck"); list.add("msg_check"); list.add("msg_halfcheck"); list.add("msg_check_w"); list.add("msg_halfcheck_w");
-            list.add("verified_check"); list.add("check"); list.add("double_check"); list.add("double-check"); list.add("check_all"); list.add("check-all"); list.add("tick"); list.add("done"); list.add("done_all"); list.add("read");
-        }
-        if ("newgroup".equals(stripped) || "group".equals(stripped)) { list.add("menu_newgroup"); list.add("newgroup"); list.add("new_group"); list.add("group_add"); list.add("group"); }
-        if ("channel".equals(stripped)) { list.add("menu_channel"); list.add("channel"); list.add("new_channel"); list.add("megaphone"); list.add("broadcast"); }
-        if ("info".equals(stripped) || "about".equals(stripped)) { list.add("msg_info"); list.add("msg_info_solar"); list.add("msg_info_filled"); list.add("menu_about"); list.add("info"); list.add("about"); }
-        if ("download".equals(stripped)) { list.add("msg_download"); list.add("msg_mini_download"); list.add("download"); list.add("arrow_down"); }
-        if ("upload".equals(stripped)) { list.add("msg_upload"); list.add("msg_mini_upload"); list.add("upload"); list.add("arrow_up"); }
-        if ("copy".equals(stripped)) { list.add("msg_copy"); list.add("copy"); list.add("duplicate"); }
-        if ("forward".equals(stripped)) { list.add("msg_forward"); list.add("msg_forward_solar"); list.add("forward"); list.add("arrow_forward"); }
-        if ("reply".equals(stripped)) { list.add("msg_reply"); list.add("msg_reply_solar"); list.add("reply"); }
-        if ("retry".equals(stripped) || "refresh".equals(stripped) || "sync".equals(stripped)) { list.add("msg_retry"); list.add("msg_retry_solar"); list.add("retry"); list.add("refresh"); list.add("sync"); list.add("reload"); }
-        if ("view".equals(stripped)) { list.add("msg_view_file"); list.add("msg_view"); list.add("view"); list.add("eye"); }
-        if ("log".equals(stripped) || "history".equals(stripped)) { list.add("msg_log"); list.add("msg_history"); list.add("history"); }
-
-        // Language / Globe
-        if ("language".equals(stripped) || "globe".equals(stripped) || "translate".equals(stripped)) {
-            list.add("msg_language"); list.add("language"); list.add("globe"); list.add("translate"); list.add("web"); list.add("intl");
-        }
-        // Devices / Sessions
-        if ("devices".equals(stripped) || "device".equals(stripped) || "sessions".equals(stripped)) {
-            list.add("msg_devices"); list.add("devices"); list.add("device"); list.add("sessions"); list.add("laptop"); list.add("computer"); list.add("desktop");
-        }
-        // Storage / Data
-        if ("data".equals(stripped) || "storage".equals(stripped) || "database".equals(stripped)) {
-            list.add("msg_data"); list.add("msg_data_solar"); list.add("data"); list.add("storage"); list.add("database"); list.add("disk"); list.add("server");
-        }
-        // Premium / Stars
-        if ("premium".equals(stripped) || "star".equals(stripped)) {
-            list.add("msg_premium"); list.add("premium"); list.add("star"); list.add("vip"); list.add("crown");
-        }
-        // Boost / Rocket
-        if ("boost".equals(stripped) || "rocket".equals(stripped)) {
-            list.add("msg_boost"); list.add("boost"); list.add("rocket"); list.add("lightning");
-        }
-        // Gift
-        if ("gift".equals(stripped)) {
-            list.add("msg_gift"); list.add("gift"); list.add("present");
-        }
-        // Clock / Timer
-        if ("clock".equals(stripped) || "timer".equals(stripped) || "time".equals(stripped)) {
-            list.add("msg_clock"); list.add("clock"); list.add("timer"); list.add("time"); list.add("watch");
-        }
-        // Warning / Error
-        if ("warning".equals(stripped) || "alert".equals(stripped) || "error".equals(stripped)) {
-            list.add("msg_warning"); list.add("warning"); list.add("alert"); list.add("error");
-        }
-        // Location / Map
-        if ("location".equals(stripped) || "map".equals(stripped)) {
-            list.add("msg_location"); list.add("location"); list.add("map"); list.add("pin_drop");
-        }
-        // Link / Chain
-        if ("link".equals(stripped) || "chain".equals(stripped)) {
-            list.add("msg_link"); list.add("msg_link_2"); list.add("link"); list.add("chain");
-        }
-        // Audio Player controls
-        if ("play".equals(stripped) || "play_arrow".equals(stripped)) {
-            list.add("play"); list.add("play_arrow"); list.add("play_circle"); list.add("player_play");
-        }
-        if ("pause".equals(stripped)) {
-            list.add("pause"); list.add("pause_circle"); list.add("player_pause");
-        }
-        if ("next".equals(stripped) || "skip_next".equals(stripped)) {
-            list.add("next"); list.add("skip_next"); list.add("player_next");
-        }
-        if ("prev".equals(stripped) || "previous".equals(stripped) || "skip_previous".equals(stripped)) {
-            list.add("prev"); list.add("previous"); list.add("skip_previous"); list.add("player_prev");
-        }
-        if ("shuffle".equals(stripped) || "random".equals(stripped)) {
-            list.add("shuffle"); list.add("random"); list.add("player_shuffle");
-        }
-        if ("repeat".equals(stripped) || "loop".equals(stripped)) {
-            list.add("repeat"); list.add("loop"); list.add("player_repeat");
-        }
-        if ("volume".equals(stripped) || "speaker".equals(stripped)) {
-            list.add("volume"); list.add("speaker"); list.add("sound");
-        }
-        if ("equalizer".equals(stripped) || "tune".equals(stripped)) {
-            list.add("equalizer"); list.add("sliders"); list.add("tune");
-        }
-
-        for (String p : prefixes) {
-            String candidate = p + stripped;
-            if (!list.contains(candidate)) list.add(candidate);
-            if (!list.contains(candidate + "_solar")) list.add(candidate + "_solar");
-            if (!list.contains(candidate + "2")) list.add(candidate + "2");
-            if (!list.contains(candidate + "_filled")) list.add(candidate + "_filled");
-        }
-
-        return list;
     }
 }

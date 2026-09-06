@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Takrorlash</string>
     <string name="AccDescrShuffle">Aralashtirish</string>
     <string name="AccDescrEqualizer">Ekvayzer</string>
+    <string name="NimarkoGramSettings">SoundGram Sozlamalari</string>
+    <string name="NM_Cat_General">Umumiy</string>
+    <string name="NM_Cat_Appearance">Ko‘rinish</string>
+    <string name="NM_Cat_Chats">Chatlar</string>
+    <string name="NM_Cat_Camera">Kamera</string>
+    <string name="NM_Cat_Privacy">Maxfiylik</string>
+    <string name="NM_WSB_Title">Blokirovkani aylanib o‘tish</string>
+    <string name="NM_HUB_Debug">Nosozliklarni tuzatish</string>
+    <string name="NM_HUB_Restart">Ilovani qayta ishga tushirish</string>
+    <string name="UP_CheckForUpdates">Ilovani yangilash</string>
+    <string name="AP_Header_General">Umumiy</string>
+    <string name="NM_HUB_Header_Misc">Turli</string>
+    <string name="NM_HUB_Header_Advanced">Kengaytirilgan</string>
+    <string name="NM_HUB_Header_Other">Boshqa</string>
+    <string name="NM_Cat_Miscellaneous">Turli</string>
 </resources>

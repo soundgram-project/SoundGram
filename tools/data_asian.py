@@ -1539,3 +1539,108 @@ STRINGS_ZH_TW = {
     'AccDescrEqualizer': '等化器',
 }
 
+
+# Added SoundGram Settings Localization
+STRINGS_ID.update({
+    'NimarkoGramSettings': 'Pengaturan SoundGram',
+    'NM_Cat_General': 'Umum',
+    'NM_Cat_Appearance': 'Tampilan',
+    'NM_Cat_Chats': 'Obrolan',
+    'NM_Cat_Camera': 'Kamera',
+    'NM_Cat_Privacy': 'Privasi',
+    'NM_WSB_Title': 'Bypass',
+    'NM_HUB_Debug': 'Debug',
+    'NM_HUB_Restart': 'Mulai ulang aplikasi',
+    'UP_CheckForUpdates': 'Perbarui aplikasi',
+    'NM_TA_Title': 'Animasi Teks',
+    'NM_HUB_SupportDevelopment': 'Dukung Pengembangan',
+    'AP_Header_General': 'Umum',
+    'NM_HUB_Header_Misc': 'Lain-lain',
+    'NM_HUB_Header_Advanced': 'Lanjutan',
+    'NM_HUB_Header_Other': 'Lainnya',
+    'NM_Cat_Miscellaneous': 'Lain-lain',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_JA.update({
+    'NimarkoGramSettings': 'SoundGram設定',
+    'NM_Cat_General': '一般',
+    'NM_Cat_Appearance': '外観',
+    'NM_Cat_Chats': 'チャット',
+    'NM_Cat_Camera': 'カメラ',
+    'NM_Cat_Privacy': 'プライバシー',
+    'NM_WSB_Title': '迂回設定',
+    'NM_HUB_Debug': 'デバッグ',
+    'NM_HUB_Restart': 'アプリを再起動',
+    'UP_CheckForUpdates': 'アプリを更新',
+    'NM_TA_Title': 'テキストアニメーション',
+    'NM_HUB_SupportDevelopment': '開発を支援',
+    'AP_Header_General': '一般',
+    'NM_HUB_Header_Misc': 'その他',
+    'NM_HUB_Header_Advanced': '高度な設定',
+    'NM_HUB_Header_Other': 'その他',
+    'NM_Cat_Miscellaneous': 'その他',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_KO.update({
+    'NimarkoGramSettings': 'SoundGram 설정',
+    'NM_Cat_General': '일반',
+    'NM_Cat_Appearance': '화면 설정',
+    'NM_Cat_Chats': '대화',
+    'NM_Cat_Camera': '카메라',
+    'NM_Cat_Privacy': '개인 정보',
+    'NM_WSB_Title': '우회 설정',
+    'NM_HUB_Debug': '디버그',
+    'NM_HUB_Restart': '앱 재시작',
+    'UP_CheckForUpdates': '앱 업데이트',
+    'NM_TA_Title': '텍스트 애니메이션',
+    'NM_HUB_SupportDevelopment': '개발 후원',
+    'AP_Header_General': '일반',
+    'NM_HUB_Header_Misc': '기타',
+    'NM_HUB_Header_Advanced': '고급',
+    'NM_HUB_Header_Other': '기타',
+    'NM_Cat_Miscellaneous': '기타',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_ZH_CN.update({
+    'NimarkoGramSettings': 'SoundGram 设置',
+    'NM_Cat_General': '通用',
+    'NM_Cat_Appearance': '外观',
+    'NM_Cat_Chats': '聊天',
+    'NM_Cat_Camera': '相机',
+    'NM_Cat_Privacy': '隐私',
+    'NM_WSB_Title': '绕过封锁',
+    'NM_HUB_Debug': '调试',
+    'NM_HUB_Restart': '重启应用',
+    'UP_CheckForUpdates': '更新应用',
+    'NM_TA_Title': '文本动画',
+    'NM_HUB_SupportDevelopment': '支持开发',
+    'AP_Header_General': '通用',
+    'NM_HUB_Header_Misc': '其他',
+    'NM_HUB_Header_Advanced': '高级',
+    'NM_HUB_Header_Other': '其他',
+    'NM_Cat_Miscellaneous': '其他',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_ZH_TW.update({
+    'NimarkoGramSettings': 'SoundGram 設定',
+    'NM_Cat_General': '一般',
+    'NM_Cat_Appearance': '外觀',
+    'NM_Cat_Chats': '聊天',
+    'NM_Cat_Camera': '相機',
+    'NM_Cat_Privacy': '隱私',
+    'NM_WSB_Title': '繞過封鎖',
+    'NM_HUB_Debug': '除錯',
+    'NM_HUB_Restart': '重新啟動應用程式',
+    'UP_CheckForUpdates': '更新應用程式',
+    'NM_TA_Title': '文字動畫',
+    'NM_HUB_SupportDevelopment': '支持開發',
+    'AP_Header_General': '一般',
+    'NM_HUB_Header_Misc': '其他',
+    'NM_HUB_Header_Advanced': '進階',
+    'NM_HUB_Header_Other': '其他',
+    'NM_Cat_Miscellaneous': '其他',
+})

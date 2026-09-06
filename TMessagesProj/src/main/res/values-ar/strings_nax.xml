@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">عدم إرسال حالة الاتصال</string>
+    <string name="DontReadStoriesPackets">عدم قراءة القصص</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… في المجموعات العامة</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… في القنوات العامة</string>
+    <string name="GhostEssentialsHeader">إعدادات الشبح</string>
+    <string name="SaveDeletedMessageForBotUser">حفظ رسائل البوتات</string>
+    <string name="EnableSaveEditsHistory">حفظ سجل التعديلات</string>
+    <string name="ClearMessageDatabase">مسح قاعدة بيانات الرسائل</string>
+    <string name="DontSendReadMessagePackets">عدم قراءة الرسائل</string>
+    <string name="SaveDeletedMessageForBot">حفظ في محادثات البوتات</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… في المجموعات الخاصة</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… في المحادثات الخاصة</string>
+    <string name="ClearMessageDatabaseNotification">تم مسح قاعدة بيانات الرسائل.</string>
+    <string name="MessageSavingSaveMedia">حفظ الوسائط</string>
+    <string name="MessageSavingSaveMediaHint">انقر للمزيد.</string>
+    <string name="TranslucentDeletedMessages">رسائل محذوفة شبه شفافة</string>
+    <string name="DontSendUploadProgress">عدم إرسال جاري الكتابة</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… في القنوات الخاصة</string>
+    <string name="EnableSaveDeletedMessages">حفظ الرسائل المحذوفة</string>
+</resources>

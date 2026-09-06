@@ -944,3 +944,66 @@ STRINGS_PL = {
     'AccDescrShuffle': 'Kolejność losowa',
     'AccDescrEqualizer': 'Korektor'
 }
+
+# Added SoundGram Settings Localization
+STRINGS_UK.update({
+    'NimarkoGramSettings': 'Налаштування SoundGram',
+    'NM_Cat_General': 'Основні',
+    'NM_Cat_Appearance': 'Вигляд',
+    'NM_Cat_Chats': 'Чати',
+    'NM_Cat_Camera': 'Камера',
+    'NM_Cat_Privacy': 'Приватність',
+    'NM_WSB_Title': 'Обхід',
+    'NM_HUB_Debug': 'Налагодження',
+    'NM_HUB_Restart': 'Перезапустити застосунок',
+    'UP_CheckForUpdates': 'Оновити застосунок',
+    'NM_TA_Title': 'Анімація тексту',
+    'NM_HUB_SupportDevelopment': 'Підтримати розробку',
+    'AP_Header_General': 'Основні',
+    'NM_HUB_Header_Misc': 'Різне',
+    'NM_HUB_Header_Advanced': 'Розширені',
+    'NM_HUB_Header_Other': 'Інше',
+    'NM_Cat_Miscellaneous': 'Різне',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_BE.update({
+    'NimarkoGramSettings': 'Налады SoundGram',
+    'NM_Cat_General': 'Асноўныя',
+    'NM_Cat_Appearance': 'Знешні выгляд',
+    'NM_Cat_Chats': 'Чаты',
+    'NM_Cat_Camera': 'Камера',
+    'NM_Cat_Privacy': 'Прыватнасць',
+    'NM_WSB_Title': 'Абыход',
+    'NM_HUB_Debug': 'Адладка',
+    'NM_HUB_Restart': 'Перазапусціць праграму',
+    'UP_CheckForUpdates': 'Абнавіць праграму',
+    'NM_TA_Title': 'Анімацыя тэксту',
+    'NM_HUB_SupportDevelopment': 'Падтрымаць распрацоўку',
+    'AP_Header_General': 'Асноўныя',
+    'NM_HUB_Header_Misc': 'Рознае',
+    'NM_HUB_Header_Advanced': 'Пашыраныя',
+    'NM_HUB_Header_Other': 'Іншае',
+    'NM_Cat_Miscellaneous': 'Рознае',
+})
+
+# Added SoundGram Settings Localization
+STRINGS_PL.update({
+    'NimarkoGramSettings': 'Ustawienia SoundGram',
+    'NM_Cat_General': 'Ogólne',
+    'NM_Cat_Appearance': 'Wygląd',
+    'NM_Cat_Chats': 'Czaty',
+    'NM_Cat_Camera': 'Aparat',
+    'NM_Cat_Privacy': 'Prywatność',
+    'NM_WSB_Title': 'Obejście',
+    'NM_HUB_Debug': 'Debugowanie',
+    'NM_HUB_Restart': 'Uruchom ponownie aplikację',
+    'UP_CheckForUpdates': 'Zaktualizuj aplikację',
+    'NM_TA_Title': 'Animacja tekstu',
+    'NM_HUB_SupportDevelopment': 'Wesprzyj rozwój',
+    'AP_Header_General': 'Ogólne',
+    'NM_HUB_Header_Misc': 'Różne',
+    'NM_HUB_Header_Advanced': 'Zaawansowane',
+    'NM_HUB_Header_Other': 'Inne',
+    'NM_Cat_Miscellaneous': 'Różne',
+})

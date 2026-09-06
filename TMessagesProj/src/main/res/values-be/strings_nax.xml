@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">Не адпраўляць анлайн</string>
+    <string name="DontReadStoriesPackets">Не чытаць гісторыі</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… у публічных групах</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… у публічных каналах</string>
+    <string name="GhostEssentialsHeader">Налады «Прывіду»</string>
+    <string name="SaveDeletedMessageForBotUser">Захоўваць паведамленні ботаў</string>
+    <string name="EnableSaveEditsHistory">Захоўваць гісторыю рэдагавання</string>
+    <string name="ClearMessageDatabase">Ачысціць базу дадзеных паведамленняў</string>
+    <string name="DontSendReadMessagePackets">Не чытаць паведамленні</string>
+    <string name="SaveDeletedMessageForBot">Захоўваць у чатах з ботамі</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… у прыватных групах</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… у прыватных чатах</string>
+    <string name="ClearMessageDatabaseNotification">База дадзеных паведамленняў ачышчана.</string>
+    <string name="MessageSavingSaveMedia">Захоўваць медыя</string>
+    <string name="MessageSavingSaveMediaHint">Націсніце, каб даведацца больш.</string>
+    <string name="TranslucentDeletedMessages">Паўпразрыстыя выдаленыя паведамленні</string>
+    <string name="DontSendUploadProgress">Не адпраўляць набор тэксту</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… у прыватных каналах</string>
+    <string name="EnableSaveDeletedMessages">Захоўваць выдаленыя паведамленні</string>
+</resources>

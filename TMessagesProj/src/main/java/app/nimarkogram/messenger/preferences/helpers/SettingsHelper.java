@@ -46,6 +46,9 @@ public class SettingsHelper {
     }
 
     public static UItem asSwitchCG(int id, CharSequence text, CharSequence subtext) {
+        if (android.text.TextUtils.isEmpty(subtext)) {
+            return UItem.asCheck(id, text);
+        }
         UItem i = new UItem(UniversalAdapter.VIEW_TYPE_TEXT_CHECK, false);
         i.id = id;
         i.text = text;

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">Ikke send online-status</string>
+    <string name="DontReadStoriesPackets">Ikke les historier</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… i offentlige grupper</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… i offentlige kanaler</string>
+    <string name="GhostEssentialsHeader">Spøkelsesmodus</string>
+    <string name="SaveDeletedMessageForBotUser">Lagre botmeldinger</string>
+    <string name="EnableSaveEditsHistory">Lagre redigeringshistorikk</string>
+    <string name="ClearMessageDatabase">Tøm meldingsdatabase</string>
+    <string name="DontSendReadMessagePackets">Ikke les meldinger</string>
+    <string name="SaveDeletedMessageForBot">Lagre i botsamtaler</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… i private grupper</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… i private samtaler</string>
+    <string name="ClearMessageDatabaseNotification">Meldingsdatabasen er tømt.</string>
+    <string name="MessageSavingSaveMedia">Lagre medier</string>
+    <string name="MessageSavingSaveMediaHint">Klikk for mer.</string>
+    <string name="TranslucentDeletedMessages">Halvgjennomsiktige slettede meldinger</string>
+    <string name="DontSendUploadProgress">Ikke send skrivestatus</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… i private kanaler</string>
+    <string name="EnableSaveDeletedMessages">Lagre slettede meldinger</string>
+</resources>

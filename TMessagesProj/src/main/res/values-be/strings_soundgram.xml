@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Паўтор</string>
     <string name="AccDescrShuffle">Выпадковы парадак</string>
     <string name="AccDescrEqualizer">Эквалайзер</string>
+    <string name="NimarkoGramSettings">Налады SoundGram</string>
+    <string name="NM_Cat_General">Асноўныя</string>
+    <string name="NM_Cat_Appearance">Знешні выгляд</string>
+    <string name="NM_Cat_Chats">Чаты</string>
+    <string name="NM_Cat_Camera">Камера</string>
+    <string name="NM_Cat_Privacy">Прыватнасць</string>
+    <string name="NM_WSB_Title">Абыход</string>
+    <string name="NM_HUB_Debug">Адладка</string>
+    <string name="NM_HUB_Restart">Перазапусціць праграму</string>
+    <string name="UP_CheckForUpdates">Абнавіць праграму</string>
+    <string name="AP_Header_General">Асноўныя</string>
+    <string name="NM_HUB_Header_Misc">Рознае</string>
+    <string name="NM_HUB_Header_Advanced">Пашыраныя</string>
+    <string name="NM_HUB_Header_Other">Іншае</string>
+    <string name="NM_Cat_Miscellaneous">Рознае</string>
 </resources>

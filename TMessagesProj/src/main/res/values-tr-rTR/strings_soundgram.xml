@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Tekrarla</string>
     <string name="AccDescrShuffle">Karıştır</string>
     <string name="AccDescrEqualizer">Ekolayzer</string>
+    <string name="NimarkoGramSettings">SoundGram Ayarları</string>
+    <string name="NM_Cat_General">Genel</string>
+    <string name="NM_Cat_Appearance">Görünüm</string>
+    <string name="NM_Cat_Chats">Sohbetler</string>
+    <string name="NM_Cat_Camera">Kamera</string>
+    <string name="NM_Cat_Privacy">Gizlilik</string>
+    <string name="NM_WSB_Title">Engelleme Aşma</string>
+    <string name="NM_HUB_Debug">Hata Ayıklama</string>
+    <string name="NM_HUB_Restart">Uygulamayı Yeniden Başlat</string>
+    <string name="UP_CheckForUpdates">Uygulamayı Güncelle</string>
+    <string name="AP_Header_General">Genel</string>
+    <string name="NM_HUB_Header_Misc">Çeşitli</string>
+    <string name="NM_HUB_Header_Advanced">Gelişmiş</string>
+    <string name="NM_HUB_Header_Other">Diğer</string>
+    <string name="NM_Cat_Miscellaneous">Çeşitli</string>
 </resources>

@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">반복</string>
     <string name="AccDescrShuffle">셔플</string>
     <string name="AccDescrEqualizer">이퀄라이저</string>
+    <string name="NimarkoGramSettings">SoundGram 설정</string>
+    <string name="NM_Cat_General">일반</string>
+    <string name="NM_Cat_Appearance">화면 설정</string>
+    <string name="NM_Cat_Chats">대화</string>
+    <string name="NM_Cat_Camera">카메라</string>
+    <string name="NM_Cat_Privacy">개인 정보</string>
+    <string name="NM_WSB_Title">우회 설정</string>
+    <string name="NM_HUB_Debug">디버그</string>
+    <string name="NM_HUB_Restart">앱 재시작</string>
+    <string name="UP_CheckForUpdates">앱 업데이트</string>
+    <string name="AP_Header_General">일반</string>
+    <string name="NM_HUB_Header_Misc">기타</string>
+    <string name="NM_HUB_Header_Advanced">고급</string>
+    <string name="NM_HUB_Header_Other">기타</string>
+    <string name="NM_Cat_Miscellaneous">기타</string>
 </resources>

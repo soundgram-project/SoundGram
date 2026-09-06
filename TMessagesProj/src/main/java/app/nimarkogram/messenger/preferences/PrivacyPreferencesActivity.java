@@ -52,7 +52,6 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
     private static final int ID_OPEN_ARCHIVE = 14;
     private static final int ID_PROTECT_SAVED_MESSAGES = 15;
     private static final int ID_PANIC_CODE = 16;
-    private static final int ID_GHOST_LINK = 17;
 
     @Override
     public String getTitle() {
@@ -76,12 +75,6 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
                 tw.nekomimi.nekogram.helpers.PasscodeHelper.hasPanicCode()
                         ? LocaleController.getString(R.string.PasscodePanicCodeEnabled)
                         : LocaleController.getString(R.string.PasscodePanicCodeDisabled)));
-        items.add(asSettingsValue(ID_GHOST_LINK, IconBackgroundColors.PURPLE,
-                R.drawable.ghost_solar,
-                LocaleController.getString(R.string.GhostMode),
-                NekoConfig.isGhostModeActive()
-                        ? LocaleController.getString(R.string.GhostModeEnabled)
-                        : LocaleController.getString(R.string.GhostModeDisabled)));
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.NM_PR_Header_ChatProtection)));
@@ -146,8 +139,6 @@ public class PrivacyPreferencesActivity extends BasePreferencesActivity {
         int id = item.id;
         if (id == ID_PANIC_CODE) {
             handlePanicCodeClick();
-        } else if (id == ID_GHOST_LINK) {
-            presentFragment(new GhostPreferencesActivity());
         } else if (id == ID_HIDE_PROXY) {
             NimarkoConfig.toggleHideProxySponsor();
             applyCheck(item, view, NimarkoConfig.hideProxySponsor);

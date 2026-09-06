@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Herhalen</string>
     <string name="AccDescrShuffle">Willekeurige volgorde</string>
     <string name="AccDescrEqualizer">Equalizer</string>
+    <string name="NimarkoGramSettings">SoundGram-instellingen</string>
+    <string name="NM_Cat_General">Algemeen</string>
+    <string name="NM_Cat_Appearance">Uiterlijk</string>
+    <string name="NM_Cat_Chats">Chats</string>
+    <string name="NM_Cat_Camera">Camera</string>
+    <string name="NM_Cat_Privacy">Privacy</string>
+    <string name="NM_WSB_Title">Omzeiling</string>
+    <string name="NM_HUB_Debug">Debuggen</string>
+    <string name="NM_HUB_Restart">App herstarten</string>
+    <string name="UP_CheckForUpdates">App bijwerken</string>
+    <string name="AP_Header_General">Algemeen</string>
+    <string name="NM_HUB_Header_Misc">Diversen</string>
+    <string name="NM_HUB_Header_Advanced">Geavanceerd</string>
+    <string name="NM_HUB_Header_Other">Overige</string>
+    <string name="NM_Cat_Miscellaneous">Diversen</string>
 </resources>

@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">חזור</string>
     <string name="AccDescrShuffle">סדר אקראי</string>
     <string name="AccDescrEqualizer">אקולייזר</string>
+    <string name="NimarkoGramSettings">הגדרות SoundGram</string>
+    <string name="NM_Cat_General">כללי</string>
+    <string name="NM_Cat_Appearance">מראה</string>
+    <string name="NM_Cat_Chats">צ\'אטים</string>
+    <string name="NM_Cat_Camera">מצלמה</string>
+    <string name="NM_Cat_Privacy">פרטיות</string>
+    <string name="NM_WSB_Title">עקיפת חסימות</string>
+    <string name="NM_HUB_Debug">ניפוי שגיאות</string>
+    <string name="NM_HUB_Restart">הפעל מחדש את האפליקציה</string>
+    <string name="UP_CheckForUpdates">עדכן אפליקציה</string>
+    <string name="AP_Header_General">כללי</string>
+    <string name="NM_HUB_Header_Misc">שונות</string>
+    <string name="NM_HUB_Header_Advanced">מתקדם</string>
+    <string name="NM_HUB_Header_Other">אחר</string>
+    <string name="NM_Cat_Miscellaneous">שונות</string>
 </resources>

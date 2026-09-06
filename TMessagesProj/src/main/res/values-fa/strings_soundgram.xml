@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">تکرار</string>
     <string name="AccDescrShuffle">پخش تصادفی</string>
     <string name="AccDescrEqualizer">اکولایزر</string>
+    <string name="NimarkoGramSettings">تنظیمات SoundGram</string>
+    <string name="NM_Cat_General">عمومی</string>
+    <string name="NM_Cat_Appearance">ظاهر</string>
+    <string name="NM_Cat_Chats">گفتگوها</string>
+    <string name="NM_Cat_Camera">دوربین</string>
+    <string name="NM_Cat_Privacy">حریم خصوصی</string>
+    <string name="NM_WSB_Title">دور زدن محدودیت</string>
+    <string name="NM_HUB_Debug">اشکال‌زدایی</string>
+    <string name="NM_HUB_Restart">راه‌اندازی مجدد برنامه</string>
+    <string name="UP_CheckForUpdates">به‌روزرسانی برنامه</string>
+    <string name="AP_Header_General">عمومی</string>
+    <string name="NM_HUB_Header_Misc">متفرقه</string>
+    <string name="NM_HUB_Header_Advanced">پیشرفته</string>
+    <string name="NM_HUB_Header_Other">دیگر</string>
+    <string name="NM_Cat_Miscellaneous">متفرقه</string>
 </resources>

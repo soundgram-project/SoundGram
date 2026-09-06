@@ -1,0 +1,462 @@
+  1. AP_CenterTitle                      | EN: Centered title | RU: Заголовок по центру
+  2. AP_DisableDividers                  | EN: Hide dividers | RU: Скрыть разделители
+  3. AP_GlareOnElements                  | EN: Glare on elements | RU: Блики на элементах
+  4. AP_GlareOnElementsInfo              | EN: Show top and bottom highlights on liquid glass elements. | RU: Отображение верхних и нижних бликов на элементах с эффектом жидкого стекла.
+  5. AP_Header                           | EN: Header | RU: Заголовок
+  6. AP_Header_Appearance                | EN: Appearance | RU: Внешний вид
+  7. AP_HideSearchBar                    | EN: Hide chat search bar | RU: Скрыть поиск в чатах
+  8. AP_IconReplacements                 | EN: Icon pack | RU: Пакет иконок
+  9. AP_ShowPencilIcon                   | EN: Mark edited messages | RU: Пометка изменённых сообщений
+ 10. AP_SystemEmoji                      | EN: System emoji | RU: Системные эмодзи
+ 11. AP_SystemFonts                      | EN: System fonts | RU: Системный шрифт
+ 12. AP_Tablet_Mode                      | EN: Tablet mode | RU: Режим планшета
+ 13. AccActionPause                      | EN: Pause | RU: Пауза
+ 14. AccActionPlay                       | EN: Play | RU: Воспроизведение
+ 15. AccDescrCustomEmoji                 | EN: Custom emoji | RU: Пользовательские эмодзи
+ 16. AccDescrGIFs                        | EN: GIFs | RU: GIF
+ 17. AccDescrStickers                    | EN: Stickers | RU: Стикеры
+ 18. ActionsChartTitle                   | EN: Actions | RU: Действия
+ 19. AppName                             | EN: SoundGram | RU: SoundGram
+ 20. AreYouSure                          | EN: Are you sure? | RU: Вы уверены?
+ 21. AvatarPreviewSearchMessages         | EN: Search Messages | RU: Поиск сообщений
+ 22. Back                                | EN: Back | RU: Назад
+ 23. BusinessHoursProfile                | EN: Business hours | RU: Часы работы
+ 24. BusinessHoursProfileNowOpen         | EN: Open | RU: Открыто
+ 25. BusinessProfileLocation             | EN: Location | RU: Адрес
+ 26. CP_AdminActions                     | EN: Admin shortcuts | RU: Действия для админов
+ 27. CP_ArchiveStories                   | EN: Archive stories | RU: Архивация историй
+ 28. CP_ArchiveStories_Desc              | EN: Move new stories to the archive automatically. | RU: Автоматически переносить новые истории в архив.
+ 29. CP_AutoPauseVideo                   | EN: Auto pause media | RU: Останавливать медиа
+ 30. CP_AutoPauseVideo_Desc              | EN: Pause when the app goes to the background. | RU: Ставить на паузу при сворачивании приложения.
+ 31. CP_AutoQuoteReplies                 | EN: Quote replies | RU: Цитировать ответы
+ 32. CP_AutoQuoteReplies_Desc            | EN: Use a quote instead of a standard reply. | RU: Использовать цитату вместо обычного ответа.
+ 33. CP_Camera2Desc                      | EN: All features that are hidden when Camera2 is turned on will not work with Camera2 enabled. | RU: С Camera2 не будут работать все функции, которые скрываются при включении Camera2.
+ 34. CP_CameraDualCamera                 | EN: Dual camera | RU: Двойная камера
+ 35. CP_CameraDualCamera_Desc            | EN: Captures video message on both cameras for faster switching between cameras while recording. Uses more battery. | RU: Записывает видеосообщение на обеих камерах для более быстрого переключения между камерами во время записи. Использует больше батареи.
+ 36. CP_CameraQuality                    | EN: Camera Quality | RU: Качество камеры
+ 37. CP_CameraStabilisation              | EN: Camera stabilisation | RU: Стабилизация камеры
+ 38. CP_CameraType                       | EN: Camera Type | RU: Тип камеры
+ 39. CP_CameraTypeSystem                 | EN: System | RU: Системная
+ 40. CP_CameraUW                         | EN: Start from UW | RU: Начинать с ширика
+ 41. CP_CameraUW_Desc                    | EN: Recording of video messages will start from Ultra Wide camera (if your device\'s API supports it) | RU: Запись видеосообщений начнется со сверхширокоугольного объектива (если это поддерживает API вашего устройства)
+ 42. CP_CameraXDesc                      | EN: CameraX is only supported on <a href="https://developer.android.com/training/camerax/devices">selected devices</a>, effects and lenses support depends on your manufacturer. | RU: CameraX поддерживается только на <a href="https://developer.android.com/training/camerax/devices">выбранных устройствах</a>, эффекты и линзы зависят от Вашего производителя.
+ 43. CP_Category_Camera                  | EN: Camera | RU: Камера
+ 44. CP_CenterCameraControlButtons       | EN: Center control buttons | RU: Центрировать кнопки управления
+ 45. CP_CenterCameraControlButtons_Desc  | EN: Center switch camera and flashlight buttons. | RU: Центрирование кнопок смены камеры и фонарика.
+ 46. CP_ChatMenuShortcuts                | EN: Chat menu shortcuts | RU: Действия в меню чата
+ 47. CP_CustomWallpapers                 | EN: Per-chat wallpapers | RU: Обои отдельных чатов
+ 48. CP_CustomWallpapers_Desc            | EN: Show wallpapers set for individual chats. | RU: Показывать обои, заданные для отдельных чатов.
+ 49. CP_DefaultCameraDesc                | EN: Use the Telegram\'s built-in camera. | RU: Встроенная камера Telegram.
+ 50. CP_DeleteForAll                     | EN: Delete for everyone by default | RU: Удалять для всех по умолчанию
+ 51. CP_DeleteForAll_Desc                | EN: Preselect this option in the delete dialog. | RU: Заранее отмечать этот пункт в окне удаления.
+ 52. CP_DisableCam                       | EN: Camera button at bottom | RU: Кнопка камеры внизу
+ 53. CP_DisableCam_Desc                  | EN: The camera button will appear next to the gallery button. \nTap to open Telegram Camera, hold to launch the system camera. | RU: Кнопка камеры будет отображаться рядом с кнопкой галереи. \nНажатие откроет камеру Telegram, удержание — системную камеру.
+ 54. CP_DisablePremStickAnim             | EN: Disable premium sticker effects | RU: Отключить эффекты премиум-стикеров
+ 55. CP_DisablePremStickAnim_Desc        | EN: Do not play effects when a sticker is tapped. | RU: Не запускать эффект при нажатии на стикер.
+ 56. CP_DisablePremStickAutoPlay         | EN: Disable premium stickers auto-play | RU: Отключить автовоспроизведение премиум-стикеров
+ 57. CP_DisablePremStickAutoPlay_Desc    | EN: Do not autoplay Premium sticker animations. | RU: Не запускать анимацию Premium-стикеров автоматически.
+ 58. CP_DisableReactionAnim              | EN: Disable reaction animation | RU: Отключить анимацию реакций
+ 59. CP_DisableReactionAnim_Desc         | EN: Apply reactions without the large animation. | RU: Ставить реакции без большой анимации.
+ 60. CP_DisableReactionsOverlay          | EN: Hide reaction panel | RU: Скрыть панель реакций
+ 61. CP_DisableReactionsOverlay_Desc     | EN: Do not show reactions above messages. | RU: Не показывать реакции над сообщением.
+ 62. CP_DisableSwipeToNext               | EN: Disable channel swiping | RU: Отключить свайп между каналами
+ 63. CP_DisableSwipeToNext_Desc          | EN: Keep scrolling inside the current channel. | RU: Не переходить в другой канал при прокрутке.
+ 64. CP_DisableVibration                 | EN: Disable vibration | RU: Отключить вибрацию
+ 65. CP_DoubleTapAction                  | EN: Double tap action | RU: Двойное нажатие
+ 66. CP_Filters_Header                   | EN: Folders | RU: Папки
+ 67. CP_ForwardMsgDate                   | EN: Show forwarded message date | RU: Показывать дату пересланного сообщения
+ 68. CP_Header_DialogList                | EN: Dialog list | RU: Список чатов
+ 69. CP_Header_Videomessages             | EN: Video messages | RU: Видеосообщения
+ 70. CP_HideKbdOnScroll                  | EN: Hide keyboard on scroll | RU: Скрытие клавиатуры при прокрутке
+ 71. CP_HideMuteUnmuteButton             | EN: Hide channel sound bar | RU: Скрыть панель звука
+ 72. CP_HideSendAsChannel                | EN: Hide “Send as channel” | RU: Скрыть отправку от канала
+ 73. CP_HideSendAsChannelDesc            | EN: The menu remains available by holding the emoji button. | RU: Меню останется доступно по удержанию кнопки эмодзи.
+ 74. CP_HideStories                      | EN: Hide stories | RU: Скрыть истории
+ 75. CP_HideStories_Desc                 | EN: Remove stories from chats and profiles. | RU: Убрать истории из чатов и профилей.
+ 76. CP_LeftBottomButtonAction           | EN: Left button action | RU: Действие левой кнопки
+ 77. CP_MainTabs_ForceOpenChats_Desc     | EN: When enabled, the search button always opens chat search. When disabled, it opens context search for the current screen (e.g., Settings or Contacts). | RU: Если включено, кнопка всегда открывает поиск по чатам. Если выключено - открывается поиск, доступный на текущем экране (например, по настройкам или контактам).
+ 78. CP_MainTabs_Header                  | EN: Bottom tabs | RU: Нижние вкладки
+ 79. CP_MessageMenu                      | EN: Message menu | RU: Меню сообщения
+ 80. CP_MessageMenuCompactLayout         | EN: Compact menu layout | RU: Компактная компоновка меню
+ 81. CP_MessageMenuCompactLayout_Desc    | EN: Show up to four main actions as large buttons. | RU: До четырёх основных действий в виде крупных кнопок.
+ 82. CP_MessageMenuCompactLayout_Dot     | EN: A dot marks long-press actions. | RU: Точка отмечает действие по удержанию.
+ 83. CP_MessageMenuItems                 | EN: Message menu items | RU: Элементы меню сообщения
+ 84. CP_Message_Filtering                | EN: Message filtering | RU: Фильтрация сообщений
+ 85. CP_Message_Filtering_Collapse       | EN: Collapse messages | RU: Сворачивать сообщения
+ 86. CP_Message_Filtering_Collapse_Desc  | EN: Collapse filtered messages automatically. | RU: Автоматически сворачивать отфильтрованные сообщения.
+ 87. CP_Messages_Size                    | EN: Bubble size | RU: Размер облачка
+ 88. CP_PlayVideo                        | EN: Play video with volume buttons | RU: Запуск видео кнопками громкости
+ 89. CP_PlayVideo_Desc                   | EN: Start the visible video with a volume button. | RU: Запускать видимое видео кнопкой громкости.
+ 90. CP_ProfileReplyBackground           | EN: Messages and profiles | RU: Сообщения и профили
+ 91. CP_SilenceNonContacts               | EN: Silence non-contacts | RU: Заглушить не-контакты
+ 92. CP_SilenceNonContacts_Desc          | EN: Play notification sounds only for contacts. | RU: Включать звук уведомлений только для контактов.
+ 93. CP_Slider_RecentEmojisAndStickers   | EN: Recent emoji and stickers | RU: Недавние эмодзи и стикеры
+ 94. CP_Snowflakes_Header                | EN: Snowflakes | RU: Снежинки
+ 95. CP_SortByUnread                     | EN: Sort by unread | RU: Сортировка по непрочитанным
+ 96. CP_SystemCameraDesc                 | EN: Access directly the system camera (not applicable for video messages). | RU: Позволяет получить доступ напрямую к системной камере (не применимо к видеосообщениям).
+ 97. CP_TimeOnStick                      | EN: Hide sticker timestamps | RU: Скрыть время у стикеров
+ 98. CP_UnarchiveOnSwipe                 | EN: Unarchive on swipe | RU: Разархивировать свайпом
+ 99. CP_UnreadBadgeOnBackButton          | EN: Unread chats counter | RU: Счётчик непрочитанных
+100. CP_UnreadBadgeOnBackButton_Desc     | EN: Show the unread count on the chat back button. | RU: Показывать число непрочитанных на кнопке «Назад».
+101. CP_VibrateInChats                   | EN: In-chat vibration | RU: Вибрация в чатах
+102. CP_VibrateInChats_Desc              | EN: Vibrate when a message arrives in an open chat. | RU: Вибрировать при сообщении в открытом чате.
+103. CP_VideoSeekDuration                | EN: Video seek step | RU: Шаг перемотки видео
+104. Cancel                              | EN: Cancel | RU: Отмена
+105. ChangePasscode                      | EN: Change Passcode | RU: Сменить код-пароль
+106. ChannelAdministrators               | EN: Administrators | RU: Администраторы
+107. ChannelMembers                      | EN: Members | RU: Участники
+108. ChannelPermissions                  | EN: Permissions | RU: Разрешения
+109. Clear                               | EN: Clear | RU: Очистить
+110. ClearMessageDatabase                | EN: Clear Message Database | RU: Очистить базу данных сообщений
+111. ClearMessageDatabaseNotification    | EN: Message database cleared. | RU: База данных сообщений очищена.
+112. Copy                                | EN: Copy | RU: Копировать
+113. CopyLink                            | EN: Copy Link | RU: Скопировать ссылку
+114. Deactivate                          | EN: DELETE NOW | RU: УДАЛИТЬ СЕЙЧАС
+115. Default                             | EN: Default | RU: По умолчанию
+116. Delete                              | EN: Delete | RU: Удалить
+117. DirectShare                         | EN: Direct Share | RU: Прямая отправка
+118. DirectShareInfo                     | EN: Show recent chats in Android share menu | RU: Показывать недавние чаты в меню «Поделиться» Android
+119. Disable                             | EN: Disable | RU: Отключить
+120. DisablePasscodeTurnOff              | EN: Turn Off | RU: Отключить
+121. Done                                | EN: Done | RU: Готово
+122. DontReadStoriesPackets              | EN: Don\'t Read Stories | RU: Не читать истории
+123. DontSendOnlinePackets               | EN: Don\'t Send Online | RU: Не отправлять онлайн-статус
+124. DontSendReadMessagePackets          | EN: Don\'t Read Messages | RU: Не читать сообщения
+125. DontSendUploadProgress              | EN: Don\'t Send Typing | RU: Не отправлять ввод текста
+126. EP_CustomChat                       | EN: Replace Saved Messages | RU: Чат вместо Избранного
+127. EP_CustomChat_Desc                  | EN: Choose the chat used instead of Saved Messages. | RU: Выберите чат, который будет использоваться вместо Избранного.
+128. EP_CustomChat_Selected_Title        | EN: instead of | RU: вместо
+129. EP_DownloadSpeedBoost               | EN: Faster downloads | RU: Ускорение загрузки
+130. EP_DownloadSpeedBoostExtreme        | EN: Extreme | RU: Экстра
+131. EP_NavigationAnimation              | EN: Navigation animation | RU: Анимация навигации
+132. EP_NavigationAnimationBezier        | EN: Classic | RU: Обычная
+133. EP_NavigationAnimationCrossfading   | EN: Smooth title transition | RU: Плавная смена заголовка
+134. EP_NavigationAnimationSpring        | EN: Spring | RU: Пружинная
+135. EP_Network                          | EN: Network | RU: Сеть
+136. EP_PhotosSize                       | EN: Large photos up to 2560 px | RU: Фото до 2560 пикселей
+137. EP_SlowNetworkMode                  | EN: Weak network mode | RU: Режим слабой сети
+138. Edit                                | EN: Edit | RU: Изменить
+139. Emoji                               | EN: Emoji | RU: Эмодзи
+140. EnableSaveDeletedMessages           | EN: Save Deleted Messages | RU: Сохранять удалённые сообщения
+141. EnableSaveEditsHistory              | EN: Save Edits History | RU: Сохранять историю изменений
+142. ErrorOccurred                       | EN: An error occurred. | RU: Произошла ошибка.
+143. EventLog                            | EN: Recent Actions | RU: Недавние действия
+144. FilterAddChats                      | EN: Add Chats | RU: Добавить чаты
+145. FilterAllChats                      | EN: All Chats | RU: Все чаты
+146. FilterBots                          | EN: Bots | RU: Боты
+147. FilterChannels                      | EN: Channels | RU: Каналы
+148. FilterChats                         | EN: Chats | RU: Чаты
+149. FilterContacts                      | EN: Contacts | RU: Контакты
+150. FilterGroups                        | EN: Groups | RU: Группы
+151. FilterNameNonMuted                  | EN: Not Muted | RU: Со звуком
+152. FilterNameUnread                    | EN: Unread | RU: Непрочитанные
+153. FilterNonContacts                   | EN: Non Contacts | RU: Не из контактов
+154. FilterStories                       | EN: Stories | RU: Истории
+155. Forward                             | EN: Forward | RU: Переслать
+156. ForwardWithoutAuthor                | EN: Forward without author | RU: Пересылка без автора
+157. General                             | EN: General | RU: Основные
+158. GhostEssentialsHeader               | EN: Ghost essentials | RU: Настройки «Призрака»
+159. Info                                | EN: Info | RU: Информация
+160. LinkCopied                          | EN: Link copied to clipboard | RU: Ссылка скопирована в буфер обмена
+161. LiteBatteryDisabled                 | EN: Off | RU: Выкл.
+162. LiteBatteryEnabled                  | EN: On | RU: Вкл.
+163. LiteMode                            | EN: Animations | RU: Анимации
+164. LocalMiscellaneousCache             | EN: Miscellaneous | RU: Прочее
+165. MainTabsChats                       | EN: Chats | RU: Чаты
+166. MainTabsProfile                     | EN: Profile | RU: Профиль
+167. Message                             | EN: Message | RU: Сообщение
+168. MessageSavingSaveMedia              | EN: Save Media | RU: Сохранять медиа
+169. MessageSavingSaveMediaHint          | EN: Click for More. | RU: Нажмите, чтобы узнать больше.
+170. MessageSavingSaveMediaInPrivateChannels | EN: … in Private Channels | RU: … в частных каналах
+171. MessageSavingSaveMediaInPrivateChats | EN: … in Private Chats | RU: … в личных чатах
+172. MessageSavingSaveMediaInPrivateGroups | EN: … in Private Groups | RU: … в частных группах
+173. MessageSavingSaveMediaInPublicChannels | EN: … in Public Channels | RU: … в публичных каналах
+174. MessageSavingSaveMediaInPublicGroups | EN: … in Public Groups | RU: … в публичных группах
+175. MessagesSettings                    | EN: Messages | RU: Сообщения
+176. Music                               | EN: Music | RU: Музыка
+177. NM_AP_BottomTabs                    | EN: Bottom tabs organizer | RU: Органайзер нижних вкладок
+178. NM_AP_Folders                       | EN: Folders | RU: Папки
+179. NM_AvatarCorners                    | EN: Avatar corners | RU: Закругление аватарок
+180. NM_AvatarCornersCircle              | EN: Circle | RU: Круг
+181. NM_AvatarCornersSquare              | EN: Square | RU: Квадрат
+182. NM_AvatarCorners_Header             | EN: Avatars | RU: Аватарки
+183. NM_BAN_AvatarBanner                 | EN: Banner from avatar | RU: Баннер из аватара
+184. NM_BAN_ChangeGlobal                 | EN: Change public banner | RU: Изменить публичный баннер
+185. NM_BAN_DeleteLocal                  | EN: Delete local banner | RU: Удалить локальный баннер
+186. NM_BAN_PickLocal                    | EN: Choose local banner | RU: Выбрать локальный баннер
+187. NM_BAN_RefreshStatus                | EN: Refresh status | RU: Обновить статус
+188. NM_BAN_StatusLabel                  | EN: Status | RU: Статус
+189. NM_BAN_SubmitModeration             | EN: Submit for moderation | RU: Отправить на модерацию
+190. NM_BT_EditorFooter                  | EN: Tap a tab to toggle. Long-press to drag and reorder. | RU: Нажмите на вкладку, чтобы включить или выключить её. Долгое нажатие — перетащить.
+191. NM_BT_ForceOpenChats                | EN: Always search in chats | RU: Всегда искать в чатах
+192. NM_BT_LayoutHeader                  | EN: Tabs | RU: Вкладки
+193. NM_BT_MoveLeft                      | EN: Move left | RU: Переместить влево
+194. NM_BT_MoveRight                     | EN: Move right | RU: Переместить вправо
+195. NM_BT_ShowSearchInTabs              | EN: Search button in tabs | RU: Поиск рядом с вкладками
+196. NM_BT_ShowSearchInTabs_Desc         | EN: Show a circular search button next to the bottom tabs row. Long-press the button to open archived chats. | RU: Показывать круглую кнопку поиска рядом с нижней панелью вкладок. Долгое нажатие открывает архив чатов.
+197. NM_BT_ShowTabs                      | EN: Show tabs | RU: Показывать вкладки
+198. NM_BT_ShowTabsTitle                 | EN: Show tabs titles | RU: Показывать названия вкладок
+199. NM_BT_TabDisabled                   | EN: Disabled | RU: Выключено
+200. NM_BT_TabEnabled                    | EN: Enabled | RU: Включено
+201. NM_CAM_AskCamera                    | EN: Ask | RU: Спрашивать
+202. NM_CAM_ContinuousFocus              | EN: Continuous autofocus | RU: Непрерывный автофокус
+203. NM_CAM_ContinuousFocus_Desc         | EN: Keep the camera continuously focused while recording video instead of locking focus once. | RU: Камера будет непрерывно перефокусироваться во время записи видео вместо однократной фиксации фокуса.
+204. NM_CAM_FrontCamera                  | EN: Front camera | RU: Передняя камера
+205. NM_CAM_Improvements                 | EN: Improvements | RU: Улучшения
+206. NM_CAM_OpticalStabilization         | EN: Optical stabilization | RU: Оптическая стабилизация
+207. NM_CAM_OpticalStabilization_Desc    | EN: Use the lens-level optical image stabilization when available. Falls back to software video stabilization on devices without OIS. | RU: Использовать аппаратную оптическую стабилизацию объектива, если она доступна. На устройствах без OIS включается программная стабилизация видео.
+208. NM_CAM_RearCamera                   | EN: Rear camera | RU: Задняя камера
+209. NM_CAM_RoundCamera                  | EN: Camera for video messages | RU: Камера для кружков
+210. NM_CAM_RoundVideoBitrate            | EN: Round video bitrate | RU: Битрейт кружков
+211. NM_CAM_RoundVideoSize               | EN: Round video size | RU: Качество кружков
+212. NM_CAM_RoundVideoSize_Auto          | EN: Auto | RU: Авто
+213. NM_CAM_RoundVideoSize_HD            | EN: HD (512p) | RU: HD (512п)
+214. NM_CAM_RoundVideoSize_SD            | EN: SD (240p) | RU: SD (240п)
+215. NM_CAM_RoundVideoSize_STD           | EN: Standard (384p) | RU: Стандарт (384п)
+216. NM_CAM_VideoQuality                 | EN: Video quality | RU: Качество видео
+217. NM_CARDS_AutoScroll                 | EN: Auto-scroll | RU: Автопрокрутка
+218. NM_CARDS_Enable                     | EN: Enable | RU: Включить
+219. NM_CARDS_GeneralHeader              | EN: General | RU: Основное
+220. NM_CARDS_InfiniteScroll             | EN: Infinite scrolling | RU: Бесконечная прокрутка
+221. NM_CARDS_NameBitcoin                | EN: Bitcoin | RU: Биткоин
+222. NM_CARDS_NameGram                   | EN: Gram | RU: Gram
+223. NM_CARDS_NameProxy                  | EN: Proxy | RU: Прокси
+224. NM_CARDS_NameStorage                | EN: Storage | RU: Хранилище
+225. NM_CARDS_NameUsd                    | EN: US dollar | RU: Доллар США
+226. NM_CARDS_NameWeather                | EN: Weather | RU: Погода
+227. NM_CARDS_Title                      | EN: Quick info | RU: Инфо-карточки
+228. NM_CH_RecentEmojisStickers          | EN: Recent emojis and stickers | RU: Недавние эмодзи и стикеры
+229. NM_CH_RecentEmojisStickers_Desc     | EN: Increase to keep more recently used emoji and stickers in the panel. | RU: Увеличьте, чтобы в панели хранилось больше недавних эмодзи и стикеров.
+230. NM_CP_CenterTitleInChat             | EN: Centered chat title | RU: Заголовок чата по центру
+231. NM_CP_Header_ChatView               | EN: Chat view | RU: Вид чата
+232. NM_CP_Header_Interaction            | EN: Interaction | RU: Взаимодействие
+233. NM_CP_Header_Media                  | EN: Media | RU: Медиа
+234. NM_CP_LatexRendering                | EN: Render LaTeX formulas | RU: Отображать формулы LaTeX
+235. NM_CP_LatexRendering_Desc           | EN: Recognize formulas inside $…$ and $$…$$ in messages. | RU: Распознаёт формулы внутри $…$ и $$…$$ в сообщениях.
+236. NM_CP_PreReformRussian              | EN: Pre-reform Russian spelling | RU: Дореформенная орфография
+237. NM_CP_PreReformRussian_Desc         | EN: Outgoing messages in pre-1918 spelling (ѣ, і, ѳ, ъ). | RU: Исходящие сообщения – в дореформенном правописании (ѣ, і, ѳ, ъ).
+238. NM_CP_SnowflakesInChat              | EN: Snow in chat | RU: Снег в чате
+239. NM_CP_WeekdayNearDate               | EN: Show weekday by date | RU: День недели у даты
+240. NM_CP_WeekdayNearDate_Desc          | EN: Adds the day of the week next to the date in chat. | RU: Показывает день недели рядом с датой в чате.
+241. NM_Camera_FaceDetection             | EN: Face Detection | RU: Распознавание лиц
+242. NM_Camera_FaceDetection_Desc        | EN: Hint the camera to detect faces so auto-exposure and auto-focus prioritise them while recording. | RU: Подсказать камере находить лица — автоэкспозиция и автофокус будут отдавать им приоритет при записи.
+243. NM_Camera_NoiseReduction            | EN: Noise Reduction | RU: Шумоподавление
+244. NM_Camera_NoiseReduction_Desc       | EN: Ask the camera HAL to apply temporal noise reduction. Higher quality while recording, faster during preview. | RU: Просить камеру применять временное шумоподавление: повышенное качество при записи, ускоренный режим в превью.
+245. NM_Camera_UseHighRange              | EN: High FPS Range | RU: Высокий диапазон FPS
+246. NM_Camera_UseHighRange_Desc         | EN: Expose 30-60 and 60-60 FPS ranges in the FPS selector. Requires a device whose camera advertises those ranges. | RU: Показывать диапазоны 30-60 и 60-60 кадров в селекторе FPS. Требуется камера, поддерживающая эти диапазоны.
+247. NM_Chat_Section                     | EN: Chats | RU: Чаты
+248. NM_ChooseFolderIcon                 | EN: Choose an Icon | RU: Выбрать иконку
+249. NM_Config_Error                     | EN: Failed | RU: Не удалось
+250. NM_Config_Export                    | EN: Export settings | RU: Экспорт настроек
+251. NM_Config_Exported                  | EN: Settings saved to file | RU: Настройки сохранены в файл
+252. NM_Config_Header                    | EN: Configuration | RU: Конфигурация
+253. NM_Config_Import                    | EN: Import settings | RU: Импорт настроек
+254. NM_Config_ImportEmpty               | EN: Selected file is not a SoundGram config | RU: Выбранный файл — не конфигурация SoundGram
+255. NM_Config_Info                      | EN: Save settings to a file or restore them on another device. | RU: Сохраните настройки в файл или восстановите их на другом устройстве.
+256. NM_CustomTitle                      | EN: App title | RU: Заголовок приложения
+257. NM_DBG_AudioSource                  | EN: Microphone audio source | RU: Источник звука микрофона
+258. NM_DBG_EditTextFix                  | EN: EditText suggestions fix | RU: Исправление подсказок EditText
+259. NM_DBG_ForceCrash                   | EN: Force crash | RU: Принудительный краш
+260. NM_DBG_ForceCrash_Desc              | EN: Triggers a deliberate crash to test crash reporting and recovery. | RU: Вызывает преднамеренный сбой для проверки отчётов о сбоях и восстановления.
+261. NM_DBG_Header_Danger                | EN: Danger zone | RU: Опасная зона
+262. NM_DBG_HideVideoTimestamp           | EN: Hide video timestamp | RU: Скрыть метку времени видео
+263. NM_DBG_JacksonJSONProvider          | EN: Use Jackson JSON provider | RU: Использовать Jackson JSON
+264. NM_DBG_OldTimeStyle                 | EN: Default time style in chats | RU: Стандартный стиль времени в чатах
+265. NM_DBG_ReplacePunctuation           | EN: Replace punctuation marks | RU: Заменять знаки пунктуации
+266. NM_DBG_SendMaxQuality               | EN: Send videos at max quality | RU: Отправлять видео в макс. качестве
+267. NM_DBG_ShowAccounts                 | EN: Show accounts in drawer | RU: Показывать аккаунты в меню
+268. NM_DBG_ShowRPCErrors                | EN: Show RPC errors | RU: Показывать ошибки RPC
+269. NM_DeleteAllFromSelf                | EN: Delete own messages | RU: Удалить мои сообщения
+270. NM_DisableSendHints                 | EN: Disable send hints | RU: Отключить подсказки отправки
+271. NM_DisableSendHints_Desc            | EN: Hide the scheduling and silent-send hint. | RU: Скрыть подсказку об отправке позже и без звука.
+272. NM_DoubleTap_EditOrReact            | EN: Edit own, react to others | RU: Своё — править, чужое — реакция
+273. NM_EXP_DiscussInsteadOfMute         | EN: Discuss instead of mute on swipe | RU: Обсуждение вместо отключения по свайпу
+274. NM_EXP_EdgeToEdge                   | EN: Edge-to-edge mode | RU: Режим edge-to-edge
+275. NM_EXP_Footer                       | EN: These options are experimental — expect bugs. | RU: Эти параметры экспериментальные — возможны ошибки.
+276. NM_EXP_Header_Beta                  | EN: Beta toggles | RU: Бета-функции
+277. NM_EXP_NoRounding                   | EN: Disable corner rounding | RU: Отключить скругление углов
+278. NM_EXP_Title                        | EN: Experimental | RU: Экспериментальные
+279. NM_Effects_Header                   | EN: Effects | RU: Эффекты
+280. NM_FO_FolderNameInHeader            | EN: Folder name in header | RU: Название папки в заголовке
+281. NM_FO_FoldersAtBottom               | EN: Show folders at the bottom | RU: Показывать папки снизу
+282. NM_FO_FoldersAtBottom_Desc          | EN: Moves folder tabs to the bottom of the chat list. | RU: Переносит вкладки папок вниз списка чатов.
+283. NM_FO_TabModeIcon                   | EN: Only icons | RU: Только иконки
+284. NM_FO_TabModeMix                    | EN: Icons with Titles | RU: Иконки с названиями
+285. NM_FO_TabModeText                   | EN: Only titles | RU: Только названия
+286. NM_FO_TabStyle                      | EN: Tab style | RU: Вид вкладок
+287. NM_FO_TabStyleStroke                | EN: Add stroke | RU: Обводка активной вкладки
+288. NM_FO_TabStyleStroke_Desc           | EN: Highlights the active tab with an outline. | RU: Выделяет активную вкладку контуром.
+289. NM_FO_TabsHideAllChats              | EN: Hide \"All chats\" tab | RU: Скрыть вкладку \"Все чаты\"
+290. NM_FO_TabsNoCounter                 | EN: Hide counter in tabs | RU: Скрыть счетчик на вкладках
+291. NM_ForceBlur                        | EN: Interface blur | RU: Блюр интерфейса
+292. NM_ForumAvatarsLikeChats            | EN: Forum avatar shape | RU: Форма аватаров в форумах
+293. NM_ForumAvatarsLikeChats_Desc       | EN: Use the same corners as chat avatars. | RU: Использовать те же углы, что у аватаров чатов.
+294. NM_GEN_DeletedGifts                 | EN: Show deleted Star gifts | RU: Удалённые подарки в каталоге
+295. NM_GEN_DeletedGifts_Desc            | EN: Re-injects hidden Star gifts into the catalog so you can still send them. | RU: Возвращает скрытые подарки в каталог, чтобы их можно было отправить.
+296. NM_GEN_LocalPremiumEmoji            | EN: Local premium emoji | RU: Локальные премиум-эмодзи
+297. NM_GEN_LocalPremiumEmoji_Desc       | EN: Send premium emoji without a Premium subscription. | RU: Отправляйте премиум-эмодзи без подписки Premium.
+298. NM_GEN_MiscHeader                   | EN: Miscellaneous | RU: Разное
+299. NM_GE_UploadSpeedBoost              | EN: Faster uploads | RU: Ускорение отправки
+300. NM_HUB_ForkedFromCherrygramSub      | EN: SoundGram is built on the official Telegram client; features were ported from <a href="https://github.com/arslan4k1390/Cherrygram">Cherrygram</a> — thanks to the upstream project. | RU: SoundGram построен на официальном клиенте Telegram; фичи портированы из <a href="https://github.com/arslan4k1390/Cherrygram">Cherrygram</a> — благодарим оригинальный проект.
+301. NM_HUB_SourceCode                   | EN: Source code | RU: Исходный код
+302. NM_HideActionBarStatus              | EN: Hide header status | RU: Скрыть статус в шапке
+303. NM_HideBubbleTail                   | EN: Hide message tails | RU: Скрыть хвостики сообщений
+304. NM_HideBubbleTail_Desc              | EN: Use rounded corners without message tails. | RU: Использовать скруглённые углы без хвостиков.
+305. NM_IconPack_DefaultSubtitle         | EN: Standard Telegram icons | RU: Стандартные иконки Telegram
+306. NM_IconPack_DefaultTitle            | EN: Default | RU: По умолчанию
+307. NM_IconPack_LiquidSubtitle          | EN: Liquid Glass icon pack | RU: Набор Liquid Glass
+308. NM_IconPack_LiquidTitle             | EN: Liquid Glass | RU: Liquid Glass
+309. NM_IconPack_PlumpySubtitle          | EN: Plumpy icon pack | RU: Набор Plumpy
+310. NM_IconPack_PlumpyTitle             | EN: Plumpy | RU: Plumpy
+311. NM_IconPack_SolarSubtitle           | EN: Built-in Solar icon pack | RU: Встроенный набор Solar
+312. NM_IconPack_SolarTitle              | EN: Solar | RU: Solar
+313. NM_JumpToBeginning                  | EN: To the beginning | RU: В начало
+314. NM_MI_ClearFromCache                | EN: Clear from cache | RU: Очистить из кэша
+315. NM_MI_CopyPhoto                     | EN: Copy photo | RU: Скопировать фото
+316. NM_MI_CopyPhotoAsSticker            | EN: Copy photo as sticker | RU: Скопировать фото как стикер
+317. NM_MI_Details                       | EN: Details | RU: Подробности
+318. NM_MI_DownloadSticker               | EN: Download sticker | RU: Скачать стикер
+319. NM_MI_ForwardWoAuthorship           | EN: Forward without authorship | RU: Переслать без автора
+320. NM_MI_ForwardWoCaption              | EN: Forward without caption | RU: Переслать без подписи
+321. NM_MI_SaveToSaved                   | EN: Save to Saved Messages | RU: Сохранить в «Избранное»
+322. NM_MM_MessageMenuItems              | EN: Message menu items | RU: Элементы меню сообщения
+323. NM_MP_CustomizeMessage              | EN: Customize a message | RU: Настроить сообщение
+324. NM_MP_CustomizeProfile              | EN: Customize profile | RU: Настроить профиль
+325. NM_MP_DisablePremiumStatuses        | EN: Disable premium statuses | RU: Отключить Premium статусы
+326. NM_MP_DisablePremiumStatuses_Desc   | EN: Hide Premium emoji statuses outside the side menu | RU: Скрывать Premium-статусы вне бокового меню
+327. NM_MP_ProfileBackgroundColor        | EN: Background in profile | RU: Фон в профиле
+328. NM_MP_ProfileBackgroundEmoji        | EN: Emoji in profile background | RU: Эмодзи в фоне профиля
+329. NM_MP_ProfileBirthDatePreview       | EN: Date of Birth | RU: Дата рождения
+330. NM_MP_ProfileBusinessPreview        | EN: Business hours and location | RU: Часы работы и адрес
+331. NM_MP_ProfileChannelPreview         | EN: Personal channel | RU: Личный канал
+332. NM_MP_ReplyBackground               | EN: Background in replies | RU: Фон в ответах
+333. NM_MP_ReplyBackgroundEmoji          | EN: Emoji in replies and links preview | RU: Эмодзи в ответах и превью ссылок
+334. NM_MP_ReplyCustomColors             | EN: Custom colors in replies and links preview | RU: Кастомные цвета в ответах и превью ссылок
+335. NM_MP_ShowIdDc                      | EN: Show ID and DC in profile | RU: Показывать ID и DC
+336. NM_MP_ShowSeconds                   | EN: Format time with seconds | RU: Показывать время с секундами
+337. NM_MP_ShowSeconds_Desc              | EN: 12:34 -> 12:34:56 | RU: 12:34 -> 12:34:56
+338. NM_MSG_GifSpoilers                  | EN: Send GIFs with spoiler | RU: Отправлять GIF со спойлером
+339. NM_MSG_Header_Sending               | EN: Sending | RU: Отправка
+340. NM_MZ_LargerVoiceMessages           | EN: Adaptive audio message length | RU: Адаптивная длина аудиосообщений
+341. NM_MZ_MediaAmplifier                | EN: Photos and videos | RU: Фото и видео
+342. NM_MZ_MediaAmplifier_Hint           | EN: Note: photos and videos may be downscaled to fit the chat width. | RU: Примечание: фото и видео могут быть уменьшены по ширине чата.
+343. NM_MediaGlow                        | EN: Media glow | RU: Свечение медиа
+344. NM_MediaGlow_Desc                   | EN: Fill media edges with a soft blurred backdrop. | RU: Заполнять края медиа мягким размытым фоном.
+345. NM_Menu_Haptic                      | EN: Haptic feedback | RU: Виброотклик
+346. NM_Menu_Haptic_Desc                 | EN: Vibrate when the message menu opens or is dismissed by swipe. | RU: Вибрация при открытии меню и закрытии свайпом.
+347. NM_Menu_Reorder                     | EN: Reorder menu items | RU: Порядок пунктов меню
+348. NM_Menu_Reorder_Reset               | EN: Reset to default order | RU: Сбросить порядок
+349. NM_Menu_TelegramPlus                | EN: Modern message menu | RU: Современное меню сообщений
+350. NM_Menu_TelegramPlus_Desc           | EN: Liquid Glass menu with grouped actions and spring feedback. | RU: Меню Liquid Glass с группировкой действий и плавным откликом.
+351. NM_MsgSlideAction                   | EN: Action on message swipe | RU: Свайп по сообщению
+352. NM_NM_AutoDownload                  | EN: Auto-download on URL send | RU: Авто-загрузка при отправке ссылки
+353. NM_NM_AutoDownload_Desc             | EN: Sending a chat message that is only a supported URL triggers the download automatically. | RU: Если включено, отправка сообщения, состоящего из одной поддерживаемой ссылки, запускает загрузку автоматически.
+354. NM_NM_FormatAudio                   | EN: Audio | RU: Аудио
+355. NM_NM_FormatVideo                   | EN: Video | RU: Видео
+356. NM_NM_YtAsk                         | EN: Ask YouTube format | RU: Спрашивать формат YouTube
+357. NM_NotificationReactionEmoji        | EN: Emoji | RU: Эмодзи
+358. NM_NotificationReactions            | EN: Reactions in notifications | RU: Реакции в уведомлениях
+359. NM_NotificationReactions_Desc       | EN: Adds a quick-react button to message notifications. | RU: Добавляет кнопку быстрой реакции в уведомления.
+360. NM_OnlineIndicatorInGroups          | EN: Online indicator in groups | RU: Индикатор онлайна в группах
+361. NM_OnlineIndicatorInGroups_Desc     | EN: Show an online dot on group avatars. | RU: Показывать онлайн-точку на аватарах в группах.
+362. NM_PR_AllowSystemPasscode           | EN: Allow device screen lock | RU: Разрешить код устройства
+363. NM_PR_AllowSystemPasscode_Desc      | EN: Allow the device PIN, password, or pattern instead of biometrics. | RU: Разрешить PIN-код, пароль или графический ключ вместо биометрии.
+364. NM_PR_AskBioOpenArchive             | EN: Protect archived chats | RU: Защищать архив
+365. NM_PR_AskBioOpenArchive_Desc        | EN: Require device authentication before opening the archive. | RU: Запрашивать подтверждение устройства перед открытием архива.
+366. NM_PR_AskBioOpenChats               | EN: Protect selected chats | RU: Защищать выбранные чаты
+367. NM_PR_AskBioOpenChats_Desc          | EN: Require device authentication before opening chats selected below. | RU: Запрашивать подтверждение устройства перед открытием выбранных ниже чатов.
+368. NM_PR_AskBioOpenEncrypted           | EN: Protect secret chats | RU: Защищать секретные чаты
+369. NM_PR_AskBioOpenEncrypted_Desc      | EN: Require device authentication before opening a secret chat. | RU: Запрашивать подтверждение устройства перед открытием секретного чата.
+370. NM_PR_AskBioOpenSavedMessages       | EN: Protect Saved Messages | RU: Защищать «Избранное»
+371. NM_PR_AskBioOpenSavedMessages_Desc  | EN: Require biometrics or device authentication before opening Saved Messages. | RU: Запрашивать биометрию или подтверждение устройства перед открытием «Избранного».
+372. NM_PR_AuthenticationRequired        | EN: Authentication is required to change this protected setting | RU: Для изменения этой защищённой настройки требуется аутентификация
+373. NM_PR_AuthenticationUnavailable     | EN: Authentication unavailable | RU: Аутентификация недоступна
+374. NM_PR_AuthenticationUnavailable_Desc | EN: No biometric or device screen lock is available. Disable this protection setting? | RU: На устройстве недоступны биометрия и блокировка экрана. Отключить эту настройку защиты?
+375. NM_PR_DeleteAccount                 | EN: Delete Telegram account | RU: Удаление аккаунта
+376. NM_PR_Header_ChatProtection         | EN: Chat protection | RU: Защита чатов
+377. NM_PR_HideArchiveList               | EN: Hide archive from chats list | RU: Скрыть архив из списка чатов
+378. NM_PR_HideArchiveList_Desc          | EN: Remove Archive from the chat list. Open it here or hold Search. | RU: Убрать архив из списка чатов. Открыть его можно здесь или удержанием поиска.
+379. NM_PR_HideArchivedStories           | EN: Hide archived stories | RU: Скрыть архивированные истории
+380. NM_PR_HideArchivedStories_Desc      | EN: Hides the archived-stories section from your profile. | RU: Скрывает раздел архивированных историй в профиле.
+381. NM_PR_HideProxy                     | EN: Don\'t show proxy sponsor | RU: Не показывать спонсора прокси
+382. NM_PR_LockedChats                   | EN: Protected chats | RU: Защищённые чаты
+383. NM_PR_LockedChatsTtl                | EN: Ask again | RU: Повторная проверка
+384. NM_PR_LockedChatsTtl_15Min          | EN: After 15 minutes | RU: Через 15 минут
+385. NM_PR_LockedChatsTtl_1Min           | EN: After 1 minute | RU: Через 1 минуту
+386. NM_PR_LockedChatsTtl_5Min           | EN: After 5 minutes | RU: Через 5 минут
+387. NM_PR_LockedChatsTtl_Always         | EN: Always ask | RU: Каждый раз
+388. NM_PR_LockedChatsTtl_UntilRestart   | EN: Until restart | RU: До перезапуска
+389. NM_PR_OpenArchive                   | EN: Open archived chats | RU: Открыть архив
+390. NM_PR_RequireBiometricsToDelete     | EN: Confirm deletion | RU: Подтверждать удаление
+391. NM_PR_RequireBiometricsToDelete_Desc | EN: Require device authentication before deleting messages or chats and clearing history. | RU: Запрашивать подтверждение устройства перед удалением сообщений и чатов или очисткой истории.
+392. NM_PR_TestFingerprint               | EN: Test authentication | RU: Проверить защиту
+393. NM_PR_TestFingerprint_Desc          | EN: Checks whether biometric or device authentication is available and refreshes its state. | RU: Проверяет доступность биометрии или блокировки устройства и обновляет их состояние.
+394. NM_PredictiveBackAnimation          | EN: Predictive back gesture | RU: Предиктивный жест назад
+395. NM_PremiumReactionRequired          | EN: Telegram Premium required | RU: Нужен Telegram Premium
+396. NM_ResidentNotification             | EN: Persistent notification | RU: Постоянное уведомление
+397. NM_Restart                          | EN: Restart | RU: Перезапустить
+398. NM_RestartRequired                  | EN: Restart required to apply changes | RU: Требуется перезапуск для применения изменений
+399. NM_SettingsDesc_NavigationCrossfade | EN: Crossfade animation when switching screens | RU: Анимация перехода при смене экранов
+400. NM_StickerSize                      | EN: Sticker size | RU: Размер стикеров
+401. NM_StickerSizeBig                   | EN: Big | RU: Большой
+402. NM_StickerSizePreviewReply          | EN: to the moon 🚀 | RU: на Марс 🚀
+403. NM_StickerSizePreviewText           | EN: ahaha 😂 | RU: ахаха 😂
+404. NM_StickerSizeSmall                 | EN: Small | RU: Маленький
+405. NM_Stickers_Header                  | EN: Stickers | RU: Стикеры
+406. NM_SwitchStyle                      | EN: Switch style | RU: Стиль переключателей
+407. NM_ToSaved                          | EN: Save | RU: Сохранить
+408. NM_Vibrate_Click                    | EN: Click | RU: Щелчок
+409. NM_Vibrate_Keyboard                 | EN: Keyboard tap | RU: Клавиатура
+410. NM_Vibrate_Long                     | EN: Long press | RU: Долгое нажатие
+411. NM_Vibrate_Off                      | EN: Off | RU: Выкл.
+412. NM_Vibrate_Wave                     | EN: Wave | RU: Волна
+413. NM_WSB_Enable                       | EN: Enable bypass | RU: Включить обход
+414. NM_WSB_MiscHeader                   | EN: Calls and VPN | RU: Звонки и VPN
+415. NM_WSB_OpenProxySettings            | EN: Open Telegram proxy settings | RU: Настройки прокси Telegram
+416. NM_WSB_Status_Off                   | EN: Off | RU: Выключено
+417. NM_WSB_SuspendOnVpn                 | EN: Suspend under VPN | RU: Приостанавливать при VPN
+418. NM_WSB_SuspendOnVpn_Desc            | EN: Pause the bypass while a system VPN is active. | RU: Ставит обход на паузу, пока активен системный VPN.
+419. NM_WSB_VoIP_Enable                  | EN: Route calls through bypass | RU: Пропускать звонки через обход
+420. NM_Without_Authorship               | EN: without authorship | RU: без авторства
+421. Notifications                       | EN: Notifications | RU: Уведомления
+422. NotificationsService                | EN: Keep-Alive Service | RU: Фоновая служба соединения
+423. NotificationsSound                  | EN: Notification Sound | RU: Звук уведомления
+424. NumberUnknown                       | EN: Unknown | RU: Неизвестный
+425. OK                                  | EN: OK | RU: ОК
+426. Online                              | EN: online | RU: в сети
+427. PasscodePanicCodeRemove             | EN: Turn off panic code | RU: Отключить экстренный пароль
+428. PinMessage                          | EN: Pin | RU: Закрепить
+429. Plugins                             | EN: Plugins | RU: Плагины
+430. PluginsEngine                       | EN: Plugin engine | RU: Движок плагинов
+431. PopupDisabled                       | EN: Disabled | RU: Выключено
+432. ProfileBirthday                     | EN: Date of Birth | RU: День рождения
+433. Quality1440Short                    | EN: 2K | RU: 2K
+434. QualityAuto                         | EN: Auto | RU: Авто
+435. Reactions                           | EN: Reactions | RU: Реакции
+436. Reply                               | EN: Reply | RU: Ответить
+437. ReportChat                          | EN: Report | RU: Пожаловаться
+438. RepostToStory                       | EN: Repost\nto Story | RU: Репост в историю
+439. Reset                               | EN: Reset | RU: Сбросить
+440. Save                                | EN: Save | RU: Сохранить
+441. SaveDeletedMessageForBot            | EN: Save in Bot Chats | RU: Сохранять в чатах с ботами
+442. SaveDeletedMessageForBotUser        | EN: Save Bot Messages | RU: Сохранять сообщения ботов
+443. SaveForNotifications                | EN: Save for notifications | RU: Сохранить для уведомлений
+444. SaveToDownloads                     | EN: Save to downloads | RU: Сохранить в Загрузки
+445. SaveToGallery                       | EN: Save to gallery | RU: Сохранить в галерею
+446. SavedMessages                       | EN: Saved Messages | RU: Избранное
+447. Search                              | EN: Search | RU: Поиск
+448. Settings                            | EN: Settings | RU: Настройки
+449. SettingsNotifications               | EN: Notifications | RU: Уведомления
+450. ShareFile                           | EN: Share | RU: Поделиться
+451. ShareLink                           | EN: Share Link | RU: Поделиться ссылкой
+452. StatisticsAndBoosts                 | EN: Statistics and Boosts | RU: Статистика и бусты
+453. StickersName                        | EN: Stickers | RU: Стикеры
+454. TelegramPremium                     | EN: Telegram Premium | RU: Telegram Premium
+455. TosDeclineDeleteAccount             | EN: Warning, this will irreversibly delete your Telegram account along with all the data you store in the Telegram cloud.\n\nImportant: You can Cancel now and export your data before deleting your account instead of losing it all. (To do this, open the latest version of Telegram Desktop and go to Settings > Export Telegram Data.) | RU: Внимание: это действие необратимо удалит ваш аккаунт Telegram вместе со всеми данными в облаке Telegram.
+
+Вы можете отменить удаление и сначала экспортировать данные в Telegram Desktop.
+456. TranslateMessage                    | EN: Translate | RU: Перевести
+457. TranslucentDeletedMessages          | EN: Translucent Deleted Messages | RU: Полупрозрачные удалённые сообщения
+458. UserColorTabProfile                 | EN: Profile | RU: Профиль
+459. VibrationDisabled                   | EN: Disabled | RU: Отключена
+460. exteraAppName                       | EN: SoundGram | RU: SoundGram

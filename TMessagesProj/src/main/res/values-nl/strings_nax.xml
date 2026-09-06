@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">Geen online status verzenden</string>
+    <string name="DontReadStoriesPackets">Verhalen niet lezen</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… in openbare groepen</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… in openbare kanalen</string>
+    <string name="GhostEssentialsHeader">Spookmodus</string>
+    <string name="SaveDeletedMessageForBotUser">Berichten van bots opslaan</string>
+    <string name="EnableSaveEditsHistory">Bewerkingsgeschiedenis opslaan</string>
+    <string name="ClearMessageDatabase">Berichtendatabase wissen</string>
+    <string name="DontSendReadMessagePackets">Berichten niet lezen</string>
+    <string name="SaveDeletedMessageForBot">Opslaan in botchats</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… in privégroepen</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… in privé-chats</string>
+    <string name="ClearMessageDatabaseNotification">Berichtendatabase gewist.</string>
+    <string name="MessageSavingSaveMedia">Media opslaan</string>
+    <string name="MessageSavingSaveMediaHint">Klik voor meer.</string>
+    <string name="TranslucentDeletedMessages">Doorschijnende verwijderde berichten</string>
+    <string name="DontSendUploadProgress">Typstatus niet verzenden</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… in privékanalen</string>
+    <string name="EnableSaveDeletedMessages">Verwijderde berichten opslaan</string>
+</resources>

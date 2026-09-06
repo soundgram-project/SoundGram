@@ -72,11 +72,11 @@ public class TimeStringHelper {
 
         spannableStringBuilder
                 .append(messageObject.messageOwner.post_author != null ? " " : "")
-                .append(NaConfig.INSTANCE.getUseDeletedIcon().Bool() ? deletedSpan : deletedStrFin);
+                .append(NaConfig.INSTANCE.getUseDeletedIcon().Bool() ? createDeletedIconSpan() : deletedStrFin);
         if (isEdited) {
             spannableStringBuilder
                     .append("  ")
-                    .append(primaryEditedDate ? LocaleController.formatPmEditedDate(editDate) : (NaConfig.INSTANCE.getUseEditedIcon().Bool() ? editedSpan : editedStrFin));
+                    .append(primaryEditedDate ? LocaleController.formatPmEditedDate(editDate) : (NaConfig.INSTANCE.getUseEditedIcon().Bool() ? createEditedIconSpan() : editedStrFin));
         }
         if (isTranslated) {
             spannableStringBuilder
@@ -93,6 +93,36 @@ public class TimeStringHelper {
                     .append(LocaleController.getInstance().getFormatterDay().format((long) (messageObject.messageOwner.date) * 1000));
         }
         return spannableStringBuilder;
+    }
+
+    public static CharSequence createDeletedIconSpan() {
+        try {
+            Drawable d = ContextCompat.getDrawable(ApplicationLoader.applicationContext, R.drawable.msg_delete_solar);
+            if (d != null) {
+                d = d.mutate();
+                d.setBounds(0, 0, org.telegram.messenger.AndroidUtilities.dp(13), org.telegram.messenger.AndroidUtilities.dp(13));
+                SpannableStringBuilder ssb = new SpannableStringBuilder(" ");
+                ColoredImageSpan span = new ColoredImageSpan(d);
+                ssb.setSpan(span, 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                return ssb;
+            }
+        } catch (Throwable ignored) {}
+        return "🗑";
+    }
+
+    public static CharSequence createEditedIconSpan() {
+        try {
+            Drawable d = ContextCompat.getDrawable(ApplicationLoader.applicationContext, R.drawable.msg_edit_solar);
+            if (d != null) {
+                d = d.mutate();
+                d.setBounds(0, 0, org.telegram.messenger.AndroidUtilities.dp(13), org.telegram.messenger.AndroidUtilities.dp(13));
+                SpannableStringBuilder ssb = new SpannableStringBuilder(" ");
+                ColoredImageSpan span = new ColoredImageSpan(d);
+                ssb.setSpan(span, 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                return ssb;
+            }
+        } catch (Throwable ignored) {}
+        return "";
     }
 
     public static CharSequence createEditedString(MessageObject messageObject, boolean isTranslated, int senderNameColor) {
@@ -113,7 +143,7 @@ public class TimeStringHelper {
 
         spannableStringBuilder
                 .append(messageObject.messageOwner.post_author != null ? " " : "")
-                .append(primaryEditedDate ? LocaleController.formatPmEditedDate(editDate) : (NaConfig.INSTANCE.getUseEditedIcon().Bool() ? editedSpan : editedStrFin));
+                .append(primaryEditedDate ? LocaleController.formatPmEditedDate(editDate) : (NaConfig.INSTANCE.getUseEditedIcon().Bool() ? createEditedIconSpan() : editedStrFin));
         if (isTranslated) {
             spannableStringBuilder
                     .append("  ")

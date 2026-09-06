@@ -133,7 +133,7 @@ public class NotificationsCheckCell extends FrameLayout {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        if (isMultiline) {
+        if (isMultiline && multilineValueTextView.getVisibility() != GONE) {
             final int w = MeasureSpec.getSize(widthMeasureSpec);
             // NG: measure the (possibly 2-line, word-wrapped) title first, then drop the subtitle to sit just
             // below it — so a wrapped title never overlaps the description. One-line titles are unaffected
@@ -148,7 +148,7 @@ public class NotificationsCheckCell extends FrameLayout {
             }
             super.onMeasure(MeasureSpec.makeMeasureSpec(w, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
         } else {
-            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(currentHeight), MeasureSpec.EXACTLY));
+            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(50), MeasureSpec.EXACTLY));
         }
     }
 
@@ -176,12 +176,17 @@ public class NotificationsCheckCell extends FrameLayout {
         }
         checkBox.setChecked(checked, iconType, animationsEnabled);
         setMultiline(multiline);
-        if (isMultiline) {
-            multilineValueTextView.setText(value);
+        if (android.text.TextUtils.isEmpty(value)) {
+            multilineValueTextView.setVisibility(GONE);
+            valueTextView.setVisibility(GONE);
         } else {
-            valueTextView.setText(value, animated);
+            if (isMultiline) {
+                multilineValueTextView.setText(value);
+            } else {
+                valueTextView.setText(value, animated);
+            }
+            (isMultiline ? multilineValueTextView : valueTextView).setVisibility(VISIBLE);
         }
-        (isMultiline ? multilineValueTextView : valueTextView).setVisibility(VISIBLE);
         checkBox.setContentDescription(text);
         needDivider = divider;
     }

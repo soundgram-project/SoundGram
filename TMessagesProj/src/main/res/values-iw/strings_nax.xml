@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">אל תשלח מצב מחובר</string>
+    <string name="DontReadStoriesPackets">אל תקרא סטוריז</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… בקבוצות ציבוריות</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… בערוצים ציבוריים</string>
+    <string name="GhostEssentialsHeader">הגדרות רוח</string>
+    <string name="SaveDeletedMessageForBotUser">שמור הודעות בוטים</string>
+    <string name="EnableSaveEditsHistory">שמור היסטוריית עריכות</string>
+    <string name="ClearMessageDatabase">נקה מאגר הודעות</string>
+    <string name="DontSendReadMessagePackets">אל תקרא הודעות</string>
+    <string name="SaveDeletedMessageForBot">שמור בצ\'אטים של בוטים</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… בקבוצות פרטיות</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… בצ\'אטים פרטיים</string>
+    <string name="ClearMessageDatabaseNotification">מאגר ההודעות נוקה.</string>
+    <string name="MessageSavingSaveMedia">שמור מדיה</string>
+    <string name="MessageSavingSaveMediaHint">לחץ למידע נוסף.</string>
+    <string name="TranslucentDeletedMessages">הודעות שנמחקו חצי שקופות</string>
+    <string name="DontSendUploadProgress">אל תשלח מקליד</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… בערוצים פרטיים</string>
+    <string name="EnableSaveDeletedMessages">שמור הודעות שנמחקו</string>
+</resources>

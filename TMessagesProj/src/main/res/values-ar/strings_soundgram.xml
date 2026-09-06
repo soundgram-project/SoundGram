@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">تكرار</string>
     <string name="AccDescrShuffle">خلط عشوائي</string>
     <string name="AccDescrEqualizer">معادل الصوت</string>
+    <string name="NimarkoGramSettings">إعدادات SoundGram</string>
+    <string name="NM_Cat_General">عام</string>
+    <string name="NM_Cat_Appearance">المظهر</string>
+    <string name="NM_Cat_Chats">المحادثات</string>
+    <string name="NM_Cat_Camera">الكاميرا</string>
+    <string name="NM_Cat_Privacy">الخصوصية</string>
+    <string name="NM_WSB_Title">تجاوز الحجب</string>
+    <string name="NM_HUB_Debug">تصحيح الأخطاء</string>
+    <string name="NM_HUB_Restart">إعادة تشغيل التطبيق</string>
+    <string name="UP_CheckForUpdates">تحديث التطبيق</string>
+    <string name="AP_Header_General">عام</string>
+    <string name="NM_HUB_Header_Misc">متنوعات</string>
+    <string name="NM_HUB_Header_Advanced">متقدم</string>
+    <string name="NM_HUB_Header_Other">أخرى</string>
+    <string name="NM_Cat_Miscellaneous">متنوعات</string>
 </resources>

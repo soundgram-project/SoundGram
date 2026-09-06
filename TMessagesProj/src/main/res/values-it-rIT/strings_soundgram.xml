@@ -304,4 +304,19 @@
     <string name="AccDescrRepeat">Ripeti</string>
     <string name="AccDescrShuffle">Ordine casuale</string>
     <string name="AccDescrEqualizer">Equalizzatore</string>
+    <string name="NimarkoGramSettings">Impostazioni SoundGram</string>
+    <string name="NM_Cat_General">Generali</string>
+    <string name="NM_Cat_Appearance">Aspetto</string>
+    <string name="NM_Cat_Chats">Chat</string>
+    <string name="NM_Cat_Camera">Fotocamera</string>
+    <string name="NM_Cat_Privacy">Privacy</string>
+    <string name="NM_WSB_Title">Bypass</string>
+    <string name="NM_HUB_Debug">Debug</string>
+    <string name="NM_HUB_Restart">Riavvia l\'applicazione</string>
+    <string name="UP_CheckForUpdates">Aggiorna applicazione</string>
+    <string name="AP_Header_General">Generali</string>
+    <string name="NM_HUB_Header_Misc">Varie</string>
+    <string name="NM_HUB_Header_Advanced">Avanzate</string>
+    <string name="NM_HUB_Header_Other">Altro</string>
+    <string name="NM_Cat_Miscellaneous">Varie</string>
 </resources>

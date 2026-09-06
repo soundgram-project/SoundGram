@@ -36,9 +36,6 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
     private static final int ID_SEND_READ_STORIES = 5;
     private static final int ID_SEND_OFFLINE_AFTER = 6;
     private static final int ID_MARK_READ_AFTER_SEND = 7;
-    private static final int ID_SILENT_BY_DEFAULT = 8;
-    private static final int ID_SHOW_IN_DRAWER = 9;
-    private static final int ID_STATUS_INDICATOR = 10;
 
     private static final int ID_SAVE_DELETED = 20;
     private static final int ID_SAVE_MEDIA = 21;
@@ -99,28 +96,12 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
                         LocaleController.getString(R.string.MarkReadAfterSend),
                         LocaleController.getString(R.string.MarkReadAfterSendNotice))
                 .setChecked(NekoConfig.markReadAfterSend.Bool()));
-
-        items.add(SettingsHelper.asSwitchCG(ID_SILENT_BY_DEFAULT,
-                        LocaleController.getString(R.string.SilentMessageByDefault),
-                        null)
-                .setChecked(NaConfig.INSTANCE.getSilentMessageByDefault().Bool()));
-
-        items.add(SettingsHelper.asSwitchCG(ID_SHOW_IN_DRAWER,
-                        LocaleController.getString(R.string.GhostModeInDrawer),
-                        null)
-                .setChecked(NekoConfig.showGhostInDrawer.Bool()));
-
-        items.add(SettingsHelper.asSwitchCG(ID_STATUS_INDICATOR,
-                        LocaleController.getString(R.string.GhostModeStatusIndicator),
-                        null)
-                .setChecked(NekoConfig.showGhostModeStatus.Bool()));
         items.add(UItem.asShadow(null));
 
-        // Section: Deleted Messages (удалёнки)
-        items.add(UItem.asHeader(LocaleController.getString(R.string.SaveDeletedExclusionMenu)));
+        // Section: Messages & History
+        items.add(UItem.asHeader(LocaleController.getString(R.string.SaveDeletedMessages)));
         items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED,
-                        LocaleController.getString(R.string.EnableSaveDeletedMessages),
-                        null)
+                        LocaleController.getString(R.string.EnableSaveDeletedMessages))
                 .setChecked(NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()));
 
         if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
@@ -130,43 +111,30 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
                     .setChecked(NaConfig.INSTANCE.getMessageSavingSaveMedia().Bool()));
 
             items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED_BOT,
-                            LocaleController.getString(R.string.SaveDeletedMessageForBot),
-                            null)
+                            LocaleController.getString(R.string.SaveDeletedMessageForBot))
                     .setChecked(NaConfig.INSTANCE.getSaveDeletedMessageForBot().Bool()));
 
             items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED_BOT_USER,
-                            LocaleController.getString(R.string.SaveDeletedMessageForBotUser),
-                            null)
+                            LocaleController.getString(R.string.SaveDeletedMessageForBotUser))
                     .setChecked(NaConfig.INSTANCE.getSaveDeletedMessageForBotUser().Bool()));
 
             items.add(SettingsHelper.asSwitchCG(ID_TRANSLUCENT_DELETED,
-                            LocaleController.getString(R.string.TranslucentDeletedMessages),
-                            null)
+                            LocaleController.getString(R.string.TranslucentDeletedMessages))
                     .setChecked(NaConfig.INSTANCE.getTranslucentDeletedMessages().Bool()));
 
             items.add(SettingsHelper.asSwitchCG(ID_USE_DELETED_ICON,
-                            LocaleController.getString(R.string.UseDeletedIcon),
-                            null)
+                            LocaleController.getString(R.string.UseDeletedIcon))
                     .setChecked(NaConfig.INSTANCE.getUseDeletedIcon().Bool()));
 
-            items.add(asSettingsLink(ID_VIEW_DELETED, IconBackgroundColors.BLUE,
-                    R.drawable.msg_delete_solar,
+            items.add(UItem.asButton(ID_VIEW_DELETED, R.drawable.msg_delete_solar,
                     LocaleController.getString(R.string.ViewDeleted)));
         }
-        items.add(UItem.asShadow(null));
 
-        // Section: Edited Messages (изменёнки)
-        items.add(UItem.asHeader(LocaleController.getString(R.string.EditsHistoryMenuText)));
         items.add(SettingsHelper.asSwitchCG(ID_SAVE_EDITS,
-                        LocaleController.getString(R.string.EnableSaveEditsHistory),
-                        null)
+                        LocaleController.getString(R.string.EnableSaveEditsHistory))
                 .setChecked(NaConfig.INSTANCE.getEnableSaveEditsHistory().Bool()));
-        items.add(UItem.asShadow(null));
 
-        // Section: Maintenance
-        items.add(UItem.asHeader(LocaleController.getString(R.string.LocalDatabase)));
-        items.add(asSettingsLink(ID_CLEAR_DATABASE, IconBackgroundColors.RED,
-                R.drawable.msg_clear_solar,
+        items.add(UItem.asButton(ID_CLEAR_DATABASE, R.drawable.msg_clear_solar,
                 LocaleController.getString(R.string.ClearMessageDatabase)).red());
         items.add(UItem.asShadow(null));
     }
@@ -214,23 +182,6 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
         } else if (id == ID_MARK_READ_AFTER_SEND) {
             NekoConfig.markReadAfterSend.toggleConfigBool();
             AyuState.setAllowReadPacket(false, -1);
-            if (listView != null && listView.adapter != null) {
-                listView.adapter.update(true);
-            }
-        } else if (id == ID_SILENT_BY_DEFAULT) {
-            NaConfig.INSTANCE.getSilentMessageByDefault().toggleConfigBool();
-            if (listView != null && listView.adapter != null) {
-                listView.adapter.update(true);
-            }
-        } else if (id == ID_SHOW_IN_DRAWER) {
-            NekoConfig.showGhostInDrawer.toggleConfigBool();
-            NotificationCenter.getInstance(UserConfig.selectedAccount).postNotificationName(NotificationCenter.mainUserInfoChanged);
-            if (listView != null && listView.adapter != null) {
-                listView.adapter.update(true);
-            }
-        } else if (id == ID_STATUS_INDICATOR) {
-            NekoConfig.showGhostModeStatus.toggleConfigBool();
-            NotificationCenter.getInstance(UserConfig.selectedAccount).postNotificationName(NotificationCenter.mainUserInfoChanged);
             if (listView != null && listView.adapter != null) {
                 listView.adapter.update(true);
             }

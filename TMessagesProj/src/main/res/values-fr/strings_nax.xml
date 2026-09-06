@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="DontSendOnlinePackets">Ne pas envoyer le statut en ligne</string>
+    <string name="DontReadStoriesPackets">Ne pas lire les stories</string>
+    <string name="MessageSavingSaveMediaInPublicGroups">… dans les groupes publics</string>
+    <string name="MessageSavingSaveMediaInPublicChannels">… dans les canaux publics</string>
+    <string name="GhostEssentialsHeader">Paramètres fantôme</string>
+    <string name="SaveDeletedMessageForBotUser">Enregistrer les messages des bots</string>
+    <string name="EnableSaveEditsHistory">Enregistrer l\'historique des modifications</string>
+    <string name="ClearMessageDatabase">Effacer la base de données</string>
+    <string name="DontSendReadMessagePackets">Ne pas lire les messages</string>
+    <string name="SaveDeletedMessageForBot">Enregistrer dans les chats de bots</string>
+    <string name="MessageSavingSaveMediaInPrivateGroups">… dans les groupes privés</string>
+    <string name="MessageSavingSaveMediaInPrivateChats">… dans les chats privés</string>
+    <string name="ClearMessageDatabaseNotification">Base de données des messages effacée.</string>
+    <string name="MessageSavingSaveMedia">Enregistrer les médias</string>
+    <string name="MessageSavingSaveMediaHint">Cliquez pour en savoir plus.</string>
+    <string name="TranslucentDeletedMessages">Messages supprimés translucides</string>
+    <string name="DontSendUploadProgress">Ne pas envoyer l\'état de saisie</string>
+    <string name="MessageSavingSaveMediaInPrivateChannels">… dans les canaux privés</string>
+    <string name="EnableSaveDeletedMessages">Enregistrer les messages supprimés</string>
+</resources>
