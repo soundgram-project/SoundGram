@@ -6540,7 +6540,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
                     waveBtn.setOnClickListener(v -> {
                         AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
-                        AudioPlayerAlert.currentSourceLabel = "";
                         applySpringClick(waveBtn);
                         Toast.makeText(mContext, getString(R.string.sg_wave_generating), Toast.LENGTH_SHORT).show();
                         String aArtist = artist != null ? artist : "";
@@ -6548,9 +6547,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
                             aArtist = parts.length > 1 ? parts[1] : "";
                         }
-                        if (aArtist.isEmpty() && !playlistMessages.isEmpty())
+                        if (aArtist.isEmpty() && !playlistMessages.isEmpty()) {
                             aArtist = playlistMessages.get(0).getMusicAuthor();
+                        }
+                        if (aArtist.isEmpty() && title != null && title.contains(" - ")) {
+                            String[] tParts = title.split(" - ", 2);
+                            aArtist = tParts[0].trim();
+                        }
                         final String finalArtist = aArtist;
+                        AudioPlayerAlert.currentSourceLabel = (!finalArtist.isEmpty() ? finalArtist + " - " : "") + title;
                         ArrayList<MessageObject> currentTracks = new ArrayList<>(playlistMessages);
                         SmartRadioEngine.stopWaveSession();
                         SmartRadioEngine.generateWaveByAlbum(finalArtist, title, currentTracks,
@@ -6813,7 +6818,7 @@ public static class ChipCell extends FrameLayout {
 
             layout.setOnClickListener(v -> {
                 SoundGramTTS.speak(v, layout.getContentDescription());
-                presentFragment(new AlbumProfileFragment(album.title, album.albumUrl, album.coverUrl));
+                presentFragment(new AlbumProfileFragment(album.title, album.artist != null ? album.artist : "", album.albumUrl, album.coverUrl));
             });
 
         }

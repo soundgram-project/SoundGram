@@ -161,8 +161,8 @@ public final class InnerTubeClient {
             JSONObject body = new JSONObject();
             body.put("context", buildContext());
             body.put("query", query.trim());
-            // Songs filter params for music.youtube.com
-            body.put("params", "Eg-KAQwIABAAGAEgACgAMABqChAEEAMQCRAFEAo%3D");
+            // Songs filter params for music.youtube.com (Треки)
+            body.put("params", "EgWKAQIIAWoSEAUQAxAJEAQQChAQEBUQDhAR");
 
             String resp = post("search", body.toString(), cancelFlag);
             if (resp.isEmpty()) {
@@ -227,8 +227,10 @@ public final class InnerTubeClient {
                     JSONObject pvr = obj.getJSONObject("playlistPanelVideoRenderer");
                     String vid = pvr.optString("videoId", null);
                     String title = getRunsText(pvr.optJSONObject("title"));
-                    String artist = getRunsText(pvr.optJSONObject("longBylineText"));
-                    if (artist == null) artist = getRunsText(pvr.optJSONObject("shortBylineText"));
+                    String artist = getRunsText(pvr.optJSONObject("shortBylineText"));
+                    if (artist == null || artist.trim().isEmpty()) {
+                        artist = getRunsText(pvr.optJSONObject("longBylineText"));
+                    }
                     String lengthText = getRunsText(pvr.optJSONObject("lengthText"));
                     int durSec = parseDurationString(lengthText);
 

@@ -1292,7 +1292,11 @@ public class AudioPlayerAlert extends BottomSheet
                 LayoutHelper.MATCH_PARENT, coverSizeDp + 8,
                 Gravity.CENTER, 36, 0, 36, 270)); // 270dp смещение вверх (120 + 150)
 
-        // --- СОЗДАНИЕ КОНТЕЙНЕРА С ТЕКСТАМИ (ИСПРАВЛЕНО) ---
+        // Название + автор + кнопки — якорим СНИЗУ, прямо над seekFrame
+        int textBottomMargin = 300 + 120 + 52 + 36 + 30
+                + (navBarPad > 0 ? (int) (navBarPad / AndroidUtilities.density) : 16);
+
+        // --- СОЗДАНИЕ КОНТЕЙНЕРА С ТЕКСТАМИ ---
         lyricsContainer = new FrameLayout(context);
         lyricsContainer.setVisibility(View.GONE);
         lyricsContainer.setAlpha(0f);
@@ -1301,13 +1305,12 @@ public class AudioPlayerAlert extends BottomSheet
         lyricsContainer.addView(lyricsView,
                 LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         // lyricsContainer — поверх плеера, от topBar до кнопок управления
-        // Кладем контейнер текстов поверх всего плеера с отступом сверху (под топбар с
-        // кнопкой ···) и снизу (кнопки управления)
-        // topMargin = высота топбара (44dp) + отступ топбара сверху + размер кнопки
-        // (40dp) → итого topBarTopMargin + 44 + 4dp запас
+        // Отступ сверху: под топбаром; отступ снизу: строго над заголовком и кнопками действий,
+        // чтобы не перекрывать кнопки управления, заголовок, автора, закладку и меню опций.
         int lyricsTopMargin = topBarTopMargin + 44 + 4;
+        int lyricsBottomMargin = textBottomMargin + 64;
         playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT,
-                LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 36, lyricsTopMargin, 36, 380));
+                LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 36, lyricsTopMargin, 36, lyricsBottomMargin));
 
         // ── Название + автор + кнопка лирики ─────────────────────────────────
         // Используем горизонтальный LinearLayout: [текст (weight=1)] [кнопка лирики
@@ -1508,8 +1511,6 @@ public class AudioPlayerAlert extends BottomSheet
                 LayoutHelper.createLinear(48, 48, Gravity.CENTER_VERTICAL, 0, 0, 0, 0));
 
         // Название + автор + кнопки — якорим СНИЗУ, прямо над seekFrame
-        int textBottomMargin = 300 + 120 + 52 + 36 + 30
-                + (navBarPad > 0 ? (int) (navBarPad / AndroidUtilities.density) : 16);
         playerUiContainer.addView(textAndButtonsContainer,
                 LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                         Gravity.BOTTOM | Gravity.START,
@@ -6024,6 +6025,9 @@ public class AudioPlayerAlert extends BottomSheet
 
         @Override
         public boolean onTouchEvent(MotionEvent event) {
+            if (lyricsLines.isEmpty() || isFetchingLyrics) {
+                return false;
+            }
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     touchDownX = event.getX();
@@ -6037,14 +6041,14 @@ public class AudioPlayerAlert extends BottomSheet
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
-                    if (isClick && !lyricsLines.isEmpty()) {
+                    if (isClick && !lyricsLines.isEmpty() && !isFetchingLyrics) {
                         int dynamicActiveY = Math.min(ACTIVE_Y, Math.max(AndroidUtilities.dp(120), getHeight() / 2));
                         float deltaY = event.getY() - (dynamicActiveY + scrollOffset);
                         int clickedIdx = Math.round(activeIndex + deltaY / ROW_HEIGHT);
                         if (clickedIdx >= 0 && clickedIdx < lyricsLines.size()) {
                             MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-                            if (playing != null) {
-                                long targetMs = lyricsLines.get(clickedIdx).timeMs;
+                            long targetMs = lyricsLines.get(clickedIdx).timeMs;
+                            if (playing != null && targetMs > 0) {
                                 MediaController.getInstance().seekToProgressMs(playing, targetMs);
                                 setActiveIndex(clickedIdx, true);
                             }

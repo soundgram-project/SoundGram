@@ -69,7 +69,59 @@ public final class SeedSelector {
         ));
         GENRE_BEACONS.put("phonk", GENRE_BEACONS.get("фонк"));
 
-        // Инди / Альтернатива
+        // Гиперпоп
+        GENRE_BEACONS.put("гиперпоп", Arrays.asList(
+                "mP1Z8uFjD6s", "i_h32ZcQGgM", "4pY_qf9qj8E", "g07C8j_6f7o", "qyT_G_g3F0Y",
+                "4F_l23w1o4E", "yGz4W_W9o6E", "z97qLNXeAMQ", "iTzF78_3E8g", "3R3fG7k128k"
+        ));
+        GENRE_BEACONS.put("hyperpop", GENRE_BEACONS.get("гиперпоп"));
+
+        // Пост-панк
+        GENRE_BEACONS.put("пост-панк", Arrays.asList(
+                "HR5zpFs7YpY", "y7dZ6hVz1jE", "f0QkG8z9p6w", "T_6y71q3v_E", "k5wY8r6o1kE",
+                "8s_s6fC8hG4", "9GkJ8Nz5EYY", "zuuObGsB0No", "X6Y1q8w7j2A", "3tM9p1v6z4E"
+        ));
+        GENRE_BEACONS.put("пост панк", GENRE_BEACONS.get("пост-панк"));
+        GENRE_BEACONS.put("постпанк", GENRE_BEACONS.get("пост-панк"));
+        GENRE_BEACONS.put("post-punk", GENRE_BEACONS.get("пост-панк"));
+        GENRE_BEACONS.put("postpunk", GENRE_BEACONS.get("пост-панк"));
+
+        // Эмо-рэп
+        GENRE_BEACONS.put("эмо-рэп", Arrays.asList(
+                "bH1K6t2F8Y4", "L8p6v0K4Y1A", "x8Y1p9q2k6E", "y5V1k8z9o4E", "1b9C6w7k3_A",
+                "mzB1V9nY-6E", "FAucVPE38P4", "x000F8bHhX8", "p1K7t8w4z6E", "-jRKsiAOAA8"
+        ));
+        GENRE_BEACONS.put("эмо рэп", GENRE_BEACONS.get("эмо-рэп"));
+        GENRE_BEACONS.put("эморэп", GENRE_BEACONS.get("эмо-рэп"));
+        GENRE_BEACONS.put("emo-rap", GENRE_BEACONS.get("эмо-рэп"));
+        GENRE_BEACONS.put("emorap", GENRE_BEACONS.get("эмо-рэп"));
+
+        // Металл / Метал
+        GENRE_BEACONS.put("металл", Arrays.asList(
+                "W3q8Od5qJio", "CD-E-LDc384", "Wws7acXdUCQ", "iywaBOMvYLI", "SQtehnq1sVU",
+                "AkF9TPy4gE0", "kIBeYoP9Wi0", "7lM1vB4y9p0", "jRGrNDV2NWo", "5rN4wX8c1k0"
+        ));
+        GENRE_BEACONS.put("метал", GENRE_BEACONS.get("металл"));
+        GENRE_BEACONS.put("metal", GENRE_BEACONS.get("металл"));
+
+        // Альтернатива
+        GENRE_BEACONS.put("альтернатива", Arrays.asList(
+                "eVTXPUF4Oz4", "kXYiU_JCYtU", "1tF5gK8x9pE", "z7G0o8w1q4E", "4pZ6o9y1k2A",
+                "7kP1v4y8z0E", "hTWKbfoikeg", "XFkzRNyygfk", "YlUKcNNmywk", "VrZ4sMRYimw"
+        ));
+        GENRE_BEACONS.put("alternative", GENRE_BEACONS.get("альтернатива"));
+
+        // К-поп
+        GENRE_BEACONS.put("к-поп", Arrays.asList(
+                "gdZLi9oWNZg", "ioNng23DkIM", "OvioeS1ZZ7o", "ArmDp-zijuc", "i0p1bmr0EmE",
+                "WMweEpGlu_U", "gQlMMD8auMs", "TQTlCHxyuu8", "9bZkp7q19f0", "pSudEWBAYRE"
+        ));
+        GENRE_BEACONS.put("к поп", GENRE_BEACONS.get("к-поп"));
+        GENRE_BEACONS.put("кпоп", GENRE_BEACONS.get("к-поп"));
+        GENRE_BEACONS.put("k-pop", GENRE_BEACONS.get("к-поп"));
+        GENRE_BEACONS.put("kpop", GENRE_BEACONS.get("к-поп"));
+
+        // Инди
         GENRE_BEACONS.put("инди", Arrays.asList(
                 "m7Bc3JBkW4s", "b1kbLwvqugk", "d1acEVmnVhI", "YQHsXMglC9A", "bpOSxM0rNPM",
                 "a18p1A_L7Y0", "1u-niluB8HI", "79DijItQXMM", "rYEDA3JcQqw", "yPYZpwSpKmA"
@@ -82,20 +134,58 @@ public final class SeedSelector {
                 "C-u5WLJ9nkU", "73_1biulkYk", "xYtsL94vW4s", "F0r7vY4q1k0", "3pM5tC8y9bE"
         ));
         GENRE_BEACONS.put("rnb", GENRE_BEACONS.get("r&b"));
+        GENRE_BEACONS.put("соул", GENRE_BEACONS.get("r&b"));
+        GENRE_BEACONS.put("soul", GENRE_BEACONS.get("r&b"));
 
-        // Джаз / Блюз
+        // Джаз
         GENRE_BEACONS.put("джаз", Arrays.asList(
                 "vmDDOFXSg2k", "PoPL7BExSQU", "fN6GZZm7_cQ", "zqNTltOGh5c", "8B1oPE8_mw8",
                 "1cRNEv59_m8", "U47f5pX8k0E", "9pM2vP4z7b0", "3tK6wY1x8cE", "5rN4bC9y2p0"
         ));
         GENRE_BEACONS.put("jazz", GENRE_BEACONS.get("джаз"));
 
-        // Метал
-        GENRE_BEACONS.put("метал", Arrays.asList(
-                "CD-E-LDc384", "AkF9TPy4gE0", "CSvFpBOe8eY", "Nba3Tr_KhZU", "Wws7acXdUCQ",
-                "kJQP7kiw5Fk", "7lM1vB4y9p0", "5rN4wX8c1k0", "3tK6oY2x5cA", "8vJ3cO1k9bQ"
+        // Блюз
+        GENRE_BEACONS.put("блюз", Arrays.asList(
+                "oica5jG7FpU", "4O_YMLDvvnw", "w5IOou6qN1o", "10qLYy6hiFQ", "0vo23vN460c",
+                "sB6HyvC6bHE", "rOyj4ecwcEE", "Yd60nI43AAw", "8B1oPE8_mw8", "vmDDOFXSg2k"
         ));
-        GENRE_BEACONS.put("metal", GENRE_BEACONS.get("метал"));
+        GENRE_BEACONS.put("blues", GENRE_BEACONS.get("блюз"));
+
+        // Классика
+        GENRE_BEACONS.put("классика", Arrays.asList(
+                "fEOJQawykD0", "EoaPhxNubL0", "RxabLA7UQ9k", "mFWQgxWD_Kw", "9E6b3swbnWg",
+                "4Tr0otuiQuU", "9rJoB7y6Ncs", "b_YHE4Sx-08", "WNcsUNKlAKw", "k1-TrAvp_xs"
+        ));
+        GENRE_BEACONS.put("классическая", GENRE_BEACONS.get("классика"));
+        GENRE_BEACONS.put("classical", GENRE_BEACONS.get("классика"));
+        GENRE_BEACONS.put("classic", GENRE_BEACONS.get("классика"));
+
+        // Синтвейв
+        GENRE_BEACONS.put("синтвейв", Arrays.asList(
+                "MV_3Dpw-BRY", "rV3bKq1-a58", "er416XiUp4g", "RY66fdslhsg", "8GW6sLrK40k",
+                "-EDtFZZpW_k", "U4Z9n8tK4gE", "7vK1t4w8z0E", "nLzjm9E128k", "3pM5tC8y9bE"
+        ));
+        GENRE_BEACONS.put("синт-вейв", GENRE_BEACONS.get("синтвейв"));
+        GENRE_BEACONS.put("синт вейв", GENRE_BEACONS.get("синтвейв"));
+        GENRE_BEACONS.put("synthwave", GENRE_BEACONS.get("синтвейв"));
+        GENRE_BEACONS.put("retrowave", GENRE_BEACONS.get("синтвейв"));
+
+        // Ло-фай
+        GENRE_BEACONS.put("ло-фай", Arrays.asList(
+                "b4pZ4_o3G1A", "o2Z8_q1x7bE", "pYw4g8z9o1E", "F0r7vY4q1k0", "8vJ3cO1k9bQ",
+                "3tK6wY1x8cE", "9mB2wQ5z8L0", "1tF5gK8x9pE", "2qZ5wT8c4kE", "4rX7bC1y0mY"
+        ));
+        GENRE_BEACONS.put("лофай", GENRE_BEACONS.get("ло-фай"));
+        GENRE_BEACONS.put("ло фай", GENRE_BEACONS.get("ло-фай"));
+        GENRE_BEACONS.put("lo-fi", GENRE_BEACONS.get("ло-фай"));
+        GENRE_BEACONS.put("lofi", GENRE_BEACONS.get("ло-фай"));
+
+        // Эмбиент
+        GENRE_BEACONS.put("эмбиент", Arrays.asList(
+                "aKw5mbc774Q", "_AWIqXzvXHA", "UfcAVejslrU", "7lM1vB4y9p0", "0kF3hP4x7jY",
+                "5dbEhBKGOtY", "60ItHLz5WEA", "mjnAE5go9dI", "gCYcHz2FgFw", "ALZHF5UqnU4"
+        ));
+        GENRE_BEACONS.put("ambient", GENRE_BEACONS.get("эмбиент"));
 
         // Дефолтный пул (микс популярных треков)
         GENRE_BEACONS.put("default", Arrays.asList(
@@ -103,6 +193,8 @@ public final class SeedSelector {
                 "T1q70w_q63A", "YkgkTh308XU", "kJQP7kiw5Fk", "0-7IHOXkiV8", "_Yhyp-_hX2s",
                 "tvTRZJ-4EyI", "kXYiU_JCYtU", "ALZHF5UqnU4", "m7Bc3JBkW4s", "Wha_bC9Z2pU"
         ));
+        GENRE_BEACONS.put("любой жанр", GENRE_BEACONS.get("default"));
+        GENRE_BEACONS.put("любой", GENRE_BEACONS.get("default"));
     }
 
     private SeedSelector() {}
@@ -112,11 +204,20 @@ public final class SeedSelector {
      * Работает синхронно и МГНОВЕННО (0 мс).
      */
     public static List<String> selectSeedsByGenre(String genre) {
-        String key = genre != null ? genre.toLowerCase().trim() : "default";
+        if (genre == null || genre.trim().isEmpty() || genre.equalsIgnoreCase("Любой жанр") || genre.equalsIgnoreCase("Любой")) {
+            genre = "default";
+        }
+        String key = genre.toLowerCase().trim();
+        String normalizedKey = key.replace("-", "").replace(" ", "");
+
         List<String> pool = GENRE_BEACONS.get(key);
         if (pool == null || pool.isEmpty()) {
+            pool = GENRE_BEACONS.get(normalizedKey);
+        }
+        if (pool == null || pool.isEmpty()) {
             for (Map.Entry<String, List<String>> entry : GENRE_BEACONS.entrySet()) {
-                if (key.contains(entry.getKey()) || entry.getKey().contains(key)) {
+                String entryNorm = entry.getKey().replace("-", "").replace(" ", "");
+                if (normalizedKey.contains(entryNorm) || entryNorm.contains(normalizedKey)) {
                     pool = entry.getValue();
                     break;
                 }
@@ -176,7 +277,23 @@ public final class SeedSelector {
         List<String> result = new ArrayList<>();
         Set<String> seenIds = new HashSet<>();
 
-        // 1. Если переданы реальные треки альбома
+        String cleanArtist = artistName != null ? artistName.trim() : "";
+        String cleanAlbum = albumTitle != null ? albumTitle.trim() : "";
+
+        // 1. Быстрый поиск по исполнителю + названию альбома (возвращает треки альбома в 1 запрос)
+        String query = (cleanArtist + " " + cleanAlbum).trim();
+        if (!query.isEmpty()) {
+            List<InnerTubeClient.RawTrack> songs = InnerTubeClient.searchSongs(query, 10, cancelFlag);
+            for (InnerTubeClient.RawTrack t : songs) {
+                if (t.videoId != null && !t.videoId.isEmpty() && seenIds.add(t.videoId)) {
+                    result.add(t.videoId);
+                    if (result.size() >= 3) return result;
+                }
+            }
+            if (result.size() >= 2) return result;
+        }
+
+        // 2. Если результатов мало и есть реальные треки альбома — ищем по названию первых треков
         if (albumTracks != null && !albumTracks.isEmpty()) {
             List<MessageObject> candidates = new ArrayList<>(albumTracks);
             Collections.shuffle(candidates, sRandom);
@@ -186,27 +303,14 @@ public final class SeedSelector {
                 String title = msg.getMusicTitle();
                 if (title == null || title.trim().isEmpty()) continue;
                 String q = (author != null && !author.trim().isEmpty() ? author.trim() + " - " : "") + title.trim();
-                List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(q, 1, cancelFlag);
-                if (!found.isEmpty() && found.get(0).videoId != null && !found.get(0).videoId.isEmpty()) {
-                    if (seenIds.add(found.get(0).videoId)) {
-                        result.add(found.get(0).videoId);
-                        if (result.size() >= 2) return result;
+                List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(q, 2, cancelFlag);
+                for (InnerTubeClient.RawTrack t : found) {
+                    if (t.videoId != null && !t.videoId.isEmpty() && seenIds.add(t.videoId)) {
+                        result.add(t.videoId);
+                        if (result.size() >= 3) return result;
                     }
                 }
-            }
-        }
-
-        // 2. Поиск по исполнителю + названию альбома
-        String cleanArtist = artistName != null ? artistName.trim() : "";
-        String cleanAlbum = albumTitle != null ? albumTitle.trim() : "";
-        String query = (cleanArtist + " " + cleanAlbum).trim();
-        if (!query.isEmpty()) {
-            List<InnerTubeClient.RawTrack> songs = InnerTubeClient.searchSongs(query, 10, cancelFlag);
-            for (InnerTubeClient.RawTrack t : songs) {
-                if (t.videoId != null && !t.videoId.isEmpty() && seenIds.add(t.videoId)) {
-                    result.add(t.videoId);
-                    if (result.size() >= 2) return result;
-                }
+                if (result.size() >= 2) return result;
             }
         }
 

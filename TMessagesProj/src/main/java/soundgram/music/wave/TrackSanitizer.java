@@ -17,7 +17,16 @@ public final class TrackSanitizer {
 
     public static String cleanTitle(String rawTitle) {
         if (rawTitle == null) return "";
-        String cleaned = JUNK_REGEX.matcher(rawTitle).replaceAll("");
+        String cleaned = rawTitle;
+        int bulletIdx = cleaned.indexOf("•");
+        if (bulletIdx >= 0) {
+            cleaned = cleaned.substring(0, bulletIdx);
+        }
+        int bulletUnicode = cleaned.indexOf("\u2022");
+        if (bulletUnicode >= 0) {
+            cleaned = cleaned.substring(0, bulletUnicode);
+        }
+        cleaned = JUNK_REGEX.matcher(cleaned).replaceAll("");
         cleaned = FEAT_REGEX.matcher(cleaned).replaceAll("");
         cleaned = EXTRA_SPACES.matcher(cleaned).replaceAll(" ");
         return cleaned.trim();
@@ -25,7 +34,16 @@ public final class TrackSanitizer {
 
     public static String cleanArtist(String rawArtist) {
         if (rawArtist == null) return "";
-        String cleaned = FEAT_REGEX.matcher(rawArtist).replaceAll("");
+        String cleaned = rawArtist;
+        int bulletIdx = cleaned.indexOf("•");
+        if (bulletIdx >= 0) {
+            cleaned = cleaned.substring(0, bulletIdx);
+        }
+        int bulletUnicode = cleaned.indexOf("\u2022");
+        if (bulletUnicode >= 0) {
+            cleaned = cleaned.substring(0, bulletUnicode);
+        }
+        cleaned = FEAT_REGEX.matcher(cleaned).replaceAll("");
         cleaned = EXTRA_SPACES.matcher(cleaned).replaceAll(" ");
         return cleaned.trim();
     }

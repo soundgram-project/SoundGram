@@ -74,7 +74,7 @@ public final class SmartRadioEngine {
 
         WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
         sCurrentManager = manager;
-        manager.startSession(seeds);
+        manager.startSession(seeds, WaveQueueManager.MODE_GENRE, genre);
     }
 
     /**
@@ -95,7 +95,7 @@ public final class SmartRadioEngine {
                     if (!isWaveActive) return;
                     WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
                     sCurrentManager = manager;
-                    manager.startSession(seeds);
+                    manager.startSession(seeds, WaveQueueManager.MODE_ARTIST, artistName);
                 }
             } catch (Exception e) {
                 FileLog.e(TAG + " generateWaveByArtist error", e);
@@ -128,7 +128,7 @@ public final class SmartRadioEngine {
                     if (!isWaveActive) return;
                     WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
                     sCurrentManager = manager;
-                    manager.startSession(seeds);
+                    manager.startSession(seeds, WaveQueueManager.MODE_ALBUM, artistName);
                 }
             } catch (Exception e) {
                 FileLog.e(TAG + " generateWaveByAlbum error", e);
@@ -157,7 +157,7 @@ public final class SmartRadioEngine {
                     if (!isWaveActive) return;
                     WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
                     sCurrentManager = manager;
-                    manager.startSession(seeds);
+                    manager.startSession(seeds, WaveQueueManager.MODE_PLAYLIST, "playlist");
                 }
             } catch (Exception e) {
                 FileLog.e(TAG + " generateWaveByPlaylist error", e);

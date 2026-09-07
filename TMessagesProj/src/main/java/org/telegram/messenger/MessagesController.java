@@ -9446,9 +9446,17 @@ public class MessagesController extends BaseController implements NotificationCe
                         toDeleteFromAyu.add(msgId);
                     }
                 }
+                var existingMessageIds = ayuMessagesController.getExistingMessageIds(userId, dialogId, messages);
+                if (existingMessageIds != null && !existingMessageIds.isEmpty()) {
+                    for (int mid : existingMessageIds) {
+                        if (!toDeleteFromAyu.contains(mid)) {
+                            toDeleteFromAyu.add(mid);
+                        }
+                    }
+                    ayuDeletedMessagesCount = existingMessageIds.size();
+                }
                 if (!toDeleteFromAyu.isEmpty()) {
                     Utilities.globalQueue.postRunnable(() -> ayuMessagesController.deleteMessages(userId, dialogId, toDeleteFromAyu));
-                    ayuDeletedMessagesCount = toDeleteFromAyu.size();
                 }
             }
         }
@@ -9507,7 +9515,7 @@ public class MessagesController extends BaseController implements NotificationCe
             return;
         }
 
-        if (messages != null && messages.size() == ayuDeletedMessagesCount) {
+        if (!forAll && messages != null && !messages.isEmpty() && messages.size() == ayuDeletedMessagesCount) {
             return;
         }
 

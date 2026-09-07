@@ -135,6 +135,7 @@ public class AyuMessageHistory extends NekoDelegateFragment {
 
         String name;
         if (peer instanceof TLRPC.User user) {
+
             name = user.first_name;
         } else if (peer instanceof TLRPC.Chat chat) {
             name = chat.title;
