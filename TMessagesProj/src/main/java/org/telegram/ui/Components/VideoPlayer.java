@@ -237,6 +237,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
     private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent) {
         ensureVpnSsl();
+        soundgram.music.MusicNetworkHelper.init();
         // ИСПРАВЛЕНИЕ: СТРОГО ЕДИНЫЙ USER-AGENT как в MusicWebSearcher для обхода защиты Cloudflare/Hitmos
         String unifiedUserAgent = "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0";
 

@@ -929,21 +929,7 @@ public class MusicWebSearcher {
     private static String resolveRedirectWithGet(String urlString, int depth) throws Exception {
         if (depth > 10) return urlString;
         URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(java.net.Proxy.NO_PROXY);
-        if (conn instanceof javax.net.ssl.HttpsURLConnection) {
-            try {
-                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
-                sc.init(null, new javax.net.ssl.TrustManager[]{
-                        new javax.net.ssl.X509TrustManager() {
-                            public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
-                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                        }
-                }, new java.security.SecureRandom());
-                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
-                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
-            } catch (Exception ignored) {}
-        }
+        HttpURLConnection conn = MusicNetworkHelper.openConnection(url);
         // Используем GET вместо HEAD и Accept-Language: ru для обхода геоблока
         try { conn.setRequestMethod("GET"); } catch (Exception e) {}
         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
@@ -968,21 +954,7 @@ public class MusicWebSearcher {
     private static String resolveRedirectDirect(String urlString, boolean trustAll, int depth) throws Exception {
         if (depth > 10) return urlString;
         URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(java.net.Proxy.NO_PROXY);
-        if (conn instanceof javax.net.ssl.HttpsURLConnection) {
-            try {
-                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
-                sc.init(null, new javax.net.ssl.TrustManager[]{
-                        new javax.net.ssl.X509TrustManager() {
-                            public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
-                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                        }
-                }, new java.security.SecureRandom());
-                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
-                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
-            } catch (Exception ignored) {}
-        }
+        HttpURLConnection conn = MusicNetworkHelper.openConnection(url);
         try { conn.setRequestMethod("HEAD"); } catch (ProtocolException e) { conn.setRequestMethod("GET"); }
         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
         conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
@@ -1007,15 +979,7 @@ public class MusicWebSearcher {
         if (depth > 10) return urlString; // защита от петель
 
         URL url = new URL(urlString);
-
-        // Используем системный прокси — он уже настроен VPN
-        java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
-        java.util.List<java.net.Proxy> proxies = selector != null
-                ? selector.select(url.toURI()) : null;
-        java.net.Proxy proxy = (proxies != null && !proxies.isEmpty())
-                ? proxies.get(0) : java.net.Proxy.NO_PROXY;
-
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
+        HttpURLConnection conn = MusicNetworkHelper.openConnection(url);
 
         if (trustAll && conn instanceof javax.net.ssl.HttpsURLConnection) {
             try {
@@ -1125,25 +1089,10 @@ public class MusicWebSearcher {
         }
     }
 
-    /** Прямое соединение без прокси — fallback когда локальный VPN-прокси не работает */
+    /** Прямое соединение через MusicNetworkHelper */
     private static String fetchHtmlDirect(String urlString) throws Exception {
         URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(java.net.Proxy.NO_PROXY);
-        // trust-all для случаев когда VPN ломает TLS
-        if (conn instanceof javax.net.ssl.HttpsURLConnection) {
-            try {
-                javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
-                sc.init(null, new javax.net.ssl.TrustManager[]{
-                        new javax.net.ssl.X509TrustManager() {
-                            public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
-                            public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                            public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                        }
-                }, new java.security.SecureRandom());
-                ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
-                ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
-            } catch (Exception ignored) {}
-        }
+        HttpURLConnection conn = MusicNetworkHelper.openConnection(url);
         applyStandardHeaders(conn);
         conn.setConnectTimeout(12000);
         conn.setReadTimeout(12000);
@@ -1164,15 +1113,11 @@ public class MusicWebSearcher {
     }
 
     /**
-     * Фоллбек: запрос через системный прокси (работает при некоторых VPN-конфигурациях).
+     * Фоллбек: запрос через MusicNetworkHelper.
      */
     private static String fetchHtmlViaSystemProxy(String urlString) throws Exception {
-        java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
-        java.util.List<java.net.Proxy> proxies = selector.select(new java.net.URI(urlString));
-        java.net.Proxy proxy = (proxies != null && !proxies.isEmpty()) ? proxies.get(0) : java.net.Proxy.NO_PROXY;
-
         URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
+        HttpURLConnection conn = MusicNetworkHelper.openConnection(url);
         applyStandardHeaders(conn);
         conn.setConnectTimeout(12000);
         conn.setReadTimeout(12000);
@@ -1215,15 +1160,7 @@ public class MusicWebSearcher {
 
     private static String fetchHtmlInternal(String urlString, boolean trustAll) throws Exception {
         URL url = new URL(urlString);
-
-        // Используем системный прокси если есть (помогает при VPN)
-        java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
-        java.util.List<java.net.Proxy> proxies = selector != null
-                ? selector.select(url.toURI()) : null;
-        java.net.Proxy proxy = (proxies != null && !proxies.isEmpty() && proxies.get(0) != java.net.Proxy.NO_PROXY)
-                ? proxies.get(0) : java.net.Proxy.NO_PROXY;
-
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
+        HttpURLConnection conn = MusicNetworkHelper.openConnection(url);
 
         if (trustAll && conn instanceof javax.net.ssl.HttpsURLConnection) {
             try {
@@ -1327,17 +1264,7 @@ public class MusicWebSearcher {
             fileUrl = forceHttps(fileUrl);
             URL url = new URL(fileUrl);
 
-            java.net.Proxy proxy = java.net.Proxy.NO_PROXY;
-            try {
-                java.net.ProxySelector selector = java.net.ProxySelector.getDefault();
-                java.net.URI safeUri = new java.net.URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
-                java.util.List<java.net.Proxy> proxies = selector != null ? selector.select(safeUri) : null;
-                if (proxies != null && !proxies.isEmpty()) {
-                    proxy = proxies.get(0);
-                }
-            } catch (Exception ignored) {}
-
-            conn = (HttpURLConnection) url.openConnection(proxy);
+            conn = MusicNetworkHelper.openConnection(url);
 
             if (conn instanceof javax.net.ssl.HttpsURLConnection) {
                 try {
@@ -1438,21 +1365,7 @@ public class MusicWebSearcher {
         try {
             fileUrl = forceHttps(fileUrl);
             URL url = new URL(fileUrl);
-            conn = (HttpURLConnection) url.openConnection(java.net.Proxy.NO_PROXY);
-            if (conn instanceof javax.net.ssl.HttpsURLConnection) {
-                try {
-                    javax.net.ssl.SSLContext sc = javax.net.ssl.SSLContext.getInstance("TLS");
-                    sc.init(null, new javax.net.ssl.TrustManager[]{
-                            new javax.net.ssl.X509TrustManager() {
-                                public java.security.cert.X509Certificate[] getAcceptedIssuers() { return new java.security.cert.X509Certificate[0]; }
-                                public void checkClientTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                                public void checkServerTrusted(java.security.cert.X509Certificate[] c, String a) {}
-                            }
-                    }, new java.security.SecureRandom());
-                    ((javax.net.ssl.HttpsURLConnection) conn).setSSLSocketFactory(sc.getSocketFactory());
-                    ((javax.net.ssl.HttpsURLConnection) conn).setHostnameVerifier((h, s) -> true);
-                } catch (Exception ignored) {}
-            }
+            conn = MusicNetworkHelper.openConnection(url);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
             conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
@@ -1986,7 +1899,7 @@ public class MusicWebSearcher {
         new Thread(() -> {
             try {
                 String urlString = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(artistName, "UTF-8");
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlString).openConnection();
+                HttpURLConnection conn = MusicNetworkHelper.openConnection(urlString);
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(5000);
 
@@ -2029,9 +1942,26 @@ public class MusicWebSearcher {
                 putCachedSearch(cacheKey, cached);
             }
             if (!cached.isEmpty()) {
-                WebTrack best = findBestMatch(cached, title, artist, 0, false);
+                WebTrack best = findBestMatch(cached, title, artist, flags, false);
                 if (best != null) return best;
-                return cached.get(0);
+            }
+
+            // Резервный поиск с транслитерацией кириллицы
+            String translitQuery = (transliterate(artist) + " " + transliterate(title))
+                    .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            if (!translitQuery.equalsIgnoreCase(query)) {
+                String cacheKey2 = "strict:" + translitQuery.toLowerCase();
+                ArrayList<WebTrack> cached2 = getCachedSearch(cacheKey2);
+                if (cached2 == null) {
+                    String html2 = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(translitQuery, "UTF-8"));
+                    cached2 = new ArrayList<>();
+                    parseHtmlToResults(html2, cached2, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                    putCachedSearch(cacheKey2, cached2);
+                }
+                if (!cached2.isEmpty()) {
+                    WebTrack best = findBestMatch(cached2, title, artist, flags, false);
+                    if (best != null) return best;
+                }
             }
         } catch (Exception e) { FileLog.e(e); }
         return null;

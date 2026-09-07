@@ -8062,74 +8062,84 @@ public class AlertsCreator {
                 }
                 deleteMessagesBottomSheet.show();
                 return;
-            } else if (!hasNotOut && myMessagesCount > 0 && hasNonDiceMessages) {
-                hasDeleteForAllCheck = true;
-                LinearLayout linearLayout = new LinearLayout(activity);
-                linearLayout.setOrientation(LinearLayout.VERTICAL);
-                CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
-                cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
-                if (chat != null && hasNotOut) {
-                    cell.setText(LocaleController.getString(R.string.DeleteForAll), "", false, false);
-                } else {
-                    cell.setText(LocaleController.getString(R.string.DeleteMessagesOption), "", false, false);
-                }
-                cell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
-                // NimarkoGram: optionally pre-check the "delete for all" box.
-                if (app.nimarkogram.messenger.NimarkoConfig.deleteForAll) {
-                    deleteForAll[0] = true;
-                    cell.setChecked(true, false);
-                }
-                linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
-                cell.setOnClickListener(v -> {
-                    CheckBoxCell cell12 = (CheckBoxCell) v;
-                    deleteForAll[0] = !deleteForAll[0];
-                    cell12.setChecked(deleteForAll[0], true);
-                });
+            } else {
+                boolean canDeleteForAll = !hasNotOut && myMessagesCount > 0 && hasNonDiceMessages;
+                boolean showSaveDeleted = xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !scheduled && !isSavedMessages;
+                if (canDeleteForAll || showSaveDeleted) {
+                    LinearLayout linearLayout = new LinearLayout(activity);
+                    linearLayout.setOrientation(LinearLayout.VERTICAL);
 
-                CheckBoxCell saveCell = new CheckBoxCell(activity, 1, resourcesProvider);
-                saveCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
-                saveCell.setText(LocaleController.getString(R.string.SaveForMyself), "", saveForMyself[0], false);
-                saveCell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
-                saveCell.setChecked(saveForMyself[0], false);
-                saveCell.setOnClickListener(v -> {
-                    saveForMyself[0] = !saveForMyself[0];
-                    saveCell.setChecked(saveForMyself[0], true);
-                });
-                linearLayout.addView(saveCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
-
-                builder.setView(linearLayout);
-                builder.setCustomViewOffset(9);
-            }
-        } else if (!scheduled && !isSavedMessages && !ChatObject.isChannel(chat) && encryptedChat == null) {
-            if (user != null && user.id != UserConfig.getInstance(currentAccount).getClientUserId() && (!user.bot || user.support) || chat != null) {
-                if (selectedMessage != null) {
-                    boolean hasOutgoing = !selectedMessage.isSendError() && (
-                            selectedMessage.messageOwner.action == null ||
-                                    selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionEmpty ||
-                                    selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionPhoneCall ||
-                                    selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionPinMessage ||
-                                    selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionGeoProximityReached ||
-                                    selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionSetChatTheme) && (selectedMessage.isOut() || canRevokeInbox || ChatObject.hasAdminRights(chat)) && (currentDate - selectedMessage.messageOwner.date) <= revokeTimeLimit;
-                    if (hasOutgoing) {
-                        myMessagesCount++;
+                    if (canDeleteForAll) {
+                        hasDeleteForAllCheck = true;
+                        CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
+                        cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+                        if (chat != null && hasNotOut) {
+                            cell.setText(LocaleController.getString(R.string.DeleteForAll), "", false, false);
+                        } else {
+                            cell.setText(LocaleController.getString(R.string.DeleteMessagesOption), "", false, false);
+                        }
+                        cell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
+                        if (app.nimarkogram.messenger.NimarkoConfig.deleteForAll) {
+                            deleteForAll[0] = true;
+                            cell.setChecked(true, false);
+                        }
+                        linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+                        cell.setOnClickListener(v -> {
+                            CheckBoxCell cell12 = (CheckBoxCell) v;
+                            deleteForAll[0] = !deleteForAll[0];
+                            cell12.setChecked(deleteForAll[0], true);
+                        });
                     }
-                    hasNotOut = !selectedMessage.isOut();
-                } else {
-                    for (int a = 1; a >= 0; a--) {
-                        for (int b = 0; b < selectedMessages[a].size(); b++) {
-                            MessageObject msg = selectedMessages[a].valueAt(b);
-                            if (!(msg.messageOwner.action == null ||
-                                    msg.messageOwner.action instanceof TLRPC.TL_messageActionEmpty ||
-                                    msg.messageOwner.action instanceof TLRPC.TL_messageActionPhoneCall ||
-                                    msg.messageOwner.action instanceof TLRPC.TL_messageActionPinMessage ||
-                                    msg.messageOwner.action instanceof TLRPC.TL_messageActionGeoProximityReached)) {
-                                continue;
-                            }
-                            if ((msg.isOut() || canRevokeInbox) || chat != null && ChatObject.canBlockUsers(chat)) {
-                                if ((currentDate - msg.messageOwner.date) <= revokeTimeLimit) {
-                                    myMessagesCount++;
-                                    if (!hasNotOut && !msg.isOut()) {
-                                        hasNotOut = true;
+
+                    if (showSaveDeleted) {
+                        CheckBoxCell saveCell = new CheckBoxCell(activity, 1, resourcesProvider);
+                        saveCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+                        saveCell.setText(LocaleController.getString(R.string.SaveForMyself), "", saveForMyself[0], false);
+                        saveCell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
+                        saveCell.setChecked(saveForMyself[0], false);
+                        saveCell.setOnClickListener(v -> {
+                            saveForMyself[0] = !saveForMyself[0];
+                            saveCell.setChecked(saveForMyself[0], true);
+                        });
+                        linearLayout.addView(saveCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+                    }
+
+                    builder.setView(linearLayout);
+                    builder.setCustomViewOffset(9);
+                }
+            }
+        } else if (!scheduled && !isSavedMessages) {
+            if (!ChatObject.isChannel(chat) && encryptedChat == null) {
+                if (user != null && user.id != UserConfig.getInstance(currentAccount).getClientUserId() && (!user.bot || user.support) || chat != null) {
+                    if (selectedMessage != null) {
+                        boolean hasOutgoing = !selectedMessage.isSendError() && (
+                                selectedMessage.messageOwner.action == null ||
+                                        selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionEmpty ||
+                                        selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionPhoneCall ||
+                                        selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionPinMessage ||
+                                        selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionGeoProximityReached ||
+                                        selectedMessage.messageOwner.action instanceof TLRPC.TL_messageActionSetChatTheme) && (selectedMessage.isOut() || canRevokeInbox || ChatObject.hasAdminRights(chat)) && (currentDate - selectedMessage.messageOwner.date) <= revokeTimeLimit;
+                        if (hasOutgoing) {
+                            myMessagesCount++;
+                        }
+                        hasNotOut = !selectedMessage.isOut();
+                    } else {
+                        for (int a = 1; a >= 0; a--) {
+                            for (int b = 0; b < selectedMessages[a].size(); b++) {
+                                MessageObject msg = selectedMessages[a].valueAt(b);
+                                if (!(msg.messageOwner.action == null ||
+                                        msg.messageOwner.action instanceof TLRPC.TL_messageActionEmpty ||
+                                        msg.messageOwner.action instanceof TLRPC.TL_messageActionPhoneCall ||
+                                        msg.messageOwner.action instanceof TLRPC.TL_messageActionPinMessage ||
+                                        msg.messageOwner.action instanceof TLRPC.TL_messageActionGeoProximityReached)) {
+                                    continue;
+                                }
+                                if ((msg.isOut() || canRevokeInbox) || chat != null && ChatObject.canBlockUsers(chat)) {
+                                    if ((currentDate - msg.messageOwner.date) <= revokeTimeLimit) {
+                                        myMessagesCount++;
+                                        if (!hasNotOut && !msg.isOut()) {
+                                            hasNotOut = true;
+                                        }
                                     }
                                 }
                             }
@@ -8137,44 +8147,48 @@ public class AlertsCreator {
                     }
                 }
             }
-            if (myMessagesCount > 0 && hasNonDiceMessages && (user == null || !UserObject.isDeleted(user))) {
-                hasDeleteForAllCheck = true;
+            boolean canDeleteForAll = myMessagesCount > 0 && hasNonDiceMessages && (user == null || !UserObject.isDeleted(user));
+            boolean showSaveDeleted = xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool();
+            if (canDeleteForAll || showSaveDeleted) {
                 LinearLayout linearLayout = new LinearLayout(activity);
                 linearLayout.setOrientation(LinearLayout.VERTICAL);
-                CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
-                cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
-                // NimarkoGram (CG parity): show the checkbox pre-checked when the user
-                // has opted into "delete for all" by default.
-                if (canDeleteInbox) {
-                    cell.setText(LocaleController.formatString("DeleteMessagesOptionAlso", R.string.DeleteMessagesOptionAlso, UserObject.getFirstName(user)), "", app.nimarkogram.messenger.NimarkoConfig.deleteForAll, false);
-                } else if (chat != null && (hasNotOut || myMessagesCount == count)) {
-                    cell.setText(LocaleController.getString(R.string.DeleteForAll), "", app.nimarkogram.messenger.NimarkoConfig.deleteForAll, false);
-                } else {
-                    cell.setText(LocaleController.getString(R.string.DeleteMessagesOption), "", false, false);
-                }
-                cell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
-                // NimarkoGram: optionally pre-check the "delete for all" box.
-                if (app.nimarkogram.messenger.NimarkoConfig.deleteForAll) {
-                    deleteForAll[0] = true;
-                    cell.setChecked(true, false);
-                }
-                linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
-                cell.setOnClickListener(v -> {
-                    CheckBoxCell cell1 = (CheckBoxCell) v;
-                    deleteForAll[0] = !deleteForAll[0];
-                    cell1.setChecked(deleteForAll[0], true);
-                });
 
-                CheckBoxCell saveCell = new CheckBoxCell(activity, 1, resourcesProvider);
-                saveCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
-                saveCell.setText(LocaleController.getString(R.string.SaveForMyself), "", saveForMyself[0], false);
-                saveCell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
-                saveCell.setChecked(saveForMyself[0], false);
-                saveCell.setOnClickListener(v -> {
-                    saveForMyself[0] = !saveForMyself[0];
-                    saveCell.setChecked(saveForMyself[0], true);
-                });
-                linearLayout.addView(saveCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+                if (canDeleteForAll) {
+                    hasDeleteForAllCheck = true;
+                    CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
+                    cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+                    if (canDeleteInbox) {
+                        cell.setText(LocaleController.formatString("DeleteMessagesOptionAlso", R.string.DeleteMessagesOptionAlso, UserObject.getFirstName(user)), "", app.nimarkogram.messenger.NimarkoConfig.deleteForAll, false);
+                    } else if (chat != null && (hasNotOut || myMessagesCount == count)) {
+                        cell.setText(LocaleController.getString(R.string.DeleteForAll), "", app.nimarkogram.messenger.NimarkoConfig.deleteForAll, false);
+                    } else {
+                        cell.setText(LocaleController.getString(R.string.DeleteMessagesOption), "", false, false);
+                    }
+                    cell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
+                    if (app.nimarkogram.messenger.NimarkoConfig.deleteForAll) {
+                        deleteForAll[0] = true;
+                        cell.setChecked(true, false);
+                    }
+                    linearLayout.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+                    cell.setOnClickListener(v -> {
+                        CheckBoxCell cell1 = (CheckBoxCell) v;
+                        deleteForAll[0] = !deleteForAll[0];
+                        cell1.setChecked(deleteForAll[0], true);
+                    });
+                }
+
+                if (showSaveDeleted) {
+                    CheckBoxCell saveCell = new CheckBoxCell(activity, 1, resourcesProvider);
+                    saveCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+                    saveCell.setText(LocaleController.getString(R.string.SaveForMyself), "", saveForMyself[0], false);
+                    saveCell.setPadding(LocaleController.isRTL ? dp(16) : dp(8), 0, LocaleController.isRTL ? dp(8) : dp(16), 0);
+                    saveCell.setChecked(saveForMyself[0], false);
+                    saveCell.setOnClickListener(v -> {
+                        saveForMyself[0] = !saveForMyself[0];
+                        saveCell.setChecked(saveForMyself[0], true);
+                    });
+                    linearLayout.addView(saveCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+                }
 
                 builder.setView(linearLayout);
                 builder.setCustomViewOffset(9);

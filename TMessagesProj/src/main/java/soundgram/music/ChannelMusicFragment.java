@@ -67,6 +67,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SendMessagesHelper;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.VideoEditedInfo;
 import org.telegram.tgnet.ConnectionsManager;
@@ -729,6 +730,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                         if (!tracks.isEmpty()) {
+                            SharedConfig.setPlaybackOrderType(1);
                             MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
                             MediaController.getInstance().playMessage(tracks.get(0));
                         }
@@ -2668,7 +2670,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             layout.setOnClickListener(v -> {
                 applySpringClick(layout);
-                presentFragment(new AlbumProfileFragment(title, url, coverUrl));
+                presentFragment(new AlbumProfileFragment(title, artist, url, coverUrl));
             });
         }
     }
@@ -3419,11 +3421,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
             });
 
-            SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context) {
-                @Override protected void onDraw(Canvas canvas) {
-                    canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-                }
-            };
+            SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context);
+            content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             fragmentView = content;
 
             listView = new RecyclerListView(context);
@@ -3613,19 +3612,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
             });
 
-            SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context) {
-                @Override protected void onDraw(Canvas canvas) {
-                    canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-                }
-            };
+            SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context);
+            content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             fragmentView = content;
 
             listView = new RecyclerListView(context);
             listView.setLayoutManager(new LinearLayoutManager(context));
             adapter = new PlaylistMusicAdapter(context);
             listView.setAdapter(adapter);
-            listView.addItemDecoration(new TrackItemDecoration(6, 12, false));
-            listView.setPadding(0, 0, 0, AndroidUtilities.dp(16));
+            listView.addItemDecoration(new TrackItemDecoration(6, 12, true));
+            listView.setPadding(0, 0, 0, AndroidUtilities.dp(88));
+            listView.setClipToPadding(false);
             listView.setOnItemClickListener((view, position) -> {
                 // При запуске из плейлиста (PlaylistDetailFragment):
                 AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_PLAYLIST;
@@ -3639,12 +3636,16 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             content.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
             MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
-
-            int playerWidth = app.nimarkogram.messenger.utils.ui.MainTabsHelper.getTabsViewWidth() - app.nimarkogram.messenger.utils.ui.MainTabsHelper.getMainTabsMargin() * 2;
-            int playerHeight = app.nimarkogram.messenger.utils.ui.MainTabsHelper.getMainTabsHeight();
-            FrameLayout.LayoutParams playerParams = LayoutHelper.createFrame(playerWidth, playerHeight, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-            playerParams.setMargins(0, 0, 0, AndroidUtilities.dp(8));
-            content.addView(miniPlayerView, playerParams);
+            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 8));
+            SoundGramStyleManager.applyGlass(
+                    miniPlayerView,
+                    SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
+                    SoundGramStyleSettingsFragment.KEY_ALPHA_MINI,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_BG_MINI,
+                    SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_MINI,
+                    22f,
+                    () -> miniPlayerView.invalidate()
+            );
             ItemTouchHelper touchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
                 @Override
                 public boolean isLongPressDragEnabled() {
@@ -6092,60 +6093,81 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             return true;
         }
 
+        private void addLoadedTrack(MessageObject msgObj) {
+            AndroidUtilities.runOnUIThread(() -> {
+                int pos = playlistMessages.size();
+                playlistMessages.add(msgObj);
+                if (adapter != null) {
+                    adapter.notifyItemInserted(pos + 1);
+                }
+            });
+        }
+
+        @Override
+        public ActionBar createActionBar(Context context) {
+            ActionBar bar = super.createActionBar(context);
+            if (bar != null) {
+                bar.setBackButtonImage(R.drawable.ic_ab_back);
+                bar.setAllowOverlayTitle(false);
+                bar.setTitle("");
+                bar.setBackgroundColor(Color.TRANSPARENT);
+                bar.setItemsColor(0xFFFFFFFF, false);
+                bar.setAddToContainer(false);
+                bar.setCastShadows(false);
+                bar.setClipContent(true);
+                bar.setOccupyStatusBar(true);
+
+                ActionBarMenu menu = bar.createMenu();
+                boolean isSaved = getSavedAlbumMessage() != null;
+                if (isSaved) {
+                    menu.addItem(1, R.drawable.msg_delete);
+                } else {
+                    menu.addItem(1, R.drawable.msg_add);
+                }
+
+                bar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+                    @Override
+                    public void onItemClick(int id) {
+                        if (id == -1) finishFragment();
+                        else if (id == 1) {
+                            MessageObject savedMsg = getSavedAlbumMessage();
+                            if (savedMsg != null) {
+                                deleteTrackFromChannel(savedMsg);
+                                savedAlbumMessages.remove(savedMsg);
+                                safeNotifyAdapter(savedAlbumsAdapter, null);
+                                refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
+                                finishFragment();
+                                Toast.makeText(getParentActivity(), getString(R.string.sg_album_deleted), Toast.LENGTH_SHORT).show();
+                            } else {
+                                AndroidUtilities.runOnUIThread(() -> {
+                                    saveAlbumToChannel(title, albumUrl, coverUrl);
+                                    if (menu != null && menu.getItem(1) != null) {
+                                        menu.getItem(1).setIcon(R.drawable.msg_delete);
+                                    }
+                                    Toast.makeText(getParentActivity(), getString(R.string.sg_album_saved), Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+            return bar;
+        }
+
         @Override
         public View createView(Context context) {
             hasOwnBackground = true;
-            actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-            actionBar.setTitle("");
-            actionBar.setOccupyStatusBar(true);
 
-            ActionBarMenu menu = actionBar.createMenu();
-            boolean isSaved = getSavedAlbumMessage() != null;
-            if (isSaved) {
-                menu.addItem(1, R.drawable.msg_delete);
-            } else {
-                menu.addItem(1, R.drawable.msg_add);
-            }
-
-            actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
-            actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
-                @Override
-                public void onItemClick(int id) {
-                    if (id == -1) finishFragment();
-                    else if (id == 1) {
-                        MessageObject savedMsg = getSavedAlbumMessage();
-                        if (savedMsg != null) {
-                            deleteTrackFromChannel(savedMsg);
-                            savedAlbumMessages.remove(savedMsg);
-                            safeNotifyAdapter(savedAlbumsAdapter, null);
-                refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
-                            finishFragment();
-                            Toast.makeText(getParentActivity(), getString(R.string.sg_album_deleted), Toast.LENGTH_SHORT).show();
-                        } else {
-                            // ИСПРАВЛЕНИЕ: Безопасное добавление через UI поток, чтобы не крашить ViewPager
-                            AndroidUtilities.runOnUIThread(() -> {
-                                saveAlbumToChannel(title, albumUrl, coverUrl);
-                                menu.getItem(1).setIcon(R.drawable.msg_delete);
-                                Toast.makeText(getParentActivity(), getString(R.string.sg_album_saved), Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                    }
-                }
-            });
-
-            FrameLayout content = new FrameLayout(context) {
-                @Override protected void onDraw(Canvas canvas) {
-                    canvas.drawColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-                }
-            };
+            FrameLayout content = new FrameLayout(context);
+            content.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             fragmentView = content;
 
             listView = new RecyclerListView(context);
             listView.setLayoutManager(new LinearLayoutManager(context));
             adapter = new AlbumMusicAdapter(context);
             listView.setAdapter(adapter);
-            listView.addItemDecoration(new TrackItemDecoration(6, 12, false));
-            listView.setPadding(0, 0, 0, AndroidUtilities.dp(70));
+            listView.addItemDecoration(new TrackItemDecoration(6, 12, true));
+            listView.setPadding(0, 0, 0, AndroidUtilities.dp(88));
             listView.setClipToPadding(false);
             listView.setOnItemClickListener((view, position) -> {
                 // При запуске трека из альбома (AlbumProfileFragment.playStrictInPlaylist):
@@ -6158,9 +6180,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             });
 
             content.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-            ChannelMusicFragment.MiniPlayerView miniPlayerView = new ChannelMusicFragment.MiniPlayerView(context, this);
 
-            int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
+            if (actionBar != null) {
+                content.addView(actionBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            }
+
+            ChannelMusicFragment.MiniPlayerView miniPlayerView = new ChannelMusicFragment.MiniPlayerView(context, this);
+            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 8));
             SoundGramStyleManager.applyGlass(
                     miniPlayerView,
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
@@ -6170,7 +6196,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     22f,
                     () -> miniPlayerView.invalidate()
             );
-            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM));
 
             return fragmentView;
         }
@@ -6208,8 +6233,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             }
                         }
 
-                        playlistMessages.add(msgObj);
-                        safeNotifyAdapter(adapter, listView);
+                        addLoadedTrack(msgObj);
                     }
                     @Override
                     public void onFailed() {
@@ -6240,8 +6264,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             @Override public void onResult(ArrayList<MusicWebSearcher.WebAlbum> a, ArrayList<MusicWebSearcher.WebTrack> t) { safeNotifyAdapter(adapter, listView); }
                             @Override public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
                                 MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long) wt.downloadUrl.hashCode(), wt.coverUrl);
-                                playlistMessages.add(msgObj);
-                                safeNotifyAdapter(adapter, listView);
+                                addLoadedTrack(msgObj);
                             }
                             @Override public void onFailed() { Toast.makeText(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT).show(); }
                         });
@@ -6259,8 +6282,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         msgObj.messageOwner.attachPath = localAlbumFile.getAbsolutePath();
                     }
 
-                    playlistMessages.add(msgObj);
-                    safeNotifyAdapter(adapter, listView);
+                    addLoadedTrack(msgObj);
                 }
 
                 @Override public void onFailed() {
@@ -6268,8 +6290,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         @Override public void onResult(ArrayList<MusicWebSearcher.WebAlbum> a, ArrayList<MusicWebSearcher.WebTrack> t) { safeNotifyAdapter(adapter, listView); }
                         @Override public void onTrackLoaded(MusicWebSearcher.WebTrack wt) {
                             MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long) wt.downloadUrl.hashCode(), wt.coverUrl);
-                            playlistMessages.add(msgObj);
-                            safeNotifyAdapter(adapter, listView);
+                            addLoadedTrack(msgObj);
                         }
                         @Override public void onFailed() { Toast.makeText(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT).show(); }
                     });
@@ -6368,11 +6389,19 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     headerRoot.addView(deepFade,
                             LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 450));
 
+                    // Слой затемнения сверху для читаемости кнопок ActionBar
+                    View topScrim = new View(mContext);
+                    GradientDrawable topGrad = new GradientDrawable(
+                            GradientDrawable.Orientation.TOP_BOTTOM,
+                            new int[]{0xCC000000, 0x00000000});
+                    topScrim.setBackground(topGrad);
+                    headerRoot.addView(topScrim, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 120));
+
                     // ③ Центральный контент (обложка + текст + кнопки)
                     LinearLayout contentCol = new LinearLayout(mContext);
                     contentCol.setOrientation(LinearLayout.VERTICAL);
                     contentCol.setGravity(Gravity.CENTER_HORIZONTAL);
-                    contentCol.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(70),
+                    contentCol.setPadding(AndroidUtilities.dp(24), AndroidUtilities.statusBarHeight + AndroidUtilities.dp(56),
                             AndroidUtilities.dp(24), AndroidUtilities.dp(24));
 
                     // Обложка альбома — с тенью и стеклянной рамкой
@@ -6514,44 +6543,33 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         AudioPlayerAlert.currentSourceLabel = "";
                         applySpringClick(waveBtn);
                         Toast.makeText(mContext, getString(R.string.sg_wave_generating), Toast.LENGTH_SHORT).show();
-                        String aArtist = "";
-                        if (albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
+                        String aArtist = artist != null ? artist : "";
+                        if (aArtist.isEmpty() && albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
                             String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
                             aArtist = parts.length > 1 ? parts[1] : "";
                         }
                         if (aArtist.isEmpty() && !playlistMessages.isEmpty())
                             aArtist = playlistMessages.get(0).getMusicAuthor();
                         final String finalArtist = aArtist;
-                        new Thread(() -> {
-                            ArrayList<String> genres =
-                                    MusicWebSearcher.getAlbumGenresSync(title, finalArtist);
-                            String genreQuery = genres.isEmpty()
-                                    ? (finalArtist.isEmpty() ? title : finalArtist)
-                                    : genres.get(0);
-                            AndroidUtilities.runOnUIThread(() -> {
-                                String savedQ = SmartRadioEngine.currentConfig.query;
-                                SmartRadioEngine.currentConfig.query = genreQuery;
-                                SmartRadioEngine.stopWaveSession();
-                                SmartRadioEngine.generateWaveByAlbum(finalArtist, title,
-                                        currentAccount, new SmartRadioEngine.WaveCallback() {
-                                            @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
-                                                SmartRadioEngine.currentConfig.query = savedQ;
-                                                if (!tracks.isEmpty()) {
-                                                    MediaController.getInstance().setPlaylist(
-                                                            tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
-                                                    MediaController.getInstance().playMessage(tracks.get(0));
-                                                }
-                                            }
-                                            @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
-                                                MediaController.getInstance().addTracksToPlaylist(t);
-                                            }
-                                            @Override public void onError() {
-                                                SmartRadioEngine.currentConfig.query = savedQ;
-                                                Toast.makeText(mContext, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
-                                            }
-                                        });
-                            });
-                        }).start();
+                        ArrayList<MessageObject> currentTracks = new ArrayList<>(playlistMessages);
+                        SmartRadioEngine.stopWaveSession();
+                        SmartRadioEngine.generateWaveByAlbum(finalArtist, title, currentTracks,
+                                currentAccount, new SmartRadioEngine.WaveCallback() {
+                                    @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
+                                        if (!tracks.isEmpty()) {
+                                            SharedConfig.setPlaybackOrderType(1);
+                                            MediaController.getInstance().setPlaylist(
+                                                    tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                                            MediaController.getInstance().playMessage(tracks.get(0));
+                                        }
+                                    }
+                                    @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
+                                        MediaController.getInstance().addTracksToPlaylist(t);
+                                    }
+                                    @Override public void onError() {
+                                        Toast.makeText(mContext, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
+                                    }
+                                });
                     });
                     btnsRow.addView(waveBtn, LayoutHelper.createLinear(0, 48, 1.0f));
 
