@@ -62,7 +62,7 @@ public final class NimarkoCrashHandler {
                 
                 pw.println("Report this crash through the project issue tracker");
                 pw.println();
-                pw.println("=== NimarkoGram crash ===");
+                pw.println("=== SoundGram crash ===");
                 pw.println("Time: " + new Date());
                 pw.println("Thread: " + (thread != null ? thread.getName() : "(null)"));
                 pw.println("Build: " + Build.MODEL + " / Android " + Build.VERSION.SDK_INT);
@@ -124,7 +124,7 @@ public final class NimarkoCrashHandler {
                             pw.println("Enabled plugins: " + (sb.length() > 0 ? sb : "(none)"));
                         } catch (Throwable ignored) {
                         }
-                        pw.println("Heap dump: nimarko-logs/oom-" + reportId
+                        pw.println("Heap dump: soundgram-logs/oom-" + reportId
                                 + ".hprof (пришлите и его, если создался)");
                     } catch (Throwable ignored) {
                     }
@@ -158,21 +158,21 @@ public final class NimarkoCrashHandler {
                 try {
                     File hp = new File(dir, "oom-" + reportId + ".hprof");
                     android.os.Debug.dumpHprofData(hp.getAbsolutePath());
-                    android.util.Log.e("nimarko-crash", "hprof dumped: " + hp.getAbsolutePath());
+                    android.util.Log.e("soundgram-crash", "hprof dumped: " + hp.getAbsolutePath());
                 } catch (Throwable ignored) {}
             }
-            android.util.Log.e("nimarko-crash", "report written to " + f.getAbsolutePath());
+            android.util.Log.e("soundgram-crash", "report written to " + f.getAbsolutePath());
             
             if (!oom) {
                 String preview = readReportPreview(f, 64 * 1024);
                 if (preview != null) {
-                    android.util.Log.e("nimarko-crash", preview);
+                    android.util.Log.e("soundgram-crash", preview);
                     copyToClipboard(preview);
                 }
             }
         } catch (Throwable ignored) {
             try {
-                android.util.Log.e("nimarko-crash", "failed to dump", ignored);
+                android.util.Log.e("soundgram-crash", "failed to dump", ignored);
             } catch (Throwable ignored2) {}
         }
     }
@@ -190,7 +190,7 @@ public final class NimarkoCrashHandler {
                 remaining -= count;
             }
             if (reader.read() >= 0) {
-                result.append("\n[report preview truncated; full report is in nimarko-logs]");
+                result.append("\n[report preview truncated; full report is in soundgram-logs]");
             }
             return result.toString();
         } catch (Throwable ignored) {
@@ -205,7 +205,7 @@ public final class NimarkoCrashHandler {
             android.content.ClipboardManager cm =
                     (android.content.ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
             if (cm != null) {
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("NimarkoGram crash", text));
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("SoundGram crash", text));
             }
         } catch (Throwable ignored) {}
     }
@@ -216,7 +216,7 @@ public final class NimarkoCrashHandler {
             try {
                 File ext = context.getExternalFilesDir(null);
                 if (ext != null) {
-                    File dir = ensureLogDir(new File(ext, "nimarko-logs"));
+                    File dir = ensureLogDir(new File(ext, "soundgram-logs"));
                     if (dir != null) return dir;
                 }
             } catch (Throwable ignored) {
@@ -225,7 +225,7 @@ public final class NimarkoCrashHandler {
             try {
                 File files = context.getFilesDir();
                 if (files != null) {
-                    File dir = ensureLogDir(new File(files, "nimarko-logs"));
+                    File dir = ensureLogDir(new File(files, "soundgram-logs"));
                     if (dir != null) return dir;
                 }
             } catch (Throwable ignored) {
@@ -234,7 +234,7 @@ public final class NimarkoCrashHandler {
         
         try {
             File legacy = ensureLogDir(
-                    new File(Environment.getExternalStorageDirectory(), "NimarkoGram/logs"));
+                    new File(Environment.getExternalStorageDirectory(), "SoundGram/logs"));
             if (legacy != null) return legacy;
         } catch (Throwable ignored) {
         }

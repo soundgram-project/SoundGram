@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">Расширенные</string>
     <string name="NM_HUB_Header_Other">Другое</string>
     <string name="NM_Cat_Miscellaneous">Разное</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">Анимация ввода текста</string>
+    <string name="sg_ta_section_main">ОСНОВНОЕ</string>
+    <string name="sg_ta_enabled">Включить анимацию</string>
+    <string name="sg_ta_ignore_spaces">Игнорировать пробелы</string>
+    <string name="sg_ta_all_lines">Анимировать все строки</string>
+    <string name="sg_ta_delete_anim">Анимация удаления</string>
+    <string name="sg_ta_section_effects">ЭФФЕКТЫ</string>
+    <string name="sg_ta_blur">Размытие</string>
+    <string name="sg_ta_slide">Скольжение</string>
+    <string name="sg_ta_scale">Масштабирование</string>
+    <string name="sg_ta_rotate">Вращение</string>
+    <string name="sg_ta_section_cursor">КУРСОР</string>
+    <string name="sg_ta_cursor_smooth">Плавный курсор</string>
+    <string name="sg_ta_cursor_liquid">Жидкий курсор</string>
 </resources>

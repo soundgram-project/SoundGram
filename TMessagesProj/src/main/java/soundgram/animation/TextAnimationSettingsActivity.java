@@ -28,39 +28,39 @@ public class TextAnimationSettingsActivity extends BasePreferencesActivity {
 
     @Override
     public String getTitle() {
-        return "Анимация ввода текста";
+        return LocaleController.getString(R.string.sg_ta_title);
     }
 
     @Override
     public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         SharedPreferences p = TextAnimationLoader.getPreferences();
 
-        items.add(UItem.asHeader("Основное"));
-        items.add(UItem.asCheck(ID_ENABLED, "Включить анимацию")
+        items.add(UItem.asHeader(LocaleController.getString(R.string.sg_ta_section_main)));
+        items.add(UItem.asCheck(ID_ENABLED, LocaleController.getString(R.string.sg_ta_enabled))
                 .setChecked(p.getBoolean("text_anim_enabled", true)));
-        items.add(UItem.asCheck(ID_IGNORE_SPACES, "Игнорировать пробелы")
+        items.add(UItem.asCheck(ID_IGNORE_SPACES, LocaleController.getString(R.string.sg_ta_ignore_spaces))
                 .setChecked(p.getBoolean("text_anim_ignore_spaces", true)));
-        items.add(UItem.asCheck(ID_ANIMATE_ALL_LINES, "Анимировать все строки")
+        items.add(UItem.asCheck(ID_ANIMATE_ALL_LINES, LocaleController.getString(R.string.sg_ta_all_lines))
                 .setChecked(p.getBoolean("text_anim_animate_all_lines", false)));
-        items.add(UItem.asCheck(ID_DELETE_ANIM_ENABLED, "Анимация удаления")
+        items.add(UItem.asCheck(ID_DELETE_ANIM_ENABLED, LocaleController.getString(R.string.sg_ta_delete_anim))
                 .setChecked(p.getBoolean("text_anim_delete_anim_enabled", true)));
 
         items.add(UItem.asShadow(null));
-        items.add(UItem.asHeader("Эффекты"));
-        items.add(UItem.asCheck(ID_BLUR_ENABLED, "Размытие")
+        items.add(UItem.asHeader(LocaleController.getString(R.string.sg_ta_section_effects)));
+        items.add(UItem.asCheck(ID_BLUR_ENABLED, LocaleController.getString(R.string.sg_ta_blur))
                 .setChecked(p.getBoolean("text_anim_blur_enabled", true)));
-        items.add(UItem.asCheck(ID_SLIDE_ENABLED, "Скольжение")
+        items.add(UItem.asCheck(ID_SLIDE_ENABLED, LocaleController.getString(R.string.sg_ta_slide))
                 .setChecked(p.getBoolean("text_anim_slide_enabled", true)));
-        items.add(UItem.asCheck(ID_SCALE_ENABLED, "Масштабирование")
+        items.add(UItem.asCheck(ID_SCALE_ENABLED, LocaleController.getString(R.string.sg_ta_scale))
                 .setChecked(p.getBoolean("text_anim_scale_enabled", false)));
-        items.add(UItem.asCheck(ID_ROTATE_ENABLED, "Вращение")
+        items.add(UItem.asCheck(ID_ROTATE_ENABLED, LocaleController.getString(R.string.sg_ta_rotate))
                 .setChecked(p.getBoolean("text_anim_rotate_enabled", false)));
 
         items.add(UItem.asShadow(null));
-        items.add(UItem.asHeader("Курсор"));
-        items.add(UItem.asCheck(ID_CURSOR_ENABLED, "Плавный курсор")
+        items.add(UItem.asHeader(LocaleController.getString(R.string.sg_ta_section_cursor)));
+        items.add(UItem.asCheck(ID_CURSOR_ENABLED, LocaleController.getString(R.string.sg_ta_cursor_smooth))
                 .setChecked(p.getBoolean("text_anim_cursor_enabled", true)));
-        items.add(UItem.asCheck(ID_LIQUID_CURSOR, "Жидкий курсор")
+        items.add(UItem.asCheck(ID_LIQUID_CURSOR, LocaleController.getString(R.string.sg_ta_cursor_liquid))
                 .setChecked(p.getBoolean("text_anim_liquid_cursor_enabled", false)));
         items.add(UItem.asShadow(null));
     }

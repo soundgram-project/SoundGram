@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">متقدم</string>
     <string name="NM_HUB_Header_Other">أخرى</string>
     <string name="NM_Cat_Miscellaneous">متنوعات</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">رسوم متحركة لإدخال النص</string>
+    <string name="sg_ta_section_main">عام</string>
+    <string name="sg_ta_enabled">تفعيل الرسوم المتحركة</string>
+    <string name="sg_ta_ignore_spaces">تجاهل المسافات</string>
+    <string name="sg_ta_all_lines">تحريك جميع الأسطر</string>
+    <string name="sg_ta_delete_anim">رسوم متحركة للحذف</string>
+    <string name="sg_ta_section_effects">التأثيرات</string>
+    <string name="sg_ta_blur">تمويه</string>
+    <string name="sg_ta_slide">انزلاق</string>
+    <string name="sg_ta_scale">تغيير الحجم</string>
+    <string name="sg_ta_rotate">تدوير</string>
+    <string name="sg_ta_section_cursor">المؤشر</string>
+    <string name="sg_ta_cursor_smooth">مؤشر سلس</string>
+    <string name="sg_ta_cursor_liquid">مؤشر سائل</string>
 </resources>

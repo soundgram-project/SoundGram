@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">Розширені</string>
     <string name="NM_HUB_Header_Other">Інше</string>
     <string name="NM_Cat_Miscellaneous">Різне</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">Анімація введення тексту</string>
+    <string name="sg_ta_section_main">ОСНОВНЕ</string>
+    <string name="sg_ta_enabled">Увімкнути анімацію</string>
+    <string name="sg_ta_ignore_spaces">Ігнорувати пробіли</string>
+    <string name="sg_ta_all_lines">Анімувати всі рядки</string>
+    <string name="sg_ta_delete_anim">Анімація видалення</string>
+    <string name="sg_ta_section_effects">ЕФЕКТИ</string>
+    <string name="sg_ta_blur">Розмиття</string>
+    <string name="sg_ta_slide">Ковзання</string>
+    <string name="sg_ta_scale">Масштабування</string>
+    <string name="sg_ta_rotate">Обертання</string>
+    <string name="sg_ta_section_cursor">КУРСОР</string>
+    <string name="sg_ta_cursor_smooth">Плавний курсор</string>
+    <string name="sg_ta_cursor_liquid">Рідкий курсор</string>
 </resources>

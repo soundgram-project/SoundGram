@@ -4421,6 +4421,85 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             replyToMsg = replyQuote.message;
         }
 
+        if (replyToMsg != null && replyToMsg.isAyuDeleted()) {
+            String quoteText = null;
+            if (replyQuote != null && !TextUtils.isEmpty(replyQuote.getText())) {
+                quoteText = replyQuote.getText().toString();
+            } else if (!TextUtils.isEmpty(replyToMsg.messageText)) {
+                quoteText = replyToMsg.messageText.toString();
+            } else if (!TextUtils.isEmpty(replyToMsg.caption)) {
+                quoteText = replyToMsg.caption.toString();
+            }
+            if (TextUtils.isEmpty(quoteText)) {
+                if (replyToMsg.isPhoto()) quoteText = "📷 " + LocaleController.getString(R.string.AttachPhoto);
+                else if (replyToMsg.isVideo()) quoteText = "📹 " + LocaleController.getString(R.string.AttachVideo);
+                else if (replyToMsg.isVoice()) quoteText = "🎤 " + LocaleController.getString(R.string.AttachAudio);
+                else if (replyToMsg.isMusic()) quoteText = "🎵 " + LocaleController.getString(R.string.AttachMusic);
+                else if (replyToMsg.isDocument()) quoteText = "📁 " + LocaleController.getString(R.string.AttachDocument);
+                else quoteText = "";
+            }
+
+            String senderName = null;
+            if (replyToMsg.getSenderId() != 0) {
+                long senderId = replyToMsg.getSenderId();
+                if (DialogObject.isUserDialog(senderId)) {
+                    TLRPC.User u = getMessagesController().getUser(senderId);
+                    if (u != null) {
+                        senderName = UserObject.getUserName(u);
+                    }
+                } else {
+                    TLRPC.Chat c = getMessagesController().getChat(-senderId);
+                    if (c != null) {
+                        senderName = c.title;
+                    }
+                }
+            }
+            if (TextUtils.isEmpty(senderName)) {
+                senderName = LocaleController.getString(R.string.HiddenName);
+            }
+
+            String quoteHeaderAndText = senderName + ":\n" + quoteText;
+            String quotePrefix = quoteHeaderAndText + "\n\n";
+
+            TLRPC.TL_messageEntityBlockquote quoteEntity = new TLRPC.TL_messageEntityBlockquote();
+            quoteEntity.offset = 0;
+            quoteEntity.length = quoteHeaderAndText.length();
+
+            if (entities == null) {
+                entities = new ArrayList<>();
+            } else {
+                entities = new ArrayList<>(entities);
+                for (TLRPC.MessageEntity ent : entities) {
+                    ent.offset += quotePrefix.length();
+                }
+            }
+            entities.add(0, quoteEntity);
+
+            if (message != null) {
+                message = quotePrefix + message;
+            } else if (caption != null) {
+                caption = quotePrefix + caption;
+            } else if (photo != null || document != null || videoEditedInfo != null || location != null) {
+                caption = quoteHeaderAndText;
+            } else {
+                message = quoteHeaderAndText;
+            }
+
+            if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
+                replyToMsg = replyToTopMsg;
+            } else {
+                replyToMsg = null;
+            }
+            replyQuote = null;
+            if (sendMessageParams != null) {
+                sendMessageParams.replyToMsg = replyToMsg;
+                sendMessageParams.replyQuote = null;
+                sendMessageParams.message = message;
+                sendMessageParams.caption = caption;
+                sendMessageParams.entities = entities;
+            }
+        }
+
 
         String originalPath = null;
         if (params != null && params.containsKey("originalPath")) {
@@ -8439,8 +8518,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         final TLRPC.TL_messages_sendMessage r = (TLRPC.TL_messages_sendMessage) req;
                         r.reply_to = null;
                         r.flags &= ~1;
-                        if (newMsgObj.reply_to != null) {
-                            newMsgObj.flags &= ~8;
+                        r.random_id = getNextRandomId();
+                        if (newMsgObj != null) {
+                            if (newMsgObj.reply_to != null) {
+                                newMsgObj.flags &= ~8;
+                            }
+                            newMsgObj.random_id = r.random_id;
                         }
                         performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
                         return;
@@ -8448,8 +8531,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         final TLRPC.TL_messages_sendMedia r = (TLRPC.TL_messages_sendMedia) req;
                         r.reply_to = null;
                         r.flags &= ~1;
-                        if (newMsgObj.reply_to != null) {
-                            newMsgObj.flags &= ~8;
+                        r.random_id = getNextRandomId();
+                        if (newMsgObj != null) {
+                            if (newMsgObj.reply_to != null) {
+                                newMsgObj.flags &= ~8;
+                            }
+                            newMsgObj.random_id = r.random_id;
                         }
                         performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
                         return;

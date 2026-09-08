@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">Geavanceerd</string>
     <string name="NM_HUB_Header_Other">Overige</string>
     <string name="NM_Cat_Miscellaneous">Diversen</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">Tekstinvoeranimatie</string>
+    <string name="sg_ta_section_main">ALGEMEEN</string>
+    <string name="sg_ta_enabled">Animatie inschakelen</string>
+    <string name="sg_ta_ignore_spaces">Spaties negeren</string>
+    <string name="sg_ta_all_lines">Alle regels animeren</string>
+    <string name="sg_ta_delete_anim">Verwijderanimatie</string>
+    <string name="sg_ta_section_effects">EFFECTEN</string>
+    <string name="sg_ta_blur">Vervaging</string>
+    <string name="sg_ta_slide">Glijden</string>
+    <string name="sg_ta_scale">Schalen</string>
+    <string name="sg_ta_rotate">Rotatie</string>
+    <string name="sg_ta_section_cursor">CURSOR</string>
+    <string name="sg_ta_cursor_smooth">Vloeiende cursor</string>
+    <string name="sg_ta_cursor_liquid">Vloeibare cursor</string>
 </resources>

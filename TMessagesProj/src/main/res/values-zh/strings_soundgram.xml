@@ -305,4 +305,19 @@
     <string name="AccDescrShuffle">随机播放</string>
     <string name="AccDescrEqualizer">均衡器</string>
     <string name="NM_Cat_Miscellaneous">其他</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">文本输入动画</string>
+    <string name="sg_ta_section_main">常规</string>
+    <string name="sg_ta_enabled">启用动画</string>
+    <string name="sg_ta_ignore_spaces">忽略空格</string>
+    <string name="sg_ta_all_lines">动画应用于所有行</string>
+    <string name="sg_ta_delete_anim">删除动画</string>
+    <string name="sg_ta_section_effects">效果</string>
+    <string name="sg_ta_blur">模糊</string>
+    <string name="sg_ta_slide">滑动</string>
+    <string name="sg_ta_scale">缩放</string>
+    <string name="sg_ta_rotate">旋转</string>
+    <string name="sg_ta_section_cursor">光标</string>
+    <string name="sg_ta_cursor_smooth">平滑光标</string>
+    <string name="sg_ta_cursor_liquid">流体光标</string>
 </resources>

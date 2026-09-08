@@ -142,6 +142,10 @@ public class NekoWsProxyActivity extends org.telegram.ui.ActionBar.BaseFragment 
         statusReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+                if (intent != null && intent.hasExtra("running")) {
+                    TgWsProxyService.isRunning = intent.getBooleanExtra("running", false);
+                }
+                updateRows();
                 if (listAdapter != null) listAdapter.notifyDataSetChanged();
                 updatePingAsync();
             }
@@ -450,6 +454,31 @@ public class NekoWsProxyActivity extends org.telegram.ui.ActionBar.BaseFragment 
             startProxyService();
             // Auto-apply proxy settings after service has time to start
             AndroidUtilities.runOnUIThread(this::autoApplyProxy, 3500);
+            // Watchdog: verify startup after 8s to prevent hanging on "Starting…"
+            AndroidUtilities.runOnUIThread(() -> {
+                if (getParentActivity() == null) return;
+                int port = getPrefs().getInt("port", DEFAULT_PORT);
+                if (getPrefs().getBoolean("enabled", false) && !TgWsProxyService.isRunning) {
+                    new Thread(() -> {
+                        boolean open = ProxyAutoDetector.tcpPing("127.0.0.1", port, 500);
+                        AndroidUtilities.runOnUIThread(() -> {
+                            if (open) {
+                                TgWsProxyService.isRunning = true;
+                                autoApplyProxy();
+                            } else if (getPrefs().getBoolean("enabled", false) && !TgWsProxyService.isRunning) {
+                                getPrefs().edit().putBoolean("enabled", false).commit();
+                                Context c = getParentActivity();
+                                if (c != null) {
+                                    c.startService(new Intent(c, TgWsProxyService.class).setAction(TgWsProxyService.ACTION_STOP));
+                                }
+                                disableTelegramProxy();
+                            }
+                            updateRows();
+                            if (listAdapter != null) listAdapter.notifyDataSetChanged();
+                        });
+                    }).start();
+                }
+            }, 8000);
         } else {
             ctx.startService(new Intent(ctx, TgWsProxyService.class)
                     .setAction(TgWsProxyService.ACTION_STOP));

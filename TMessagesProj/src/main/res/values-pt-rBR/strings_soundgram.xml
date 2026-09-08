@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">Avançado</string>
     <string name="NM_HUB_Header_Other">Outro</string>
     <string name="NM_Cat_Miscellaneous">Diversos</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">Animação de digitação de texto</string>
+    <string name="sg_ta_section_main">GERAL</string>
+    <string name="sg_ta_enabled">Ativar animação</string>
+    <string name="sg_ta_ignore_spaces">Ignorar espaços</string>
+    <string name="sg_ta_all_lines">Animar todas as linhas</string>
+    <string name="sg_ta_delete_anim">Animação de exclusão</string>
+    <string name="sg_ta_section_effects">EFEITOS</string>
+    <string name="sg_ta_blur">Desfoque</string>
+    <string name="sg_ta_slide">Deslizar</string>
+    <string name="sg_ta_scale">Dimensionamento</string>
+    <string name="sg_ta_rotate">Rotação</string>
+    <string name="sg_ta_section_cursor">CURSOR</string>
+    <string name="sg_ta_cursor_smooth">Cursor suave</string>
+    <string name="sg_ta_cursor_liquid">Cursor líquido</string>
 </resources>

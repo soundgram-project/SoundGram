@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">고급</string>
     <string name="NM_HUB_Header_Other">기타</string>
     <string name="NM_Cat_Miscellaneous">기타</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">텍스트 입력 애니메이션</string>
+    <string name="sg_ta_section_main">일반</string>
+    <string name="sg_ta_enabled">애니메이션 활성화</string>
+    <string name="sg_ta_ignore_spaces">공백 무시</string>
+    <string name="sg_ta_all_lines">모든 줄 애니메이션 적용</string>
+    <string name="sg_ta_delete_anim">삭제 애니메이션</string>
+    <string name="sg_ta_section_effects">효과</string>
+    <string name="sg_ta_blur">흐림</string>
+    <string name="sg_ta_slide">슬라이드</string>
+    <string name="sg_ta_scale">배율 조정</string>
+    <string name="sg_ta_rotate">회전</string>
+    <string name="sg_ta_section_cursor">커서</string>
+    <string name="sg_ta_cursor_smooth">부드러운 커서</string>
+    <string name="sg_ta_cursor_liquid">리퀴드 커서</string>
 </resources>

@@ -14,6 +14,11 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.NotificationCenter;
+import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.ConnectionsManager;
+
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
@@ -21,7 +26,7 @@ import java.net.Socket;
  * Checks whether Telegram DCs are reachable.
  * Monitors network changes and VPN state to auto-enable/disable proxy.
  */
-public class ProxyAutoDetector {
+public class ProxyAutoDetector implements NotificationCenter.NotificationCenterDelegate {
 
     private static final String TAG = "ProxyAutoDetect";
 
@@ -41,19 +46,62 @@ public class ProxyAutoDetector {
     private static volatile boolean isInitialized = false;
     private static volatile boolean vpnActive = false;
     private static volatile int lastNetworkTransport = 0;
+    private static Context sContext;
+    private static final ProxyAutoDetector sDelegate = new ProxyAutoDetector();
+    private static volatile long lastConnectionCheckTime = 0;
 
     public static void init(Context context) {
         if (isInitialized) return;
         isInitialized = true;
+        sContext = context.getApplicationContext();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            registerNetworkCallback(context.getApplicationContext());
+            registerNetworkCallback(sContext);
         }
+
+        AndroidUtilities.runOnUIThread(() -> {
+            for (int i = 0; i < UserConfig.MAX_ACCOUNT_COUNT; i++) {
+                NotificationCenter.getInstance(i).addObserver(sDelegate, NotificationCenter.didUpdateConnectionState);
+            }
+        });
 
         // Initial check on app startup
         new Thread(() -> {
-            checkAndAutoEnable(context);
+            checkAndAutoEnable(sContext);
         }, "proxy-auto-detect-init").start();
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id == NotificationCenter.didUpdateConnectionState) {
+            int state = ConnectionsManager.getInstance(account).getConnectionState();
+            if (state == ConnectionsManager.ConnectionStateConnecting || state == ConnectionsManager.ConnectionStateWaitingForNetwork) {
+                long now = System.currentTimeMillis();
+                if (now - lastConnectionCheckTime < 10000) {
+                    return;
+                }
+                lastConnectionCheckTime = now;
+                if (sContext != null && !isVpnActive() && !TgWsProxyService.isRunning) {
+                    new Thread(() -> {
+                        if (isVpnActive()) return;
+                        SharedPreferences prefs = sContext.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+                        if (prefs.getBoolean("enabled", false) || TgWsProxyService.isRunning) return;
+                        if (!prefs.getBoolean("auto_detect", true)) return;
+                        String secret = prefs.getString("secret", "");
+                        if (secret.isEmpty()) return;
+
+                        if (tcpPing(TG_HOST, TG_PORT, TG_TIMEOUT)) {
+                            return; // TG reachable
+                        }
+                        if (tcpPing(GOOGLE_HOST, GOOGLE_PORT, GOOGLE_TIMEOUT) || tcpPing("google.com", 443, GOOGLE_TIMEOUT)) {
+                            Log.i(TAG, "TG connecting/waiting and Google reachable -> auto-enabling bypass");
+                            prefs.edit().putBoolean("enabled", true).apply();
+                            startProxyService(sContext, prefs);
+                        }
+                    }, "proxy-auto-detect-connection").start();
+                }
+            }
+        }
     }
 
     private static void registerNetworkCallback(Context context) {
@@ -198,7 +246,7 @@ public class ProxyAutoDetector {
         }
 
         Log.i(TAG, "Telegram unreachable — pinging Google...");
-        if (!tcpPing(GOOGLE_HOST, GOOGLE_PORT, GOOGLE_TIMEOUT)) {
+        if (!tcpPing(GOOGLE_HOST, GOOGLE_PORT, GOOGLE_TIMEOUT) && !tcpPing("google.com", 443, GOOGLE_TIMEOUT)) {
             Log.i(TAG, "No internet — skip");
             return;
         }
@@ -331,7 +379,7 @@ public class ProxyAutoDetector {
         context.sendBroadcast(intent);
     }
 
-    private static boolean tcpPing(String host, int port, int timeoutMs) {
+    public static boolean tcpPing(String host, int port, int timeoutMs) {
         try (Socket s = new Socket()) {
             s.connect(new InetSocketAddress(host, port), timeoutMs);
             return true;

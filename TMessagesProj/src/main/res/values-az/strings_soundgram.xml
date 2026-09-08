@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">Təkmilləşdirilmiş</string>
     <string name="NM_HUB_Header_Other">Digər</string>
     <string name="NM_Cat_Miscellaneous">Müxtəlif</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">Mətn daxiletmə animasiyası</string>
+    <string name="sg_ta_section_main">ƏSAS</string>
+    <string name="sg_ta_enabled">Animasiyanı aktiv et</string>
+    <string name="sg_ta_ignore_spaces">Boşluqları nəzərə alma</string>
+    <string name="sg_ta_all_lines">Bütün sətirləri animasiya et</string>
+    <string name="sg_ta_delete_anim">Silinmə animasiyası</string>
+    <string name="sg_ta_section_effects">EFFEKTLƏR</string>
+    <string name="sg_ta_blur">Bulanıqlıq</string>
+    <string name="sg_ta_slide">Sürüşmə</string>
+    <string name="sg_ta_scale">Miqyaslama</string>
+    <string name="sg_ta_rotate">Döndərmə</string>
+    <string name="sg_ta_section_cursor">KURSOR</string>
+    <string name="sg_ta_cursor_smooth">Hamar kursor</string>
+    <string name="sg_ta_cursor_liquid">Maye kursor</string>
 </resources>

@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">Kengaytirilgan</string>
     <string name="NM_HUB_Header_Other">Boshqa</string>
     <string name="NM_Cat_Miscellaneous">Turli</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">Matn kiritish animatsiyasi</string>
+    <string name="sg_ta_section_main">ASOSIY</string>
+    <string name="sg_ta_enabled">Animatsiyani yoqish</string>
+    <string name="sg_ta_ignore_spaces">Bo\'shliqlarni e\'tiborsiz qoldirish</string>
+    <string name="sg_ta_all_lines">Barcha qatorlarni animatsiya qilish</string>
+    <string name="sg_ta_delete_anim">O\'chirish animatsiyasi</string>
+    <string name="sg_ta_section_effects">EFFEKTLAR</string>
+    <string name="sg_ta_blur">Xiralashtirish</string>
+    <string name="sg_ta_slide">Sirpanish</string>
+    <string name="sg_ta_scale">Masshtablash</string>
+    <string name="sg_ta_rotate">Aylantirish</string>
+    <string name="sg_ta_section_cursor">KURSOR</string>
+    <string name="sg_ta_cursor_smooth">Silliq kursor</string>
+    <string name="sg_ta_cursor_liquid">Suyuq kursor</string>
 </resources>

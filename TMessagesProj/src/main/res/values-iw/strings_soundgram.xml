@@ -319,4 +319,19 @@
     <string name="NM_HUB_Header_Advanced">מתקדם</string>
     <string name="NM_HUB_Header_Other">אחר</string>
     <string name="NM_Cat_Miscellaneous">שונות</string>
+    <!-- Text Animation Settings -->
+    <string name="sg_ta_title">הנפשת הזנת טקסט</string>
+    <string name="sg_ta_section_main">כללי</string>
+    <string name="sg_ta_enabled">הפעל הנפשה</string>
+    <string name="sg_ta_ignore_spaces">התעלם מרווחים</string>
+    <string name="sg_ta_all_lines">הנפש את כל השורות</string>
+    <string name="sg_ta_delete_anim">הנפשת מחיקה</string>
+    <string name="sg_ta_section_effects">אפקטים</string>
+    <string name="sg_ta_blur">טשטוש</string>
+    <string name="sg_ta_slide">החלקה</string>
+    <string name="sg_ta_scale">שינוי גודל</string>
+    <string name="sg_ta_rotate">סיבוב</string>
+    <string name="sg_ta_section_cursor">סמן</string>
+    <string name="sg_ta_cursor_smooth">סמן חלק</string>
+    <string name="sg_ta_cursor_liquid">סמן נוזלי</string>
 </resources>

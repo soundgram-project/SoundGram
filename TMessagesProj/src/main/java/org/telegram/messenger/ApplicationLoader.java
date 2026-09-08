@@ -392,16 +392,17 @@ public class ApplicationLoader extends Application {
 
         new Thread(() -> {
             try {
-                Thread.sleep(5000);
-                android.content.SharedPreferences prefs = getSharedPreferences("wsproxy", Context.MODE_PRIVATE);
-                if (prefs.getBoolean("wsproxy_enabled", false) && !soundgram.wsproxy.TgWsProxyService.isRunning) {
+                Thread.sleep(2000);
+                soundgram.wsproxy.ProxyAutoDetector.init(this);
+                android.content.SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+                if (prefs.getBoolean("enabled", false) && !soundgram.wsproxy.TgWsProxyService.isRunning) {
                     Intent intent = new Intent(this, soundgram.wsproxy.TgWsProxyService.class);
                     intent.setAction(soundgram.wsproxy.TgWsProxyService.ACTION_START);
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_PORT, prefs.getInt("wsproxy_port", 1443));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_SECRET, prefs.getString("wsproxy_secret", ""));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_POOL_SIZE, prefs.getInt("wsproxy_pool", 4));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_ENABLED, prefs.getBoolean("wsproxy_cf", true));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_DOMAIN, prefs.getString("wsproxy_cf_domain", ""));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_PORT, prefs.getInt("port", 1443));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_SECRET, prefs.getString("secret", ""));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_POOL_SIZE, prefs.getInt("pool_size", 4));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_ENABLED, prefs.getBoolean("cf_enabled", true));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_DOMAIN, prefs.getString("cf_domain", ""));
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(intent);

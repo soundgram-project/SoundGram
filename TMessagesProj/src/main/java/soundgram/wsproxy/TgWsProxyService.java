@@ -464,6 +464,9 @@ public class TgWsProxyService extends Service {
 
             executor.execute(() -> {
                 try {
+                    // Force stop any lingering native proxy instance first to release sockets
+                    try { NativeProxy.stopProxy(); } catch (Throwable ignored) {}
+
                     // Wait for the port to be fully closed if a previous instance is still shutting down
                     long portCloseDeadline = System.currentTimeMillis() + 1500;
                     while (System.currentTimeMillis() < portCloseDeadline && isPortOpen("127.0.0.1", port, 100)) {
@@ -512,6 +515,7 @@ public class TgWsProxyService extends Service {
                         isRunning = false;
                         sStopInProgress.set(false);
                         releaseWakeLock();
+                        sendStateBroadcast();
                         if (consecutiveStartupFails >= MAX_STARTUP_FAILS) {
                             Log.e(TAG, "Startup watchdog: достигнут лимит попыток запуска. Выключаем обход.");
                             consecutiveStartupFails = 0;
