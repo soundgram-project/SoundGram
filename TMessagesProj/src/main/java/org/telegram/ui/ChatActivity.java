@@ -15963,36 +15963,72 @@ public class ChatActivity extends BaseFragment implements
                     if (messageObjectToReply.messageOwner.from_id.channel_id != 0) {
                         TLRPC.Chat chat = getMessagesController().getChat(messageObjectToReply.messageOwner.from_id.channel_id);
                         if (chat == null) {
-                            return;
+                            chat = getMessagesStorage().getChat(messageObjectToReply.messageOwner.from_id.channel_id);
+                            if (chat != null) {
+                                getMessagesController().putChat(chat, true);
+                            }
                         }
-                        name = new SpannableStringBuilder(ChatObject.isChannelAndNotMegaGroup(chat) ? MessageObject.channelSpan() : MessageObject.groupSpan()).append(" ").append(chat.title);
+                        if (chat != null) {
+                            name = new SpannableStringBuilder(ChatObject.isChannelAndNotMegaGroup(chat) ? MessageObject.channelSpan() : MessageObject.groupSpan()).append(" ").append(chat.title);
+                        } else {
+                            name = LocaleController.getString(R.string.HiddenName);
+                        }
                     } else {
                         TLRPC.User user = getMessagesController().getUser(messageObjectToReply.messageOwner.from_id.user_id);
                         if (user == null) {
-                            return;
+                            user = getMessagesStorage().getUser(messageObjectToReply.messageOwner.from_id.user_id);
+                            if (user != null) {
+                                getMessagesController().putUser(user, true);
+                            }
                         }
-                        name = UserObject.getUserName(user);
+                        if (user != null) {
+                            name = UserObject.getUserName(user);
+                        } else if (messageObjectToReply.messageOwner.fwd_from != null && !TextUtils.isEmpty(messageObjectToReply.messageOwner.fwd_from.from_name)) {
+                            name = messageObjectToReply.messageOwner.fwd_from.from_name;
+                        } else {
+                            name = LocaleController.getString(R.string.HiddenName);
+                        }
                     }
                 } else if (name == null) {
                     TLRPC.Chat chat = null;
                     TLRPC.User user = null;
                     if (ChatObject.isChannel(currentChat) && currentChat.megagroup && messageObjectToReply.isForwardedChannelPost()) {
-                        chat = getMessagesController().getChat(messageObjectToReply.messageOwner.fwd_from.from_id.channel_id);
+                        long chId = messageObjectToReply.messageOwner.fwd_from != null && messageObjectToReply.messageOwner.fwd_from.from_id != null ? messageObjectToReply.messageOwner.fwd_from.from_id.channel_id : 0;
+                        chat = getMessagesController().getChat(chId);
+                        if (chat == null && chId != 0) {
+                            chat = getMessagesStorage().getChat(chId);
+                            if (chat != null) {
+                                getMessagesController().putChat(chat, true);
+                            }
+                        }
                     } else {
                         final long did = messageObjectToReply.getSenderId();
                         if (did < 0) {
                             chat = getMessagesController().getChat(-did);
+                            if (chat == null) {
+                                chat = getMessagesStorage().getChat(-did);
+                                if (chat != null) {
+                                    getMessagesController().putChat(chat, true);
+                                }
+                            }
                         } else {
                             user = getMessagesController().getUser(did);
+                            if (user == null) {
+                                user = getMessagesStorage().getUser(did);
+                                if (user != null) {
+                                    getMessagesController().putUser(user, true);
+                                }
+                            }
                         }
-                    }
-                    if (chat == null && user == null) {
-                        return;
                     }
                     if (chat != null) {
                         name = new SpannableStringBuilder(ChatObject.isChannelAndNotMegaGroup(chat) ? MessageObject.channelSpan() : MessageObject.groupSpan()).append(" ").append(chat.title);
-                    } else {
+                    } else if (user != null) {
                         name = UserObject.getUserName(user);
+                    } else if (messageObjectToReply.messageOwner.fwd_from != null && !TextUtils.isEmpty(messageObjectToReply.messageOwner.fwd_from.from_name)) {
+                        name = messageObjectToReply.messageOwner.fwd_from.from_name;
+                    } else {
+                        name = LocaleController.getString(R.string.HiddenName);
                     }
                 }
                 CharSequence nameText;
@@ -27481,6 +27517,11 @@ public class ChatActivity extends BaseFragment implements
                 }
                 boolean isDeletePermitted = com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialog_id, mid);
                 boolean shouldSkip = com.radolyn.ayugram.messages.AyuMessagesController.getInstance().shouldSkipSaving(dialog_id, mid);
+                boolean isSaveForMyself = com.radolyn.ayugram.messages.AyuMessagesController.getInstance().isSaveForMyself(dialog_id, mid);
+                boolean isMyMessage = obj.isOut() || (obj.messageOwner != null && obj.messageOwner.out);
+                if (isMyMessage && !isSaveForMyself) {
+                    shouldSkip = true;
+                }
                 boolean isAlreadyDeleted = obj.isAyuDeleted();
                 if (isAlreadyDeleted) {
                     if (isDeletePermitted || shouldSkip) {
@@ -27494,6 +27535,7 @@ public class ChatActivity extends BaseFragment implements
                 boolean keepForAyu = !isAlreadyDeleted
                         && !shouldSkip
                         && !isDeletePermitted
+                        && (!isMyMessage || isSaveForMyself)
                         && xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()
                         && !obj.scheduled
                         && (obj.messageOwner != null && !(obj.messageOwner instanceof TLRPC.TL_messageEmpty))

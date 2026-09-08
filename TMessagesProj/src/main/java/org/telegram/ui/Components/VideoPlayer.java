@@ -384,14 +384,6 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 int sessionId = player.getAudioSessionId();
                 soundgram.music.SoundGramAudioFX.initFX(sessionId);
 
-                // Реверберация — тоже только для музыки (isMusicPlaying проверяется внутри)
-                if (soundgram.music.SoundGramAudioFX.getReverbId() != 0
-                        && soundgram.music.SoundGramAudioFX.isMusicPlaying()) {
-                    com.google.android.exoplayer2.audio.AuxEffectInfo effectInfo =
-                            new com.google.android.exoplayer2.audio.AuxEffectInfo(
-                                    soundgram.music.SoundGramAudioFX.getReverbId(), 1.0f);
-                    player.setAuxEffectInfo(effectInfo);
-                }
                 // Скорость и тон эквалайзера НЕ применяем при инициализации плеера:
                 // для музыки — MediaController вызовет applyFXForCurrentMessage() после старта,
                 // для ГС/кружков — MC выставит currentPlaybackSpeed через setPlaybackSpeed().

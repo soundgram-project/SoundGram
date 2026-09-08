@@ -14584,8 +14584,14 @@ public class MessagesStorage extends BaseController {
                             long dialogId = dialogs.keyAt(a);
                             ArrayList<Integer> mids = dialogs.valueAt(a);
                             for (int msgId : mids) {
+                                if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId) || ayuMessagesController.shouldSkipSaving(dialogId, msgId)) {
+                                    continue;
+                                }
                                 TLRPC.Message msg = getMessageInternalSync(dialogId, msgId);
                                 if (msg != null) {
+                                    if (msg.out && !ayuMessagesController.isSaveForMyself(dialogId, msgId)) {
+                                        continue;
+                                    }
                                     msg.dialog_id = dialogId;
                                     var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, currentAccount);
                                     prefs.setDialogId(dialogId);
@@ -14778,7 +14784,10 @@ public class MessagesStorage extends BaseController {
                             TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
                             if (message != null) {
                                 message.readAttachPath(data, currentUser);
-                                if (saveDeleted && !(message instanceof TLRPC.TL_messageEmpty)) {
+                                if (saveDeleted && !(message instanceof TLRPC.TL_messageEmpty)
+                                        && !com.radolyn.ayugram.utils.AyuState.isDeletePermitted(did, message.id)
+                                        && !com.radolyn.ayugram.messages.AyuMessagesController.getInstance().shouldSkipSaving(did, message.id)
+                                        && (!message.out || com.radolyn.ayugram.messages.AyuMessagesController.getInstance().isSaveForMyself(did, message.id))) {
                                     message.dialog_id = did;
                                     var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
                                     prefs.setDialogId(did);
@@ -14831,7 +14840,10 @@ public class MessagesStorage extends BaseController {
                             TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
                             if (message != null) {
                                 message.readAttachPath(data, getUserConfig().clientUserId);
-                                if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !(message instanceof TLRPC.TL_messageEmpty)) {
+                                if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !(message instanceof TLRPC.TL_messageEmpty)
+                                        && !com.radolyn.ayugram.utils.AyuState.isDeletePermitted(did, message.id)
+                                        && !com.radolyn.ayugram.messages.AyuMessagesController.getInstance().shouldSkipSaving(did, message.id)
+                                        && (!message.out || com.radolyn.ayugram.messages.AyuMessagesController.getInstance().isSaveForMyself(did, message.id))) {
                                     message.dialog_id = did;
                                     var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
                                     prefs.setDialogId(did);
@@ -15528,7 +15540,10 @@ public class MessagesStorage extends BaseController {
                         TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
                         if (message != null) {
                             message.readAttachPath(data, getUserConfig().clientUserId);
-                            if (saveDeleted && !(message instanceof TLRPC.TL_messageEmpty)) {
+                            if (saveDeleted && !(message instanceof TLRPC.TL_messageEmpty)
+                                    && !com.radolyn.ayugram.utils.AyuState.isDeletePermitted(did, message.id)
+                                    && !com.radolyn.ayugram.messages.AyuMessagesController.getInstance().shouldSkipSaving(did, message.id)
+                                    && (!message.out || com.radolyn.ayugram.messages.AyuMessagesController.getInstance().isSaveForMyself(did, message.id))) {
                                 message.dialog_id = did;
                                 var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
                                 prefs.setDialogId(did);

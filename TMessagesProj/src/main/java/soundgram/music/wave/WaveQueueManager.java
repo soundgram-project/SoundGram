@@ -401,7 +401,7 @@ public final class WaveQueueManager {
                 return;
             }
         } else if (waveMode == MODE_GENRE && !targetName.isEmpty() && !targetName.equalsIgnoreCase("Любой жанр")) {
-            List<String> genreSeeds = SeedSelector.selectSeedsByGenre(targetName);
+            List<String> genreSeeds = SeedSelector.selectSeedsByGenre(targetName, cancelFlag);
             if (!genreSeeds.isEmpty()) {
                 List<List<InnerTubeClient.RawTrack>> newBatches = new ArrayList<>();
                 for (String sid : genreSeeds) {

@@ -9442,7 +9442,12 @@ public class MessagesController extends BaseController implements NotificationCe
                 var userId = UserConfig.getInstance(currentAccount).clientUserId;
                 ArrayList<Integer> toDeleteFromAyu = new ArrayList<>();
                 for (var msgId : messages) {
-                    if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId) || ayuMessagesController.shouldSkipSaving(dialogId, msgId)) {
+                    boolean saveForMyself = ayuMessagesController.isSaveForMyself(dialogId, msgId);
+                    if (!saveForMyself) {
+                        ayuMessagesController.skipSavingNextDelete(dialogId, msgId);
+                        com.radolyn.ayugram.utils.AyuState.permitDeleteMessage(dialogId, msgId);
+                    }
+                    if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId) || ayuMessagesController.shouldSkipSaving(dialogId, msgId) || !saveForMyself) {
                         toDeleteFromAyu.add(msgId);
                     }
                 }
@@ -19931,6 +19936,13 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                     for (var dialogId : dialogIds) {
                         for (int msgId : messageIds) {
+                            if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId) || ayuMessagesController.shouldSkipSaving(dialogId, msgId)) {
+                                var userId = UserConfig.getInstance(currentAccount).clientUserId;
+                                ArrayList<Integer> toDel = new ArrayList<>();
+                                toDel.add(msgId);
+                                Utilities.globalQueue.postRunnable(() -> ayuMessagesController.deleteMessages(userId, dialogId, toDel));
+                                continue;
+                            }
                             TLRPC.Message msg = getMessagesStorage().getMessageInternalSync(dialogId, msgId);
                             if (msg != null) {
                                 msg.dialog_id = dialogId;

@@ -76,7 +76,7 @@ public class SoundGramEQAlert extends BottomSheet {
     private void initView(Context context) {
         int sessionId = 0;
         try { sessionId = MediaController.getInstance().getAudioSessionId(); } catch (Exception ignored) {}
-        SoundGramAudioFX.initFX(sessionId);
+        SoundGramAudioFX.initFX(sessionId, false);
 
         int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
 

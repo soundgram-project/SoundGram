@@ -8241,6 +8241,8 @@ public class AlertsCreator {
                         for (int mid : ids) {
                             com.radolyn.ayugram.utils.AyuState.permitDeleteMessage(thisDialogId, mid);
                         }
+                    } else {
+                        com.radolyn.ayugram.messages.AyuMessagesController.getInstance().markSaveForMyself(thisDialogId, ids);
                     }
                     MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, thisDialogId, topicId, deleteForAll[0], mode);
                 }
@@ -8269,6 +8271,8 @@ public class AlertsCreator {
                         for (int mid : ids) {
                             com.radolyn.ayugram.utils.AyuState.permitDeleteMessage(targetDid, mid);
                         }
+                    } else {
+                        com.radolyn.ayugram.messages.AyuMessagesController.getInstance().markSaveForMyself(targetDid, ids);
                     }
                     MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, targetDid, topicId, deleteForAll[0], mode);
                     selectedMessages[a].clear();

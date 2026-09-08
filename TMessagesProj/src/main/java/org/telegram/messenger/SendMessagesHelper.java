@@ -4421,71 +4421,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             replyToMsg = replyQuote.message;
         }
 
-        if (replyToMsg != null && replyToMsg.isAyuDeleted()) {
-            String quoteText = null;
-            if (replyQuote != null && !TextUtils.isEmpty(replyQuote.getText())) {
-                quoteText = replyQuote.getText().toString();
-            } else if (!TextUtils.isEmpty(replyToMsg.messageText)) {
-                quoteText = replyToMsg.messageText.toString();
-            } else if (!TextUtils.isEmpty(replyToMsg.caption)) {
-                quoteText = replyToMsg.caption.toString();
-            }
-            if (TextUtils.isEmpty(quoteText)) {
-                if (replyToMsg.isPhoto()) quoteText = "📷 " + LocaleController.getString(R.string.AttachPhoto);
-                else if (replyToMsg.isVideo()) quoteText = "📹 " + LocaleController.getString(R.string.AttachVideo);
-                else if (replyToMsg.isVoice()) quoteText = "🎤 " + LocaleController.getString(R.string.AttachAudio);
-                else if (replyToMsg.isMusic()) quoteText = "🎵 " + LocaleController.getString(R.string.AttachMusic);
-                else if (replyToMsg.isDocument()) quoteText = "📁 " + LocaleController.getString(R.string.AttachDocument);
-                else quoteText = "";
-            }
-
-            String senderName = null;
-            if (replyToMsg.getSenderId() != 0) {
-                senderName = getMessagesController().getPeerName(replyToMsg.getSenderId());
-            }
-            if (TextUtils.isEmpty(senderName)) {
-                senderName = LocaleController.getString(R.string.HiddenName);
-            }
-
-            String quoteHeaderAndText = senderName + ":\n" + quoteText;
-            String quotePrefix = quoteHeaderAndText + "\n\n";
-
-            TLRPC.TL_messageEntityBlockquote quoteEntity = new TLRPC.TL_messageEntityBlockquote();
-            quoteEntity.offset = 0;
-            quoteEntity.length = quoteHeaderAndText.length();
-
-            if (entities == null) {
-                entities = new ArrayList<>();
-            } else {
-                entities = new ArrayList<>(entities);
-                for (TLRPC.MessageEntity ent : entities) {
-                    ent.offset += quotePrefix.length();
-                }
-            }
-            entities.add(0, quoteEntity);
-
-            if (message != null) {
-                message = quotePrefix + message;
-            } else if (caption != null) {
-                caption = quotePrefix + caption;
-            } else {
-                message = quoteHeaderAndText;
-            }
-
-            if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
-                replyToMsg = replyToTopMsg;
-            } else {
-                replyToMsg = null;
-            }
-            replyQuote = null;
-            if (sendMessageParams != null) {
-                sendMessageParams.replyToMsg = replyToMsg;
-                sendMessageParams.replyQuote = null;
-                sendMessageParams.message = message;
-                sendMessageParams.caption = caption;
-                sendMessageParams.entities = entities;
-            }
-        }
 
         String originalPath = null;
         if (params != null && params.containsKey("originalPath")) {
@@ -8500,6 +8435,24 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 });
                             }
                         }
+                    } else if (error != null && "MESSAGE_ID_INVALID".equalsIgnoreCase(error.text) && req instanceof TLRPC.TL_messages_sendMessage && ((TLRPC.TL_messages_sendMessage) req).reply_to != null) {
+                        final TLRPC.TL_messages_sendMessage r = (TLRPC.TL_messages_sendMessage) req;
+                        r.reply_to = null;
+                        r.flags &= ~1;
+                        if (newMsgObj.reply_to != null) {
+                            newMsgObj.flags &= ~8;
+                        }
+                        performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
+                        return;
+                    } else if (error != null && "MESSAGE_ID_INVALID".equalsIgnoreCase(error.text) && req instanceof TLRPC.TL_messages_sendMedia && ((TLRPC.TL_messages_sendMedia) req).reply_to != null) {
+                        final TLRPC.TL_messages_sendMedia r = (TLRPC.TL_messages_sendMedia) req;
+                        r.reply_to = null;
+                        r.flags &= ~1;
+                        if (newMsgObj.reply_to != null) {
+                            newMsgObj.flags &= ~8;
+                        }
+                        performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
+                        return;
                     } else {
                         AlertsCreator.processError(currentAccount, error, null, req);
                         isSentError = true;

@@ -18,7 +18,8 @@ import tw.nekomimi.nekogram.NekoConfig;
 public class AyuState {
     private static final AyuStateVariable allowReadPacket = new AyuStateVariable();
     private static final AyuStateVariable hideSelection = new AyuStateVariable();
-    private static final LongSparseArray<ArrayList<Integer>> deletePermitted = new LongSparseArray<>();
+    private static final java.util.concurrent.ConcurrentHashMap<Long, java.util.concurrent.ConcurrentHashMap<Integer, Long>> deletePermitted = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long PERMITTED_DELETE_TIMEOUT_MS = 120_000L;
 
     public static void setAllowReadPacket(boolean val, int resetAfter) {
         allowReadPacket.val = val;
@@ -39,30 +40,40 @@ public class AyuState {
     }
 
     public static void permitDeleteMessage(long dialogId, int messageId) {
-        var list = deletePermitted.get(dialogId);
-        if (list == null) {
-            list = new ArrayList<>();
-            deletePermitted.put(dialogId, list);
-        }
-
-        list.add(messageId);
+        long now = System.currentTimeMillis();
+        deletePermitted.computeIfAbsent(dialogId, k -> new java.util.concurrent.ConcurrentHashMap<>()).put(messageId, now);
+        deletePermitted.computeIfAbsent(0L, k -> new java.util.concurrent.ConcurrentHashMap<>()).put(messageId, now);
     }
 
     public static boolean isDeletePermitted(long dialogId, int messageId) {
-        var list = deletePermitted.get(dialogId);
-        if (list == null) {
-            return false;
-        }
+        long now = System.currentTimeMillis();
+        if (checkMap(deletePermitted.get(dialogId), messageId, now)) return true;
+        if (dialogId != 0 && checkMap(deletePermitted.get(-dialogId), messageId, now)) return true;
+        if (checkMap(deletePermitted.get(0L), messageId, now)) return true;
+        return false;
+    }
 
-        return list.contains(messageId);
+    private static boolean checkMap(java.util.concurrent.ConcurrentHashMap<Integer, Long> map, int messageId, long now) {
+        if (map == null) return false;
+        Long time = map.get(messageId);
+        if (time != null) {
+            if (now - time < PERMITTED_DELETE_TIMEOUT_MS) {
+                return true;
+            } else {
+                map.remove(messageId);
+            }
+        }
+        return false;
     }
 
     public static void messageDeleted(long dialogId, int messageId) {
-        var list = deletePermitted.get(dialogId);
-        if (list == null) {
-            return;
+        var map = deletePermitted.get(dialogId);
+        if (map != null) {
+            map.remove(messageId);
         }
-
-        list.remove((Object) messageId);
+        var map0 = deletePermitted.get(0L);
+        if (map0 != null) {
+            map0.remove(messageId);
+        }
     }
 }

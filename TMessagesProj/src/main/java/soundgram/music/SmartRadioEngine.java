@@ -70,11 +70,24 @@ public final class SmartRadioEngine {
         isLoading = true;
 
         String genre = currentConfig.query != null ? currentConfig.query : "default";
-        List<String> seeds = SeedSelector.selectSeedsByGenre(genre);
+        sSeedExecutor.execute(() -> {
+            try {
+                List<String> seeds = SeedSelector.selectSeedsByGenre(genre, sCancelFlag);
+                if (sCancelFlag.get() || !isWaveActive) return;
 
-        WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
-        sCurrentManager = manager;
-        manager.startSession(seeds, WaveQueueManager.MODE_GENRE, genre);
+                synchronized (SmartRadioEngine.class) {
+                    if (!isWaveActive) return;
+                    WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
+                    sCurrentManager = manager;
+                    manager.startSession(seeds, WaveQueueManager.MODE_GENRE, genre);
+                }
+            } catch (Exception e) {
+                FileLog.e(TAG + " generateWaveFromSettings error", e);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (callback != null) callback.onError();
+                });
+            }
+        });
     }
 
     /**

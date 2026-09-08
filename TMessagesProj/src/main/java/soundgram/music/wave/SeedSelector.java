@@ -199,14 +199,75 @@ public final class SeedSelector {
 
     private SeedSelector() {}
 
+    public static String getGenreSearchQuery(String genre) {
+        if (genre == null || genre.trim().isEmpty() || genre.equalsIgnoreCase("Любой жанр") || genre.equalsIgnoreCase("Любой") || genre.equalsIgnoreCase("default")) {
+            return "лучшие популярные треки";
+        }
+        String key = genre.toLowerCase().trim();
+        String norm = key.replace("-", "").replace(" ", "");
+        if (norm.contains("рок") || norm.contains("rock")) return "русский рок популярное хиты";
+        if (norm.contains("фонк") || norm.contains("phonk")) return "phonk drift популярное";
+        if (norm.contains("постпанк") || norm.contains("postpunk")) return "пост-панк популярное";
+        if (norm.contains("хипхоп") || norm.contains("hiphop") || norm.contains("рэп") || norm.contains("rap")) return "хип хоп рэп хиты";
+        if (norm.contains("поп") || norm.contains("pop")) return "поп музыка популярные хиты";
+        if (norm.contains("инди") || norm.contains("indie")) return "инди рок хиты";
+        if (norm.contains("гиперпоп") || norm.contains("hyperpop")) return "гиперпоп hyperpop";
+        if (norm.contains("эморэп") || norm.contains("emorap")) return "эмо рэп";
+        if (norm.contains("метал") || norm.contains("metal")) return "метал рок хиты";
+        if (norm.contains("альтернатива") || norm.contains("alternative")) return "альтернативный рок";
+        if (norm.contains("кпоп") || norm.contains("kpop")) return "k-pop popular hits";
+        if (norm.contains("джаз") || norm.contains("jazz")) return "джаз популярное";
+        if (norm.contains("блюз") || norm.contains("blues")) return "блюз популярное";
+        if (norm.contains("классика") || norm.contains("classical") || norm.contains("classic")) return "классическая музыка шедевры";
+        if (norm.contains("электроника") || norm.contains("electronic") || norm.contains("edm")) return "электронная музыка edm";
+        if (norm.contains("синтвейв") || norm.contains("synthwave") || norm.contains("retrowave")) return "synthwave retrowave";
+        if (norm.contains("лофай") || norm.contains("lofi")) return "lofi hip hop chill";
+        if (norm.contains("эмбиент") || norm.contains("ambient")) return "ambient music";
+        return genre + " популярные треки";
+    }
+
+    public static List<InnerTubeClient.RawTrack> searchGenreSongs(String genre, int limit, AtomicBoolean cancelFlag) {
+        String query = getGenreSearchQuery(genre);
+        List<InnerTubeClient.RawTrack> tracks = InnerTubeClient.searchSongs(query, limit, cancelFlag);
+        if (tracks.isEmpty()) {
+            tracks = InnerTubeClient.searchSongs(genre, limit, cancelFlag);
+        }
+        return tracks;
+    }
+
     /**
-     * Выбор сидов по жанру (3 случайных трека-маяка из справочника).
-     * Работает синхронно и МГНОВЕННО (0 мс).
+     * Выбор сидов по жанру: динамический поиск реальных треков в InnerTube,
+     * с быстрым фолбэком на встроенный справочник при отсутствии сети.
      */
     public static List<String> selectSeedsByGenre(String genre) {
+        return selectSeedsByGenre(genre, null);
+    }
+
+    public static List<String> selectSeedsByGenre(String genre, AtomicBoolean cancelFlag) {
         if (genre == null || genre.trim().isEmpty() || genre.equalsIgnoreCase("Любой жанр") || genre.equalsIgnoreCase("Любой")) {
             genre = "default";
         }
+
+        // 1. Попытка получить свежие треки по жанру через InnerTube
+        List<InnerTubeClient.RawTrack> songs = searchGenreSongs(genre, 20, cancelFlag);
+        if (!songs.isEmpty()) {
+            List<InnerTubeClient.RawTrack> shuffled = new ArrayList<>(songs);
+            Collections.shuffle(shuffled, sRandom);
+            Set<String> seen = new HashSet<>();
+            List<String> seeds = new ArrayList<>();
+            for (InnerTubeClient.RawTrack t : shuffled) {
+                if (t != null && t.videoId != null && !t.videoId.isEmpty() && seen.add(t.videoId)) {
+                    seeds.add(t.videoId);
+                    if (seeds.size() >= 3) break;
+                }
+            }
+            if (!seeds.isEmpty()) {
+                FileLog.d(TAG + " selectSeedsByGenre for '" + genre + "' found " + seeds.size() + " live seeds");
+                return seeds;
+            }
+        }
+
+        // 2. Фолбэк на статический пул маяков при отсутствии сети
         String key = genre.toLowerCase().trim();
         String normalizedKey = key.replace("-", "").replace(" ", "");
 

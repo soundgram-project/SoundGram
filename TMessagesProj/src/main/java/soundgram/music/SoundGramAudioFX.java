@@ -110,13 +110,13 @@ public class SoundGramAudioFX {
     }
 
     public static void initFX(int audioSessionId) {
-        initFX(audioSessionId, true);
+        initFX(audioSessionId, false);
     }
 
     public static void initFX(int audioSessionId, boolean force) {
         if (audioSessionId <= 0) return;
         try {
-            if (force || currentSessionId != audioSessionId || equalizer == null) {
+            if (currentSessionId != audioSessionId || equalizer == null) {
                 releaseEffects();
                 currentSessionId = audioSessionId;
             }
@@ -135,15 +135,23 @@ public class SoundGramAudioFX {
             try {
                 if (equalizer == null) {
                     try {
-                        equalizer = new Equalizer(1000, audioSessionId);
-                    } catch (Exception e1) {
                         equalizer = new Equalizer(0, audioSessionId);
+                    } catch (Exception e1) {
+                        try {
+                            equalizer = new Equalizer(1000, audioSessionId);
+                        } catch (Exception e2) {
+                            FileLog.e("SoundGram EQ init err: " + e2);
+                        }
                     }
-                    for (short i = 0; i < equalizer.getNumberOfBands(); i++) {
-                        equalizer.setBandLevel(i, (short) prefs.getInt("band_" + i, 0));
+                    if (equalizer != null) {
+                        for (short i = 0; i < equalizer.getNumberOfBands(); i++) {
+                            equalizer.setBandLevel(i, (short) prefs.getInt("band_" + i, 0));
+                        }
                     }
                 }
-                equalizer.setEnabled(equalizerEnabled && musicPlaying);
+                if (equalizer != null) {
+                    equalizer.setEnabled(equalizerEnabled && musicPlaying);
+                }
             } catch (Exception e) { FileLog.e("SoundGram EQ init err: " + e); }
 
             try {
@@ -221,30 +229,71 @@ public class SoundGramAudioFX {
     public static void setEqualizerEnabled(boolean enabled) {
         getPrefs().edit().putBoolean("eq_enabled", enabled).apply();
         equalizerEnabled = enabled;
-        if (enabled) {
+        if (enabled && (equalizer == null || currentSessionId <= 0)) {
             try {
                 int sessionId = MediaController.getInstance().getAudioSessionId();
-                currentSessionId = -1;
-                initFX(sessionId);
-            } catch (Exception e) {
-                applyEqualizerState(true);
-            }
-        } else {
-            applyEqualizerState(false);
+                if (sessionId > 0) {
+                    initFX(sessionId, false);
+                }
+            } catch (Exception ignored) {}
         }
+        applyEqualizerState(enabled);
+    }
+
+    public static boolean hasActiveBands() {
+        if (equalizer == null) return false;
+        try {
+            short n = equalizer.getNumberOfBands();
+            for (short i = 0; i < n; i++) {
+                if (equalizer.getBandLevel(i) != 0) return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
     private static void applyEqualizerState(boolean enabled) {
         try {
             boolean effectiveEnabled = enabled && isMusicPlaying();
-            if (equalizer != null) equalizer.setEnabled(effectiveEnabled);
-            if (bassBoost != null) bassBoost.setEnabled(effectiveEnabled && savedBassLevel > 0);
-            if (reverb != null) reverb.setEnabled(effectiveEnabled && savedReverbPreset != PresetReverb.PRESET_NONE);
+            boolean activeBands = hasActiveBands();
+            if (equalizer != null) {
+                try {
+                    equalizer.setEnabled(effectiveEnabled && activeBands);
+                } catch (Exception e) {
+                    FileLog.e("SoundGram EQ setEnabled err: " + e);
+                }
+            }
+            if (bassBoost != null && bassBoost.getStrengthSupported()) {
+                try {
+                    bassBoost.setEnabled(effectiveEnabled && savedBassLevel > 0);
+                } catch (Exception e) {
+                    FileLog.e("SoundGram BassBoost setEnabled err: " + e);
+                }
+            }
+            if (reverb != null) {
+                try {
+                    reverb.setEnabled(effectiveEnabled && savedReverbPreset != PresetReverb.PRESET_NONE);
+                } catch (Exception e) {
+                    FileLog.e("SoundGram Reverb setEnabled err: " + e);
+                }
+            }
             if (virtualizer != null && virtualizer.getStrengthSupported()) {
-                virtualizer.setEnabled(effectiveEnabled && savedVirtualizerLevel > 0);
+                try {
+                    virtualizer.setEnabled(effectiveEnabled && savedVirtualizerLevel > 0);
+                } catch (Exception e) {
+                    FileLog.e("SoundGram Virtualizer setEnabled err: " + e);
+                }
             }
             if (android.os.Build.VERSION.SDK_INT >= 19 && loudnessEnhancer != null) {
-                loudnessEnhancer.setEnabled(effectiveEnabled && savedLoudnessGain > 0);
+                try {
+                    int targetGain = savedLoudnessGain;
+                    if (effectiveEnabled && activeBands && targetGain == 0) {
+                        targetGain = 180; // Компенсация затухания DSP эквалайзера, чтобы трек не чах
+                    }
+                    loudnessEnhancer.setTargetGain(targetGain);
+                    loudnessEnhancer.setEnabled(effectiveEnabled && targetGain > 0);
+                } catch (Exception e) {
+                    FileLog.e("SoundGram Loudness setEnabled err: " + e);
+                }
             }
             FileLog.d("SoundGram EQ state changed to: " + effectiveEnabled);
         } catch (Exception e) {

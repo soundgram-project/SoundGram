@@ -42,24 +42,67 @@ public class AyuMessagesController {
     private static AyuMessagesController instance;
     private EditedMessageDao editedMessageDao;
     private DeletedMessageDao deletedMessageDao;
-    private final java.util.concurrent.ConcurrentHashMap<Long, java.util.HashSet<Integer>> skipSavingMessages = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, java.util.concurrent.ConcurrentHashMap<Integer, Long>> skipSavingMessages = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, java.util.concurrent.ConcurrentHashMap<Integer, Long>> saveForMyselfMessages = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long SKIP_SAVING_TIMEOUT_MS = 120_000L;
 
     public void skipSavingNextDelete(long dialogId, int messageId) {
-        skipSavingMessages.computeIfAbsent(dialogId, k -> new java.util.HashSet<>()).add(messageId);
+        long now = System.currentTimeMillis();
+        skipSavingMessages.computeIfAbsent(dialogId, k -> new java.util.concurrent.ConcurrentHashMap<>()).put(messageId, now);
+        skipSavingMessages.computeIfAbsent(0L, k -> new java.util.concurrent.ConcurrentHashMap<>()).put(messageId, now);
     }
 
     public void skipSavingNextDelete(long dialogId, List<Integer> messageIds) {
         if (messageIds == null || messageIds.isEmpty()) return;
-        skipSavingMessages.computeIfAbsent(dialogId, k -> new java.util.HashSet<>()).addAll(messageIds);
+        long now = System.currentTimeMillis();
+        var map = skipSavingMessages.computeIfAbsent(dialogId, k -> new java.util.concurrent.ConcurrentHashMap<>());
+        var map0 = skipSavingMessages.computeIfAbsent(0L, k -> new java.util.concurrent.ConcurrentHashMap<>());
+        for (Integer id : messageIds) {
+            if (id != null) {
+                map.put(id, now);
+                map0.put(id, now);
+            }
+        }
     }
 
     public boolean shouldSkipSaving(long dialogId, int messageId) {
-        java.util.HashSet<Integer> set = skipSavingMessages.get(dialogId);
-        if (set != null && set.remove(messageId)) {
-            if (set.isEmpty()) {
-                skipSavingMessages.remove(dialogId);
+        long now = System.currentTimeMillis();
+        if (checkSkipMap(skipSavingMessages.get(dialogId), messageId, now)) return true;
+        if (dialogId != 0 && checkSkipMap(skipSavingMessages.get(-dialogId), messageId, now)) return true;
+        if (checkSkipMap(skipSavingMessages.get(0L), messageId, now)) return true;
+        return false;
+    }
+
+    public void markSaveForMyself(long dialogId, List<Integer> messageIds) {
+        if (messageIds == null || messageIds.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        var map = saveForMyselfMessages.computeIfAbsent(dialogId, k -> new java.util.concurrent.ConcurrentHashMap<>());
+        var map0 = saveForMyselfMessages.computeIfAbsent(0L, k -> new java.util.concurrent.ConcurrentHashMap<>());
+        for (Integer id : messageIds) {
+            if (id != null) {
+                map.put(id, now);
+                map0.put(id, now);
             }
-            return true;
+        }
+    }
+
+    public boolean isSaveForMyself(long dialogId, int messageId) {
+        long now = System.currentTimeMillis();
+        if (checkSkipMap(saveForMyselfMessages.get(dialogId), messageId, now)) return true;
+        if (dialogId != 0 && checkSkipMap(saveForMyselfMessages.get(-dialogId), messageId, now)) return true;
+        if (checkSkipMap(saveForMyselfMessages.get(0L), messageId, now)) return true;
+        return false;
+    }
+
+    private static boolean checkSkipMap(java.util.concurrent.ConcurrentHashMap<Integer, Long> map, int messageId, long now) {
+        if (map == null) return false;
+        Long time = map.get(messageId);
+        if (time != null) {
+            if (now - time < SKIP_SAVING_TIMEOUT_MS) {
+                return true;
+            } else {
+                map.remove(messageId);
+            }
         }
         return false;
     }
@@ -223,11 +266,17 @@ public class AyuMessagesController {
     }
 
     private void onMessageDeletedInner(AyuSavePreferences prefs) {
-        if (shouldSkipSaving(prefs.getDialogId(), prefs.getMessageId())) {
-            delete(prefs.getUserId(), prefs.getDialogId(), prefs.getMessageId());
+        long dialogId = prefs.getDialogId();
+        int messageId = prefs.getMessageId();
+        boolean saveForMyself = isSaveForMyself(dialogId, messageId);
+        boolean isOutgoing = prefs.getMessage() != null && prefs.getMessage().out;
+        if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, messageId)
+                || shouldSkipSaving(dialogId, messageId)
+                || (isOutgoing && !saveForMyself)) {
+            delete(prefs.getUserId(), dialogId, messageId);
             return;
         }
-        if (!AyuSavePreferences.saveDeletedMessageFor(prefs.getAccountId(), prefs.getDialogId(), prefs.getFromUserId())) {
+        if (!AyuSavePreferences.saveDeletedMessageFor(prefs.getAccountId(), dialogId, prefs.getFromUserId())) {
             return;
         }
 
