@@ -24,30 +24,36 @@ public class LauncherIconController {
         return i == PackageManager.COMPONENT_ENABLED_STATE_ENABLED || i == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && icon == LauncherIcon.DEFAULT;
     }
 
-    private static final String[] ALL_LAUNCHER_KEYS = {
-        "DefaultIcon",
-        "BlueIcon",
-        "DarkBlueIcon",
-        "BlurBlueIcon",
-        "TelegramIcon",
-        "VintageIcon",
-        "AquaIcon",
-        "PremiumIcon",
-        "TurboIcon",
-        "NoxIcon"
-    };
+    // Все алиасы в AndroidManifest.xml. Должны совпадать с ключами LauncherIcon enum.
+    // При смене иконки все неактивные алиасы отключаются, активный — включается.
+    private static String[] getAllLauncherKeys() {
+        LauncherIcon[] icons = LauncherIcon.values();
+        String[] keys = new String[icons.length];
+        for (int i = 0; i < icons.length; i++) {
+            keys[i] = icons[i].key;
+        }
+        return keys;
+    }
 
     public static void setIcon(LauncherIcon icon) {
         Context ctx = ApplicationLoader.applicationContext;
         PackageManager pm = ctx.getPackageManager();
         try {
-            ComponentName newComponent = icon.getComponentName(ctx);
-            pm.setComponentEnabledSetting(newComponent, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+            String[] allKeys = getAllLauncherKeys();
             String activeKey = icon.key;
-            for (String key : ALL_LAUNCHER_KEYS) {
+            // Сначала включаем новую иконку
+            // Флаг 0 (а не DONT_KILL_APP) — лончер подхватит изменение немедленно
+            ComponentName newComponent = icon.getComponentName(ctx);
+            pm.setComponentEnabledSetting(newComponent, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, 0);
+            // Затем отключаем все остальные
+            for (String key : allKeys) {
                 if (!key.equals(activeKey)) {
                     ComponentName comp = new ComponentName(ctx.getPackageName(), "org.telegram.messenger." + key);
-                    pm.setComponentEnabledSetting(comp, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                    try {
+                        pm.setComponentEnabledSetting(comp, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 0);
+                    } catch (Exception ignore) {
+                        // Алиас может отсутствовать в манифесте — игнорируем
+                    }
                 }
             }
         } catch (Exception e) {
