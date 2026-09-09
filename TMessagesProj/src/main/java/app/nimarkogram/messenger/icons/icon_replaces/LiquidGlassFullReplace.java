@@ -153,7 +153,7 @@ public final class LiquidGlassFullReplace extends BaseIconReplace {
         IconReplaceUtils.put(replaces, R.drawable.filled_username, R.drawable.filled_username_liquid);
         IconReplaceUtils.put(replaces, R.drawable.filled_verify_age, R.drawable.filled_verify_age_liquid);
         IconReplaceUtils.put(replaces, R.drawable.filled_video_group, R.drawable.calls_video_liquid);
-        IconReplaceUtils.put(replaces, R.drawable.filled_views, R.drawable.filled_sensitive_liquid);
+        IconReplaceUtils.put(replaces, R.drawable.filled_views, R.drawable.menu_views_recent_liquid);
         IconReplaceUtils.put(replaces, R.drawable.filled_voice_comment_32, R.drawable.filled_voice_comment_32_liquid);
         IconReplaceUtils.put(replaces, R.drawable.filled_widget_music, R.drawable.files_music_liquid);
         IconReplaceUtils.put(replaces, R.drawable.filter_airplane, R.drawable.filter_airplane_liquid);
@@ -1042,8 +1042,8 @@ public final class LiquidGlassFullReplace extends BaseIconReplace {
         IconReplaceUtils.put(replaces, R.drawable.msg_viewintopic_solar, R.drawable.menu_quickreply_liquid);
         IconReplaceUtils.put(replaces, R.drawable.msg_viewreplies, R.drawable.msg_markunread_liquid);
         IconReplaceUtils.put(replaces, R.drawable.msg_viewreplies_solar, R.drawable.msg_markunread_liquid);
-        IconReplaceUtils.put(replaces, R.drawable.msg_views, R.drawable.filled_sensitive_liquid);
-        IconReplaceUtils.put(replaces, R.drawable.msg_views_solar, R.drawable.filled_sensitive_liquid);
+        IconReplaceUtils.put(replaces, R.drawable.msg_views, R.drawable.menu_views_recent_liquid);
+        IconReplaceUtils.put(replaces, R.drawable.msg_views_solar, R.drawable.menu_views_recent_liquid);
         IconReplaceUtils.put(replaces, R.drawable.msg_voice_bluetooth, R.drawable.msg_call_bluetooth_liquid);
         IconReplaceUtils.put(replaces, R.drawable.msg_voice_bluetooth_solar, R.drawable.msg_call_bluetooth_liquid);
         IconReplaceUtils.put(replaces, R.drawable.msg_voice_headphones, R.drawable.bot_music_liquid);
@@ -2250,8 +2250,7 @@ public final class LiquidGlassFullReplace extends BaseIconReplace {
         noTint.add(R.drawable.msg_viewintopic_solar);
         noTint.add(R.drawable.msg_viewreplies);
         noTint.add(R.drawable.msg_viewreplies_solar);
-        noTint.add(R.drawable.msg_views);
-        noTint.add(R.drawable.msg_views_solar);
+        // msg_views теперь отображается через menu_views_recent_liquid — тонируемая иконка, noTint не нужен
         noTint.add(R.drawable.msg_voice_bluetooth);
         noTint.add(R.drawable.msg_voice_bluetooth_solar);
         noTint.add(R.drawable.msg_voice_headphones);

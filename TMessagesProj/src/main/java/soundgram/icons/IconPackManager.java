@@ -114,7 +114,7 @@ public class IconPackManager {
 
         // Share & Views
         addAliasBidirectional("msg_share", "filled_share", "outline_share_out_24", "msg_share_solar", "msg_shareout", "share", "action_share", "filled_button_share");
-        addAliasBidirectional("msg_views", "filled_views", "msg_views_solar");
+        addAliasBidirectional("msg_views", "filled_views", "msg_views_solar", "icon_views", "channel_views", "eye", "outline_eye_24");
 
         // Gift & Link
         addAliasBidirectional("msg_gift", "filled_gift_premium", "msg_gift_solar", "filled_gift_simple", "gift", "settings_gift");
@@ -147,6 +147,50 @@ public class IconPackManager {
 
         // Crop / draw
         addAliasBidirectional("media_crop", "msg_photo_crop");
+
+        // icon_ prefix aliases (some icon packs use this naming convention)
+        addAliasBidirectional("icon_settings", "msg_settings");
+        addAliasBidirectional("icon_back", "ic_ab_back");
+        addAliasBidirectional("icon_search", "ic_ab_search");
+        addAliasBidirectional("icon_close", "msg_close");
+        addAliasBidirectional("icon_delete", "msg_delete");
+        addAliasBidirectional("icon_edit", "msg_edit");
+        addAliasBidirectional("icon_share", "msg_share");
+        addAliasBidirectional("icon_pin", "msg_pin");
+        addAliasBidirectional("icon_forward", "msg_forward");
+        addAliasBidirectional("icon_reply", "msg_reply");
+        addAliasBidirectional("icon_mute", "msg_mute");
+        addAliasBidirectional("icon_add", "msg_add");
+        addAliasBidirectional("icon_check", "msg_check");
+        addAliasBidirectional("icon_info", "msg_info");
+        addAliasBidirectional("icon_camera", "msg_camera");
+        addAliasBidirectional("icon_call", "msg_calls");
+        addAliasBidirectional("icon_download", "msg_download");
+        addAliasBidirectional("icon_photo", "msg_photos");
+        addAliasBidirectional("icon_video", "msg_video");
+        addAliasBidirectional("icon_file", "msg_files");
+        addAliasBidirectional("icon_link", "msg_link");
+        addAliasBidirectional("icon_bot", "msg_bot");
+        addAliasBidirectional("icon_folder", "msg_folder");
+        addAliasBidirectional("icon_sticker", "msg_stickers");
+    }
+
+    /**
+     * Защищённые ключи иконок: значения этих ключей не могут быть переписаны
+     * файлами начинающимися с settings_ или settings.
+     */
+    private static final java.util.Set<String> VIEWS_PROTECTED_KEYS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "msg_views", "msg_views_solar", "filled_views", "icon_views", "channel_views", "eye",
+            "msg_data", "msg_data_solar", "settings_data", "msg2_data",
+            "msg_calls", "msg_calls_solar"
+    ));
+
+    private static boolean isSettingsFile(String relPath) {
+        if (relPath == null) return false;
+        String lower = relPath.toLowerCase(java.util.Locale.ROOT);
+        String fname = lower.contains("/") ? lower.substring(lower.lastIndexOf('/') + 1) : lower;
+        return fname.startsWith("settings_") || fname.equals("settings.png")
+                || fname.equals("settings.svg") || fname.equals("settings.webp");
     }
 
     public static IconPackManager getInstance() {
@@ -283,8 +327,23 @@ public class IconPackManager {
         } else if (key.startsWith("menu_")) {
             addIconMapping("msg_" + key.substring(5), val);
         } else if (key.startsWith("settings_")) {
-            addIconMapping("msg_" + key.substring(9), val);
-            addIconMapping("menu_" + key.substring(9), val);
+            // Безопасный маппинг settings_X → msg_X только для явно известных иконок настроек.
+            // Wildcard-маппинг убран: он ломал msg_views, msg_data и другие иконки,
+            // если иконпак содержал файлы settings_views.png, settings_data.png и т.д.
+            String suffix = key.substring(9); // часть после "settings_"
+            // Только иконки, которые реально относятся к настройкам:
+            if (suffix.equals("arrow") || suffix.equals("account") || suffix.equals("ask")
+                    || suffix.equals("business") || suffix.equals("calls") || suffix.equals("filters")
+                    || suffix.equals("language") || suffix.equals("notifications")
+                    || suffix.equals("passlock") || suffix.equals("premium")
+                    || suffix.equals("privacy") || suffix.equals("stickers")
+                    || suffix.equals("storage") || suffix.equals("themes")
+                    || suffix.equals("main") || suffix.equals("general")) {
+                addIconMapping("msg_" + suffix, val);
+                addIconMapping("menu_" + suffix, val);
+            }
+            // Для "settings" как самостоятельного имени — маппим только на msg_settings
+            // (через ALIASES это уже происходит автоматически)
         }
 
         String[] aliases = ALIASES.get(key);
@@ -329,6 +388,12 @@ public class IconPackManager {
 
     private void addIconMapping(String key, String relPath) {
         if (key == null || key.isEmpty() || relPath == null || relPath.isEmpty()) return;
+        // Защита от неправильного маппинга: иконки просмотров и данных не должны маппиться на файлы settings_*
+        String lowerKey = key.toLowerCase(Locale.ROOT);
+        if (VIEWS_PROTECTED_KEYS.contains(lowerKey) && isSettingsFile(relPath)) {
+            FileLog.d("IconPackManager: blocked settings-file mapping for protected key '" + key + "' -> '" + relPath + "'");
+            return;
+        }
         currentIconMap.putIfAbsent(key, relPath);
     }
 
