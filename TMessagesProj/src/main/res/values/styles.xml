@@ -18,6 +18,38 @@
         <item name="android:windowSplashScreenBackground">@android:color/white</item>
     </style>
 
+    <style name="Theme.TMessages.Start.DefaultIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+    </style>
+
+    <style name="Theme.TMessages.Start.BlueIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+    </style>
+
+    <style name="Theme.TMessages.Start.TelegramIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_dr</item>
+    </style>
+
+    <style name="Theme.TMessages.Start.VintageIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_6_launcher</item>
+    </style>
+
+    <style name="Theme.TMessages.Start.AquaIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_4_launcher</item>
+    </style>
+
+    <style name="Theme.TMessages.Start.PremiumIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_3_launcher</item>
+    </style>
+
+    <style name="Theme.TMessages.Start.TurboIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_5_launcher</item>
+    </style>
+
+    <style name="Theme.TMessages.Start.NoxIcon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_2_launcher</item>
+    </style>
+
     <style name="Theme.TMessages" parent="Theme.AppCompat.Light">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
