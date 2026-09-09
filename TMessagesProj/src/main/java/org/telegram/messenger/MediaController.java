@@ -4094,21 +4094,27 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (audioPlayer.player != null && reporter != null) {
                     audioPlayer.player.addListener(reporter.getPlayerListener(audioPlayer.player));
                 }
-                audioPlayer.setStreamType(useFrontSpeaker ? AudioManager.STREAM_VOICE_CALL : AudioManager.STREAM_MUSIC);
-                audioPlayer.play();
                 if (!messageObject.isVoice()) {
                     if (audioVolumeAnimator != null) {
                         audioVolumeAnimator.removeAllListeners();
                         audioVolumeAnimator.cancel();
                     }
-                    audioVolumeAnimator = ValueAnimator.ofFloat(audioVolume, 1f);
-                    audioVolumeAnimator.addUpdateListener(audioVolumeUpdateListener);
-                    audioVolumeAnimator.setDuration(300);
-                    audioVolumeAnimator.start();
+                    // Устанавливаем громкость в 0 ДО вызова play(), чтобы избежать любого резкого всплеска звука
+                    audioVolume = 0f;
+                    setPlayerVolume();
                 } else {
                     audioVolume = 1f;
                     setPlayerVolume();
                 }
+                audioPlayer.setStreamType(useFrontSpeaker ? AudioManager.STREAM_VOICE_CALL : AudioManager.STREAM_MUSIC);
+                audioPlayer.play();
+                if (!messageObject.isVoice()) {
+                    audioVolumeAnimator = ValueAnimator.ofFloat(0f, 1f);
+                    audioVolumeAnimator.addUpdateListener(audioVolumeUpdateListener);
+                    audioVolumeAnimator.setDuration(250);
+                    audioVolumeAnimator.start();
+                }
+
             } catch (Exception e) {
                 FileLog.e(e);
                 NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingPlayStateChanged, playingMessageObject != null ? playingMessageObject.getId() : 0);
