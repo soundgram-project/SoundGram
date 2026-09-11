@@ -34,7 +34,8 @@ public class NimarkoIconResources extends Resources {
                     org.telegram.messenger.R.drawable.msg_autodelete_badge2,
                     org.telegram.messenger.R.drawable.msg_autodelete_badge2_solar,
                     org.telegram.messenger.R.drawable.msg_mini_autodelete_empty,
-                    org.telegram.messenger.R.drawable.msg_mini_autodelete_empty_solar
+                    org.telegram.messenger.R.drawable.msg_mini_autodelete_empty_solar,
+                    org.telegram.messenger.R.drawable.forwards_solar
             ));
 
     private static final java.util.Set<Integer> STOCK_COMPOSER_DRAWABLES =
@@ -432,6 +433,9 @@ public class NimarkoIconResources extends Resources {
         if (Boolean.TRUE.equals(soundgram.icons.IconPackManager.getInstance().isFetchingOrig())) {
             return loadRaw(stockId, density, theme);
         }
+        if (NON_SKINNABLE_DRAWABLES.contains(stockId)) {
+            return loadRaw(stockId, density, theme);
+        }
         if (soundgram.icons.IconPackManager.getInstance().hasActivePack()) {
             try {
                 String resName = getResourceEntryName(stockId);
@@ -466,8 +470,7 @@ public class NimarkoIconResources extends Resources {
                 }
             } catch (Throwable ignored) {}
         }
-        if (NON_SKINNABLE_DRAWABLES.contains(stockId)
-                || STOCK_COMPOSER_DRAWABLES.contains(stockId)) {
+        if (STOCK_COMPOSER_DRAWABLES.contains(stockId)) {
             return loadRaw(stockId, density, theme);
         }
         final int wrappedId = replacement != null ? replacement.wrap(stockId) : stockId;

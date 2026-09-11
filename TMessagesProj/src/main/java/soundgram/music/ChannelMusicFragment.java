@@ -318,8 +318,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     public void checkOrCreateMusicChannel() {
         long userId = getValidUserId(currentAccount);
-        final String targetChannelTitle = userId != 0 ? "SoundGram Music (" + userId + ")" : "SoundGram Music";
-        final String userSoundGramTitle = userId != 0 ? userId + "SoundGram" : "SoundGram";
+        final String targetChannelTitle = "id" + userId + "soundgram";
+        final String userSoundGramTitle = userId != 0 ? ("id" + userId + "soundgram") : "soundgram";
 
         // 1. Проверяем сохранённый ID канала для этого аккаунта
         long savedId = getChannelIdFromFile();
@@ -377,6 +377,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         if (title == null) return false;
         String t = title.trim();
         if (target.equalsIgnoreCase(t) || userTitle.equalsIgnoreCase(t)) return true;
+        if (t.equalsIgnoreCase("id" + getValidUserId(currentAccount) + "soundgram")) return true;
         if ("SoundGram Music".equalsIgnoreCase(t) || "SoundGram".equalsIgnoreCase(t)) return true;
         if ("SoundGram Music (0)".equalsIgnoreCase(t)) return true;
         // Дополнительная проверка: любой "SoundGram Music (число)" канал где мы creator
@@ -385,14 +386,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
     private TLRPC.Chat findSoundGramChannelInMemory(String targetTitle, String userTitle) {
+        long userId = getValidUserId(currentAccount);
+        String requiredUsername = "id" + userId + "soundgram";
+
         // Сначала ищем в диалогах
         ArrayList<TLRPC.Dialog> allDialogs = MessagesController.getInstance(currentAccount).getAllDialogs();
         if (allDialogs != null) {
             for (TLRPC.Dialog dialog : allDialogs) {
                 if (dialog.id < 0) {
                     TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialog.id);
-                    if (chat != null && isSoundGramAdmin(chat) && isSoundGramChannelTitle(chat.title, targetTitle, userTitle)) {
-                        return chat;
+                    if (chat != null && isSoundGramAdmin(chat)) {
+                        if (!TextUtils.isEmpty(chat.username) && chat.username.equalsIgnoreCase(requiredUsername)) {
+                            return chat;
+                        }
+                        if (isSoundGramChannelTitle(chat.title, targetTitle, userTitle)) {
+                            return chat;
+                        }
                     }
                 }
             }
@@ -402,8 +411,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         java.util.concurrent.ConcurrentHashMap<Long, TLRPC.Chat> chats = MessagesController.getInstance(currentAccount).getChats();
         if (chats != null) {
             for (TLRPC.Chat chat : chats.values()) {
-                if (chat != null && isSoundGramAdmin(chat) && isSoundGramChannelTitle(chat.title, targetTitle, userTitle)) {
-                    return chat;
+                if (chat != null && isSoundGramAdmin(chat)) {
+                    if (!TextUtils.isEmpty(chat.username) && chat.username.equalsIgnoreCase(requiredUsername)) {
+                        return chat;
+                    }
+                    if (isSoundGramChannelTitle(chat.title, targetTitle, userTitle)) {
+                        return chat;
+                    }
                 }
             }
         }
@@ -726,11 +740,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 waveWidget.startAnimation();
                 AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                 AudioPlayerAlert.currentSourceLabel = "";
+                try {
+                    org.telegram.ui.Components.BulletinFactory.global().createSimpleBulletin(org.telegram.ui.LauncherIconController.getActiveIconDrawable(context), getString(R.string.sg_wave_generating)).show();
+                } catch (Throwable e) {
+                    android.widget.Toast.makeText(context, getString(R.string.sg_wave_generating), android.widget.Toast.LENGTH_SHORT).show();
+                }
                 SmartRadioEngine.stopWaveSession();
                 SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                         if (!tracks.isEmpty()) {
-                            SharedConfig.setPlaybackOrderType(1);
                             MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
                             MediaController.getInstance().playMessage(tracks.get(0));
                         }
@@ -1592,8 +1610,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         0, 0, 0, 20));
 
         // Данные статистики
-        SharedPreferences prefs = ApplicationLoader.applicationContext
-                .getSharedPreferences("soundgram_stats", Context.MODE_PRIVATE);
+        SharedPreferences prefs = SoundGramStatsManager.getStatsPrefs(currentAccount);
         int totalTracks = prefs.getInt("total_tracks", 0);
         long totalSeconds = prefs.getLong("total_seconds", 0L);
         long days = totalSeconds / 86400, hours = (totalSeconds % 86400) / 3600;
@@ -1921,7 +1938,31 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             File thumbFile = (thumbPath != null && new File(thumbPath).exists()) ? new File(thumbPath) : null;
             MusicWebSearcher.embedId3v2Cover(file, thumbFile, title, artist);
 
-            long targetPeer = channelId < 0 ? channelId : -channelId;
+            long rawChannelId = Math.abs(channelId);
+            long targetPeer = -rawChannelId;
+
+            MessagesController mc = MessagesController.getInstance(account);
+            TLRPC.Chat chat = mc.getChat(rawChannelId);
+            long accessHash = getChannelHashFromFile(account);
+            if (chat == null || !ChatObject.isChannel(chat)) {
+                chat = AccountInstance.getInstance(account).getMessagesStorage().getChatSync(rawChannelId);
+            }
+            if (chat == null || !ChatObject.isChannel(chat)) {
+                TLRPC.TL_channel newChannel = new TLRPC.TL_channel();
+                newChannel.id = rawChannelId;
+                newChannel.access_hash = accessHash;
+                long uid = getValidUserId(account);
+                newChannel.title = "id" + uid + "soundgram";
+                newChannel.broadcast = true;
+                chat = newChannel;
+                mc.putChat(chat, true);
+                ArrayList<TLRPC.Chat> chats = new ArrayList<>();
+                chats.add(chat);
+                AccountInstance.getInstance(account).getMessagesStorage().putUsersAndChats(null, chats, true, true);
+            } else if (chat.access_hash == 0 && accessHash != 0) {
+                chat.access_hash = accessHash;
+                mc.putChat(chat, true);
+            }
 
             SendMessagesHelper.prepareSendingDocument(
                     AccountInstance.getInstance(account),
@@ -2859,7 +2900,49 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             long prefHash = MessagesController.getNotificationsSettings(account).getLong("music_channel_hash_" + userId, 0);
             if (prefHash != 0) return prefHash;
         }
-        return MessagesController.getNotificationsSettings(account).getLong("music_channel_hash_acc" + account, 0);
+        long prefAccHash = MessagesController.getNotificationsSettings(account).getLong("music_channel_hash_acc" + account, 0);
+        if (prefAccHash != 0) return prefAccHash;
+
+        File dir = getUserStorageDir(account);
+        if (dir != null) {
+            File[] candidateFiles = userId != 0 ? new File[]{
+                    new File(dir, "music_channel_id_" + userId + ".txt"),
+                    new File(dir, "music_channel_id_acc" + account + ".txt"),
+                    new File(dir, "music_channel_id_0.txt"),
+                    new File(dir, "music_channel_id.txt")
+            } : new File[]{
+                    new File(dir, "music_channel_id_acc" + account + ".txt"),
+                    new File(dir, "music_channel_id_0.txt"),
+                    new File(dir, "music_channel_id.txt")
+            };
+
+            for (File file : candidateFiles) {
+                if (file != null && file.exists()) {
+                    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                        String line = reader.readLine();
+                        if (line != null && !TextUtils.isEmpty(line.trim())) {
+                            String trimmed = line.trim();
+                            if (trimmed.contains(":")) {
+                                String[] parts = trimmed.split(":");
+                                if (parts.length > 1) {
+                                    long fHash = Long.parseLong(parts[1].trim());
+                                    if (fHash != 0) {
+                                        SharedPreferences.Editor editor = MessagesController.getNotificationsSettings(account).edit();
+                                        if (userId != 0) {
+                                            editor.putLong("music_channel_hash_" + userId, fHash);
+                                        }
+                                        editor.putLong("music_channel_hash_acc" + account, fHash);
+                                        editor.apply();
+                                        return fHash;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) { e.printStackTrace(); }
+                }
+            }
+        }
+        return 0;
     }
 
     public static long getChannelIdFromFile(int account) {
@@ -2895,13 +2978,26 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
                         String line = reader.readLine();
                         if (line != null && !TextUtils.isEmpty(line.trim())) {
-                            long id = Long.parseLong(line.trim());
+                            String trimmed = line.trim();
+                            String idStr = trimmed.contains(":") ? trimmed.split(":")[0].trim() : trimmed;
+                            long id = Long.parseLong(idStr);
+                            long fHash = 0;
+                            if (trimmed.contains(":")) {
+                                String[] parts = trimmed.split(":");
+                                if (parts.length > 1) {
+                                    try {
+                                        fHash = Long.parseLong(parts[1].trim());
+                                    } catch (Exception ignored) {}
+                                }
+                            }
                             if (id != 0) {
                                 SharedPreferences.Editor editor = MessagesController.getNotificationsSettings(account).edit();
                                 if (userId != 0) {
                                     editor.putLong("music_channel_id_" + userId, id);
+                                    if (fHash != 0) editor.putLong("music_channel_hash_" + userId, fHash);
                                 }
                                 editor.putLong("music_channel_id_acc" + account, id);
+                                if (fHash != 0) editor.putLong("music_channel_hash_acc" + account, fHash);
                                 editor.apply();
                                 return id;
                             }
@@ -3081,7 +3177,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         builder.setPositiveButton(getString(R.string.MusicStorageCreateAuto), (dialog, which) -> {
             setupPromptShowing = false;
             long userId = getValidUserId(currentAccount);
-            String title = userId != 0 ? "SoundGram Music (" + userId + ")" : "SoundGram Music";
+            String title = "id" + userId + "soundgram";
             createMusicChannel(title);
         });
         builder.setNegativeButton(getString(R.string.MusicStorageLinkOwn), (dialog, which) -> {
@@ -3109,7 +3205,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(chatId);
                     if (chat != null && !addedIds.contains(chat.id)) {
                         boolean isAdmin = chat.creator || (chat.admin_rights != null && (chat.admin_rights.post_messages || chat.admin_rights.edit_messages || chat.admin_rights.change_info));
-                        if (isAdmin && (ChatObject.isChannel(chat) || ChatObject.isMegagroup(chat))) {
+                        boolean isPublic = !TextUtils.isEmpty(chat.username);
+                        if (isAdmin && isPublic && (ChatObject.isChannel(chat) || ChatObject.isMegagroup(chat))) {
                             adminChats.add(chat);
                             addedIds.add(chat.id);
                         }
@@ -3123,7 +3220,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             for (TLRPC.Chat chat : chatsMap.values()) {
                 if (chat != null && !addedIds.contains(chat.id)) {
                     boolean isAdmin = chat.creator || (chat.admin_rights != null && (chat.admin_rights.post_messages || chat.admin_rights.edit_messages || chat.admin_rights.change_info));
-                    if (isAdmin && (ChatObject.isChannel(chat) || ChatObject.isMegagroup(chat))) {
+                    boolean isPublic = !TextUtils.isEmpty(chat.username);
+                    if (isAdmin && isPublic && (ChatObject.isChannel(chat) || ChatObject.isMegagroup(chat))) {
                         adminChats.add(chat);
                         addedIds.add(chat.id);
                     }
@@ -3131,14 +3229,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         }
 
+        long userId = getValidUserId(currentAccount);
         if (adminChats.isEmpty()) {
             AlertDialog.Builder emptyBuilder = new AlertDialog.Builder(finalAct);
             emptyBuilder.setTitle(getString(R.string.SoundGram));
-            emptyBuilder.setMessage(getString(R.string.MusicStorageNotFound));
+            emptyBuilder.setMessage("Для хранения музыки требуется публичный канал или группа с публичной ссылкой (@username), в котором у вас есть права администратора.\n\nПодходящих публичных каналов не найдено. Создать персональный канал id" + userId + "soundgram автоматически?");
             emptyBuilder.setPositiveButton(getString(R.string.MusicStorageCreateAuto), (d, w) -> {
-                long userId = getValidUserId(currentAccount);
-                String title = userId != 0 ? "SoundGram Music (" + userId + ")" : "SoundGram Music";
-                createMusicChannel(title);
+                createMusicChannel("id" + userId + "soundgram");
             });
             emptyBuilder.setNegativeButton(getString(R.string.cancel), null);
             emptyBuilder.show();
@@ -3147,6 +3244,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         AlertDialog.Builder builder = new AlertDialog.Builder(finalAct);
         builder.setTitle(getString(R.string.MusicStorageSelect));
+        builder.setMessage("Выберите публичный канал или группу (@username) для хранения вашей музыки:");
 
         RecyclerListView listView = new RecyclerListView(finalAct);
         listView.setLayoutManager(new LinearLayoutManager(finalAct, LinearLayoutManager.VERTICAL, false));
@@ -3172,6 +3270,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 ProfileSearchCell cell = (ProfileSearchCell) holder.itemView;
                 TLRPC.Chat chat = adminChats.get(position);
                 String subtext = ChatObject.isChannelAndNotMegaGroup(chat) ? getString(R.string.MusicStorageChannel) : getString(R.string.MusicStorageGroup);
+                if (!TextUtils.isEmpty(chat.username)) {
+                    subtext += " • @" + chat.username;
+                }
                 if (chat.participants_count > 0) {
                     subtext += " • " + LocaleController.formatPluralString("Members", chat.participants_count);
                 }
@@ -3210,12 +3311,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         final Activity finalAct = activity;
 
         long userId = getValidUserId(currentAccount);
-        if (TextUtils.isEmpty(title) || "SoundGram Music (0)".equalsIgnoreCase(title)) {
-            title = userId != 0 ? "SoundGram Music (" + userId + ")" : "SoundGram Music";
-        }
+        String channelName = "id" + userId + "soundgram";
 
         TLRPC.TL_channels_createChannel req = new TLRPC.TL_channels_createChannel();
-        req.title = title; req.about = "Storage"; req.broadcast = true; req.megagroup = false;
+        req.title = channelName; req.about = "SoundGram Storage"; req.broadcast = true; req.megagroup = false;
         ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
             if (error == null && response instanceof TLRPC.Updates) {
                 TLRPC.Updates updates = (TLRPC.Updates) response;
@@ -3229,6 +3328,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             loadMusicFromChannel();
                             if (finalAct != null) {
                                 Toast.makeText(finalAct, getString(R.string.MusicStorageCreated), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+
+                        TLRPC.TL_channels_updateUsername updateUsernameReq = new TLRPC.TL_channels_updateUsername();
+                        TLRPC.TL_inputChannel inputChannel = new TLRPC.TL_inputChannel();
+                        inputChannel.channel_id = chat.id;
+                        inputChannel.access_hash = chat.access_hash;
+                        updateUsernameReq.channel = inputChannel;
+                        updateUsernameReq.username = channelName;
+                        ConnectionsManager.getInstance(currentAccount).sendRequest(updateUsernameReq, (uResp, uErr) -> {
+                            if (uErr == null && uResp instanceof TLRPC.Updates) {
+                                MessagesController.getInstance(currentAccount).processUpdates((TLRPC.Updates) uResp, false);
                             }
                         });
                         break;

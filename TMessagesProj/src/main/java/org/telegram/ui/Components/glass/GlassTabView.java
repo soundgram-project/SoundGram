@@ -327,83 +327,172 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
             android.graphics.drawable.Drawable customTab = null;
 
             if (isSelected) {
-                String[] selectedQueries = {
-                    "tabs_" + tabName + "_active_24",
-                    "tabs_" + singular + "_active_24",
-                    "tabs_" + tabName + "_active",
-                    "tabs_" + singular + "_active",
-                    "tab_" + tabName + "_active_24",
-                    "tab_" + singular + "_active_24",
-                    "tab_" + tabName + "_active",
-                    "tab_" + singular + "_active",
-                    "tabs_" + tabName + "_filled",
-                    "tabs_" + singular + "_filled",
-                    "tab_" + tabName + "_filled",
-                    "tab_" + singular + "_filled",
-                    "tabs_" + tabName + "_selected",
-                    "tabs_" + singular + "_selected",
-                    "tab_" + tabName + "_selected",
-                    "tab_" + singular + "_selected"
-                };
-                for (String q : selectedQueries) {
-                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
-                    if (customTab != null) break;
+                if ("settings".equals(tabName)) {
+                    String[] settingsSelected = {
+                        "filled_profile_settings", "tab_settings_active", "tabs_settings_active_24",
+                        "tab_settings_active_24", "tabs_settings_active", "tab_settings_filled",
+                        "tabs_settings_filled", "tab_settings_selected", "tabs_settings_selected",
+                        "settings_active", "settings_filled", "menu_settings_filled",
+                        "msg_settings_old", "menu_settings_active"
+                    };
+                    for (String q : settingsSelected) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
+                } else if ("music".equals(tabName)) {
+                    String[] musicSelected = {
+                        "filter_note_active", "filter_note_filled", "files_music_active",
+                        "tabs_music_active_24", "tab_music_active_24",
+                        "tabs_music_active", "tab_music_active",
+                        "tabs_music_filled", "tab_music_filled",
+                        "tabs_music_selected", "tab_music_selected",
+                        "music_active", "music_filled",
+                        "tab_audio_active", "tabs_audio_active", "audio_active", "audio_filled",
+                        "headphones_active", "headphones_filled",
+                        "music_note_active", "music_note_filled",
+                        "soundgram_active", "soundgram_filled"
+                    };
+                    for (String q : musicSelected) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
+                } else if ("chats".equals(tabName)) {
+                    String[] chatsSelected = {
+                        "tabs_chats_active_24", "tab_chats_active_24", "tabs_chats_active",
+                        "tab_chats_active", "tab_chats_filled", "tabs_chats_filled",
+                        "tab_chats_selected", "tabs_chats_selected"
+                    };
+                    for (String q : chatsSelected) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
+                } else if ("calls".equals(tabName)) {
+                    String[] callsSelected = {
+                        "tabs_calls_active_24", "tab_calls_active_24", "tabs_calls_active",
+                        "tab_calls_active", "tab_calls_filled", "tabs_calls_filled",
+                        "tab_calls_selected", "tabs_calls_selected"
+                    };
+                    for (String q : callsSelected) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
+                } else if ("contacts".equals(tabName)) {
+                    String[] contactsSelected = {
+                        "tabs_contact_active_24", "tabs_contacts_active_24", "tab_contacts_active_24",
+                        "tabs_contacts_active", "tabs_contact_active", "tab_contacts_active",
+                        "tab_contact_active", "tab_contacts_filled", "tab_contact_filled"
+                    };
+                    for (String q : contactsSelected) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
+                }
+
+                if (customTab == null) {
+                    String[] selectedQueries = {
+                        "tabs_" + tabName + "_active_24",
+                        "tabs_" + singular + "_active_24",
+                        "tabs_" + tabName + "_active",
+                        "tabs_" + singular + "_active",
+                        "tab_" + tabName + "_active_24",
+                        "tab_" + singular + "_active_24",
+                        "tab_" + tabName + "_active",
+                        "tab_" + singular + "_active",
+                        "tabs_" + tabName + "_filled",
+                        "tabs_" + singular + "_filled",
+                        "tab_" + tabName + "_filled",
+                        "tab_" + singular + "_filled",
+                        "tabs_" + tabName + "_selected",
+                        "tabs_" + singular + "_selected",
+                        "tab_" + tabName + "_selected",
+                        "tab_" + singular + "_selected"
+                    };
+                    for (String q : selectedQueries) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
                 }
             }
 
             if (customTab == null) {
-                String[] normalQueries = {
-                    "tabs_" + tabName + "_24",
-                    "tabs_" + singular + "_24",
-                    "tabs_" + tabName,
-                    "tabs_" + singular,
-                    "tab_" + tabName + "_24",
-                    "tab_" + singular + "_24",
-                    "tab_" + tabName,
-                    "tab_" + singular,
-                    "msg_" + tabName,
-                    "msg_" + singular,
-                    "menu_" + tabName,
-                    "menu_" + singular,
-                    tabName,
-                    singular
-                };
-                for (String q : normalQueries) {
-                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
-                    if (customTab != null) break;
+                if ("settings".equals(tabName)) {
+                    String[] settingsNormal = {
+                        "outline_profile_settings", "tab_settings", "tabs_settings_24",
+                        "tab_settings_24", "tabs_settings", "msg_settings", "menu_settings", "settings",
+                        "smiles_tab_settings"
+                    };
+                    for (String q : settingsNormal) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
+                } else if ("music".equals(tabName)) {
+                    String[] musicNormal = {
+                        "filter_note", "settings_sounds", "files_music", "files_music_24",
+                        "search_music", "tabs_music_24", "tab_music_24",
+                        "tabs_music", "tab_music",
+                        "msg_music", "menu_music",
+                        "music", "music_note", "headphones",
+                        "audio", "tab_audio", "tabs_audio",
+                        "soundgram_music", "soundgram",
+                        "tab_soundgram", "tabs_soundgram",
+                        "player", "music_tab"
+                    };
+                    for (String q : musicNormal) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
+                } else if ("calls".equals(tabName)) {
+                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("calls_call");
+                    if (customTab == null) customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_calls");
+                } else if ("contacts".equals(tabName)) {
+                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("profile_list");
+                    if (customTab == null) customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_contacts");
+                } else if ("chats".equals(tabName)) {
+                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_chats");
                 }
-            }
 
-            if (customTab == null && "settings".equals(tabName)) {
-                customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_settings");
                 if (customTab == null) {
-                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("menu_settings");
+                    String[] normalQueries = {
+                        "tabs_" + tabName + "_24",
+                        "tabs_" + singular + "_24",
+                        "tabs_" + tabName,
+                        "tabs_" + singular,
+                        "tab_" + tabName + "_24",
+                        "tab_" + singular + "_24",
+                        "tab_" + tabName,
+                        "tab_" + singular,
+                        "msg_" + tabName,
+                        "msg_" + singular,
+                        "menu_" + tabName,
+                        "menu_" + singular,
+                        tabName,
+                        singular
+                    };
+                    for (String q : normalQueries) {
+                        customTab = soundgram.icons.IconPackManager.getInstance().getDrawable(q);
+                        if (customTab != null) break;
+                    }
                 }
-                if (customTab == null) {
-                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_settings_old");
-                }
-            } else if (customTab == null && "calls".equals(tabName)) {
-                customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("calls_call");
-                if (customTab == null) {
-                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_calls");
-                }
-            } else if (customTab == null && "contacts".equals(tabName)) {
-                customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("profile_list");
-                if (customTab == null) {
-                    customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_contacts");
-                }
-            } else if (customTab == null && "chats".equals(tabName)) {
-                customTab = soundgram.icons.IconPackManager.getInstance().getDrawable("msg_chats");
             }
 
             if (customTab != null) {
+                if (imageView.getAnimatedDrawable() != null) {
+                    imageView.clearAnimationDrawable();
+                }
                 imageView.setImageDrawable(customTab);
+                if (animated && lastIsSelected != isSelected) {
+                    imageView.setScaleX(0.82f);
+                    imageView.setScaleY(0.82f);
+                    imageView.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(org.telegram.ui.Components.CubicBezierInterpolator.EASE_OUT_BACK).start();
+                }
+                lastIsSelected = isSelected;
                 updateColors();
                 return;
             }
         }
 
         if (tabAnimation.iconStatic != -1) {
+            imageView.clearAnimationDrawable();
             imageView.setImageResource(tabAnimation.iconStatic);
             updateColors();
             return;
@@ -414,7 +503,7 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
 
         if (tabAnimation.endFrameMid != -1) {
             boolean update = lastIsSelected != isSelected;
-            if (lastIconAnimationRaw != animationToSet) {
+            if (lastIconAnimationRaw != animationToSet || imageView.getAnimatedDrawable() == null) {
                 lastIconAnimationRaw = animationToSet;
                 imageView.setAnimation(animationToSet, 24, 24);
                 update = true;
@@ -488,6 +577,15 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
             }
             imageView.playAnimation();
         }
+    }
+
+    public void updateIcon() {
+        lastIconAnimationRaw = 0;
+        lastBotIconId = 0;
+        if (imageView != null) {
+            imageView.clearAnimationDrawable();
+        }
+        checkPlayAnimation(false);
     }
 
     public static GlassTabView createMainTab(Context context, Theme.ResourcesProvider resourcesProvider, TabAnimation tabAnimation, @StringRes int stringRes) {

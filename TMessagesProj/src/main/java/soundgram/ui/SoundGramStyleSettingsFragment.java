@@ -303,8 +303,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         row.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(16),
                 AndroidUtilities.dp(12), AndroidUtilities.dp(16));
 
-        SharedPreferences sp = ApplicationLoader.applicationContext
-                .getSharedPreferences("soundgram_stats", Context.MODE_PRIVATE);
+        SharedPreferences sp = soundgram.music.SoundGramStatsManager.getStatsPrefs(currentAccount);
         int   tt = sp.getInt("total_tracks", 0);
         long  ts = sp.getLong("total_seconds", 0L);
         long  h  = ts / 3600, m = (ts % 3600) / 60;

@@ -23,7 +23,51 @@ public class SoundGramStatsManager {
     private static boolean isSyncing = false;
     private static Runnable periodicSyncRunnable = null;
 
+    public static SharedPreferences getStatsPrefs(int account) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        String prefName = userId != 0 ? ("soundgram_stats_" + userId) : ("soundgram_stats_acc" + account);
+        SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences(prefName, Context.MODE_PRIVATE);
+        if (account == 0 && !prefs.contains("total_seconds") && !prefs.contains("total_tracks")) {
+            SharedPreferences legacy = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_stats", Context.MODE_PRIVATE);
+            long legSec = legacy.getLong("total_seconds", 0L);
+            int legTr = legacy.getInt("total_tracks", 0);
+            if (legSec > 0 || legTr > 0) {
+                prefs.edit().putLong("total_seconds", legSec).putInt("total_tracks", legTr).apply();
+            }
+        }
+        return prefs;
+    }
+
+    public static void recordPlaybackSecond(int account) {
+        SharedPreferences prefs = getStatsPrefs(account);
+        long s = prefs.getLong("total_seconds", 0L) + 1;
+        prefs.edit().putLong("total_seconds", s).apply();
+    }
+
+    public static void recordTrackCompleted(int account) {
+        SharedPreferences prefs = getStatsPrefs(account);
+        int t = prefs.getInt("total_tracks", 0) + 1;
+        prefs.edit().putInt("total_tracks", t).apply();
+
+        long channelId = ChannelMusicFragment.getChannelIdFromFile(account);
+        if (channelId != 0) {
+            checkAndSync(account, channelId);
+        }
+    }
+
+    public static long normalizeChannelId(long channelId) {
+        if (channelId < -1000000000000L) {
+            return -channelId - 1000000000000L;
+        } else if (channelId > 1000000000000L) {
+            return channelId - 1000000000000L;
+        } else if (channelId < 0) {
+            return -channelId;
+        }
+        return channelId;
+    }
+
     public static void checkAndSync(int currentAccount, long channelId) {
+        channelId = normalizeChannelId(channelId);
         if (channelId == 0) return;
         long now = System.currentTimeMillis();
         if (now - lastSyncTimestamp >= SYNC_INTERVAL_MS) {
@@ -32,16 +76,29 @@ public class SoundGramStatsManager {
     }
 
     public static void forceSync(int currentAccount, long channelId) {
+        channelId = normalizeChannelId(channelId);
         if (channelId == 0 || isSyncing) return;
         if (!ApplicationLoader.isNetworkOnline()) return;
 
         isSyncing = true;
         lastSyncTimestamp = System.currentTimeMillis();
+        final long normalizedId = channelId;
 
-        TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(channelId);
+        TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(normalizedId);
         if (chat == null) {
-            isSyncing = false;
-            return;
+            chat = org.telegram.messenger.MessagesStorage.getInstance(currentAccount).getChatSync(normalizedId);
+            if (chat != null) {
+                MessagesController.getInstance(currentAccount).putChat(chat, true);
+            }
+        }
+        if (chat == null) {
+            long accessHash = ChannelMusicFragment.getChannelHashFromFile(currentAccount);
+            TLRPC.TL_channel newChannel = new TLRPC.TL_channel();
+            newChannel.id = normalizedId;
+            newChannel.access_hash = accessHash;
+            newChannel.broadcast = true;
+            chat = newChannel;
+            MessagesController.getInstance(currentAccount).putChat(chat, true);
         }
 
         TLObject req;
@@ -51,7 +108,7 @@ public class SoundGramStatsManager {
             req = channelReq;
         } else {
             TLRPC.TL_messages_getFullChat chatReq = new TLRPC.TL_messages_getFullChat();
-            chatReq.chat_id = channelId;
+            chatReq.chat_id = normalizedId;
             req = chatReq;
         }
 
@@ -61,7 +118,7 @@ public class SoundGramStatsManager {
                 TLRPC.ChatFull chatFull = res.full_chat;
                 String currentAbout = chatFull != null && chatFull.about != null ? chatFull.about : "";
 
-                AndroidUtilities.runOnUIThread(() -> processSync(currentAccount, channelId, chatFull, currentAbout));
+                AndroidUtilities.runOnUIThread(() -> processSync(currentAccount, normalizedId, chatFull, currentAbout));
             } else {
                 isSyncing = false;
             }
@@ -70,7 +127,7 @@ public class SoundGramStatsManager {
 
     private static void processSync(int currentAccount, long channelId, TLRPC.ChatFull chatFull, String currentAbout) {
         try {
-            SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_stats", Context.MODE_PRIVATE);
+            SharedPreferences prefs = getStatsPrefs(currentAccount);
             long localSeconds = prefs.getLong("total_seconds", 0L);
             int localTracks = prefs.getInt("total_tracks", 0);
 
@@ -129,18 +186,20 @@ public class SoundGramStatsManager {
 
     public static void startPeriodicSync(int currentAccount, long channelId) {
         stopPeriodicSync();
+        channelId = normalizeChannelId(channelId);
         if (channelId == 0) return;
 
+        final long normalizedId = channelId;
         periodicSyncRunnable = new Runnable() {
             @Override
             public void run() {
-                checkAndSync(currentAccount, channelId);
+                checkAndSync(currentAccount, normalizedId);
                 AndroidUtilities.runOnUIThread(this, SYNC_INTERVAL_MS);
             }
         };
 
         // Запускаем первично и ставим таймер на каждые 10 минут
-        checkAndSync(currentAccount, channelId);
+        checkAndSync(currentAccount, normalizedId);
         AndroidUtilities.runOnUIThread(periodicSyncRunnable, SYNC_INTERVAL_MS);
     }
 

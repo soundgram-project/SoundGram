@@ -79,7 +79,10 @@ public class IconPackManager {
         addAliasBidirectional("tabs_calls_active_24", "tabs_calls_active", "tab_calls_active", "tab_calls_active_24", "tab_calls_filled", "tab_calls_selected", "tabs_calls_filled", "tabs_calls_selected");
         addAliasBidirectional("msg_contacts", "tabs_contacts_24", "tabs_contact_24", "tabs_contacts", "tabs_contact", "tab_contacts", "tab_contact", "contacts_tab", "contacts", "profile_list");
         addAliasBidirectional("tabs_contact_active_24", "tabs_contacts_active_24", "tabs_contacts_active", "tabs_contact_active", "tab_contacts_active", "tab_contact_active", "tab_contacts_filled", "tab_contact_filled", "tab_contacts_selected", "tab_contact_selected");
-        addAliasBidirectional("msg_settings", "menu_settings", "msg_settings_old", "tab_settings", "tab_settings_active", "tab_settings_filled", "tab_settings_selected", "tabs_settings_24", "tab_settings_24", "settings");
+        addAliasBidirectional("outline_profile_settings", "msg_settings", "menu_settings", "tab_settings", "tab_settings_24", "tabs_settings_24", "tabs_settings", "settings", "smiles_tab_settings");
+        addAliasBidirectional("filled_profile_settings", "msg_settings_old", "tab_settings_active", "tabs_settings_active", "tab_settings_active_24", "tabs_settings_active_24", "tab_settings_filled", "tabs_settings_filled", "tab_settings_selected", "tabs_settings_selected", "settings_active", "settings_filled", "menu_settings_active", "menu_settings_filled");
+        addAliasBidirectional("msg_music", "tabs_music", "tab_music", "tabs_music_24", "tab_music_24", "menu_music", "music", "music_note", "headphones", "audio", "tab_audio", "tabs_audio", "soundgram_music", "soundgram", "tab_soundgram", "tabs_soundgram", "player", "music_tab", "filter_note", "settings_sounds", "files_music", "files_music_24", "search_music");
+        addAliasBidirectional("tabs_music_active_24", "tabs_music_active", "tab_music_active", "tab_music_active_24", "tab_music_filled", "tabs_music_filled", "tab_music_selected", "tabs_music_selected", "music_active", "music_filled", "tab_audio_active", "tabs_audio_active", "audio_active", "audio_filled", "headphones_active", "headphones_filled", "music_note_active", "music_note_filled", "soundgram_active", "soundgram_filled", "filter_note_active", "filter_note_filled", "files_music_active");
 
         // Folder Tabs (singular / plural)
         addAliasBidirectional("filter_groups", "filter_group", "ayu_filter_groups", "msg_folders_groups");
@@ -281,10 +284,9 @@ public class IconPackManager {
         }
 
         String[] suffixes = {
-            "_solar", "_remix", "_liquid", "_plumpy", "_filled", "_outline",
+            "_solar", "_remix", "_liquid", "_plumpy", "_outline",
             "_round", "_solid", "_colored", "_24", "_32", "_16", "_20",
-            "_s", "_w", "_b", "_hw", "_ny", "_mini", "_small", "_large",
-            "_active", "_selected"
+            "_s", "_w", "_b", "_hw", "_ny", "_mini", "_small", "_large"
         };
         String stripped = key;
         for (int round = 0; round < 3; round++) {
@@ -534,7 +536,7 @@ public class IconPackManager {
             }
         }
 
-        String[] tryAdd = {"_24", "_solar", "_s", "_active_24", "_active", "_filled"};
+        String[] tryAdd = {"_24", "_solar", "_s"};
         for (String add : tryAdd) {
             fileName = resolveFromMap(resourceName + add);
             if (fileName != null) return fileName;

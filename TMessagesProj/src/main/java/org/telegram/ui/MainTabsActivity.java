@@ -1183,6 +1183,14 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             if (parentLayout == null || parentLayout.getLastFragment() == this) {
                 clearAllHiddenFragments();
             }
+            if (tabs != null) {
+                for (GlassTabView t : tabs) {
+                    if (t != null) {
+                        t.updateColorsLottie();
+                        t.updateIcon();
+                    }
+                }
+            }
         } else if (id == NotificationCenter.callTabsVisibleToggled) {
             final boolean callTabsVisible = getUserConfig().showCallsTab;
             checkUi_callTabVisible(callTabsVisible, true);

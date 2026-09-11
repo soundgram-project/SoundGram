@@ -21,12 +21,13 @@ import androidx.core.app.NotificationManagerCompat;
 
 import org.telegram.ui.LaunchActivity;
 
-public class NotificationsService extends Service {
+public class NotificationsService extends Service implements NotificationCenter.NotificationCenterDelegate {
 
     @Override
     public void onCreate() {
         super.onCreate();
         ApplicationLoader.postInitApplication();
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.appIconChanged);
 
         if (allowResidentNotification()) {
             try {
@@ -61,11 +62,25 @@ public class NotificationsService extends Service {
 
     public void onDestroy() {
         super.onDestroy();
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.appIconChanged);
         SharedPreferences preferences = MessagesController.getGlobalNotificationsSettings();
         if (preferences.getBoolean("pushService", false)) {
             Intent intent = new Intent("org.telegram.start");
             intent.setPackage(getPackageName());
             sendBroadcast(intent);
+        }
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id == NotificationCenter.appIconChanged) {
+            if (allowResidentNotification()) {
+                try {
+                    startInForeground();
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+            }
         }
     }
 
@@ -83,6 +98,7 @@ public class NotificationsService extends Service {
         startForeground(1390,
                 new NotificationCompat.Builder(this, "nimarkoPush")
                         .setSmallIcon(R.drawable.notification)
+                        .setLargeIcon(org.telegram.ui.LauncherIconController.getActiveIconBitmap(this))
                         .setShowWhen(false)
                         .setOngoing(true)
                         .setContentText("SoundGram")

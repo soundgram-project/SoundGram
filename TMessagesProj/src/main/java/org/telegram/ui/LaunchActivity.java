@@ -433,7 +433,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setTheme(R.style.Theme_TMessages);
         try {
-            setTaskDescription(new ActivityManager.TaskDescription(null, null, Theme.getColor(Theme.key_actionBarDefault) | 0xff000000));
+            setTaskDescription(new ActivityManager.TaskDescription(null, LauncherIconController.getActiveIconBitmap(this), Theme.getColor(Theme.key_actionBarDefault) | 0xff000000));
         } catch (Throwable ignore) {
 
         }
@@ -601,7 +601,8 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             .add(NotificationCenter.requestPermissions)
             .add(NotificationCenter.billingConfirmPurchaseError)
             .add(NotificationCenter.tlSchemeParseException)
-            .add(NotificationCenter.memoryLeakFoundException);
+            .add(NotificationCenter.memoryLeakFoundException)
+            .add(NotificationCenter.appIconChanged);
 
         LiteMode.addOnPowerSaverAppliedListener(onPowerSaverCallback = this::onPowerSaver);
         if (actionBarLayout.getFragmentStack().isEmpty() && (layersActionBarLayout == null || layersActionBarLayout.getFragmentStack().isEmpty())) {
@@ -7890,6 +7891,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     }
                 }
             }
+        } else if (id == NotificationCenter.appIconChanged) {
+            try {
+                setTaskDescription(new ActivityManager.TaskDescription(null, LauncherIconController.getActiveIconBitmap(this), Theme.getColor(Theme.key_actionBarDefault) | 0xff000000));
+            } catch (Throwable ignore) {}
         } else if (id == NotificationCenter.groupCallUpdated) {
             checkWasMutedByAdmin(false);
         } else if (id == NotificationCenter.currentUserShowLimitReachedDialog) {
