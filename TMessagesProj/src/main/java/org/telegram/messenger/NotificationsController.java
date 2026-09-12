@@ -4627,6 +4627,7 @@ public class NotificationsController extends BaseController implements Notificat
                     .setShowWhen(true)
                     .setWhen(((long) lastMessageObject.messageOwner.date) * 1000)
                     .setColor(0xff11acfa);
+            org.telegram.ui.LauncherIconController.applyNotificationAppInfo(mBuilder, ApplicationLoader.applicationContext);
 
             long[] vibrationPattern = null;
             Uri sound = null;
@@ -4858,7 +4859,9 @@ public class NotificationsController extends BaseController implements Notificat
             editor.commit();
             sound = Settings.System.DEFAULT_RINGTONE_URI;
             notificationBuilder.setChannelId(validateChannelId(dialogId, topicId, chatName, vibrationPattern, ledColor, sound, importance, isDefault, isInApp, isSilent, chatType));
-            notificationManager.notify(notificationId, notificationBuilder.build());
+            Notification n = notificationBuilder.build();
+            org.telegram.ui.LauncherIconController.applyNotificationAppInfo(n, ApplicationLoader.applicationContext);
+            notificationManager.notify(notificationId, n);
         }
     }
 
@@ -4869,6 +4872,7 @@ public class NotificationsController extends BaseController implements Notificat
             notificationBuilder.setChannelId(validateChannelId(lastDialogId, lastTopicId, chatName, vibrationPattern, ledColor, sound, importance, isDefault, isInApp, isSilent, chatType));
         }
         Notification mainNotification = notificationBuilder.build();
+        org.telegram.ui.LauncherIconController.applyNotificationAppInfo(mainNotification, ApplicationLoader.applicationContext);
         if (Build.VERSION.SDK_INT <= 19) {
             notificationManager.notify(notificationId, mainNotification);
             if (BuildVars.LOGS_ENABLED) {
@@ -4936,7 +4940,9 @@ public class NotificationsController extends BaseController implements Notificat
                     FileLog.w("show dialog notification with id " + id + " " + dialogId +  " user=" + user + " chat=" + chat);
                 }
                 try {
-                    notificationManager.notify(id, notification.build());
+                    Notification n = notification.build();
+                    org.telegram.ui.LauncherIconController.applyNotificationAppInfo(n, ApplicationLoader.applicationContext);
+                    notificationManager.notify(id, n);
                 } catch (SecurityException e) {
                     FileLog.e(e);
                     resetNotificationSound(notification, dialogId, lastTopicId, chatName, vibrationPattern, ledColor, sound, importance, isDefault, isInApp, isSilent, chatType);
@@ -5649,6 +5655,7 @@ public class NotificationsController extends BaseController implements Notificat
                     .extend(wearableExtender)
                     .setSortKey(String.valueOf(Long.MAX_VALUE - date))
                     .setCategory(NotificationCompat.CATEGORY_MESSAGE);
+            org.telegram.ui.LauncherIconController.applyNotificationAppInfo(builder, ApplicationLoader.applicationContext);
 
             try {
                 Intent dismissIntent = new Intent(ApplicationLoader.applicationContext, NotificationDismissReceiver.class);

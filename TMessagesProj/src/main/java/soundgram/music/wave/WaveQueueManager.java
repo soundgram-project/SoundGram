@@ -6,6 +6,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MessageObject;
+import org.telegram.messenger.SharedConfig;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -151,6 +152,17 @@ public final class WaveQueueManager {
                 List<InnerTubeClient.RawTrack> initialPool = interleaveBatches(batches);
                 addCandidatesFiltered(initialPool);
 
+                if (candidatesPool.isEmpty()) {
+                    FileLog.w(TAG + " candidatesPool is empty after initial radio batches");
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (callback != null && !initialFired.get() && !cancelFlag.get()) {
+                            callback.onError();
+                        }
+                    });
+                    stop();
+                    return;
+                }
+
                 // 3. Запуск буферизации очереди
                 runBufferLoop();
 
@@ -205,10 +217,19 @@ public final class WaveQueueManager {
      * Фоновый цикл поддержания буфера воспроизведения (минимум BUFFER_TARGET_AHEAD треков вперед).
      */
     private void runBufferLoop() {
+        int emptyCandidateAttempts = 0;
         while (isRunning && !cancelFlag.get()) {
+            if (initialFired.get() && (!SmartRadioEngine.isWaveActive || MediaController.getInstance().getPlaylistMergeDialogId() != MediaController.WAVE_CONTEXT_ID)) {
+                stop();
+                break;
+            }
             try {
                 // Поддерживаем минимум BUFFER_TARGET_AHEAD треков вперед в очереди
                 while (isRunning && !cancelFlag.get() && getRemainingAhead() < BUFFER_TARGET_AHEAD) {
+                    if (initialFired.get() && (!SmartRadioEngine.isWaveActive || MediaController.getInstance().getPlaylistMergeDialogId() != MediaController.WAVE_CONTEXT_ID)) {
+                        stop();
+                        break;
+                    }
                     InnerTubeClient.RawTrack candidate;
                     synchronized (candidatesPool) {
                         if (candidatesPool.isEmpty()) {
@@ -219,19 +240,29 @@ public final class WaveQueueManager {
 
                     if (candidate == null) {
                         // Нет кандидатов — небольшая пауза перед повтором
-                        SystemClock.sleep(500);
+                        emptyCandidateAttempts++;
+                        if (emptyCandidateAttempts >= 10 && !initialFired.get()) {
+                            FileLog.w(TAG + " failed to resolve any candidates after 10 attempts");
+                            break;
+                        }
+                        SystemClock.sleep(300);
                         break;
                     }
+                    emptyCandidateAttempts = 0;
 
                     // Очистка названия и артиста через TrackSanitizer
                     String cleanTitle = TrackSanitizer.cleanTitle(candidate.title);
                     String cleanArtist = TrackSanitizer.cleanArtist(candidate.artist);
-                    if (cleanTitle.isEmpty() || cleanArtist.isEmpty()) continue;
+                    if (cleanTitle.isEmpty() || cleanArtist.isEmpty()) {
+                        SystemClock.sleep(20);
+                        continue;
+                    }
 
                     // 1. Проверка по сессионному кешу
                     String candidateKey = normalizeKey(cleanArtist, cleanTitle);
                     if (sessionPlayedKeys.contains(candidateKey)) {
                         FileLog.d(TAG + " skip session duplicate: " + cleanArtist + " - " + cleanTitle);
+                        SystemClock.sleep(20);
                         continue;
                     }
 
@@ -248,6 +279,7 @@ public final class WaveQueueManager {
                     }
                     if (inPlaylist) {
                         sessionPlayedKeys.add(candidateKey);
+                        SystemClock.sleep(20);
                         continue;
                     }
 
@@ -256,6 +288,7 @@ public final class WaveQueueManager {
                     if (historyDb.isRecentlyPlayed(hash)) {
                         sessionPlayedKeys.add(candidateKey);
                         FileLog.d(TAG + " skip recently played: " + cleanArtist + " - " + cleanTitle);
+                        SystemClock.sleep(20);
                         continue;
                     }
 
@@ -263,6 +296,7 @@ public final class WaveQueueManager {
                     MusicWebSearcher.WebTrack wt = MusicWebSearcher.searchTrackStrict(cleanArtist, cleanTitle, candidate.durationSec);
                     if (wt == null || wt.downloadUrl == null || wt.downloadUrl.isEmpty()) {
                         FileLog.d(TAG + " resolve 404: " + cleanArtist + " - " + cleanTitle);
+                        SystemClock.sleep(20);
                         continue;
                     }
 
@@ -270,6 +304,7 @@ public final class WaveQueueManager {
                     String resolvedKey = normalizeKey(wt.artist, wt.title);
                     if (sessionPlayedKeys.contains(resolvedKey)) {
                         FileLog.d(TAG + " skip resolved session duplicate: " + wt.artist + " - " + wt.title);
+                        SystemClock.sleep(20);
                         continue;
                     }
 
@@ -304,12 +339,24 @@ public final class WaveQueueManager {
                 }
 
                 // Пауза перед следующей проверкой буфера
-                SystemClock.sleep(1500);
+                if (!initialFired.get()) {
+                    SystemClock.sleep(100);
+                } else {
+                    SystemClock.sleep(1500);
+                }
 
             } catch (Exception e) {
                 FileLog.e(TAG + " runBufferLoop exception", e);
                 SystemClock.sleep(2000);
             }
+        }
+
+        if (!initialFired.get() && !cancelFlag.get()) {
+            AndroidUtilities.runOnUIThread(() -> {
+                if (callback != null && !cancelFlag.get()) {
+                    callback.onError();
+                }
+            });
         }
     }
 
@@ -320,17 +367,22 @@ public final class WaveQueueManager {
             }
         }
         ArrayList<MessageObject> currentPlaylist = MediaController.getInstance().getPlaylist();
-        MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
         if (currentPlaylist == null || currentPlaylist.isEmpty()) {
             synchronized (playBuffer) {
                 return playBuffer.size();
             }
         }
-        int index = playing != null ? currentPlaylist.indexOf(playing) : -1;
-        if (index >= 0) {
-            return (currentPlaylist.size() - 1) - index;
+        int num = MediaController.getInstance().getPlayingMessageObjectNum();
+        if (num < 0 || num >= currentPlaylist.size()) {
+            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
+            num = playing != null ? currentPlaylist.indexOf(playing) : -1;
         }
-        return currentPlaylist.size();
+        if (num >= 0 && num < currentPlaylist.size()) {
+            return SharedConfig.playOrderReversed ? Math.max(0, currentPlaylist.size() - 1 - num) : num;
+        }
+        synchronized (playBuffer) {
+            return playBuffer.size();
+        }
     }
 
     /**

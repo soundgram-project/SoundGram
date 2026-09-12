@@ -215,7 +215,6 @@ public final class SmartRadioEngine {
         @Override
         public void onTracksFound(ArrayList<MessageObject> tracks) {
             isLoading = false;
-            SharedConfig.setPlaybackOrderType(1);
             if (delegate != null) delegate.onTracksFound(tracks);
         }
 

@@ -2489,11 +2489,23 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             }
             if (audioVolumeAnimator != null) {
                 audioVolumeAnimator.removeAllUpdateListeners();
+                audioVolumeAnimator.removeAllListeners();
                 audioVolumeAnimator.cancel();
+                audioVolumeAnimator = null;
             }
 
-            if (!CastSync.isActive() && audioPlayer.isPlaying() && playingMessageObject != null && !playingMessageObject.isVoice()) {
+            if (LaunchActivity.isResumed && !CastSync.isActive() && audioPlayer.isPlaying() && playingMessageObject != null && !playingMessageObject.isVoice()) {
                 VideoPlayer playerFinal = audioPlayer;
+                AtomicBoolean released = new AtomicBoolean(false);
+                Runnable releaseRunnable = () -> {
+                    if (released.compareAndSet(false, true)) {
+                        try {
+                            playerFinal.releasePlayer(true);
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        }
+                    }
+                };
                 ValueAnimator valueAnimator = ValueAnimator.ofFloat(audioVolume, 0);
                 valueAnimator.addUpdateListener(valueAnimator1 -> {
                     float volume;
@@ -2507,15 +2519,12 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 valueAnimator.addListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationEnd(Animator animation) {
-                        try {
-                            playerFinal.releasePlayer(true);
-                        } catch (Exception e) {
-                            FileLog.e(e);
-                        }
+                        releaseRunnable.run();
                     }
                 });
                 valueAnimator.setDuration(300);
                 valueAnimator.start();
+                AndroidUtilities.runOnUIThread(releaseRunnable, 350);
             } else {
                 try {
                     audioPlayer.releasePlayer(true);
@@ -2523,6 +2532,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     FileLog.e(e);
                 }
             }
+            audioVolume = 1.0f;
             audioPlayer = null;
             Theme.unrefAudioVisualizeDrawable(playingMessageObject);
         } else if (videoPlayer != null) {
@@ -2617,6 +2627,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
         if (stopService) {
             CastSync.stop();
+            soundgram.music.SmartRadioEngine.stopWaveSession();
         }
     }
 
@@ -2875,6 +2886,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             }
             return playMessage(current);
         }
+        if (mergeDialogId != WAVE_CONTEXT_ID) {
+            soundgram.music.SmartRadioEngine.stopWaveSession();
+        }
         forceLoopCurrentPlaylist = !loadMusic;
         playlistMergeDialogId = mergeDialogId;
         playMusicAgain = !playlist.isEmpty();
@@ -2883,20 +2897,31 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         boolean isSecretChat = !messageObjects.isEmpty() && DialogObject.isEncryptedDialog(messageObjects.get(0).getDialogId());
         int minId = Integer.MAX_VALUE;
         int maxId = Integer.MIN_VALUE;
-        for (int a = messageObjects.size() - 1; a >= 0; a--) {
-            MessageObject messageObject = messageObjects.get(a);
-            if (messageObject.isMusic()) {
-                int id = messageObject.getId();
-                if (id > 0 || isSecretChat) {
-                    minId = Math.min(minId, id);
-                    maxId = Math.max(maxId, id);
+        if (mergeDialogId == WAVE_CONTEXT_ID) {
+            for (int a = messageObjects.size() - 1; a >= 0; a--) {
+                MessageObject messageObject = messageObjects.get(a);
+                if (messageObject != null && messageObject.isMusic()) {
+                    playlist.add(messageObject);
+                    playlistMap.put(messageObject.getId(), messageObject);
                 }
-                playlist.add(messageObject);
-                playlistMap.put(id, messageObject);
             }
+            currentPlaylistNum = playlist.indexOf(current);
+        } else {
+            for (int a = messageObjects.size() - 1; a >= 0; a--) {
+                MessageObject messageObject = messageObjects.get(a);
+                if (messageObject.isMusic()) {
+                    int id = messageObject.getId();
+                    if (id > 0 || isSecretChat) {
+                        minId = Math.min(minId, id);
+                        maxId = Math.max(maxId, id);
+                    }
+                    playlist.add(messageObject);
+                    playlistMap.put(id, messageObject);
+                }
+            }
+            sortPlaylist();
+            currentPlaylistNum = playlist.indexOf(current);
         }
-        sortPlaylist();
-        currentPlaylistNum = playlist.indexOf(current);
         if (currentPlaylistNum == -1) {
             clearPlaylist();
             currentPlaylistNum = playlist.size();
@@ -3171,16 +3196,30 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         if (tracks == null || tracks.isEmpty()) {
             return;
         }
+        if (playlistMergeDialogId != WAVE_CONTEXT_ID || !soundgram.music.SmartRadioEngine.isWaveActive) {
+            return;
+        }
+        int added = 0;
         for (int a = 0; a < tracks.size(); a++) {
             MessageObject messageObject = tracks.get(a);
             if (messageObject != null && messageObject.isMusic()) {
                 int id = messageObject.getId();
                 if (!playlistMap.containsKey(id)) {
-                    playlist.add(messageObject);
+                    playlist.add(0, messageObject);
                     playlistMap.put(id, messageObject);
+                    added++;
                 }
             }
         }
+        if (added > 0) {
+            currentPlaylistNum += added;
+            int account = playingMessageObject != null ? playingMessageObject.currentAccount : UserConfig.selectedAccount;
+            NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.moreMusicDidLoad, added);
+        }
+    }
+
+    public long getPlaylistMergeDialogId() {
+        return playlistMergeDialogId;
     }
 
     public int getAudioSessionId() {
@@ -4097,20 +4136,33 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (!messageObject.isVoice()) {
                     if (audioVolumeAnimator != null) {
                         audioVolumeAnimator.removeAllListeners();
+                        audioVolumeAnimator.removeAllUpdateListeners();
                         audioVolumeAnimator.cancel();
+                        audioVolumeAnimator = null;
                     }
-                    // Устанавливаем громкость в 0 ДО вызова play(), чтобы избежать любого резкого всплеска звука
-                    audioVolume = 0f;
-                    setPlayerVolume();
+                    if (LaunchActivity.isResumed) {
+                        audioVolume = 0f;
+                        setPlayerVolume();
+                    } else {
+                        audioVolume = 1f;
+                        setPlayerVolume();
+                    }
                 } else {
                     audioVolume = 1f;
                     setPlayerVolume();
                 }
                 audioPlayer.setStreamType(useFrontSpeaker ? AudioManager.STREAM_VOICE_CALL : AudioManager.STREAM_MUSIC);
                 audioPlayer.play();
-                if (!messageObject.isVoice()) {
+                if (!messageObject.isVoice() && LaunchActivity.isResumed) {
                     audioVolumeAnimator = ValueAnimator.ofFloat(0f, 1f);
                     audioVolumeAnimator.addUpdateListener(audioVolumeUpdateListener);
+                    audioVolumeAnimator.addListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            audioVolume = 1f;
+                            setPlayerVolume();
+                        }
+                    });
                     audioVolumeAnimator.setDuration(250);
                     audioVolumeAnimator.start();
                 }

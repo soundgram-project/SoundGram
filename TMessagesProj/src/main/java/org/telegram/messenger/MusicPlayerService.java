@@ -101,6 +101,7 @@ public class MusicPlayerService extends Service implements NotificationCenter.No
             NotificationCenter.getInstance(a).addObserver(this, NotificationCenter.httpFileDidLoad);
             NotificationCenter.getInstance(a).addObserver(this, NotificationCenter.fileLoaded);
         }
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.appIconChanged);
         imageReceiver = new ImageReceiver(null);
         imageReceiver.setDelegate((imageReceiver, set, thumb, memCache) -> {
             if (set && !TextUtils.isEmpty(loadingFilePath)) {
@@ -448,6 +449,7 @@ public class MusicPlayerService extends Service implements NotificationCenter.No
                 mediaStyle.setShowActionsInCompactView(0);
             }
             Notification.Builder bldr = new Notification.Builder(this);
+            org.telegram.ui.LauncherIconController.applyNotificationAppInfo(bldr, this);
             bldr.setSmallIcon(R.drawable.player)
                     .setOngoing(isPlaying)
                     .setContentTitle(contentTitle)
@@ -543,6 +545,7 @@ public class MusicPlayerService extends Service implements NotificationCenter.No
             bldr.setVisibility(Notification.VISIBILITY_PUBLIC);
 
             notification = bldr.build();
+            org.telegram.ui.LauncherIconController.applyNotificationAppInfo(notification, this);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (!foregroundServiceIsStarted) {
@@ -569,11 +572,14 @@ public class MusicPlayerService extends Service implements NotificationCenter.No
                 expandedView = new RemoteViews(getApplicationContext().getPackageName(), R.layout.player_big_notification);
             }
 
-            notification = new NotificationCompat.Builder(getApplicationContext())
+            NotificationCompat.Builder compatBldr = new NotificationCompat.Builder(getApplicationContext())
                     .setSmallIcon(R.drawable.player)
                     .setContentIntent(contentIntent)
                     .setChannelId(NotificationsController.OTHER_NOTIFICATIONS_CHANNEL)
-                    .setContentTitle(contentTitle).build();
+                    .setContentTitle(contentTitle);
+            org.telegram.ui.LauncherIconController.applyNotificationAppInfo(compatBldr, this);
+            notification = compatBldr.build();
+            org.telegram.ui.LauncherIconController.applyNotificationAppInfo(notification, this);
 
             notification.contentView = simpleContentView;
             if (supportBigNotifications) {
@@ -844,11 +850,17 @@ public class MusicPlayerService extends Service implements NotificationCenter.No
             NotificationCenter.getInstance(a).removeObserver(this, NotificationCenter.httpFileDidLoad);
             NotificationCenter.getInstance(a).removeObserver(this, NotificationCenter.fileLoaded);
         }
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.appIconChanged);
     }
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.messagePlayingPlayStateChanged) {
+        if (id == NotificationCenter.appIconChanged) {
+            MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
+            if (messageObject != null) {
+                createNotification(messageObject, false);
+            }
+        } else if (id == NotificationCenter.messagePlayingPlayStateChanged) {
             MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
             if (messageObject != null) {
                 createNotification(messageObject, false);

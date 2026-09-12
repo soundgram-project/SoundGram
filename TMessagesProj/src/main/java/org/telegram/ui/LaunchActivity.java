@@ -431,7 +431,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             }
         }
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        setTheme(R.style.Theme_TMessages);
+        setTheme(LauncherIconController.getActiveStartThemeRes());
         try {
             setTaskDescription(new ActivityManager.TaskDescription(null, LauncherIconController.getActiveIconBitmap(this), Theme.getColor(Theme.key_actionBarDefault) | 0xff000000));
         } catch (Throwable ignore) {
@@ -446,9 +446,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         flagSecureReason.attach();
 
         super.onCreate(savedInstanceState);
-        // NimarkoGram: the launch animation is an AnimatedVectorDrawable (splash_plane_avd) wired as the
-        // system windowSplashScreenAnimatedIcon — the OS auto-plays it on the splash (like official
-        // Telegram), so no custom exit-listener / overlay is needed here (which previously caused the swap).
+        setTheme(R.style.Theme_TMessages);
         // NimarkoGram: pin the window to sRGB (default colour mode). Some ROMs (e.g. the reported
         // PHY110 / "Android 36") auto-promote the window to wide colour gamut when a wide-gamut surface
         // such as the Stories camera attaches; their TextView.onDraw then calls Paint.setColor(long) with a

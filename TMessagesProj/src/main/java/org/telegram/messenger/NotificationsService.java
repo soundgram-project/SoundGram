@@ -95,16 +95,16 @@ public class NotificationsService extends Service implements NotificationCenter.
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );
 
-        startForeground(1390,
-                new NotificationCompat.Builder(this, "nimarkoPush")
-                        .setSmallIcon(R.drawable.notification)
-                        .setLargeIcon(org.telegram.ui.LauncherIconController.getActiveIconBitmap(this))
-                        .setShowWhen(false)
-                        .setOngoing(true)
-                        .setContentText("SoundGram")
-                        .setCategory(NotificationCompat.CATEGORY_STATUS)
-                        .setContentIntent(pendingIntent)
-                        .build());
+        NotificationCompat.Builder bldr = new NotificationCompat.Builder(this, "nimarkoPush")
+                .setSmallIcon(R.drawable.notification)
+                .setLargeIcon(org.telegram.ui.LauncherIconController.getActiveIconBitmap(this))
+                .setShowWhen(false)
+                .setOngoing(true)
+                .setContentText("SoundGram")
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setContentIntent(pendingIntent);
+        org.telegram.ui.LauncherIconController.applyNotificationAppInfo(bldr, this);
+        startForeground(1390, bldr.build());
     }
 
     private boolean allowResidentNotification() {

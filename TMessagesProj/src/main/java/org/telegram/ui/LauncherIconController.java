@@ -22,8 +22,10 @@ import org.telegram.messenger.UserConfig;
 public class LauncherIconController {
     private static final String PREF_NAME = "launcher_icon_pref";
     private static final String KEY_ACTIVE_ICON = "active_icon";
+    private static volatile LauncherIcon sCachedActiveIcon = null;
 
     public static void tryFixLauncherIconIfNeeded() {
+        sCachedActiveIcon = null;
         LauncherIcon active = getActiveIcon();
         if (active != null && isEnabled(active)) {
             return;
@@ -44,6 +46,10 @@ public class LauncherIconController {
     }
 
     public static LauncherIcon getActiveIcon() {
+        LauncherIcon cached = sCachedActiveIcon;
+        if (cached != null) {
+            return cached;
+        }
         try {
             Context ctx = ApplicationLoader.applicationContext;
             if (ctx != null) {
@@ -52,6 +58,7 @@ public class LauncherIconController {
                 if (name != null) {
                     for (LauncherIcon icon : LauncherIcon.values()) {
                         if (icon.name().equalsIgnoreCase(name) || icon.key.equalsIgnoreCase(name)) {
+                            sCachedActiveIcon = icon;
                             return icon;
                         }
                     }
@@ -61,12 +68,15 @@ public class LauncherIconController {
 
         for (LauncherIcon icon : LauncherIcon.values()) {
             if (icon != LauncherIcon.DEFAULT && isEnabled(icon)) {
+                sCachedActiveIcon = icon;
                 return icon;
             }
         }
         if (isEnabled(LauncherIcon.DEFAULT)) {
+            sCachedActiveIcon = LauncherIcon.DEFAULT;
             return LauncherIcon.DEFAULT;
         }
+        sCachedActiveIcon = LauncherIcon.DEFAULT;
         return LauncherIcon.DEFAULT;
     }
 
@@ -127,6 +137,7 @@ public class LauncherIconController {
     }
 
     public static void setIcon(LauncherIcon icon) {
+        sCachedActiveIcon = icon;
         Context ctx = ApplicationLoader.applicationContext;
         try {
             SharedPreferences pref = ctx.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
@@ -161,6 +172,62 @@ public class LauncherIconController {
         refreshNotifications();
     }
 
+    public static int getActiveStartThemeRes() {
+        LauncherIcon icon = getActiveIcon();
+        if (icon == null) {
+            return R.style.Theme_TMessages_Start_BlueIcon;
+        }
+        switch (icon) {
+            case TELEGRAM:
+                return R.style.Theme_TMessages_Start_TelegramIcon;
+            case VINTAGE:
+                return R.style.Theme_TMessages_Start_VintageIcon;
+            case AQUA:
+                return R.style.Theme_TMessages_Start_AquaIcon;
+            case PREMIUM:
+                return R.style.Theme_TMessages_Start_PremiumIcon;
+            case TURBO:
+                return R.style.Theme_TMessages_Start_TurboIcon;
+            case NOX:
+                return R.style.Theme_TMessages_Start_NoxIcon;
+            case DEFAULT:
+            default:
+                return R.style.Theme_TMessages_Start_BlueIcon;
+        }
+    }
+
+    public static void applyNotificationAppInfo(androidx.core.app.NotificationCompat.Builder builder, Context context) {
+        if (builder == null) return;
+        if (context == null) context = ApplicationLoader.applicationContext;
+        try {
+            android.content.pm.ApplicationInfo appInfo = new android.content.pm.ApplicationInfo(context.getApplicationInfo());
+            appInfo.icon = getActiveIconRes();
+            builder.getExtras().putParcelable("android.appInfo", appInfo);
+        } catch (Throwable ignore) {}
+    }
+
+    public static void applyNotificationAppInfo(android.app.Notification.Builder builder, Context context) {
+        if (builder == null) return;
+        if (context == null) context = ApplicationLoader.applicationContext;
+        try {
+            android.content.pm.ApplicationInfo appInfo = new android.content.pm.ApplicationInfo(context.getApplicationInfo());
+            appInfo.icon = getActiveIconRes();
+            builder.getExtras().putParcelable("android.appInfo", appInfo);
+        } catch (Throwable ignore) {}
+    }
+
+    public static void applyNotificationAppInfo(android.app.Notification notification, Context context) {
+        if (notification == null) return;
+        if (context == null) context = ApplicationLoader.applicationContext;
+        try {
+            android.content.pm.ApplicationInfo appInfo = new android.content.pm.ApplicationInfo(context.getApplicationInfo());
+            appInfo.icon = getActiveIconRes();
+            if (notification.extras != null) {
+                notification.extras.putParcelable("android.appInfo", appInfo);
+            }
+        } catch (Throwable ignore) {}
+    }
+
     public static void refreshNotifications() {
         AndroidUtilities.runOnUIThread(() -> {
             try {
@@ -172,6 +239,20 @@ public class LauncherIconController {
             } catch (Throwable e) {
                 org.telegram.messenger.FileLog.e(e);
             }
+            try {
+                if (org.telegram.messenger.MediaController.getInstance().getPlayingMessageObject() != null) {
+                    android.content.Intent intent = new android.content.Intent(ApplicationLoader.applicationContext, org.telegram.messenger.MusicPlayerService.class);
+                    ApplicationLoader.applicationContext.startService(intent);
+                }
+            } catch (Throwable e) {
+                org.telegram.messenger.FileLog.e(e);
+            }
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && app.nimarkogram.messenger.NimarkoConfig.residentNotification) {
+                    android.content.Intent intent = new android.content.Intent(ApplicationLoader.applicationContext, org.telegram.messenger.NotificationsService.class);
+                    ApplicationLoader.applicationContext.startService(intent);
+                }
+            } catch (Throwable ignore) {}
         });
     }
 

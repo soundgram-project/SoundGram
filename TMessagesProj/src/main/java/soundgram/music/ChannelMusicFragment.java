@@ -6673,7 +6673,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                 currentAccount, new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                                         if (!tracks.isEmpty()) {
-                                            SharedConfig.setPlaybackOrderType(1);
                                             MediaController.getInstance().setPlaylist(
                                                     tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
                                             MediaController.getInstance().playMessage(tracks.get(0));
