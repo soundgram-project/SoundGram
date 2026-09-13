@@ -180,6 +180,10 @@ public class AudioPlayerAlert extends BottomSheet
     private RecyclerListView listView;
     private LinearLayoutManager layoutManager;
     private ListAdapter listAdapter;
+    private BottomSheet currentQueueSheet;
+    private QueueAdapter currentQueueAdapter;
+    private ArrayList<MessageObject> currentQueueDisplayList;
+    private RecyclerListView currentQueueListView;
     private LinearLayout emptyView;
     private ImageView emptyImageView;
     private TextView emptyTitleTextView;
@@ -3236,6 +3240,18 @@ public class AudioPlayerAlert extends BottomSheet
 
         builder.setCustomView(container);
         queueSheetRef[0] = builder.create();
+        currentQueueSheet = queueSheetRef[0];
+        currentQueueAdapter = queueAdapter;
+        currentQueueDisplayList = displayList;
+        currentQueueListView = queueListView;
+        queueSheetRef[0].setOnDismissListener(d -> {
+            if (currentQueueSheet == queueSheetRef[0]) {
+                currentQueueSheet = null;
+                currentQueueAdapter = null;
+                currentQueueDisplayList = null;
+                currentQueueListView = null;
+            }
+        });
         queueSheetRef[0].show();
     }
 
@@ -3555,6 +3571,9 @@ public class AudioPlayerAlert extends BottomSheet
                         }
                     }
                 }
+                if (currentQueueAdapter != null) {
+                    currentQueueAdapter.notifyDataSetChanged();
+                }
             } else {
                 MessageObject messageObject = (MessageObject) args[0];
                 if (messageObject.eventId != 0) {
@@ -3608,6 +3627,32 @@ public class AudioPlayerAlert extends BottomSheet
                 });
             }
             listAdapter.notifyDataSetChanged();
+            if (currentQueueAdapter != null && currentQueueDisplayList != null && playlist != null) {
+                boolean queueDirectOrder = savedMusicList != null
+                        ? !SharedConfig.playOrderReversed
+                        : SharedConfig.playOrderReversed;
+                currentQueueDisplayList.clear();
+                if (SharedConfig.shuffleMusic) {
+                    currentQueueDisplayList.addAll(playlist);
+                } else if (queueDirectOrder) {
+                    currentQueueDisplayList.addAll(playlist);
+                } else {
+                    for (int i = playlist.size() - 1; i >= 0; i--) {
+                        currentQueueDisplayList.add(playlist.get(i));
+                    }
+                }
+                currentQueueAdapter.notifyDataSetChanged();
+                if (currentQueueListView != null) {
+                    int queueTrackH = AndroidUtilities.dp(72);
+                    int queueMaxH = (int) (AndroidUtilities.displaySize.y * 0.70f);
+                    int queueListH = Math.min(queueMaxH, Math.max(AndroidUtilities.dp(200), currentQueueDisplayList.size() * queueTrackH));
+                    android.view.ViewGroup.LayoutParams lp = currentQueueListView.getLayoutParams();
+                    if (lp != null && lp.height != (int) (queueListH / AndroidUtilities.density)) {
+                        lp.height = (int) (queueListH / AndroidUtilities.density);
+                        currentQueueListView.setLayoutParams(lp);
+                    }
+                }
+            }
             if (SharedConfig.playOrderReversed) {
                 listView.stopScroll();
                 int addedCount = (Integer) args[0];

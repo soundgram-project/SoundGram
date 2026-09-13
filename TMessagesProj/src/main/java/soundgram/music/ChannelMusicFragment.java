@@ -740,11 +740,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 waveWidget.startAnimation();
                 AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                 AudioPlayerAlert.currentSourceLabel = "";
-                try {
-                    org.telegram.ui.Components.BulletinFactory.global().createSimpleBulletin(org.telegram.ui.LauncherIconController.getActiveIconDrawable(context), getString(R.string.sg_wave_generating)).show();
-                } catch (Throwable e) {
-                    android.widget.Toast.makeText(context, getString(R.string.sg_wave_generating), android.widget.Toast.LENGTH_SHORT).show();
-                }
+                Toast.makeText(context, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                 SmartRadioEngine.stopWaveSession();
                 SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
@@ -757,6 +753,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         MediaController.getInstance().addTracksToPlaylist(tracks);
                     }
                     @Override public void onError() {
+                        if (context != null) {
+                            Toast.makeText(context, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
+                        }
                     }
                 });
             }
@@ -4180,17 +4179,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         SmartRadioEngine.generateWaveByPlaylist(originalList, currentAccount,
                                 new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> waveQueue) {
-                                        MediaController.getInstance().myWaveBasePlaylist.clear();
-                                        MediaController.getInstance().myWaveBasePlaylist.addAll(waveQueue);
-                                        playContext(waveQueue.get(0),
-                                                MediaController.getInstance().myWaveBasePlaylist,
-                                                MediaController.WAVE_CONTEXT_ID);
+                                        if (!waveQueue.isEmpty()) {
+                                            MediaController.getInstance().setPlaylist(
+                                                    waveQueue, waveQueue.get(0), MediaController.WAVE_CONTEXT_ID);
+                                            MediaController.getInstance().playMessage(waveQueue.get(0));
+                                        }
                                     }
                                     @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
                                         MediaController.getInstance().addTracksToPlaylist(t);
                                     }
                                     @Override public void onError() {
-                                        Toast.makeText(mContext, getString(R.string.er),
+                                        Toast.makeText(mContext, getString(R.string.sg_wave_error),
                                                 Toast.LENGTH_SHORT).show();
                                     }
                                 });
@@ -5801,7 +5800,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                 AudioPlayerAlert.currentSourceLabel = "";
                 applySpringClick(v);
-                Toast.makeText(context, getString(R.string.sg_wave_generating), Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                 new Thread(() -> {
                     ArrayList<String> genres = MusicWebSearcher.getArtistGenresSync(artistName);
                     String genreQuery = genres.isEmpty() ? artistName : genres.get(0);
@@ -6652,7 +6651,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     waveBtn.setOnClickListener(v -> {
                         AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                         applySpringClick(waveBtn);
-                        Toast.makeText(mContext, getString(R.string.sg_wave_generating), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                         String aArtist = artist != null ? artist : "";
                         if (aArtist.isEmpty() && albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
                             String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);

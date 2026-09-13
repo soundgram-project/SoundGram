@@ -2890,14 +2890,14 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             soundgram.music.SmartRadioEngine.stopWaveSession();
         }
         forceLoopCurrentPlaylist = !loadMusic;
-        playlistMergeDialogId = mergeDialogId;
         playMusicAgain = !playlist.isEmpty();
         clearPlaylist();
+        playlistMergeDialogId = mergeDialogId;
         playlistGlobalSearchParams = params;
         boolean isSecretChat = !messageObjects.isEmpty() && DialogObject.isEncryptedDialog(messageObjects.get(0).getDialogId());
         int minId = Integer.MAX_VALUE;
         int maxId = Integer.MIN_VALUE;
-        if (mergeDialogId == WAVE_CONTEXT_ID) {
+        if (mergeDialogId == WAVE_CONTEXT_ID || mergeDialogId != 0) {
             for (int a = messageObjects.size() - 1; a >= 0; a--) {
                 MessageObject messageObject = messageObjects.get(a);
                 if (messageObject != null && messageObject.isMusic()) {
@@ -2932,7 +2932,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             if (SharedConfig.shuffleMusic) {
                 buildShuffledPlayList();
             }
-            if (loadMusic) {
+            if (loadMusic && mergeDialogId == 0) {
                 if (playlistGlobalSearchParams == null) {
                     MediaDataController.getInstance(current.currentAccount).loadMusic(current.getDialogId(), minId, maxId);
                 } else {
@@ -3199,20 +3199,31 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         if (playlistMergeDialogId != WAVE_CONTEXT_ID || !soundgram.music.SmartRadioEngine.isWaveActive) {
             return;
         }
+        if (playlist.isEmpty()) {
+            setPlaylist(tracks, tracks.get(0), WAVE_CONTEXT_ID);
+            playMessage(tracks.get(0));
+            return;
+        }
         int added = 0;
         for (int a = 0; a < tracks.size(); a++) {
             MessageObject messageObject = tracks.get(a);
             if (messageObject != null && messageObject.isMusic()) {
                 int id = messageObject.getId();
                 if (!playlistMap.containsKey(id)) {
-                    playlist.add(0, messageObject);
+                    if (SharedConfig.playOrderReversed) {
+                        playlist.add(messageObject);
+                    } else {
+                        playlist.add(0, messageObject);
+                    }
                     playlistMap.put(id, messageObject);
                     added++;
                 }
             }
         }
         if (added > 0) {
-            currentPlaylistNum += added;
+            if (!SharedConfig.playOrderReversed) {
+                currentPlaylistNum += added;
+            }
             int account = playingMessageObject != null ? playingMessageObject.currentAccount : UserConfig.selectedAccount;
             NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.moreMusicDidLoad, added);
         }

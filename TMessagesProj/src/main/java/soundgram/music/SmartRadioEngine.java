@@ -215,18 +215,21 @@ public final class SmartRadioEngine {
         @Override
         public void onTracksFound(ArrayList<MessageObject> tracks) {
             isLoading = false;
+            if (!isWaveActive || sCancelFlag.get()) return;
             if (delegate != null) delegate.onTracksFound(tracks);
         }
 
         @Override
         public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {
             isLoading = false;
+            if (!isWaveActive || sCancelFlag.get()) return;
             if (delegate != null) delegate.onMoreTracksAdded(tracks);
         }
 
         @Override
         public void onError() {
             isLoading = false;
+            if (!isWaveActive || sCancelFlag.get()) return;
             if (delegate != null) delegate.onError();
         }
     }
