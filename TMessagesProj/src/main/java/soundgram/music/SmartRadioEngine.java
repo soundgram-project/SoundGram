@@ -39,6 +39,8 @@ public final class SmartRadioEngine {
     public static WaveConfig currentConfig = new WaveConfig();
     public static volatile boolean isWaveActive = false;
     public static volatile boolean isLoading = false;
+    public static volatile int sCurrentMode = -1;
+    public static volatile String sCurrentTarget = "";
 
     private static final ExecutorService sSeedExecutor = Executors.newSingleThreadExecutor();
     private static volatile WaveQueueManager sCurrentManager = null;
@@ -47,11 +49,23 @@ public final class SmartRadioEngine {
     private SmartRadioEngine() {}
 
     /**
+     * Проверка совпадения запущенной сессии с запрошенными параметрами.
+     */
+    public static boolean isCurrentSession(int mode, String target) {
+        if (!isWaveActive) return false;
+        if (sCurrentMode != mode) return false;
+        if (target == null) return sCurrentTarget == null;
+        return target.trim().equalsIgnoreCase(sCurrentTarget != null ? sCurrentTarget.trim() : "");
+    }
+
+    /**
      * Остановка текущей сессии волны.
      */
     public static synchronized void stopWaveSession() {
         isWaveActive = false;
         isLoading = false;
+        sCurrentMode = -1;
+        sCurrentTarget = "";
         sCancelFlag.set(true);
         if (sCurrentManager != null) {
             sCurrentManager.stop();
@@ -70,6 +84,9 @@ public final class SmartRadioEngine {
         isLoading = true;
 
         String genre = currentConfig.query != null ? currentConfig.query : "default";
+        sCurrentMode = WaveQueueManager.MODE_GENRE;
+        sCurrentTarget = genre;
+
         sSeedExecutor.execute(() -> {
             try {
                 List<String> seeds = SeedSelector.selectSeedsByGenre(genre, sCancelFlag);
@@ -98,6 +115,9 @@ public final class SmartRadioEngine {
         sCancelFlag.set(false);
         isWaveActive = true;
         isLoading = true;
+
+        sCurrentMode = WaveQueueManager.MODE_ARTIST;
+        sCurrentTarget = artistName != null ? artistName.trim() : "";
 
         sSeedExecutor.execute(() -> {
             try {
@@ -132,6 +152,9 @@ public final class SmartRadioEngine {
         isWaveActive = true;
         isLoading = true;
 
+        sCurrentMode = WaveQueueManager.MODE_ALBUM;
+        sCurrentTarget = (artistName != null && !artistName.trim().isEmpty() ? artistName.trim() + " - " : "") + (albumName != null ? albumName.trim() : "");
+
         sSeedExecutor.execute(() -> {
             try {
                 List<String> seeds = SeedSelector.selectSeedsByAlbum(artistName, albumName, albumTracks, sCancelFlag);
@@ -141,7 +164,7 @@ public final class SmartRadioEngine {
                     if (!isWaveActive) return;
                     WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
                     sCurrentManager = manager;
-                    manager.startSession(seeds, WaveQueueManager.MODE_ALBUM, artistName);
+                    manager.startSession(seeds, WaveQueueManager.MODE_ALBUM, artistName, albumName, albumTracks);
                 }
             } catch (Exception e) {
                 FileLog.e(TAG + " generateWaveByAlbum error", e);
@@ -161,6 +184,9 @@ public final class SmartRadioEngine {
         isWaveActive = true;
         isLoading = true;
 
+        sCurrentMode = WaveQueueManager.MODE_PLAYLIST;
+        sCurrentTarget = "playlist";
+
         sSeedExecutor.execute(() -> {
             try {
                 List<String> seeds = SeedSelector.selectSeedsByPlaylist(originalPlaylist, sCancelFlag);
@@ -170,7 +196,7 @@ public final class SmartRadioEngine {
                     if (!isWaveActive) return;
                     WaveQueueManager manager = new WaveQueueManager(currentAccount, new WaveCallbackWrapper(callback));
                     sCurrentManager = manager;
-                    manager.startSession(seeds, WaveQueueManager.MODE_PLAYLIST, "playlist");
+                    manager.startSession(seeds, WaveQueueManager.MODE_PLAYLIST, originalPlaylist);
                 }
             } catch (Exception e) {
                 FileLog.e(TAG + " generateWaveByPlaylist error", e);

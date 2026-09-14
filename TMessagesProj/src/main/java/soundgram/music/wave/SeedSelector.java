@@ -254,6 +254,11 @@ public final class SeedSelector {
      * Выбор сидов по жанру: динамический поиск реальных треков в InnerTube,
      * с быстрым фолбэком на встроенный справочник при отсутствии сети.
      */
+    /**
+     * Выбор сидов по жанру:
+     * Первоочередное использование эталонных сидов GENRE_BEACONS (0 мс задержки сети, идеальное совпадение жанра).
+     * Фолбэк на InnerTube при кастомном жанре.
+     */
     public static List<String> selectSeedsByGenre(String genre) {
         return selectSeedsByGenre(genre, null);
     }
@@ -263,7 +268,15 @@ public final class SeedSelector {
             genre = "default";
         }
 
-        // 1. Попытка получить свежие треки по жанру через InnerTube
+        // 1. Приоритет: чистые эталонные маяки (0 мс задержки сети, идеальное совпадение жанра)
+        List<String> pool = getAllGenreBeaconIds(genre);
+        if (pool != null && !pool.isEmpty()) {
+            List<String> copy = new ArrayList<>(pool);
+            Collections.shuffle(copy, sRandom);
+            return copy.subList(0, Math.min(3, copy.size()));
+        }
+
+        // 2. Попытка получить треки по жанру через InnerTube для кастомных запросов
         List<InnerTubeClient.RawTrack> songs = searchGenreSongs(genre, 20, cancelFlag);
         if (!songs.isEmpty()) {
             List<InnerTubeClient.RawTrack> shuffled = new ArrayList<>(songs);
@@ -282,28 +295,8 @@ public final class SeedSelector {
             }
         }
 
-        // 2. Фолбэк на статический пул маяков при отсутствии сети
-        String key = genre.toLowerCase().trim();
-        String normalizedKey = key.replace("-", "").replace(" ", "");
-
-        List<String> pool = GENRE_BEACONS.get(key);
-        if (pool == null || pool.isEmpty()) {
-            pool = GENRE_BEACONS.get(normalizedKey);
-        }
-        if (pool == null || pool.isEmpty()) {
-            for (Map.Entry<String, List<String>> entry : GENRE_BEACONS.entrySet()) {
-                String entryNorm = entry.getKey().replace("-", "").replace(" ", "");
-                if (normalizedKey.contains(entryNorm) || entryNorm.contains(normalizedKey)) {
-                    pool = entry.getValue();
-                    break;
-                }
-            }
-        }
-        if (pool == null || pool.isEmpty()) {
-            pool = GENRE_BEACONS.get("default");
-        }
-
-        List<String> copy = new ArrayList<>(pool);
+        List<String> defPool = getAllGenreBeaconIds("default");
+        List<String> copy = new ArrayList<>(defPool);
         Collections.shuffle(copy, sRandom);
         return copy.subList(0, Math.min(3, copy.size()));
     }
@@ -319,7 +312,6 @@ public final class SeedSelector {
 
         List<InnerTubeClient.RawTrack> songs = InnerTubeClient.searchSongs(artistName.trim(), 20, cancelFlag);
         if (songs.isEmpty()) {
-            // Фолбэк на дефолтные сиды жанра
             return selectSeedsByGenre("default");
         }
 
@@ -341,9 +333,9 @@ public final class SeedSelector {
 
     /**
      * Выбор сидов по альбому:
-     * 1) Если переданы треки альбома, берем 2-3 трека и находим их videoId.
-     * 2) Если треков нет, ищем по запросу (artist + " " + album).
-     * 3) Каскадный фолбэк по артисту, альбому или дефолтным сидам (никогда не возвращает пустой список).
+     * 1) Быстрый поиск в 1 запрос по "Исполнитель Название_альбома".
+     * 2) Если треков мало — параллельный поиск по трекам альбома.
+     * 3) Каскадный фолбэк по артисту или дефолтным сидам (никогда не возвращает пустой список).
      */
     public static List<String> selectSeedsByAlbum(String artistName, String albumTitle, AtomicBoolean cancelFlag) {
         return selectSeedsByAlbum(artistName, albumTitle, null, cancelFlag);
@@ -369,25 +361,35 @@ public final class SeedSelector {
             if (result.size() >= 2) return result;
         }
 
-        // 2. Если результатов мало и есть реальные треки альбома — ищем по названию первых треков
-        if (albumTracks != null && !albumTracks.isEmpty()) {
+        // 2. Если результатов мало и есть реальные треки альбома — параллельный поиск по первым 3 трекам
+        if (albumTracks != null && !albumTracks.isEmpty() && result.size() < 3) {
             List<MessageObject> candidates = new ArrayList<>(albumTracks);
             Collections.shuffle(candidates, sRandom);
-            for (MessageObject msg : candidates) {
-                if (cancelFlag != null && cancelFlag.get()) break;
+            List<MessageObject> toCheck = candidates.subList(0, Math.min(3, candidates.size()));
+            java.util.concurrent.ExecutorService exec = java.util.concurrent.Executors.newFixedThreadPool(toCheck.size());
+            List<java.util.concurrent.Future<List<InnerTubeClient.RawTrack>>> futures = new ArrayList<>();
+            for (MessageObject msg : toCheck) {
                 String author = msg.getMusicAuthor();
                 String title = msg.getMusicTitle();
-                if (title == null || title.trim().isEmpty()) continue;
-                String q = (author != null && !author.trim().isEmpty() ? author.trim() + " - " : "") + title.trim();
-                List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(q, 2, cancelFlag);
-                for (InnerTubeClient.RawTrack t : found) {
-                    if (t.videoId != null && !t.videoId.isEmpty() && seenIds.add(t.videoId)) {
-                        result.add(t.videoId);
-                        if (result.size() >= 3) return result;
-                    }
-                }
-                if (result.size() >= 2) return result;
+                String q = (author != null && !author.trim().isEmpty() ? author.trim() + " - " : "") + (title != null ? title.trim() : "");
+                if (q.trim().isEmpty()) continue;
+                futures.add(exec.submit(() -> InnerTubeClient.searchSongs(q, 2, cancelFlag)));
             }
+            for (java.util.concurrent.Future<List<InnerTubeClient.RawTrack>> f : futures) {
+                try {
+                    List<InnerTubeClient.RawTrack> found = f.get(3, java.util.concurrent.TimeUnit.SECONDS);
+                    if (found != null) {
+                        for (InnerTubeClient.RawTrack t : found) {
+                            if (t.videoId != null && !t.videoId.isEmpty() && seenIds.add(t.videoId)) {
+                                result.add(t.videoId);
+                                if (result.size() >= 3) break;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+            exec.shutdown();
+            if (result.size() >= 2) return result;
         }
 
         // 3. Поиск по чистому исполнителю
@@ -417,7 +419,7 @@ public final class SeedSelector {
     /**
      * Выбор сидов по плейлисту:
      * Извлечение треков локального плейлиста, группировка по артистам,
-     * выбор 3 треков строго от разных артистов (или 3 любых если артист один).
+     * параллельный поиск сидов для выбранных треков.
      */
     public static List<String> selectSeedsByPlaylist(List<MessageObject> playlist, AtomicBoolean cancelFlag) {
         List<String> result = new ArrayList<>();
@@ -455,16 +457,29 @@ public final class SeedSelector {
             }
         }
 
-        // Поиск videoId для каждого выбранного трека
-        for (MessageObject msg : chosenMessages) {
-            String author = msg.getMusicAuthor();
-            String title = msg.getMusicTitle();
-            String q = (author != null && !author.trim().isEmpty() ? author.trim() + " - " : "") + (title != null ? title.trim() : "");
-            if (q.trim().isEmpty()) continue;
-            List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(q, 1, cancelFlag);
-            if (!found.isEmpty() && found.get(0).videoId != null && !found.get(0).videoId.isEmpty()) {
-                result.add(found.get(0).videoId);
+        // Параллельный поиск videoId для выбранных треков
+        if (!chosenMessages.isEmpty()) {
+            java.util.concurrent.ExecutorService exec = java.util.concurrent.Executors.newFixedThreadPool(chosenMessages.size());
+            List<java.util.concurrent.Future<List<InnerTubeClient.RawTrack>>> futures = new ArrayList<>();
+            for (MessageObject msg : chosenMessages) {
+                String author = msg.getMusicAuthor();
+                String title = msg.getMusicTitle();
+                String q = (author != null && !author.trim().isEmpty() ? author.trim() + " - " : "") + (title != null ? title.trim() : "");
+                if (q.trim().isEmpty()) continue;
+                futures.add(exec.submit(() -> InnerTubeClient.searchSongs(q, 1, cancelFlag)));
             }
+            for (java.util.concurrent.Future<List<InnerTubeClient.RawTrack>> f : futures) {
+                try {
+                    List<InnerTubeClient.RawTrack> found = f.get(3, java.util.concurrent.TimeUnit.SECONDS);
+                    if (found != null && !found.isEmpty() && found.get(0).videoId != null && !found.get(0).videoId.isEmpty()) {
+                        String vid = found.get(0).videoId;
+                        if (!result.contains(vid)) {
+                            result.add(vid);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+            exec.shutdown();
         }
 
         if (result.isEmpty()) {

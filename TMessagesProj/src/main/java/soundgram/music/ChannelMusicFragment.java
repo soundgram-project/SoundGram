@@ -724,10 +724,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 !MediaController.getInstance().isMessagePaused();
         playBtn.setImageResource(isPlayingWave ? R.drawable.ic_pause : R.drawable.ic_play);
 
+        playBtn.setClickable(false);
+        playBtn.setFocusable(false);
+
         titleRow.setOnClickListener(v -> {
             applySpringClick(v);
             MessageObject playingMsg = MediaController.getInstance().getPlayingMessageObject();
-            if (AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE && playingMsg != null) {
+            String currentGenre = SmartRadioEngine.currentConfig.query != null ? SmartRadioEngine.currentConfig.query : "default";
+            boolean isCurrentActive = SmartRadioEngine.isCurrentSession(soundgram.music.wave.WaveQueueManager.MODE_GENRE, currentGenre);
+            if (isCurrentActive && AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE && playingMsg != null) {
                 if (MediaController.getInstance().isMessagePaused()) {
                     MediaController.getInstance().playMessage(playingMsg);
                     playBtn.setImageResource(R.drawable.ic_pause);
@@ -756,6 +761,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         if (context != null) {
                             Toast.makeText(context, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
                         }
+                        playBtn.setImageResource(R.drawable.ic_play);
                     }
                 });
             }
@@ -1366,6 +1372,25 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (updateTextTarget != null)
                 updateTextTarget.setText("✦  " + SmartRadioEngine.currentConfig.query);
             builder.getDismissRunnable().run();
+            if (SmartRadioEngine.isWaveActive && AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE) {
+                SmartRadioEngine.stopWaveSession();
+                SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
+                    @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
+                        if (!tracks.isEmpty()) {
+                            MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                            MediaController.getInstance().playMessage(tracks.get(0));
+                        }
+                    }
+                    @Override public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {
+                        MediaController.getInstance().addTracksToPlaylist(tracks);
+                    }
+                    @Override public void onError() {
+                        if (context != null) {
+                            Toast.makeText(context, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+            }
         });
         container.addView(applyBtn, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, 52, 20, 0, 20, 0));
@@ -4175,14 +4200,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         if (playlistMessages.isEmpty()) return;
                         Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                         ArrayList<MessageObject> originalList = new ArrayList<>(playlistMessages);
+                        MessageObject starter = originalList.get(0);
+                        ArrayList<MessageObject> starterList = new ArrayList<>();
+                        starterList.add(starter);
+                        MediaController.getInstance().setPlaylist(starterList, starter, MediaController.WAVE_CONTEXT_ID);
+                        MediaController.getInstance().playMessage(starter);
                         SmartRadioEngine.stopWaveSession();
                         SmartRadioEngine.generateWaveByPlaylist(originalList, currentAccount,
                                 new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> waveQueue) {
                                         if (!waveQueue.isEmpty()) {
-                                            MediaController.getInstance().setPlaylist(
-                                                    waveQueue, waveQueue.get(0), MediaController.WAVE_CONTEXT_ID);
-                                            MediaController.getInstance().playMessage(waveQueue.get(0));
+                                            MediaController.getInstance().addTracksToPlaylist(waveQueue);
                                         }
                                     }
                                     @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
@@ -5801,30 +5829,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 AudioPlayerAlert.currentSourceLabel = "";
                 applySpringClick(v);
                 Toast.makeText(context, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
-                new Thread(() -> {
-                    ArrayList<String> genres = MusicWebSearcher.getArtistGenresSync(artistName);
-                    String genreQuery = genres.isEmpty() ? artistName : genres.get(0);
-                    AndroidUtilities.runOnUIThread(() -> {
-                        String savedQuery = SmartRadioEngine.currentConfig.query;
-                        SmartRadioEngine.currentConfig.query = genreQuery;
-                        SmartRadioEngine.stopWaveSession();
-                        SmartRadioEngine.generateWaveByArtist(artistName, currentAccount,
-                                new SmartRadioEngine.WaveCallback() {
-                                    @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
-                                        SmartRadioEngine.currentConfig.query = savedQuery;
-                                        MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
-                                        MediaController.getInstance().playMessage(tracks.get(0));
-                                    }
-                                    @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
-                                        MediaController.getInstance().addTracksToPlaylist(t);
-                                    }
-                                    @Override public void onError() {
-                                        SmartRadioEngine.currentConfig.query = savedQuery;
-                                        Toast.makeText(context, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                    });
-                }).start();
+                SmartRadioEngine.stopWaveSession();
+                SmartRadioEngine.generateWaveByArtist(artistName, currentAccount,
+                        new SmartRadioEngine.WaveCallback() {
+                            @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
+                                if (!tracks.isEmpty()) {
+                                    MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                                    MediaController.getInstance().playMessage(tracks.get(0));
+                                }
+                            }
+                            @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
+                                MediaController.getInstance().addTracksToPlaylist(t);
+                            }
+                            @Override public void onError() {
+                                Toast.makeText(context, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
+                            }
+                        });
             });
             actionsRow.addView(waveBtn, LayoutHelper.createLinear(0, 48, 1.0f));
 
@@ -6653,28 +6673,43 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         applySpringClick(waveBtn);
                         Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                         String aArtist = artist != null ? artist : "";
+                        String aAlbum = title != null ? title : "";
                         if (aArtist.isEmpty() && albumUrl != null && albumUrl.startsWith("SEARCH_ALBUM:")) {
                             String[] parts = albumUrl.replace("SEARCH_ALBUM:", "").split("::::", 2);
+                            aAlbum = parts.length > 0 ? parts[0] : aAlbum;
                             aArtist = parts.length > 1 ? parts[1] : "";
                         }
                         if (aArtist.isEmpty() && !playlistMessages.isEmpty()) {
                             aArtist = playlistMessages.get(0).getMusicAuthor();
                         }
-                        if (aArtist.isEmpty() && title != null && title.contains(" - ")) {
-                            String[] tParts = title.split(" - ", 2);
+                        if (aArtist.isEmpty() && aAlbum.contains(" - ")) {
+                            String[] tParts = aAlbum.split(" - ", 2);
                             aArtist = tParts[0].trim();
+                            aAlbum = tParts[1].trim();
                         }
                         final String finalArtist = aArtist;
-                        AudioPlayerAlert.currentSourceLabel = (!finalArtist.isEmpty() ? finalArtist + " - " : "") + title;
+                        final String finalAlbum = aAlbum;
+                        AudioPlayerAlert.currentSourceLabel = (!finalArtist.isEmpty() ? finalArtist + " - " : "") + finalAlbum;
                         ArrayList<MessageObject> currentTracks = new ArrayList<>(playlistMessages);
+                        if (!currentTracks.isEmpty()) {
+                            MessageObject starter = currentTracks.get(0);
+                            ArrayList<MessageObject> starterList = new ArrayList<>();
+                            starterList.add(starter);
+                            MediaController.getInstance().setPlaylist(starterList, starter, MediaController.WAVE_CONTEXT_ID);
+                            MediaController.getInstance().playMessage(starter);
+                        }
                         SmartRadioEngine.stopWaveSession();
-                        SmartRadioEngine.generateWaveByAlbum(finalArtist, title, currentTracks,
+                        SmartRadioEngine.generateWaveByAlbum(finalArtist, finalAlbum, currentTracks,
                                 currentAccount, new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                                         if (!tracks.isEmpty()) {
-                                            MediaController.getInstance().setPlaylist(
-                                                    tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
-                                            MediaController.getInstance().playMessage(tracks.get(0));
+                                            if (!currentTracks.isEmpty()) {
+                                                MediaController.getInstance().addTracksToPlaylist(tracks);
+                                            } else {
+                                                MediaController.getInstance().setPlaylist(
+                                                        tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                                                MediaController.getInstance().playMessage(tracks.get(0));
+                                            }
                                         }
                                     }
                                     @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
@@ -7109,6 +7144,25 @@ public static class ChipCell extends FrameLayout {
         applyBtn.setOnClickListener(v -> {
             applySpringClick(v);
             builder.getDismissRunnable().run();
+            if (SmartRadioEngine.isWaveActive && AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE) {
+                SmartRadioEngine.stopWaveSession();
+                SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
+                    @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
+                        if (!tracks.isEmpty()) {
+                            MediaController.getInstance().setPlaylist(tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                            MediaController.getInstance().playMessage(tracks.get(0));
+                        }
+                    }
+                    @Override public void onMoreTracksAdded(ArrayList<MessageObject> tracks) {
+                        MediaController.getInstance().addTracksToPlaylist(tracks);
+                    }
+                    @Override public void onError() {
+                        if (context != null) {
+                            Toast.makeText(context, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+            }
         });
         container.addView(applyBtn, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, 52, 20, 0, 20, 0));
