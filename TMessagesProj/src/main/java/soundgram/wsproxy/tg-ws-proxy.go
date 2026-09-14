@@ -18,6 +18,7 @@ import "C"
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -36,6 +37,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -974,26 +976,160 @@ func randomUserAgent() string {
 	return wsUserAgents[int(time.Now().UnixNano()>>10)%len(wsUserAgents)]
 }
 
-// splitWriteConn splits the very first TLS Write into two separate TCP segments.
-// This defeats DPI systems (TSPU) that match TLS ClientHello in a single TCP packet.
-// TCP_NODELAY is already set so each Write() flushes immediately.
+// findSNISplitPos parses a TLS ClientHello packet and returns the byte offset
+// inside the SNI hostname where the packet should be split into two TCP segments.
+// Splitting directly inside the domain name (e.g. "mus" | "ic.youtube.com") prevents
+// Russian TSPU (DPI) pattern-matchers from inspecting or blocking the target SNI.
+// Returns 0 if not a TLS ClientHello or if SNI is not found.
+func findSNISplitPos(p []byte) int {
+	if len(p) < 44 || p[0] != 0x16 {
+		return 0
+	}
+	// Handshake type: 0x01 (ClientHello)
+	if p[5] != 0x01 {
+		return 0
+	}
+	// Handshake header: type(1) + length(3) + version(2) + random(32) = 38 bytes
+	// Session ID length byte is at offset 5 + 38 = 43
+	idx := 43
+	if idx >= len(p) {
+		return 0
+	}
+	sessionIDLen := int(p[idx])
+	idx += 1 + sessionIDLen
+	if idx+2 > len(p) {
+		return 0
+	}
+	// Cipher suites length (2 bytes)
+	csLen := int(binary.BigEndian.Uint16(p[idx:]))
+	idx += 2 + csLen
+	if idx+1 > len(p) {
+		return 0
+	}
+	// Compression methods length (1 byte)
+	cmLen := int(p[idx])
+	idx += 1 + cmLen
+	if idx+2 > len(p) {
+		return 0
+	}
+	// Extensions length (2 bytes)
+	extsLen := int(binary.BigEndian.Uint16(p[idx:]))
+	idx += 2
+	end := idx + extsLen
+	if end > len(p) {
+		end = len(p)
+	}
+
+	for idx+4 <= end {
+		extType := binary.BigEndian.Uint16(p[idx:])
+		extLen := int(binary.BigEndian.Uint16(p[idx+2:]))
+		idx += 4
+		if extType == 0x0000 { // server_name (SNI) extension
+			// Server name list length: 2 bytes
+			// Server name type: 1 byte (0x00 = host_name)
+			// Host name length: 2 bytes
+			// Host name starts at idx + 5
+			if idx+5 <= end && extLen >= 5 {
+				nameType := p[idx+2]
+				if nameType == 0x00 {
+					hnLen := int(binary.BigEndian.Uint16(p[idx+3:]))
+					hnStart := idx + 5
+					if hnStart+hnLen <= end && hnLen > 3 {
+						// Split after 3 characters into the SNI domain name (e.g. "mus" | "ic.youtube.com")
+						return hnStart + 3
+					}
+				}
+			}
+			break
+		}
+		idx += extLen
+	}
+	return 0
+}
+
+// splitWriteConn implements TLS Record Fragmentation (RFC 5246 / RFC 8446)
+// combined with TCP segment splitting for the TLS ClientHello.
+// It splits the handshake into two valid TLS records and sends them in separate TCP segments.
+// DPI systems (TSPU) that inspect single TLS records or single TCP packets cannot detect
+// the forbidden SNI, while Google's server (BoringSSL) natively reassembles fragmented TLS records.
 type splitWriteConn struct {
 	net.Conn
-	once sync.Once
+	splitDone atomic.Bool
+	hdrBuf    []byte
 }
 
 func (c *splitWriteConn) Write(p []byte) (int, error) {
-	split := false
-	c.once.Do(func() { split = true })
-	if split && len(p) >= 6 {
-		// Send first 3 bytes (TLS record header: ContentType + Version)
-		// separately so the ClientHello crosses a TCP segment boundary.
-		n1, err := c.Conn.Write(p[:3])
-		if err != nil {
-			return n1, err
+	if !c.splitDone.Load() {
+		// Handle clients that send the 5-byte TLS record header separately
+		if len(p) == 5 && p[0] == 0x16 {
+			c.hdrBuf = make([]byte, 5)
+			copy(c.hdrBuf, p)
+			return 5, nil
 		}
-		n2, err := c.Conn.Write(p[3:])
-		return n1 + n2, err
+
+		var full []byte
+		if len(c.hdrBuf) == 5 {
+			full = append(c.hdrBuf, p...)
+			c.hdrBuf = nil
+		} else if len(p) >= 6 && p[0] == 0x16 {
+			full = p
+		}
+
+		if len(full) >= 10 && full[0] == 0x16 && full[5] == 0x01 {
+			c.splitDone.Store(true)
+
+			handshake := full[5:]
+			splitPos := findSNISplitPos(full)
+			if splitPos <= 5 || splitPos >= len(full) {
+				splitPos = 40
+			} else {
+				splitPos -= 5
+			}
+
+			// Record 1
+			rec1 := make([]byte, 5+splitPos)
+			rec1[0] = 0x16
+			rec1[1] = full[1]
+			rec1[2] = full[2]
+			binary.BigEndian.PutUint16(rec1[3:5], uint16(splitPos))
+			copy(rec1[5:], handshake[:splitPos])
+
+			// Record 2
+			remLen := len(handshake) - splitPos
+			rec2 := make([]byte, 5+remLen)
+			rec2[0] = 0x16
+			rec2[1] = full[1]
+			rec2[2] = full[2]
+			binary.BigEndian.PutUint16(rec2[3:5], uint16(remLen))
+			copy(rec2[5:], handshake[splitPos:])
+
+			n1, err := c.Conn.Write(rec1)
+			if err != nil {
+				return n1, err
+			}
+			time.Sleep(5 * time.Millisecond) // Ensure distinct TCP segment
+			_, err = c.Conn.Write(rec2)
+			if err != nil {
+				return n1, err
+			}
+			return len(p), nil
+		} else if len(full) > 0 {
+			c.splitDone.Store(true)
+			splitPos := 3
+			if splitPos > len(full) {
+				splitPos = len(full)
+			}
+			n1, err := c.Conn.Write(full[:splitPos])
+			if err != nil {
+				return n1, err
+			}
+			time.Sleep(3 * time.Millisecond)
+			n2, err := c.Conn.Write(full[splitPos:])
+			if err != nil {
+				return n1 + n2, err
+			}
+			return len(p), nil
+		}
 	}
 	return c.Conn.Write(p)
 }
@@ -2161,8 +2297,368 @@ func isHTTPTransport(data []byte) bool {
 	if len(data) < 4 {
 		return false
 	}
-	return string(data[:4]) == "POST" || string(data[:3]) == "GET" ||
-		string(data[:4]) == "HEAD" || string(data[:7]) == "OPTIONS"
+	s := string(data)
+	return strings.HasPrefix(s, "CONNECT ") ||
+		strings.HasPrefix(s, "GET ") ||
+		strings.HasPrefix(s, "POST ") ||
+		strings.HasPrefix(s, "HEAD ") ||
+		strings.HasPrefix(s, "PUT ") ||
+		strings.HasPrefix(s, "DELETE ") ||
+		strings.HasPrefix(s, "OPTIONS ")
+}
+
+func handleHTTPProxy(ctx context.Context, conn net.Conn, handshake []byte) {
+	reader := bufio.NewReader(io.MultiReader(bytes.NewReader(handshake), conn))
+
+	firstLine, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	firstLine = strings.TrimRight(firstLine, "\r\n")
+	parts := strings.Split(firstLine, " ")
+	if len(parts) < 2 {
+		return
+	}
+
+	method := strings.ToUpper(parts[0])
+	target := parts[1]
+
+	var headers []string
+	for {
+		hdr, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		if hdr == "\r\n" || hdr == "\n" {
+			break
+		}
+		trimmed := strings.TrimSpace(hdr)
+		if !strings.HasPrefix(strings.ToLower(trimmed), "proxy-connection:") {
+			headers = append(headers, hdr)
+		}
+	}
+
+	if method == "CONNECT" {
+		host, port, err := net.SplitHostPort(target)
+		if err != nil {
+			host = target
+			port = "443"
+		}
+		tunnelToTarget(ctx, conn, host, port, target, func() error {
+			_, err := conn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
+			return err
+		}, reader)
+	} else {
+		handlePlainHTTP(ctx, conn, reader, method, target, parts, headers)
+	}
+}
+
+var googleEdgeIPs = []string{
+	"142.251.36.46",
+	"172.217.18.110",
+	"64.233.163.198",
+	"142.250.74.206",
+	"142.250.185.142",
+	"172.217.16.206",
+	"216.58.209.174",
+	"172.217.168.206",
+	"142.250.180.142",
+}
+
+func isGoogleHost(host string) bool {
+	h := strings.ToLower(host)
+	return strings.Contains(h, "youtube") ||
+		strings.Contains(h, "googlevideo") ||
+		strings.Contains(h, "ytimg") ||
+		strings.Contains(h, "google") ||
+		strings.Contains(h, "ggpht") ||
+		strings.Contains(h, "gvt1")
+}
+
+func containsStr(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+func tunnelToTarget(ctx context.Context, conn net.Conn, host, port, target string, onConnectSuccess func() error, bufferedClientReader *bufio.Reader) {
+	var candidateIPs []string
+	if net.ParseIP(host) != nil {
+		candidateIPs = append(candidateIPs, host)
+	} else {
+		if dohIP := resolveDoH(ctx, host); dohIP != "" {
+			candidateIPs = append(candidateIPs, dohIP)
+		}
+		if ips, err := net.LookupHost(host); err == nil {
+			for _, ip := range ips {
+				if net.ParseIP(ip) != nil && !containsStr(candidateIPs, ip) {
+					candidateIPs = append(candidateIPs, ip)
+				}
+			}
+		}
+		if isGoogleHost(host) {
+			for _, gIP := range googleEdgeIPs {
+				if !containsStr(candidateIPs, gIP) {
+					candidateIPs = append(candidateIPs, gIP)
+				}
+			}
+		}
+	}
+	if len(candidateIPs) == 0 {
+		candidateIPs = append(candidateIPs, host)
+	}
+
+	var remoteConn net.Conn
+	var dialErr error
+	timeoutPerIP := 3500 * time.Millisecond
+	if len(candidateIPs) == 1 {
+		timeoutPerIP = 10 * time.Second
+	}
+
+	for _, ip := range candidateIPs {
+		dialAddr := net.JoinHostPort(ip, port)
+		dialer := &net.Dialer{Timeout: timeoutPerIP}
+		c, err := dialer.DialContext(ctx, "tcp", dialAddr)
+		if err == nil {
+			remoteConn = c
+			break
+		}
+		dialErr = err
+	}
+
+	if remoteConn == nil {
+		logWarn.Printf(" Proxy dial to %s failed: %v", target, dialErr)
+		return
+	}
+	defer remoteConn.Close()
+	setSockOpts(remoteConn)
+
+	wrappedRemote := &splitWriteConn{Conn: remoteConn}
+
+	if onConnectSuccess != nil {
+		if err := onConnectSuccess(); err != nil {
+			return
+		}
+	}
+
+	if bufferedClientReader != nil {
+		if n := bufferedClientReader.Buffered(); n > 0 {
+			buf := make([]byte, n)
+			if _, err := io.ReadFull(bufferedClientReader, buf); err == nil {
+				if _, err := wrappedRemote.Write(buf); err != nil {
+					return
+				}
+			}
+		}
+	}
+
+	_, cancelRelay := context.WithCancel(ctx)
+	defer cancelRelay()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Client -> Remote
+	go func() {
+		defer wg.Done()
+		defer cancelRelay()
+		buf := make([]byte, 32*1024)
+		for {
+			_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			n, rerr := conn.Read(buf)
+			if n > 0 {
+				stats.bytesUp.Add(int64(n))
+				_ = wrappedRemote.SetWriteDeadline(time.Now().Add(30 * time.Second))
+				if _, werr := wrappedRemote.Write(buf[:n]); werr != nil {
+					return
+				}
+			}
+			if rerr != nil {
+				return
+			}
+		}
+	}()
+
+	// Remote -> Client
+	go func() {
+		defer wg.Done()
+		defer cancelRelay()
+		buf := make([]byte, 32*1024)
+		for {
+			_ = remoteConn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			n, rerr := remoteConn.Read(buf)
+			if n > 0 {
+				stats.bytesDown.Add(int64(n))
+				_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+				if _, werr := conn.Write(buf[:n]); werr != nil {
+					return
+				}
+			}
+			if rerr != nil {
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
+}
+
+func handlePlainHTTP(ctx context.Context, conn net.Conn, reader *bufio.Reader, method, target string, firstLineParts, headers []string) {
+	var host, path string
+	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
+		u, err := url.Parse(target)
+		if err == nil {
+			host = u.Host
+			path = u.RequestURI()
+		}
+	}
+	if host == "" {
+		for _, h := range headers {
+			if strings.HasPrefix(strings.ToLower(h), "host:") {
+				host = strings.TrimSpace(h[5:])
+				break
+			}
+		}
+		path = target
+	}
+	if host == "" {
+		_, _ = conn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
+		return
+	}
+
+	targetHost, targetPort, err := net.SplitHostPort(host)
+	if err != nil {
+		targetHost = host
+		targetPort = "80"
+	}
+
+	targetIP := targetHost
+	if net.ParseIP(targetHost) == nil {
+		if dohIP := resolveDoH(ctx, targetHost); dohIP != "" {
+			targetIP = dohIP
+		}
+	}
+
+	dialAddr := net.JoinHostPort(targetIP, targetPort)
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	remoteConn, err := dialer.DialContext(ctx, "tcp", dialAddr)
+	if err != nil {
+		_, _ = conn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		return
+	}
+	defer remoteConn.Close()
+	setSockOpts(remoteConn)
+
+	proto := "HTTP/1.1"
+	if len(firstLineParts) >= 3 {
+		proto = firstLineParts[2]
+	}
+	newFirstLine := fmt.Sprintf("%s %s %s\r\n", method, path, proto)
+	if _, err := remoteConn.Write([]byte(newFirstLine)); err != nil {
+		return
+	}
+	for _, h := range headers {
+		if _, err := remoteConn.Write([]byte(h)); err != nil {
+			return
+		}
+	}
+	if _, err := remoteConn.Write([]byte("\r\n")); err != nil {
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, _ = io.Copy(remoteConn, reader)
+		_ = remoteConn.Close()
+	}()
+	go func() {
+		defer wg.Done()
+		_, _ = io.Copy(conn, remoteConn)
+		_ = conn.Close()
+	}()
+	wg.Wait()
+}
+
+func handleSocks5(ctx context.Context, conn net.Conn) bool {
+	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	nmethodsBuf := make([]byte, 1)
+	if _, err := io.ReadFull(conn, nmethodsBuf); err != nil {
+		return false
+	}
+	nmethods := int(nmethodsBuf[0])
+	if nmethods < 1 || nmethods > 10 {
+		return false
+	}
+	methods := make([]byte, nmethods)
+	if _, err := io.ReadFull(conn, methods); err != nil {
+		return false
+	}
+	_ = conn.SetReadDeadline(time.Time{})
+
+	if _, err := conn.Write([]byte{0x05, 0x00}); err != nil {
+		return true
+	}
+
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	reqHead := make([]byte, 4)
+	if _, err := io.ReadFull(conn, reqHead); err != nil {
+		return true
+	}
+	_ = conn.SetReadDeadline(time.Time{})
+
+	if reqHead[0] != 0x05 || reqHead[1] != 0x01 {
+		_, _ = conn.Write([]byte{0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return true
+	}
+
+	var host string
+	atyp := reqHead[3]
+	switch atyp {
+	case 0x01: // IPv4
+		ipBuf := make([]byte, 4)
+		if _, err := io.ReadFull(conn, ipBuf); err != nil {
+			return true
+		}
+		host = net.IP(ipBuf).String()
+	case 0x03: // Domain
+		lenBuf := make([]byte, 1)
+		if _, err := io.ReadFull(conn, lenBuf); err != nil {
+			return true
+		}
+		domLen := int(lenBuf[0])
+		domBuf := make([]byte, domLen)
+		if _, err := io.ReadFull(conn, domBuf); err != nil {
+			return true
+		}
+		host = string(domBuf)
+	case 0x04: // IPv6
+		ipBuf := make([]byte, 16)
+		if _, err := io.ReadFull(conn, ipBuf); err != nil {
+			return true
+		}
+		host = net.IP(ipBuf).String()
+	default:
+		_, _ = conn.Write([]byte{0x05, 0x08, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return true
+	}
+
+	portBuf := make([]byte, 2)
+	if _, err := io.ReadFull(conn, portBuf); err != nil {
+		return true
+	}
+	port := binary.BigEndian.Uint16(portBuf)
+	target := fmt.Sprintf("%s:%d", host, port)
+
+	tunnelToTarget(ctx, conn, host, fmt.Sprintf("%d", port), target, func() error {
+		_, err := conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return err
+	}, nil)
+	return true
 }
 
 func bridgeWS(ctx context.Context, conn net.Conn, ws *RawWebSocket,
@@ -2798,6 +3294,12 @@ func handleClient(ctx context.Context, conn net.Conn) {
 	}
 	_ = conn.SetReadDeadline(time.Time{})
 
+	if firstByte[0] == 0x05 {
+		if handleSocks5(ctx, conn) {
+			return
+		}
+	}
+
 	var clientConn net.Conn = conn
 	var handshake []byte
 
@@ -2831,7 +3333,28 @@ func handleClient(ctx context.Context, conn net.Conn) {
 			}
 		}
 	} else {
-		clientConn = &PrefixConn{Conn: conn, prefix: firstByte}
+		// Check for plain HTTP methods first (e.g. CONNECT, GET, POST) so we don't
+		// block on io.ReadFull(..., 64) if the HTTP header is short.
+		fb := firstByte[0]
+		if fb == 'C' || fb == 'G' || fb == 'P' || fb == 'H' || fb == 'D' || fb == 'O' {
+			httpBuf := make([]byte, 2048)
+			httpBuf[0] = fb
+			_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+			n, err := conn.Read(httpBuf[1:])
+			_ = conn.SetReadDeadline(time.Time{})
+			if err == nil && n > 0 {
+				readBytes := httpBuf[:1+n]
+				if isHTTPTransport(readBytes) {
+					handleHTTPProxy(ctx, conn, readBytes)
+					return
+				}
+				clientConn = &PrefixConn{Conn: conn, prefix: readBytes}
+			} else {
+				return
+			}
+		} else {
+			clientConn = &PrefixConn{Conn: conn, prefix: firstByte}
+		}
 	}
 
 	handshake = make([]byte, 64)
@@ -2842,8 +3365,7 @@ func handleClient(ctx context.Context, conn net.Conn) {
 	_ = clientConn.SetReadDeadline(time.Time{})
 
 	if isHTTPTransport(handshake) {
-		stats.connectionsHttpReject.Add(1)
-		_, _ = conn.Write([]byte("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n"))
+		handleHTTPProxy(ctx, conn, handshake)
 		return
 	}
 
@@ -3053,7 +3575,7 @@ func runProxy(ctx context.Context, host string, port int, dcOptMap map[int]strin
 				if err != nil {
 					return
 				}
-				err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEPORT, 1)
+				err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, 15, 1)
 			})
 			if controlErr != nil {
 				return controlErr

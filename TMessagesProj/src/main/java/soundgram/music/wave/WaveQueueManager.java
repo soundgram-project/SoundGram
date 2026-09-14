@@ -152,7 +152,18 @@ public final class WaveQueueManager {
                 if (cancelFlag.get() || !isRunning) return;
 
                 // 2. Round-Robin интерливинг всех полученных треков
-                List<InnerTubeClient.RawTrack> initialPool = interleaveBatches(batches);
+                List<InnerTubeClient.RawTrack> initialPool;
+                if (waveMode == MODE_GENRE) {
+                    List<List<InnerTubeClient.RawTrack>> trimmedBatches = new ArrayList<>();
+                    for (List<InnerTubeClient.RawTrack> b : batches) {
+                        if (b != null && !b.isEmpty()) {
+                            trimmedBatches.add(b.subList(0, Math.min(4, b.size())));
+                        }
+                    }
+                    initialPool = interleaveBatches(trimmedBatches);
+                } else {
+                    initialPool = interleaveBatches(batches);
+                }
                 addCandidatesFiltered(initialPool);
 
                 if (candidatesPool.size() < 25) {
@@ -458,6 +469,13 @@ public final class WaveQueueManager {
     private void loadMoreCandidates() {
         if (cancelFlag.get() || !isRunning) return;
 
+        // В режиме жанра длительные continuations приводят к уходу в общие тренды региона.
+        // Вместо этого для жанра делаем регулярный re-seeding из каталога эталонных сидов жанра!
+        if (waveMode == MODE_GENRE) {
+            triggerDynamicReSeeding();
+            return;
+        }
+
         // Выбираем сид с наименьшим количеством скипов
         String bestSeed = null;
         int minSkips = Integer.MAX_VALUE;
@@ -505,25 +523,36 @@ public final class WaveQueueManager {
 
         if (waveMode == MODE_GENRE) {
             String g = !targetName.isEmpty() ? targetName : "default";
-            List<String> genreSeeds = SeedSelector.selectSeedsByGenre(g, cancelFlag);
-            if (!genreSeeds.isEmpty()) {
-                List<List<InnerTubeClient.RawTrack>> newBatches = new ArrayList<>();
-                for (String sid : genreSeeds) {
-                    InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(sid, null, cancelFlag);
-                    if (nr != null && !nr.tracks.isEmpty()) {
-                        newBatches.add(nr.tracks);
-                        activeSeedIds.add(sid);
-                        seedSkipCounters.put(sid, new AtomicInteger(0));
-                        if (nr.continuationToken != null) {
-                            seedContinuationTokens.put(sid, nr.continuationToken);
-                        }
-                    }
+            List<String> allGenrePool = SeedSelector.getAllGenreBeaconIds(g);
+            List<String> shuffledPool = new ArrayList<>(allGenrePool);
+            Collections.shuffle(shuffledPool);
+
+            List<String> pickedSeeds = new ArrayList<>();
+            for (String sid : shuffledPool) {
+                if (!activeSeedIds.contains(sid)) {
+                    pickedSeeds.add(sid);
+                    if (pickedSeeds.size() >= 3) break;
                 }
-                List<InnerTubeClient.RawTrack> fresh = interleaveBatches(newBatches);
-                addCandidatesFiltered(fresh);
             }
-            if (candidatesPool.size() < 25) {
-                List<InnerTubeClient.RawTrack> direct = SeedSelector.searchGenreSongs(g, 30, cancelFlag);
+            if (pickedSeeds.isEmpty()) {
+                pickedSeeds.addAll(shuffledPool.subList(0, Math.min(3, shuffledPool.size())));
+            }
+
+            List<List<InnerTubeClient.RawTrack>> newBatches = new ArrayList<>();
+            for (String sid : pickedSeeds) {
+                activeSeedIds.add(sid);
+                seedSkipCounters.put(sid, new AtomicInteger(0));
+                InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(sid, null, cancelFlag);
+                if (nr != null && !nr.tracks.isEmpty()) {
+                    // Берём только топ-3 трека от сида — самые релевантные и чистые по жанру
+                    newBatches.add(nr.tracks.subList(0, Math.min(3, nr.tracks.size())));
+                }
+            }
+            List<InnerTubeClient.RawTrack> fresh = interleaveBatches(newBatches);
+            addCandidatesFiltered(fresh);
+
+            if (candidatesPool.size() < 20) {
+                List<InnerTubeClient.RawTrack> direct = SeedSelector.searchGenreSongs(g, 25, cancelFlag);
                 if (!direct.isEmpty()) {
                     Collections.shuffle(direct);
                     addCandidatesFiltered(direct);

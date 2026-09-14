@@ -256,7 +256,7 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
         startProxyService(ctx, prefs);
     }
 
-    private static void startProxyService(Context ctx, SharedPreferences prefs) {
+    public static void startProxyService(Context ctx, SharedPreferences prefs) {
         int port = prefs.getInt("port", 1443);
         String secret = prefs.getString("secret", "");
         

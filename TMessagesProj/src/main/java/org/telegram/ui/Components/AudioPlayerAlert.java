@@ -6035,8 +6035,8 @@ public class AudioPlayerAlert extends BottomSheet
      */
     private class LyricsView extends View {
 
-        private final int ROW_HEIGHT = AndroidUtilities.dp(84);
         private final int ACTIVE_Y = AndroidUtilities.dp(140);
+        private final int LINE_GAP = AndroidUtilities.dp(28);
         private final float BASE_TEXT_SIZE = AndroidUtilities.dp(22);
 
         private final android.text.TextPaint textPaint = new android.text.TextPaint(Paint.ANTI_ALIAS_FLAG);
@@ -6047,6 +6047,8 @@ public class AudioPlayerAlert extends BottomSheet
 
         private int activeIndex = 0;
         private final java.util.HashMap<String, android.text.StaticLayout> layoutCache = new java.util.HashMap<>();
+        private float[] cumulativeY = null;
+        private int cachedWidth = 0;
 
         private float touchDownY;
         private float touchDownX;
@@ -6066,6 +6068,39 @@ public class AudioPlayerAlert extends BottomSheet
                 scrollOffset = value;
                 invalidate();
             });
+        }
+
+        private void ensureCumulativeY(int w) {
+            if (lyricsLines.isEmpty() || w <= 0) {
+                cumulativeY = null;
+                return;
+            }
+            if (cumulativeY != null && cumulativeY.length == lyricsLines.size() && cachedWidth == w) {
+                return;
+            }
+            cachedWidth = w;
+            int n = lyricsLines.size();
+            cumulativeY = new float[n];
+            cumulativeY[0] = 0f;
+            float prevHalf = getLineHeight(0, w) / 2f;
+            for (int i = 1; i < n; i++) {
+                float currHalf = getLineHeight(i, w) / 2f;
+                cumulativeY[i] = cumulativeY[i - 1] + prevHalf + LINE_GAP + currHalf;
+                prevHalf = currHalf;
+            }
+        }
+
+        private float getLineHeight(int index, int w) {
+            if (index < 0 || index >= lyricsLines.size()) return AndroidUtilities.dp(44);
+            android.text.StaticLayout sl = getStaticLayout(lyricsLines.get(index).text, w);
+            return sl != null ? Math.max(AndroidUtilities.dp(36), sl.getHeight()) : AndroidUtilities.dp(44);
+        }
+
+        private float getCumulativePos(int index) {
+            if (cumulativeY == null || index < 0 || index >= cumulativeY.length) {
+                return index * (float) (AndroidUtilities.dp(44) + LINE_GAP);
+            }
+            return cumulativeY[index];
         }
 
         @Override
@@ -6088,14 +6123,23 @@ public class AudioPlayerAlert extends BottomSheet
                 case MotionEvent.ACTION_UP:
                     if (isClick && !lyricsLines.isEmpty() && !isFetchingLyrics) {
                         int dynamicActiveY = Math.min(ACTIVE_Y, Math.max(AndroidUtilities.dp(120), getHeight() / 2));
-                        float deltaY = event.getY() - (dynamicActiveY + scrollOffset);
-                        int clickedIdx = Math.round(activeIndex + deltaY / ROW_HEIGHT);
-                        if (clickedIdx >= 0 && clickedIdx < lyricsLines.size()) {
+                        float clickTargetY = (event.getY() - (dynamicActiveY + scrollOffset)) + getCumulativePos(activeIndex);
+                        int closestIdx = activeIndex;
+                        float minDiff = Float.MAX_VALUE;
+                        int total = lyricsLines.size();
+                        for (int i = 0; i < total; i++) {
+                            float diff = Math.abs(getCumulativePos(i) - clickTargetY);
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                closestIdx = i;
+                            }
+                        }
+                        if (closestIdx >= 0 && closestIdx < lyricsLines.size()) {
                             MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-                            long targetMs = lyricsLines.get(clickedIdx).timeMs;
+                            long targetMs = lyricsLines.get(closestIdx).timeMs;
                             if (playing != null && targetMs > 0) {
                                 MediaController.getInstance().seekToProgressMs(playing, targetMs);
-                                setActiveIndex(clickedIdx, true);
+                                setActiveIndex(closestIdx, true);
                             }
                         }
                     }
@@ -6110,6 +6154,7 @@ public class AudioPlayerAlert extends BottomSheet
             scrollOffset = 0f;
             scrollHolder.setValue(0f);
             layoutCache.clear();
+            cumulativeY = null;
             invalidate();
         }
 
@@ -6118,12 +6163,15 @@ public class AudioPlayerAlert extends BottomSheet
             super.onSizeChanged(w, h, oldw, oldh);
             if (w != oldw) {
                 layoutCache.clear();
+                cumulativeY = null;
             }
         }
 
         public void setActiveIndex(int index, boolean animate) {
             if (index < -1 || lyricsLines.isEmpty()) return;
             if (index == activeIndex && animate) return;
+
+            ensureCumulativeY(getWidth());
 
             if (!animate) {
                 if (springAnim != null) springAnim.cancel();
@@ -6135,7 +6183,7 @@ public class AudioPlayerAlert extends BottomSheet
             }
 
             float currentVisualOffset = scrollOffset;
-            float shiftDue = (index - activeIndex) * (float) ROW_HEIGHT;
+            float shiftDue = getCumulativePos(index) - getCumulativePos(activeIndex);
             activeIndex = index;
 
             float newFrom = currentVisualOffset + shiftDue;
@@ -6158,27 +6206,32 @@ public class AudioPlayerAlert extends BottomSheet
 
             int w = getWidth();
             if (w <= 0) return;
+            ensureCumulativeY(w);
+
             int cx = w / 2;
             int dynamicActiveY = Math.min(ACTIVE_Y, Math.max(AndroidUtilities.dp(120), getHeight() / 2));
-
-            float fractionalActive = activeIndex - scrollOffset / (float) ROW_HEIGHT;
+            float activePos = getCumulativePos(activeIndex);
+            float visualActivePos = activePos - scrollOffset;
             int baseColor = Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000;
+            float standardRowHeight = AndroidUtilities.dp(64);
 
             for (int i = 0; i < lyricsLines.size(); i++) {
-                float rowY = dynamicActiveY + scrollOffset + (i - activeIndex) * ROW_HEIGHT;
-                if (rowY < -ROW_HEIGHT || rowY > getMeasuredHeight() + ROW_HEIGHT) continue;
-
-                float fracDist = Math.abs(i - fractionalActive);
-                float alpha = lyricsInterpAlpha(fracDist);
-                float scale = lyricsInterpScale(fracDist);
-
-                if (alpha <= 0.01f) continue;
+                float linePos = getCumulativePos(i);
+                float rowY = dynamicActiveY + scrollOffset + (linePos - activePos);
 
                 String text = lyricsLines.get(i).text;
                 android.text.StaticLayout sl = getStaticLayout(text, w);
                 if (sl == null) continue;
-
                 float totalH = sl.getHeight();
+
+                if (rowY + totalH < 0 || rowY - totalH > getMeasuredHeight()) continue;
+
+                float distFromActive = Math.abs(linePos - visualActivePos);
+                float fracDist = distFromActive / standardRowHeight;
+                float alpha = lyricsInterpAlpha(fracDist);
+                float scale = lyricsInterpScale(fracDist);
+
+                if (alpha <= 0.01f) continue;
 
                 canvas.save();
                 canvas.translate(cx, rowY);
@@ -6206,8 +6259,7 @@ public class AudioPlayerAlert extends BottomSheet
                 sl = android.text.StaticLayout.Builder
                         .obtain(text, 0, text.length(), textPaint, maxWidth)
                         .setAlignment(android.text.Layout.Alignment.ALIGN_CENTER)
-                        .setMaxLines(3)
-                        .setEllipsize(TextUtils.TruncateAt.END)
+                        .setIncludePad(false)
                         .build();
                 layoutCache.put(key, sl);
             }

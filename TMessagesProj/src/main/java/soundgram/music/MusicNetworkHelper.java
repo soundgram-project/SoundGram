@@ -94,6 +94,12 @@ public final class MusicNetworkHelper {
             ProxySelector.setDefault(new ProxySelector() {
                 @Override
                 public List<Proxy> select(URI uri) {
+                    if (uri != null) {
+                        String host = uri.getHost();
+                        if ("127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host)) {
+                            return Collections.singletonList(Proxy.NO_PROXY);
+                        }
+                    }
                     Proxy active = getActiveProxy();
                     return Collections.singletonList(active);
                 }
@@ -109,17 +115,35 @@ public final class MusicNetworkHelper {
     }
 
     /**
-     * Returns the active Proxy configured in Telegram if proxy is enabled,
-     * or Proxy.NO_PROXY if disabled.
+     * Returns the active Proxy configured in Telegram or the local TgWsProxy bypass
+     * if enabled, or Proxy.NO_PROXY if disabled.
      */
     public static Proxy getActiveProxy() {
         try {
             if (SharedConfig.isProxyEnabled() && SharedConfig.currentProxy != null) {
                 SharedConfig.ProxyInfo pi = SharedConfig.currentProxy;
                 if (!TextUtils.isEmpty(pi.address) && pi.port > 0) {
-                    // Telegram supports SOCKS5 (when secret is empty) or general proxies
+                    if ("127.0.0.1".equals(pi.address) || "localhost".equalsIgnoreCase(pi.address)) {
+                        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(pi.address, pi.port));
+                    }
                     if (TextUtils.isEmpty(pi.secret)) {
                         return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(pi.address, pi.port));
+                    }
+                }
+            }
+            if (soundgram.wsproxy.TgWsProxyService.isRunning && soundgram.wsproxy.TgWsProxyService.currentPort > 0) {
+                return new Proxy(Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", soundgram.wsproxy.TgWsProxyService.currentPort));
+            }
+            if (org.telegram.messenger.ApplicationLoader.applicationContext != null) {
+                android.content.SharedPreferences prefs = org.telegram.messenger.ApplicationLoader.applicationContext
+                        .getSharedPreferences("tgwsproxy", android.content.Context.MODE_PRIVATE);
+                if (prefs.getBoolean("enabled", false)) {
+                    int port = prefs.getInt("port", 1443);
+                    if (port > 0) {
+                        if (!soundgram.wsproxy.TgWsProxyService.isRunning) {
+                            soundgram.wsproxy.ProxyAutoDetector.startProxyService(org.telegram.messenger.ApplicationLoader.applicationContext, prefs);
+                        }
+                        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress("127.0.0.1", port));
                     }
                 }
             }

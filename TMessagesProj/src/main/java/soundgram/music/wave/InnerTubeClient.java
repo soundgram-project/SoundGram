@@ -59,12 +59,19 @@ public final class InnerTubeClient {
         client.put("clientName", CLIENT_NAME);
         client.put("clientVersion", CLIENT_VERSION);
         client.put("hl", "ru");
-        client.put("gl", "RU");
+        client.put("gl", "US");
 
         JSONObject ctx = new JSONObject();
         ctx.put("client", client);
         return ctx;
     }
+
+    private static final String[] RELAY_BASES = {
+            "https://api.piped.private.coffee",
+            "https://pipedapi.ducks.party"
+    };
+    private static volatile long sLastDirectFailTime = 0;
+    private static final long DIRECT_RETRY_INTERVAL = 15 * 60 * 1000L; // 15 min
 
     private static String post(String endpoint, String jsonBody, AtomicBoolean cancelFlag) {
         if (cancelFlag != null && cancelFlag.get()) return "";
@@ -74,8 +81,8 @@ public final class InnerTubeClient {
 
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(12000);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(4000);
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             conn.setRequestProperty("User-Agent",
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
@@ -113,42 +120,174 @@ public final class InnerTubeClient {
         }
     }
 
+    private static String getFromRelay(String path, AtomicBoolean cancelFlag) {
+        if (cancelFlag != null && cancelFlag.get()) return "";
+        for (String base : RELAY_BASES) {
+            if (cancelFlag != null && cancelFlag.get()) return "";
+            try {
+                URL url = new URL(base + path);
+                HttpURLConnection conn = MusicNetworkHelper.openConnection(url);
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(6000);
+                conn.setRequestProperty("User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+
+                int code = conn.getResponseCode();
+                if (code == 200) {
+                    try (InputStream is = conn.getInputStream();
+                         ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = is.read(buf)) != -1) {
+                            if (cancelFlag != null && cancelFlag.get()) return "";
+                            bos.write(buf, 0, len);
+                        }
+                        return bos.toString("UTF-8");
+                    }
+                }
+            } catch (Exception e) {
+                FileLog.w(TAG + " relay " + base + path + " error: " + e.getMessage());
+            }
+        }
+        return "";
+    }
+
+    private static String extractVideoId(String url) {
+        if (url == null || url.isEmpty()) return "";
+        int vIdx = url.indexOf("v=");
+        if (vIdx != -1) {
+            String sub = url.substring(vIdx + 2);
+            int amp = sub.indexOf('&');
+            return amp != -1 ? sub.substring(0, amp) : sub;
+        }
+        if (url.startsWith("/watch?")) {
+            return url.substring(7);
+        }
+        int lastSlash = url.lastIndexOf('/');
+        if (lastSlash != -1 && lastSlash + 1 < url.length()) {
+            return url.substring(lastSlash + 1);
+        }
+        return url;
+    }
+
+    private static NextResult fetchRadioViaRelay(String videoId, AtomicBoolean cancelFlag) {
+        if (videoId == null || videoId.isEmpty() || (cancelFlag != null && cancelFlag.get())) {
+            return new NextResult(null, null);
+        }
+        String resp = getFromRelay("/playlists/RDAMVM" + videoId, cancelFlag);
+        if (resp == null || resp.isEmpty()) {
+            return new NextResult(null, null);
+        }
+        try {
+            JSONObject json = new JSONObject(resp);
+            JSONArray related = json.optJSONArray("relatedStreams");
+            if (related != null && related.length() > 0) {
+                List<RawTrack> tracks = new ArrayList<>();
+                for (int i = 0; i < related.length(); i++) {
+                    JSONObject item = related.getJSONObject(i);
+                    String url = item.optString("url", "");
+                    String vid = extractVideoId(url);
+                    String title = item.optString("title", "");
+                    String artist = item.optString("uploaderName", "");
+                    int duration = item.optInt("duration", 0);
+                    if (!vid.isEmpty() && !title.isEmpty()) {
+                        tracks.add(new RawTrack(vid, title, artist, duration));
+                    }
+                }
+                if (!tracks.isEmpty()) {
+                    FileLog.d(TAG + " fetchRadioViaRelay got " + tracks.size() + " tracks for " + videoId);
+                    return new NextResult(tracks, null);
+                }
+            }
+        } catch (Exception e) {
+            FileLog.w(TAG + " fetchRadioViaRelay parse error: " + e);
+        }
+        return new NextResult(null, null);
+    }
+
+    private static List<RawTrack> searchSongsViaRelay(String query, int limit, AtomicBoolean cancelFlag) {
+        List<RawTrack> results = new ArrayList<>();
+        if (query == null || query.trim().isEmpty() || (cancelFlag != null && cancelFlag.get())) {
+            return results;
+        }
+        try {
+            String encoded = java.net.URLEncoder.encode(query.trim(), "UTF-8");
+            String resp = getFromRelay("/search?q=" + encoded + "&filter=music_songs", cancelFlag);
+            if (resp == null || resp.isEmpty()) {
+                resp = getFromRelay("/search?q=" + encoded, cancelFlag);
+            }
+            if (resp != null && !resp.isEmpty()) {
+                JSONObject json = new JSONObject(resp);
+                JSONArray items = json.optJSONArray("items");
+                if (items != null && items.length() > 0) {
+                    for (int i = 0; i < items.length(); i++) {
+                        JSONObject item = items.getJSONObject(i);
+                        String url = item.optString("url", "");
+                        String vid = extractVideoId(url);
+                        String title = item.optString("title", "");
+                        String artist = item.optString("uploaderName", "");
+                        int duration = item.optInt("duration", 0);
+                        if (!vid.isEmpty() && !title.isEmpty()) {
+                            results.add(new RawTrack(vid, title, artist, duration));
+                            if (results.size() >= limit) break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FileLog.w(TAG + " searchSongsViaRelay error: " + e);
+        }
+        return results;
+    }
+
     /**
      * Calls /next to get radio recommendations based on videoId or continuation token.
      */
     public static NextResult fetchRadioBatch(String videoId, String continuationToken, AtomicBoolean cancelFlag) {
         try {
-            JSONObject body = new JSONObject();
-            body.put("context", buildContext());
+            boolean shouldTryDirect = (System.currentTimeMillis() - sLastDirectFailTime) > DIRECT_RETRY_INTERVAL;
+            if (shouldTryDirect) {
+                JSONObject body = new JSONObject();
+                body.put("context", buildContext());
 
-            if (continuationToken != null && !continuationToken.isEmpty()) {
-                body.put("continuation", continuationToken);
-            } else if (videoId != null && !videoId.isEmpty()) {
-                body.put("videoId", videoId);
-                body.put("playlistId", "RDAMVM" + videoId);
-                JSONObject watchCfg = new JSONObject();
-                JSONObject musicCfg = new JSONObject();
-                musicCfg.put("hasPersistentPlaylistPanel", false);
-                musicCfg.put("musicVideoType", "MUSIC_VIDEO_TYPE_ATV");
-                watchCfg.put("watchEndpointMusicConfig", musicCfg);
-                body.put("watchEndpointMusicSupportedConfigs", watchCfg);
-            } else {
-                return new NextResult(null, null);
+                if (continuationToken != null && !continuationToken.isEmpty()) {
+                    body.put("continuation", continuationToken);
+                } else if (videoId != null && !videoId.isEmpty()) {
+                    body.put("videoId", videoId);
+                    body.put("playlistId", "RDAMVM" + videoId);
+                    JSONObject watchCfg = new JSONObject();
+                    JSONObject musicCfg = new JSONObject();
+                    musicCfg.put("hasPersistentPlaylistPanel", false);
+                    musicCfg.put("musicVideoType", "MUSIC_VIDEO_TYPE_ATV");
+                    watchCfg.put("watchEndpointMusicConfig", musicCfg);
+                    body.put("watchEndpointMusicSupportedConfigs", watchCfg);
+                } else {
+                    return new NextResult(null, null);
+                }
+
+                String resp = post("next", body.toString(), cancelFlag);
+                if (!resp.isEmpty()) {
+                    JSONObject json = new JSONObject(resp);
+                    List<RawTrack> tracks = new ArrayList<>();
+                    collectPanelVideos(json, tracks);
+                    String nextContinuation = findContinuationToken(json);
+                    if (!tracks.isEmpty()) {
+                        return new NextResult(tracks, nextContinuation);
+                    }
+                } else {
+                    sLastDirectFailTime = System.currentTimeMillis();
+                }
             }
-
-            String resp = post("next", body.toString(), cancelFlag);
-            if (resp.isEmpty()) return new NextResult(null, null);
-
-            JSONObject json = new JSONObject(resp);
-            List<RawTrack> tracks = new ArrayList<>();
-            collectPanelVideos(json, tracks);
-            String nextContinuation = findContinuationToken(json);
-
-            return new NextResult(tracks, nextContinuation);
         } catch (Exception e) {
-            FileLog.e(TAG + " fetchRadioBatch error", e);
-            return new NextResult(null, null);
+            FileLog.e(TAG + " fetchRadioBatch direct error: " + e);
+            sLastDirectFailTime = System.currentTimeMillis();
         }
+
+        if (videoId != null && !videoId.isEmpty()) {
+            return fetchRadioViaRelay(videoId, cancelFlag);
+        }
+        return new NextResult(null, null);
     }
 
     /**
@@ -158,34 +297,43 @@ public final class InnerTubeClient {
         List<RawTrack> results = new ArrayList<>();
         if (query == null || query.trim().isEmpty()) return results;
         try {
-            JSONObject body = new JSONObject();
-            body.put("context", buildContext());
-            body.put("query", query.trim());
-            // Songs filter params for music.youtube.com (Треки)
-            body.put("params", "EgWKAQIIAWoSEAUQAxAJEAQQChAQEBUQDhAR");
+            boolean shouldTryDirect = (System.currentTimeMillis() - sLastDirectFailTime) > DIRECT_RETRY_INTERVAL;
+            if (shouldTryDirect) {
+                JSONObject body = new JSONObject();
+                body.put("context", buildContext());
+                body.put("query", query.trim());
+                // Songs filter params for music.youtube.com (Треки)
+                body.put("params", "EgWKAQIIAWoSEAUQAxAJEAQQChAQEBUQDhAR");
 
-            String resp = post("search", body.toString(), cancelFlag);
-            if (resp.isEmpty()) {
-                // Fallback without songs filter
-                body.remove("params");
-                resp = post("search", body.toString(), cancelFlag);
-            }
-            if (!resp.isEmpty()) {
-                JSONObject json = new JSONObject(resp);
-                collectSearchSongs(json, results, limit);
-            }
-            if (results.isEmpty() && body.has("params")) {
-                body.remove("params");
-                String respNoParams = post("search", body.toString(), cancelFlag);
-                if (!respNoParams.isEmpty()) {
-                    JSONObject jsonNoParams = new JSONObject(respNoParams);
-                    collectSearchSongs(jsonNoParams, results, limit);
+                String resp = post("search", body.toString(), cancelFlag);
+                if (resp.isEmpty()) {
+                    // Fallback without songs filter
+                    body.remove("params");
+                    resp = post("search", body.toString(), cancelFlag);
+                }
+                if (!resp.isEmpty()) {
+                    JSONObject json = new JSONObject(resp);
+                    collectSearchSongs(json, results, limit);
+                }
+                if (results.isEmpty() && body.has("params")) {
+                    body.remove("params");
+                    String respNoParams = post("search", body.toString(), cancelFlag);
+                    if (!respNoParams.isEmpty()) {
+                        JSONObject jsonNoParams = new JSONObject(respNoParams);
+                        collectSearchSongs(jsonNoParams, results, limit);
+                    }
+                }
+                if (!results.isEmpty()) {
+                    return results;
+                } else {
+                    sLastDirectFailTime = System.currentTimeMillis();
                 }
             }
         } catch (Exception e) {
-            FileLog.e(TAG + " searchSongs error", e);
+            FileLog.e(TAG + " searchSongs direct error: " + e);
+            sLastDirectFailTime = System.currentTimeMillis();
         }
-        return results;
+        return searchSongsViaRelay(query, limit, cancelFlag);
     }
 
     private static String getRunsText(JSONObject obj) {

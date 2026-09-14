@@ -57,7 +57,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
         title.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
         title.setGravity(Gravity.CENTER);
-        title.setText("SoundGram Supporter");
+        title.setText(tr("title"));
         root.addView(title, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.CENTER_HORIZONTAL, 24, 0, 24, 6));
@@ -68,13 +68,13 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         subtitle.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
         subtitle.setGravity(Gravity.CENTER);
         subtitle.setLineSpacing(AndroidUtilities.dp(3), 1f);
-        subtitle.setText("Поддержите развитие SoundGram от 5$ — получите\nэксклюзивный значок и ранние релизы.");
+        subtitle.setText(tr("subtitle"));
         root.addView(subtitle, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.CENTER_HORIZONTAL, 24, 0, 24, 20));
 
         // ── Divider label "Перевод по СБП / МИР" ─────────────────────────────
-        addSectionLabel(root, context, "Перевод по МИР(РФ, РБ)", isDark);
+        addSectionLabel(root, context, tr("section_mir"), isDark);
 
         // ── MIR Card ──────────────────────────────────────────────────────────
         View cardView = buildMirCard(context, isDark);
@@ -82,7 +82,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 6, 20, 20));
 
         // ── Divider label "Другие варианты" ──────────────────────────────────
-        addSectionLabel(root, context, "Для других стран", isDark);
+        addSectionLabel(root, context, tr("section_other"), isDark);
 
         // ── CryptoBot button ─────────────────────────────────────────────────
         TextView cryptoBtn = new TextView(context);
@@ -90,7 +90,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         cryptoBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         cryptoBtn.setTypeface(AndroidUtilities.bold());
         cryptoBtn.setTextColor(0xFFFFFFFF);
-        cryptoBtn.setText("Оплатить через CryptoBot");
+        cryptoBtn.setText(tr("btn_crypto"));
         cryptoBtn.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
         GradientDrawable cryptoBg = new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
@@ -110,7 +110,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         boostyBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         boostyBtn.setTypeface(AndroidUtilities.bold());
         boostyBtn.setTextColor(0xFFFFFFFF);
-        boostyBtn.setText("Поддержать через Boosty");
+        boostyBtn.setText(tr("btn_boosty"));
         boostyBtn.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
         GradientDrawable boostyBg = new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
@@ -130,7 +130,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         receiptBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         receiptBtn.setTypeface(AndroidUtilities.bold());
         receiptBtn.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText));
-        receiptBtn.setText("Отправить чек об оплате →");
+        receiptBtn.setText(tr("btn_receipt"));
         receiptBtn.setOnClickListener(v -> {
             Browser.openUrl(getContext(), "https://t.me/vlsv_srg");
             dismiss();
@@ -283,7 +283,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         TextView holderLabel = new TextView(ctx);
         holderLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 9);
         holderLabel.setTextColor(0x99FFFFFF);
-        holderLabel.setText("ВЛАДЕЛЕЦ");
+        holderLabel.setText(tr("holder_label"));
         holderLabel.setLetterSpacing(0.06f);
         holderCol.addView(holderLabel);
 
@@ -299,7 +299,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         TextView copyHint = new TextView(ctx);
         copyHint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
         copyHint.setTextColor(0xAAFFFFFF);
-        copyHint.setText("Нажмите для копирования");
+        copyHint.setText(tr("copy_hint"));
         row3.addView(copyHint, LayoutHelper.createLinear(
                 LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.BOTTOM));
@@ -312,10 +312,180 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
 
         card.setOnClickListener(v -> {
             AndroidUtilities.addToClipboard("2200701999222661");
-            Toast.makeText(ctx, "Номер карты скопирован", Toast.LENGTH_SHORT).show();
+            Toast.makeText(ctx, tr("toast_copied"), Toast.LENGTH_SHORT).show();
         });
 
         return card;
+    }
+
+    private static String getLang() {
+        try {
+            if (LocaleController.getInstance() != null && LocaleController.getInstance().getCurrentLocaleInfo() != null) {
+                String code = LocaleController.getInstance().getCurrentLocaleInfo().shortName;
+                if (code != null && !code.isEmpty()) {
+                    return code.toLowerCase(java.util.Locale.ROOT);
+                }
+            }
+        } catch (Exception ignored) {}
+        try {
+            String iso = LocaleController.getSystemLocaleStringIso639();
+            if (iso != null && !iso.isEmpty()) {
+                return iso.toLowerCase(java.util.Locale.ROOT);
+            }
+        } catch (Exception ignored) {}
+        return "en";
+    }
+
+    private static String tr(String key) {
+        String lang = getLang();
+        switch (key) {
+            case "title":
+                return "SoundGram Supporter";
+            case "subtitle":
+                if (lang.startsWith("ru")) return "Поддержите развитие SoundGram от 5$ — получите\nэксклюзивный значок и ранние релизы.";
+                if (lang.startsWith("uk")) return "Підтримайте розвиток SoundGram від 5$ — отримайте\nексклюзивний значок та ранні релізи.";
+                if (lang.startsWith("be")) return "Падтрымайце развіццё SoundGram ад 5$ — атрымайце\nэксклюзіўны значок і раннія рэлізы.";
+                if (lang.startsWith("es")) return "Apoya el desarrollo de SoundGram desde 5$ — obtén una\ninsignia exclusiva y versiones anticipadas.";
+                if (lang.startsWith("de")) return "Unterstütze die SoundGram-Entwicklung ab 5$ — erhalte ein\nexklusives Abzeichen und Vorabversionen.";
+                if (lang.startsWith("fr")) return "Soutenez le développement de SoundGram dès 5$ — obtenez un\nbadge exclusif et les versions préliminaires.";
+                if (lang.startsWith("it")) return "Supporta lo sviluppo di SoundGram da 5$ — ottieni un\nbadge esclusivo e le versioni in anteprima.";
+                if (lang.startsWith("tr")) return "SoundGram gelişimini 5$'dan itibaren destekleyin — özel bir\nrozet ve erken sürümler kazanın.";
+                if (lang.startsWith("uz")) return "SoundGram rivojlanishini 5$ dan qo'llab-quvvatlang — maxsus\nbelgi va erta nashrlarga ega bo'ling.";
+                if (lang.startsWith("kk")) return "SoundGram дамуын 5$ бастап қолдаңыз — эксклюзивті\nбелгіше мен ерте шығарылымдарды алыңыз.";
+                if (lang.startsWith("pt")) return "Apoie o desenvolvimento do SoundGram a partir de 5$ — ganhe um\nselo exclusivo e lançamentos antecipados.";
+                if (lang.startsWith("ar")) return "ادعم تطوير SoundGram بدءاً من 5$ — واحصل على\nشارة حصرية وإصدارات مبكرة.";
+                if (lang.startsWith("fa")) return "از توسعه SoundGram با حداقل ۵ دلار حمایت کنید — نشان\nاختصاصی و نسخه‌های اولیه را دریافت کنید.";
+                return "Support SoundGram development from $5 — get an\nexclusive badge and early releases.";
+
+            case "section_mir":
+                if (lang.startsWith("ru")) return "Перевод по МИР (РФ, РБ)";
+                if (lang.startsWith("uk")) return "Переказ на карту МИР (РФ, РБ)";
+                if (lang.startsWith("be")) return "Перавод па МІР (РФ, РБ)";
+                if (lang.startsWith("es")) return "Transferencia por tarjeta MIR (RU, BY)";
+                if (lang.startsWith("de")) return "Überweisung per MIR-Karte (RU, BY)";
+                if (lang.startsWith("fr")) return "Virement par carte MIR (RU, BY)";
+                if (lang.startsWith("it")) return "Bonifico tramite carta MIR (RU, BY)";
+                if (lang.startsWith("tr")) return "MIR kartı ile transfer (RU, BY)";
+                if (lang.startsWith("uz")) return "MIR kartasi orqali o'tkazma (RU, BY)";
+                if (lang.startsWith("kk")) return "МИР картасы арқылы аударым (RU, BY)";
+                if (lang.startsWith("pt")) return "Transferência via cartão MIR (RU, BY)";
+                if (lang.startsWith("ar")) return "التحويل عبر بطاقة MIR (روسيا، بيلاروس)";
+                if (lang.startsWith("fa")) return "انتقال از طریق کارت MIR (روسیه، بلاروس)";
+                return "Transfer via MIR card (RU, BY)";
+
+            case "section_other":
+                if (lang.startsWith("ru")) return "Для других стран";
+                if (lang.startsWith("uk")) return "Для інших країн";
+                if (lang.startsWith("be")) return "Для іншых краін";
+                if (lang.startsWith("es")) return "Para otros países";
+                if (lang.startsWith("de")) return "Andere Länder";
+                if (lang.startsWith("fr")) return "Autres pays";
+                if (lang.startsWith("it")) return "Altri paesi";
+                if (lang.startsWith("tr")) return "Diğer ülkeler";
+                if (lang.startsWith("uz")) return "Boshqa mamlakatlar uchun";
+                if (lang.startsWith("kk")) return "Басқа елдер үшін";
+                if (lang.startsWith("pt")) return "Outros países";
+                if (lang.startsWith("ar")) return "لدول أخرى";
+                if (lang.startsWith("fa")) return "برای سایر کشورها";
+                return "Other countries";
+
+            case "btn_crypto":
+                if (lang.startsWith("ru")) return "Оплатить через CryptoBot";
+                if (lang.startsWith("uk")) return "Оплатити через CryptoBot";
+                if (lang.startsWith("be")) return "Аплаціць праз CryptoBot";
+                if (lang.startsWith("es")) return "Pagar con CryptoBot";
+                if (lang.startsWith("de")) return "Mit CryptoBot bezahlen";
+                if (lang.startsWith("fr")) return "Payer via CryptoBot";
+                if (lang.startsWith("it")) return "Paga tramite CryptoBot";
+                if (lang.startsWith("tr")) return "CryptoBot ile Öde";
+                if (lang.startsWith("uz")) return "CryptoBot orqali to'lash";
+                if (lang.startsWith("kk")) return "CryptoBot арқылы төлеу";
+                if (lang.startsWith("pt")) return "Pagar via CryptoBot";
+                if (lang.startsWith("ar")) return "الدفع عبر CryptoBot";
+                if (lang.startsWith("fa")) return "پرداخت از طریق CryptoBot";
+                return "Pay via CryptoBot";
+
+            case "btn_boosty":
+                if (lang.startsWith("ru")) return "Поддержать через Boosty";
+                if (lang.startsWith("uk")) return "Підтримати через Boosty";
+                if (lang.startsWith("be")) return "Падтрымаць праз Boosty";
+                if (lang.startsWith("es")) return "Apoyar en Boosty";
+                if (lang.startsWith("de")) return "Über Boosty unterstützen";
+                if (lang.startsWith("fr")) return "Soutenir via Boosty";
+                if (lang.startsWith("it")) return "Supporta tramite Boosty";
+                if (lang.startsWith("tr")) return "Boosty ile Destekle";
+                if (lang.startsWith("uz")) return "Boosty orqali qo'llab-quvvatlash";
+                if (lang.startsWith("kk")) return "Boosty арқылы қолдау";
+                if (lang.startsWith("pt")) return "Apoiar via Boosty";
+                if (lang.startsWith("ar")) return "الدعم عبر Boosty";
+                if (lang.startsWith("fa")) return "حمایت از طریق Boosty";
+                return "Support via Boosty";
+
+            case "btn_receipt":
+                if (lang.startsWith("ru")) return "Отправить чек об оплате →";
+                if (lang.startsWith("uk")) return "Надіслати чек про оплату →";
+                if (lang.startsWith("be")) return "Адправіць чэк аб аплаце →";
+                if (lang.startsWith("es")) return "Enviar recibo de pago →";
+                if (lang.startsWith("de")) return "Zahlungsbeleg senden →";
+                if (lang.startsWith("fr")) return "Envoyer le reçu de paiement →";
+                if (lang.startsWith("it")) return "Invia ricevuta di pagamento →";
+                if (lang.startsWith("tr")) return "Ödeme makbuzunu gönder →";
+                if (lang.startsWith("uz")) return "To'lov chekini yuborish →";
+                if (lang.startsWith("kk")) return "Төлем чегін жіберу →";
+                if (lang.startsWith("pt")) return "Enviar comprovante de pagamento →";
+                if (lang.startsWith("ar")) return "إرسال إيصال الدفع ←";
+                if (lang.startsWith("fa")) return "ارسال رسید پرداخت ←";
+                return "Send payment receipt →";
+
+            case "holder_label":
+                if (lang.startsWith("ru")) return "ВЛАДЕЛЕЦ";
+                if (lang.startsWith("uk")) return "ВЛАСНИК";
+                if (lang.startsWith("be")) return "УЛАДАЛЬНІК";
+                if (lang.startsWith("es")) return "TITULAR";
+                if (lang.startsWith("de")) return "KARTENINHABER";
+                if (lang.startsWith("fr")) return "TITULAIRE";
+                if (lang.startsWith("it")) return "INTESTATARIO";
+                if (lang.startsWith("tr")) return "KART SAHİBİ";
+                if (lang.startsWith("uz")) return "KARTA EGASI";
+                if (lang.startsWith("kk")) return "КАРТА ИЕСІ";
+                if (lang.startsWith("pt")) return "TITULAR";
+                if (lang.startsWith("ar")) return "صاحب البطاقة";
+                if (lang.startsWith("fa")) return "دارنده کارت";
+                return "CARDHOLDER";
+
+            case "copy_hint":
+                if (lang.startsWith("ru")) return "Нажмите для копирования";
+                if (lang.startsWith("uk")) return "Натисніть для копіювання";
+                if (lang.startsWith("be")) return "Націсніце для капіявання";
+                if (lang.startsWith("es")) return "Toca para copiar";
+                if (lang.startsWith("de")) return "Tippen zum Kopieren";
+                if (lang.startsWith("fr")) return "Appuyez pour copier";
+                if (lang.startsWith("it")) return "Tocca per copiare";
+                if (lang.startsWith("tr")) return "Kopyalamak için dokunun";
+                if (lang.startsWith("uz")) return "Nusxalash uchun bosing";
+                if (lang.startsWith("kk")) return "Көшіру үшін басыңыз";
+                if (lang.startsWith("pt")) return "Toque para copiar";
+                if (lang.startsWith("ar")) return "اضغط للنسخ";
+                if (lang.startsWith("fa")) return "برای کپی ضربه بزنید";
+                return "Tap to copy";
+
+            case "toast_copied":
+                if (lang.startsWith("ru")) return "Номер карты скопирован";
+                if (lang.startsWith("uk")) return "Номер картки скопійовано";
+                if (lang.startsWith("be")) return "Нумар карткі скапіяваны";
+                if (lang.startsWith("es")) return "Número de tarjeta copiado";
+                if (lang.startsWith("de")) return "Kartennummer kopiert";
+                if (lang.startsWith("fr")) return "Numéro de carte copié";
+                if (lang.startsWith("it")) return "Numero di carta copiato";
+                if (lang.startsWith("tr")) return "Kart numarası kopyalandı";
+                if (lang.startsWith("uz")) return "Karta raqami nusxalandi";
+                if (lang.startsWith("kk")) return "Карта нөмірі көшірілді";
+                if (lang.startsWith("pt")) return "Número do cartão copiado";
+                if (lang.startsWith("ar")) return "تم نسخ رقم البطاقة";
+                if (lang.startsWith("fa")) return "شماره کارت کپی شد";
+                return "Card number copied";
+        }
+        return "";
     }
 
     // ── Animated badge icon ────────────────────────────────────────────────────
