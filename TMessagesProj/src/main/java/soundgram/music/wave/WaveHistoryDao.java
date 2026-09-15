@@ -19,7 +19,7 @@ public final class WaveHistoryDao extends SQLiteOpenHelper {
     private static final String COL_HASH = "track_hash";
     private static final String COL_PLAYED_AT = "played_at";
 
-    private static final long EXPIRATION_WINDOW_MS = 24L * 60 * 60 * 1000; // 24 hours
+    private static final long EXPIRATION_WINDOW_MS = 2L * 60 * 60 * 1000; // 2 hours
 
     private static volatile WaveHistoryDao sInstance;
 

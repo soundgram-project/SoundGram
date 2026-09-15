@@ -16,8 +16,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -35,7 +38,8 @@ public final class WaveQueueManager {
     private static final int BUFFER_TARGET_AHEAD = 16;
     private static final int BUFFER_REFILL_THRESHOLD = 12;
     private static final int BATCH_SIZE = 8;
-    private static final int RE_SEED_INTERVAL = 15; // Dynamic Re-seeding every 15 played tracks
+    private static final int RE_SEED_INTERVAL = 10;
+    private static final Random sRandom = new Random();
 
     public static final int MODE_GENRE = 0;
     public static final int MODE_ARTIST = 1;
@@ -65,7 +69,7 @@ public final class WaveQueueManager {
     private final Set<String> sessionPlayedKeys = Collections.synchronizedSet(new HashSet<>());
 
     // Сиды и continuation-токены
-    private final List<String> activeSeedIds = new ArrayList<>();
+    private final List<String> activeSeedIds = Collections.synchronizedList(new ArrayList<>());
     private final Map<String, String> seedContinuationTokens = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> seedSkipCounters = new ConcurrentHashMap<>();
 
@@ -157,26 +161,38 @@ public final class WaveQueueManager {
             seedSkipCounters.put(id, new AtomicInteger(0));
         }
 
-        // НЕ добавляем весь currentPlaylist в sessionPlayedKeys!
-        // Дедуплицируем только то, что проигрывается в текущей волне и недавней истории.
-
         executor.execute(() -> {
             try {
-                // 1. Параллельный запрос радио по всем сидам (InnerTube)
-                List<Future<InnerTubeClient.NextResult>> futures = new ArrayList<>();
+                // 1. Быстрый параллельный запрос радио по сидам (InnerTube)
+                CompletionService<InnerTubeClient.NextResult> cs = new ExecutorCompletionService<>(executor);
+                int submitted = 0;
                 for (String seedId : seedVideoIds) {
-                    futures.add(executor.submit(() -> InnerTubeClient.fetchRadioBatch(seedId, null, cancelFlag)));
+                    try {
+                        cs.submit(() -> InnerTubeClient.fetchRadioBatch(seedId, null, cancelFlag));
+                        submitted++;
+                    } catch (Exception ignored) {}
                 }
 
+                // Ждем первую готовую пачку треков с таймаутом (до 1.8 с) для мгновенного старта
+                long deadline = SystemClock.uptimeMillis() + 1800L;
                 List<List<InnerTubeClient.RawTrack>> batches = new ArrayList<>();
-                for (int i = 0; i < futures.size(); i++) {
+                for (int i = 0; i < submitted; i++) {
+                    long remaining = deadline - SystemClock.uptimeMillis();
+                    if (remaining <= 0 && !batches.isEmpty()) {
+                        break;
+                    }
                     try {
-                        InnerTubeClient.NextResult nr = futures.get(i).get(8, TimeUnit.SECONDS);
-                        if (nr != null && !nr.tracks.isEmpty()) {
-                            batches.add(nr.tracks);
-                            String seed = seedVideoIds.get(i);
-                            if (nr.continuationToken != null) {
-                                seedContinuationTokens.put(seed, nr.continuationToken);
+                        Future<InnerTubeClient.NextResult> f = cs.poll(Math.max(100, remaining), TimeUnit.MILLISECONDS);
+                        if (f != null) {
+                            InnerTubeClient.NextResult nr = f.get();
+                            if (nr != null && !nr.tracks.isEmpty()) {
+                                batches.add(nr.tracks);
+                                if (nr.continuationToken != null && i < seedVideoIds.size()) {
+                                    seedContinuationTokens.put(seedVideoIds.get(i), nr.continuationToken);
+                                }
+                                if (batches.size() >= 1) {
+                                    break;
+                                }
                             }
                         }
                     } catch (Exception e) {
@@ -186,23 +202,11 @@ public final class WaveQueueManager {
 
                 if (cancelFlag.get() || !isRunning) return;
 
-                // 2. Round-Robin интерливинг всех полученных треков
-                List<InnerTubeClient.RawTrack> initialPool;
-                if (waveMode == MODE_GENRE) {
-                    List<List<InnerTubeClient.RawTrack>> trimmedBatches = new ArrayList<>();
-                    for (List<InnerTubeClient.RawTrack> b : batches) {
-                        if (b != null && !b.isEmpty()) {
-                            trimmedBatches.add(b.subList(0, Math.min(10, b.size())));
-                        }
-                    }
-                    initialPool = interleaveBatches(trimmedBatches);
-                } else {
-                    initialPool = interleaveBatches(batches);
-                }
+                List<InnerTubeClient.RawTrack> initialPool = interleaveBatches(batches);
                 addCandidatesFiltered(initialPool);
 
-                if (candidatesPool.size() < 25) {
-                    FileLog.d(TAG + " candidatesPool low after radio batches (" + candidatesPool.size() + "), triggering re-seeding");
+                // Если кандидатов нет, сразу запускаем re-seeding
+                if (candidatesPool.isEmpty()) {
                     triggerDynamicReSeeding();
                 }
 
@@ -217,7 +221,26 @@ public final class WaveQueueManager {
                     return;
                 }
 
-                // 3. Запуск буферизации очереди
+                // Фоновый сбор оставшихся радио-батчей
+                final int remainingSubmits = submitted - batches.size();
+                if (remainingSubmits > 0) {
+                    executor.execute(() -> {
+                        for (int i = 0; i < remainingSubmits; i++) {
+                            if (cancelFlag.get() || !isRunning) break;
+                            try {
+                                Future<InnerTubeClient.NextResult> f = cs.poll(3, TimeUnit.SECONDS);
+                                if (f != null) {
+                                    InnerTubeClient.NextResult nr = f.get();
+                                    if (nr != null && !nr.tracks.isEmpty()) {
+                                        addCandidatesFiltered(nr.tracks);
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                    });
+                }
+
+                // 2. Запуск буферизации очереди (трек #1 стартует сразу!)
                 runBufferLoop();
 
             } catch (Exception e) {
@@ -285,13 +308,21 @@ public final class WaveQueueManager {
             return null;
         }
 
-        String hash = TrackSanitizer.generateHash(cleanArtist, cleanTitle);
-        if (historyDb.isRecentlyPlayed(hash)) {
-            sessionPlayedKeys.add(candidateKey);
-            return null;
+        // В режимах Альбома и Артиста НЕ фильтруем историю (пользователь явно выбрал этот альбом/артиста)!
+        // В жанре и плейлисте проверяем историю только если кандидатов достаточно (>= 15), чтобы не было голодания
+        if (waveMode != MODE_ALBUM && waveMode != MODE_ARTIST) {
+            String hash = TrackSanitizer.generateHash(cleanArtist, cleanTitle);
+            boolean poolPlentiful;
+            synchronized (candidatesPool) {
+                poolPlentiful = candidatesPool.size() >= 15;
+            }
+            if (poolPlentiful && historyDb.isRecentlyPlayed(hash)) {
+                sessionPlayedKeys.add(candidateKey);
+                return null;
+            }
         }
 
-        // Поиск через музыкальный сервис (Hitmos / Deezer)
+        // Поиск через музыкальный сервис (Hitmos / Deezer) с чистым фолбэком
         MusicWebSearcher.WebTrack wt = MusicWebSearcher.searchTrackStrict(cleanArtist, cleanTitle, candidate.durationSec);
         if (wt == null || wt.downloadUrl == null || wt.downloadUrl.isEmpty()) {
             return null;
@@ -309,7 +340,7 @@ public final class WaveQueueManager {
 
         sessionPlayedKeys.add(candidateKey);
         sessionPlayedKeys.add(resolvedKey);
-        historyDb.markAsPlayed(hash);
+        historyDb.markAsPlayed(TrackSanitizer.generateHash(cleanArtist, cleanTitle));
         historyDb.markAsPlayed(TrackSanitizer.generateHash(wt.artist, wt.title));
 
         return msg;
@@ -326,11 +357,10 @@ public final class WaveQueueManager {
 
         List<InnerTubeClient.RawTrack> toProcess = new ArrayList<>();
         synchronized (candidatesPool) {
-            if (candidatesPool.size() < 25) {
+            if (candidatesPool.size() < 20) {
                 executor.execute(this::loadMoreCandidates);
             }
-            // Берем кандидатов с запасом для компенсации 404
-            int take = Math.min(candidatesPool.size(), Math.max(targetCount * 3, 10));
+            int take = Math.min(candidatesPool.size(), Math.max(targetCount * 3, targetCount == 1 ? 6 : 12));
             for (int i = 0; i < take; i++) {
                 InnerTubeClient.RawTrack c = candidatesPool.pollFirst();
                 if (c != null) {
@@ -343,32 +373,39 @@ public final class WaveQueueManager {
             return resolved;
         }
 
-        List<Future<MessageObject>> futures = new ArrayList<>();
+        CompletionService<MessageObject> cs = new ExecutorCompletionService<>(executor);
+        int submitted = 0;
         for (InnerTubeClient.RawTrack track : toProcess) {
-            futures.add(executor.submit(() -> resolveSingleCandidate(track)));
+            try {
+                cs.submit(() -> resolveSingleCandidate(track));
+                submitted++;
+            } catch (Exception ignored) {}
         }
 
-        for (Future<MessageObject> f : futures) {
+        for (int i = 0; i < submitted; i++) {
             if (cancelFlag.get() || !isRunning || !SmartRadioEngine.isWaveActive) break;
             try {
-                MessageObject msg = f.get(8, TimeUnit.SECONDS);
-                if (msg != null) {
-                    resolved.add(msg);
-                    // Мгновенный запуск первого трека сессии
-                    if (initialFired.compareAndSet(false, true)) {
-                        ArrayList<MessageObject> first = new ArrayList<>();
-                        first.add(msg);
-                        synchronized (playBuffer) {
-                            playBuffer.addLast(msg);
-                        }
-                        AndroidUtilities.runOnUIThread(() -> {
-                            if (callback != null && !cancelFlag.get() && SmartRadioEngine.isWaveActive) {
-                                callback.onTracksFound(first);
+                Future<MessageObject> f = cs.poll(4, TimeUnit.SECONDS);
+                if (f != null) {
+                    MessageObject msg = f.get();
+                    if (msg != null) {
+                        resolved.add(msg);
+                        // Мгновенный запуск первого трека сессии!
+                        if (initialFired.compareAndSet(false, true)) {
+                            ArrayList<MessageObject> first = new ArrayList<>();
+                            first.add(msg);
+                            synchronized (playBuffer) {
+                                playBuffer.addLast(msg);
                             }
-                        });
-                    }
-                    if (resolved.size() >= targetCount) {
-                        break;
+                            AndroidUtilities.runOnUIThread(() -> {
+                                if (callback != null && !cancelFlag.get() && SmartRadioEngine.isWaveActive) {
+                                    callback.onTracksFound(first);
+                                }
+                            });
+                        }
+                        if (resolved.size() >= targetCount) {
+                            break;
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -383,11 +420,11 @@ public final class WaveQueueManager {
      * Фоновый цикл поддержания буфера воспроизведения пачками треков.
      */
     private void runBufferLoop() {
-        // 1. Первичная пачка треков (резолвится параллельно, первый трек стартует сразу)
-        List<MessageObject> initialBatch = resolveBatch(BATCH_SIZE);
-        if (initialBatch.isEmpty() && !initialFired.get()) {
+        // 1. Сверхбыстрый старт: находим ровно 1 трек (< 1 сек) и сразу запускаем воспроизведение
+        List<MessageObject> firstTrack = resolveBatch(1);
+        if (firstTrack.isEmpty() && !initialFired.get()) {
             triggerDynamicReSeeding();
-            initialBatch = resolveBatch(BATCH_SIZE);
+            firstTrack = resolveBatch(1);
         }
 
         if (!initialFired.get()) {
@@ -400,39 +437,25 @@ public final class WaveQueueManager {
             return;
         }
 
-        // Гарантируем, что в начальной очереди будет минимум 5 треков
-        int refillAttempts = 0;
-        while (initialBatch.size() < 5 && refillAttempts < 3 && isRunning && !cancelFlag.get() && SmartRadioEngine.isWaveActive) {
-            refillAttempts++;
-            List<MessageObject> more = resolveBatch(5 - initialBatch.size());
-            if (more.isEmpty()) {
-                triggerDynamicReSeeding();
-                more = resolveBatch(5 - initialBatch.size());
-                if (more.isEmpty()) break;
-            }
-            initialBatch.addAll(more);
+        // 2. В фоне догружаем остаток первичной очереди (5-7 треков), пока играет первый трек
+        List<MessageObject> remainingInitial = resolveBatch(BATCH_SIZE - 1);
+        if (remainingInitial.isEmpty()) {
+            triggerDynamicReSeeding();
+            remainingInitial = resolveBatch(BATCH_SIZE - 1);
         }
-
-        // Отправляем остаток первичной пачки, чтобы очередь сразу была наполнена
-        if (initialBatch.size() > 1) {
-            ArrayList<MessageObject> remainingInitial = new ArrayList<>();
-            for (int i = 1; i < initialBatch.size(); i++) {
-                MessageObject m = initialBatch.get(i);
-                remainingInitial.add(m);
-                synchronized (playBuffer) {
-                    playBuffer.addLast(m);
+        if (!remainingInitial.isEmpty()) {
+            ArrayList<MessageObject> toAdd = new ArrayList<>(remainingInitial);
+            synchronized (playBuffer) {
+                playBuffer.addAll(toAdd);
+            }
+            AndroidUtilities.runOnUIThread(() -> {
+                if (callback != null && !cancelFlag.get() && SmartRadioEngine.isWaveActive) {
+                    callback.onMoreTracksAdded(toAdd);
                 }
-            }
-            if (!remainingInitial.isEmpty()) {
-                AndroidUtilities.runOnUIThread(() -> {
-                    if (callback != null && !cancelFlag.get() && SmartRadioEngine.isWaveActive) {
-                        callback.onMoreTracksAdded(remainingInitial);
-                    }
-                });
-            }
+            });
         }
 
-        // 2. Цикл непрерывной догрузки новыми пачками треков
+        // 3. Бесконечный цикл поддержания очереди воспроизведения
         int emptyBatchesCount = 0;
         while (isRunning && !cancelFlag.get() && SmartRadioEngine.isWaveActive) {
             try {
@@ -459,15 +482,26 @@ public final class WaveQueueManager {
                             });
                         } else {
                             emptyBatchesCount++;
-                            if (emptyBatchesCount >= 2) {
-                                triggerDynamicReSeeding();
+                            triggerDynamicReSeeding();
+                            List<MessageObject> retryBatch = resolveBatch(need);
+                            if (!retryBatch.isEmpty()) {
+                                emptyBatchesCount = 0;
+                                ArrayList<MessageObject> toAdd = new ArrayList<>(retryBatch);
+                                synchronized (playBuffer) {
+                                    playBuffer.addAll(toAdd);
+                                }
+                                AndroidUtilities.runOnUIThread(() -> {
+                                    if (callback != null && !cancelFlag.get() && SmartRadioEngine.isWaveActive) {
+                                        callback.onMoreTracksAdded(toAdd);
+                                    }
+                                });
                             }
                         }
                     }
                 }
 
                 synchronized (candidatesPool) {
-                    if (candidatesPool.size() < 25) {
+                    if (candidatesPool.size() < 20) {
                         executor.execute(this::loadMoreCandidates);
                     }
                 }
@@ -517,14 +551,7 @@ public final class WaveQueueManager {
     private void loadMoreCandidates() {
         if (cancelFlag.get() || !isRunning) return;
 
-        // В режимах жанра, плейлиста и альбома continuations приводят к уходу от темы.
-        // Вместо этого делаем регулярный re-seeding строго сохраняя контекст!
-        if (waveMode == MODE_GENRE || waveMode == MODE_PLAYLIST || waveMode == MODE_ALBUM) {
-            triggerDynamicReSeeding();
-            return;
-        }
-
-        // Выбираем сид с наименьшим количеством скипов
+        // 1. Попытка использовать continuation token наименее скипанного сида
         String bestSeed = null;
         int minSkips = Integer.MAX_VALUE;
         for (String seedId : activeSeedIds) {
@@ -549,7 +576,7 @@ public final class WaveQueueManager {
                     seedContinuationTokens.remove(bestSeed);
                 }
                 addCandidatesFiltered(next.tracks);
-                if (candidatesPool.size() >= 25) {
+                if (candidatesPool.size() >= 20) {
                     return;
                 }
             } else {
@@ -557,8 +584,29 @@ public final class WaveQueueManager {
             }
         }
 
-        // Если continuation исчерпаны или отфильтрованы — фолбэк на Dynamic Re-seeding
+        // 2. Если continuation исчерпаны или кандидатов мало — запускаем динамический re-seeding
         triggerDynamicReSeeding();
+    }
+
+    private List<MessageObject> getRecentSessionTracks(int count) {
+        List<MessageObject> list = new ArrayList<>();
+        synchronized (completedSessionTracks) {
+            int sz = completedSessionTracks.size();
+            for (int i = sz - 1; i >= 0 && list.size() < count; i--) {
+                MessageObject m = completedSessionTracks.get(i);
+                if (m != null) list.add(m);
+            }
+        }
+        if (list.size() < count) {
+            synchronized (playBuffer) {
+                List<MessageObject> buf = new ArrayList<>(playBuffer);
+                for (int i = buf.size() - 1; i >= 0 && list.size() < count; i--) {
+                    MessageObject m = buf.get(i);
+                    if (m != null && !list.contains(m)) list.add(m);
+                }
+            }
+        }
+        return list;
     }
 
     /**
@@ -569,186 +617,172 @@ public final class WaveQueueManager {
     private void triggerDynamicReSeeding() {
         if (cancelFlag.get() || !isRunning) return;
 
-        // ── 1. РЕЖИМ ЖАНРА: сиды строго из каталога эталонных маяков жанра ──
+        // ── 1. РЕЖИМ ЖАНРА ──
         if (waveMode == MODE_GENRE) {
             String g = !targetName.isEmpty() ? targetName : "default";
+
+            // А. Ротация разнообразных поисковых запросов по жанру
+            String[] genreQueryPatterns = {
+                    g + " хиты",
+                    g + " лучшие песни",
+                    g + " новинки",
+                    g + " топ треки",
+                    g + " радио",
+                    g + " популярное",
+                    g + " сборник",
+                    g + " playlist",
+                    "русский " + g,
+                    g + " classics hits"
+            };
+            int qIdx = Math.abs(playedTracksCount.get() + sRandom.nextInt(5)) % genreQueryPatterns.length;
+            List<InnerTubeClient.RawTrack> searchTracks = InnerTubeClient.searchSongs(genreQueryPatterns[qIdx], 20, cancelFlag);
+            if (!searchTracks.isEmpty()) {
+                Collections.shuffle(searchTracks, sRandom);
+                addCandidatesFiltered(searchTracks);
+            }
+
+            // Б. Радио по недавно проигранным трекам текущей сессии
+            List<MessageObject> recentTracks = getRecentSessionTracks(2);
+            for (MessageObject m : recentTracks) {
+                String author = m.getMusicAuthor();
+                String title = m.getMusicTitle();
+                String q = (author != null ? author : "") + " " + (title != null ? title : "");
+                if (!q.trim().isEmpty()) {
+                    List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(q.trim(), 1, cancelFlag);
+                    if (!s.isEmpty() && s.get(0).videoId != null && !activeSeedIds.contains(s.get(0).videoId)) {
+                        String vid = s.get(0).videoId;
+                        activeSeedIds.add(vid);
+                        InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(vid, null, cancelFlag);
+                        if (nr != null && !nr.tracks.isEmpty()) {
+                            addCandidatesFiltered(nr.tracks);
+                            if (nr.continuationToken != null) {
+                                seedContinuationTokens.put(vid, nr.continuationToken);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // В. Маяки жанра
             List<String> allGenrePool = SeedSelector.getAllGenreBeaconIds(g);
             List<String> shuffledPool = new ArrayList<>(allGenrePool);
-            Collections.shuffle(shuffledPool);
-
+            Collections.shuffle(shuffledPool, sRandom);
             List<String> pickedSeeds = new ArrayList<>();
             for (String sid : shuffledPool) {
                 if (!activeSeedIds.contains(sid)) {
                     pickedSeeds.add(sid);
-                    if (pickedSeeds.size() >= 3) break;
+                    if (pickedSeeds.size() >= 2) break;
                 }
             }
-            if (pickedSeeds.isEmpty()) {
-                pickedSeeds.addAll(shuffledPool.subList(0, Math.min(3, shuffledPool.size())));
-            }
-
-            List<List<InnerTubeClient.RawTrack>> newBatches = new ArrayList<>();
             for (String sid : pickedSeeds) {
                 activeSeedIds.add(sid);
-                seedSkipCounters.put(sid, new AtomicInteger(0));
                 InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(sid, null, cancelFlag);
                 if (nr != null && !nr.tracks.isEmpty()) {
-                    newBatches.add(nr.tracks.subList(0, Math.min(8, nr.tracks.size())));
+                    addCandidatesFiltered(nr.tracks);
+                    if (nr.continuationToken != null) {
+                        seedContinuationTokens.put(sid, nr.continuationToken);
+                    }
                 }
             }
-            List<InnerTubeClient.RawTrack> fresh = interleaveBatches(newBatches);
-            addCandidatesFiltered(fresh);
 
-            if (candidatesPool.size() < 20) {
-                List<InnerTubeClient.RawTrack> direct = SeedSelector.searchGenreSongs(g, 25, cancelFlag);
-                if (!direct.isEmpty()) {
-                    Collections.shuffle(direct);
-                    addCandidatesFiltered(direct);
+            // Г. Deezer фолбэк при малом числе кандидатов
+            if (candidatesPool.size() < 15) {
+                ArrayList<MusicWebSearcher.WebTrack> deezerTracks = MusicWebSearcher.getGenreTracksSync(g);
+                if (deezerTracks != null && !deezerTracks.isEmpty()) {
+                    List<InnerTubeClient.RawTrack> dRaw = new ArrayList<>();
+                    for (MusicWebSearcher.WebTrack wt : deezerTracks) {
+                        dRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration)));
+                    }
+                    Collections.shuffle(dRaw, sRandom);
+                    addCandidatesFiltered(dRaw);
                 }
             }
             return;
         }
 
-        // ── 2. РЕЖИМ ПЛЕЙЛИСТА: сиды строго из исходного плейлиста и его артистов ──
+        // ── 2. РЕЖИМ ПЛЕЙЛИСТА ──
         if (waveMode == MODE_PLAYLIST) {
-            List<String> newSeedIds = new ArrayList<>();
-
-            // 1. Пытаемся взять еще неиспользованные треки из исходного плейлиста
+            // А. Неиспользованные треки из плейлиста
             if (!playlistContextTracks.isEmpty()) {
-                List<MessageObject> pool = new ArrayList<>(playlistContextTracks);
-                Collections.shuffle(pool);
-                for (MessageObject m : pool) {
-                    String author = m.getMusicAuthor();
-                    String title = m.getMusicTitle();
-                    String q = (author != null && !author.trim().isEmpty() ? author.trim() + " - " : "") + (title != null ? title.trim() : "");
-                    if (q.trim().isEmpty()) continue;
-                    List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(q, 1, cancelFlag);
-                    if (!s.isEmpty() && s.get(0).videoId != null && !activeSeedIds.contains(s.get(0).videoId)) {
-                        newSeedIds.add(s.get(0).videoId);
-                        if (newSeedIds.size() >= 3) break;
+                List<InnerTubeClient.RawTrack> pTracks = new ArrayList<>();
+                for (MessageObject m : playlistContextTracks) {
+                    if (m != null && m.getMusicAuthor() != null && m.getMusicTitle() != null) {
+                        pTracks.add(new InnerTubeClient.RawTrack(null, m.getMusicTitle(), m.getMusicAuthor(), (int) m.getDuration()));
                     }
                 }
+                Collections.shuffle(pTracks, sRandom);
+                addCandidatesFiltered(pTracks);
             }
 
-            // 2. Если треки плейлиста исчерпаны, ищем треки артистов плейлиста
-            if (newSeedIds.size() < 3 && !playlistContextArtists.isEmpty()) {
+            // Б. Артисты плейлиста
+            if (!playlistContextArtists.isEmpty()) {
                 List<String> artistsPool = new ArrayList<>(playlistContextArtists);
-                Collections.shuffle(artistsPool);
-                for (String artist : artistsPool) {
-                    List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(artist + " популярные треки", 3, cancelFlag);
-                    if (s.isEmpty()) s = InnerTubeClient.searchSongs(artist, 3, cancelFlag);
-                    for (InnerTubeClient.RawTrack t : s) {
-                        if (t.videoId != null && !activeSeedIds.contains(t.videoId)) {
-                            newSeedIds.add(t.videoId);
-                            if (newSeedIds.size() >= 3) break;
-                        }
+                Collections.shuffle(artistsPool, sRandom);
+                for (String artist : artistsPool.subList(0, Math.min(2, artistsPool.size()))) {
+                    List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(artist + " популярные треки", 10, cancelFlag);
+                    if (!s.isEmpty()) {
+                        addCandidatesFiltered(s);
                     }
-                    if (newSeedIds.size() >= 3) break;
                 }
             }
 
-            // 3. Запуск радиостанций по сидам плейлиста
-            if (!newSeedIds.isEmpty()) {
-                List<List<InnerTubeClient.RawTrack>> newBatches = new ArrayList<>();
-                for (String sid : newSeedIds) {
-                    activeSeedIds.add(sid);
-                    seedSkipCounters.put(sid, new AtomicInteger(0));
-                    InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(sid, null, cancelFlag);
+            // В. Радио по недавним трекам сессии или плейлиста
+            List<MessageObject> seedPool = new ArrayList<>(getRecentSessionTracks(2));
+            if (seedPool.isEmpty() && !playlistContextTracks.isEmpty()) {
+                seedPool.addAll(playlistContextTracks);
+                Collections.shuffle(seedPool, sRandom);
+            }
+            for (MessageObject m : seedPool.subList(0, Math.min(2, seedPool.size()))) {
+                String q = (m.getMusicAuthor() != null ? m.getMusicAuthor() + " " : "") + (m.getMusicTitle() != null ? m.getMusicTitle() : "");
+                if (q.trim().isEmpty()) continue;
+                List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(q.trim(), 1, cancelFlag);
+                if (!s.isEmpty() && s.get(0).videoId != null && !activeSeedIds.contains(s.get(0).videoId)) {
+                    String vid = s.get(0).videoId;
+                    activeSeedIds.add(vid);
+                    InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(vid, null, cancelFlag);
                     if (nr != null && !nr.tracks.isEmpty()) {
-                        newBatches.add(nr.tracks.subList(0, Math.min(8, nr.tracks.size())));
+                        addCandidatesFiltered(nr.tracks);
                         if (nr.continuationToken != null) {
-                            seedContinuationTokens.put(sid, nr.continuationToken);
+                            seedContinuationTokens.put(vid, nr.continuationToken);
                         }
+                        break;
                     }
                 }
-                List<InnerTubeClient.RawTrack> fresh = interleaveBatches(newBatches);
-                addCandidatesFiltered(fresh);
             }
             return;
         }
 
-        // ── 3. РЕЖИМ АРТИСТА: вариативные запросы к каталогу и радио по трекам артиста ──
+        // ── 3. РЕЖИМ АРТИСТА ──
         if (waveMode == MODE_ARTIST && !targetName.isEmpty()) {
             String[] artistQueries = {
                     targetName + " популярные треки",
+                    targetName + " лучшие песни",
                     targetName + " альбомы",
                     targetName + " синглы",
                     targetName + " feat",
-                    targetName + " слушать",
+                    targetName + " радио",
+                    targetName + " remix",
                     targetName
             };
-            List<InnerTubeClient.RawTrack> artistSongs = new ArrayList<>();
-            for (String q : artistQueries) {
-                List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(q, 20, cancelFlag);
-                if (!found.isEmpty()) {
-                    for (InnerTubeClient.RawTrack t : found) {
-                        String k = normalizeKey(t.artist, t.title);
-                        if (!sessionPlayedKeys.contains(k)) {
-                            artistSongs.add(t);
-                        }
-                    }
-                }
-                if (artistSongs.size() >= 20) break;
-            }
-
+            int qIdx = Math.abs(playedTracksCount.get() + sRandom.nextInt(4)) % artistQueries.length;
+            List<InnerTubeClient.RawTrack> artistSongs = InnerTubeClient.searchSongs(artistQueries[qIdx], 20, cancelFlag);
             if (!artistSongs.isEmpty()) {
-                Collections.shuffle(artistSongs);
+                Collections.shuffle(artistSongs, sRandom);
                 addCandidatesFiltered(artistSongs);
-                int seeded = 0;
-                for (InnerTubeClient.RawTrack t : artistSongs) {
-                    if (t.videoId != null && !activeSeedIds.contains(t.videoId)) {
-                        activeSeedIds.add(t.videoId);
-                        InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(t.videoId, null, cancelFlag);
-                        if (nr != null && !nr.tracks.isEmpty()) {
-                            addCandidatesFiltered(nr.tracks.subList(0, Math.min(10, nr.tracks.size())));
-                            if (nr.continuationToken != null) {
-                                seedContinuationTokens.put(t.videoId, nr.continuationToken);
-                            }
-                            seeded++;
-                            if (seeded >= 2) break;
-                        }
-                    }
-                }
-            }
-            return;
-        }
-
-        // ── 4. РЕЖИМ АЛЬБОМА: треки альбома, артиста и родственные альбомы ──
-        if (waveMode == MODE_ALBUM) {
-            String art = !albumContextArtist.isEmpty() ? albumContextArtist : targetName;
-            String alb = albumContextTitle;
-
-            List<InnerTubeClient.RawTrack> albumPool = new ArrayList<>();
-
-            // Поиск по исполнителю + названию альбома
-            String query = (art + " " + alb).trim();
-            if (!query.isEmpty()) {
-                List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(query + " треки", 25, cancelFlag);
-                if (s.isEmpty()) s = InnerTubeClient.searchSongs(query, 25, cancelFlag);
-                for (InnerTubeClient.RawTrack t : s) {
-                    String k = normalizeKey(t.artist, t.title);
-                    if (!sessionPlayedKeys.contains(k)) {
-                        albumPool.add(t);
-                    }
-                }
             }
 
-            // Если есть исходные треки альбома, запускаем радио по неиспользованным
-            if (!albumContextTracks.isEmpty()) {
-                List<MessageObject> shuffled = new ArrayList<>(albumContextTracks);
-                Collections.shuffle(shuffled);
-                for (MessageObject m : shuffled) {
-                    String author = m.getMusicAuthor();
-                    String title = m.getMusicTitle();
-                    String q = (author != null && !author.trim().isEmpty() ? author.trim() + " - " : "") + (title != null ? title.trim() : "");
-                    if (q.trim().isEmpty()) continue;
-                    List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(q, 1, cancelFlag);
-                    if (!found.isEmpty() && found.get(0).videoId != null && !activeSeedIds.contains(found.get(0).videoId)) {
-                        String vid = found.get(0).videoId;
+            // Радио по недавним трекам сессии или трекам артиста
+            List<MessageObject> recent = getRecentSessionTracks(2);
+            if (!recent.isEmpty()) {
+                for (MessageObject m : recent) {
+                    String q = m.getMusicAuthor() + " " + m.getMusicTitle();
+                    List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(q.trim(), 1, cancelFlag);
+                    if (!s.isEmpty() && s.get(0).videoId != null && !activeSeedIds.contains(s.get(0).videoId)) {
+                        String vid = s.get(0).videoId;
                         activeSeedIds.add(vid);
                         InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(vid, null, cancelFlag);
                         if (nr != null && !nr.tracks.isEmpty()) {
-                            addCandidatesFiltered(nr.tracks.subList(0, Math.min(10, nr.tracks.size())));
+                            addCandidatesFiltered(nr.tracks);
                             if (nr.continuationToken != null) {
                                 seedContinuationTokens.put(vid, nr.continuationToken);
                             }
@@ -756,31 +790,115 @@ public final class WaveQueueManager {
                         }
                     }
                 }
+            } else if (!artistSongs.isEmpty()) {
+                for (InnerTubeClient.RawTrack t : artistSongs) {
+                    if (t.videoId != null && !activeSeedIds.contains(t.videoId)) {
+                        activeSeedIds.add(t.videoId);
+                        InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(t.videoId, null, cancelFlag);
+                        if (nr != null && !nr.tracks.isEmpty()) {
+                            addCandidatesFiltered(nr.tracks);
+                            if (nr.continuationToken != null) {
+                                seedContinuationTokens.put(t.videoId, nr.continuationToken);
+                            }
+                            break;
+                        }
+                    }
+                }
             }
 
-            if (!albumPool.isEmpty()) {
-                Collections.shuffle(albumPool);
-                addCandidatesFiltered(albumPool);
+            if (candidatesPool.size() < 15) {
+                ArrayList<MusicWebSearcher.WebTrack> deezer = MusicWebSearcher.getGenreTracksSync(targetName);
+                if (deezer != null && !deezer.isEmpty()) {
+                    List<InnerTubeClient.RawTrack> dRaw = new ArrayList<>();
+                    for (MusicWebSearcher.WebTrack wt : deezer) {
+                        dRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration)));
+                    }
+                    addCandidatesFiltered(dRaw);
+                }
             }
             return;
         }
 
-        // ── 5. ФОЛБЭК: Re-seeding по последним сыгранным трекам сессии ──
-        List<MessageObject> seedTracks = new ArrayList<>();
-        synchronized (completedSessionTracks) {
-            int size = completedSessionTracks.size();
-            if (size >= 2) {
-                seedTracks.add(completedSessionTracks.get(size - 1));
-                seedTracks.add(completedSessionTracks.get(size - 2));
-            } else if (size == 1) {
-                seedTracks.add(completedSessionTracks.get(0));
+        // ── 4. РЕЖИМ АЛЬБОМА ──
+        if (waveMode == MODE_ALBUM) {
+            String art = !albumContextArtist.isEmpty() ? albumContextArtist : targetName;
+            String alb = albumContextTitle;
+
+            // А. Треки самого альбома
+            if (!albumContextTracks.isEmpty()) {
+                List<InnerTubeClient.RawTrack> fromAlbum = new ArrayList<>();
+                for (MessageObject m : albumContextTracks) {
+                    if (m != null && m.getMusicAuthor() != null && m.getMusicTitle() != null) {
+                        fromAlbum.add(new InnerTubeClient.RawTrack(null, m.getMusicTitle(), m.getMusicAuthor(), (int) m.getDuration()));
+                    }
+                }
+                addCandidatesFiltered(fromAlbum);
             }
+
+            // Б. Поиск треков альбома, исполнителя и родственных релизов
+            if (!art.isEmpty()) {
+                String[] albumQueries = {
+                        (art + " " + alb).trim() + " треки",
+                        (art + " " + alb).trim(),
+                        art + " популярные треки",
+                        art + " лучшие песни",
+                        art + " альбомы",
+                        art + " синглы"
+                };
+                int qIdx = Math.abs(playedTracksCount.get() + sRandom.nextInt(3)) % albumQueries.length;
+                List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(albumQueries[qIdx], 20, cancelFlag);
+                if (!found.isEmpty()) {
+                    Collections.shuffle(found, sRandom);
+                    addCandidatesFiltered(found);
+                }
+            }
+
+            // В. Радио по неиспользованным трекам альбома или сессии
+            List<MessageObject> seedPool = new ArrayList<>();
+            if (!albumContextTracks.isEmpty()) {
+                seedPool.addAll(albumContextTracks);
+            }
+            seedPool.addAll(getRecentSessionTracks(2));
+            Collections.shuffle(seedPool, sRandom);
+            for (MessageObject m : seedPool) {
+                String author = m.getMusicAuthor();
+                String title = m.getMusicTitle();
+                String q = (author != null ? author + " - " : "") + (title != null ? title : "");
+                if (q.trim().isEmpty()) continue;
+                List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(q.trim(), 1, cancelFlag);
+                if (!s.isEmpty() && s.get(0).videoId != null && !activeSeedIds.contains(s.get(0).videoId)) {
+                    String vid = s.get(0).videoId;
+                    activeSeedIds.add(vid);
+                    InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(vid, null, cancelFlag);
+                    if (nr != null && !nr.tracks.isEmpty()) {
+                        addCandidatesFiltered(nr.tracks);
+                        if (nr.continuationToken != null) {
+                            seedContinuationTokens.put(vid, nr.continuationToken);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (candidatesPool.size() < 15 && !art.isEmpty()) {
+                ArrayList<MusicWebSearcher.WebTrack> deezer = MusicWebSearcher.getGenreTracksSync(art);
+                if (deezer != null && !deezer.isEmpty()) {
+                    List<InnerTubeClient.RawTrack> dRaw = new ArrayList<>();
+                    for (MusicWebSearcher.WebTrack wt : deezer) {
+                        dRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration)));
+                    }
+                    addCandidatesFiltered(dRaw);
+                }
+            }
+            return;
         }
 
+        // ── 5. ФОЛБЭК: Re-seeding по последним сыгранным трекам сессии или дефолтным маякам ──
+        List<MessageObject> seedTracks = getRecentSessionTracks(2);
         List<String> newSeedIds = new ArrayList<>();
         for (MessageObject m : seedTracks) {
             String q = m.getMusicAuthor() + " " + m.getMusicTitle();
-            List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(q, 1, cancelFlag);
+            List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(q.trim(), 1, cancelFlag);
             if (!s.isEmpty() && s.get(0).videoId != null) {
                 newSeedIds.add(s.get(0).videoId);
             }
@@ -805,7 +923,6 @@ public final class WaveQueueManager {
             }
             List<InnerTubeClient.RawTrack> fresh = interleaveBatches(newBatches);
             addCandidatesFiltered(fresh);
-            FileLog.d(TAG + " Dynamic re-seeding completed with " + fresh.size() + " fresh candidates.");
         }
     }
 
@@ -826,9 +943,11 @@ public final class WaveQueueManager {
      */
     public void reportSkip(String artist, String title, long playedMs) {
         if (playedMs < 20_000L && !activeSeedIds.isEmpty()) {
-            for (String seedId : activeSeedIds) {
-                AtomicInteger c = seedSkipCounters.get(seedId);
-                if (c != null) c.incrementAndGet();
+            synchronized (activeSeedIds) {
+                for (String seedId : activeSeedIds) {
+                    AtomicInteger c = seedSkipCounters.get(seedId);
+                    if (c != null) c.incrementAndGet();
+                }
             }
         }
     }
@@ -846,5 +965,8 @@ public final class WaveQueueManager {
         seedContinuationTokens.clear();
         seedSkipCounters.clear();
         completedSessionTracks.clear();
+        albumContextTracks.clear();
+        playlistContextTracks.clear();
+        playlistContextArtists.clear();
     }
 }

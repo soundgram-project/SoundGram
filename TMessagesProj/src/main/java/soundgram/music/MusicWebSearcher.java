@@ -1930,8 +1930,9 @@ public class MusicWebSearcher {
      */
     public static WebTrack searchTrackStrict(String artist, String title, int flags) {
         try {
-            String query = (artist + " " + title)
-                    .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            String cleanT = title != null ? title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim() : "";
+            String cleanA = artist != null ? artist.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim() : "";
+            String query = (cleanA + " " + cleanT).trim();
             String cacheKey = "strict:" + query.toLowerCase();
 
             ArrayList<WebTrack> cached = getCachedSearch(cacheKey);
@@ -1947,8 +1948,7 @@ public class MusicWebSearcher {
             }
 
             // Резервный поиск с транслитерацией кириллицы
-            String translitQuery = (transliterate(artist) + " " + transliterate(title))
-                    .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            String translitQuery = (transliterate(cleanA) + " " + transliterate(cleanT)).trim();
             if (!translitQuery.equalsIgnoreCase(query)) {
                 String cacheKey2 = "strict:" + translitQuery.toLowerCase();
                 ArrayList<WebTrack> cached2 = getCachedSearch(cacheKey2);
@@ -1963,6 +1963,22 @@ public class MusicWebSearcher {
                     if (best != null) return best;
                 }
             }
+
+            // Резервный поиск по одному лишь названию трека (на Hitmos часто ищется надежнее)
+            if (!cleanT.isEmpty()) {
+                String cacheKey3 = "strict:t:" + cleanT.toLowerCase();
+                ArrayList<WebTrack> cached3 = getCachedSearch(cacheKey3);
+                if (cached3 == null) {
+                    String html3 = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanT, "UTF-8"));
+                    cached3 = new ArrayList<>();
+                    parseHtmlToResults(html3, cached3, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                    putCachedSearch(cacheKey3, cached3);
+                }
+                if (!cached3.isEmpty()) {
+                    WebTrack best = findBestMatch(cached3, title, artist, flags, false);
+                    if (best != null) return best;
+                }
+            }
         } catch (Exception e) { FileLog.e(e); }
         return null;
     }
@@ -1970,6 +1986,8 @@ public class MusicWebSearcher {
     private static WebTrack findBestMatch(ArrayList<WebTrack> hitmosResults, String expectedTitle, String expectedArtist, int expectedDuration, boolean strictArtist) {
         String cleanExpectedTitle = expectedTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
         String cleanExpectedArtist = expectedArtist.toLowerCase().trim();
+        String normExpectedTitle = cleanExpectedTitle.replaceAll("[^a-zа-я0-9]", "");
+        String normExpectedArtist = cleanExpectedArtist.replaceAll("[^a-zа-я0-9]", "");
 
         WebTrack best = null;
         int bestScore = -1;
@@ -1977,29 +1995,32 @@ public class MusicWebSearcher {
         for (WebTrack wt : hitmosResults) {
             String hitTitle = wt.title.toLowerCase();
             String hitArtist = wt.artist.toLowerCase().trim();
+            String normHitTitle = hitTitle.replaceAll("[^a-zа-я0-9]", "");
+            String normHitArtist = hitArtist.replaceAll("[^a-zа-я0-9]", "");
 
-            boolean titleMatch = hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle);
+            boolean titleMatch = hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle)
+                    || (!normExpectedTitle.isEmpty() && (normHitTitle.contains(normExpectedTitle) || normExpectedTitle.contains(normHitTitle)));
 
-            // ИСПРАВЛЕНО: "Исполнитель точь в точь совпадает с именем"
-            boolean exactArtistMatch = hitArtist.equals(cleanExpectedArtist);
-            boolean artistMatch = exactArtistMatch || hitArtist.contains(cleanExpectedArtist) || cleanExpectedArtist.contains(hitArtist);
+            boolean exactArtistMatch = hitArtist.equals(cleanExpectedArtist)
+                    || (!normExpectedArtist.isEmpty() && normHitArtist.equals(normExpectedArtist));
+            boolean artistMatch = exactArtistMatch || hitArtist.contains(cleanExpectedArtist) || cleanExpectedArtist.contains(hitArtist)
+                    || (!normExpectedArtist.isEmpty() && (normHitArtist.contains(normExpectedArtist) || normExpectedArtist.contains(normHitArtist)));
 
-            if (!titleMatch) continue;
+            if (!titleMatch && !exactArtistMatch) continue;
 
-            // При strictArtist должно быть точное совпадение имени исполнителя
             if (strictArtist && !exactArtistMatch) continue;
 
             int hitDur = soundgram.music.ChannelMusicFragment.parseDuration(wt.duration);
             int durDiff = expectedDuration > 0 ? Math.abs(hitDur - expectedDuration) : 0;
 
             int score = 0;
-            if (artistMatch) score += 50;
-            if (exactArtistMatch) score += 50;
-            score += 20;
+            if (titleMatch) score += 40;
+            if (artistMatch) score += 40;
+            if (exactArtistMatch) score += 40;
 
-            if (expectedDuration > 0 && durDiff <= 5) score += 50;
-            else if (expectedDuration > 0 && durDiff <= 15) score += 25;
-            else if (expectedDuration > 0 && durDiff > 30) score -= 20;
+            if (expectedDuration > 0 && durDiff <= 5) score += 40;
+            else if (expectedDuration > 0 && durDiff <= 15) score += 20;
+            else if (expectedDuration > 0 && durDiff > 30) score -= 10;
 
             if (score > bestScore) {
                 bestScore = score;
@@ -2008,7 +2029,17 @@ public class MusicWebSearcher {
         }
 
         if (strictArtist && bestScore >= 0) return best;
-        if (bestScore >= 45) return best;
+        if (bestScore >= 35) return best;
+        if (best == null && !hitmosResults.isEmpty()) {
+            for (WebTrack wt : hitmosResults) {
+                String hitTitle = wt.title.toLowerCase();
+                String normHitTitle = hitTitle.replaceAll("[^a-zа-я0-9]", "");
+                if (hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle)
+                        || (!normExpectedTitle.isEmpty() && (normHitTitle.contains(normExpectedTitle) || normExpectedTitle.contains(normHitTitle)))) {
+                    return wt;
+                }
+            }
+        }
         return null;
     }
 

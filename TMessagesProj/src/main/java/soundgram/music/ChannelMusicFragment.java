@@ -746,6 +746,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_WAVE;
                 AudioPlayerAlert.currentSourceLabel = "";
                 Toast.makeText(context, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
+                SharedConfig.shuffleMusic = false;
+                SharedConfig.playOrderReversed = false;
                 SmartRadioEngine.stopWaveSession();
                 SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
@@ -1373,6 +1375,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 updateTextTarget.setText("✦  " + SmartRadioEngine.currentConfig.query);
             builder.getDismissRunnable().run();
             if (SmartRadioEngine.isWaveActive && AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE) {
+                SharedConfig.shuffleMusic = false;
+                SharedConfig.playOrderReversed = false;
                 SmartRadioEngine.stopWaveSession();
                 SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
@@ -4200,17 +4204,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         if (playlistMessages.isEmpty()) return;
                         Toast.makeText(mContext, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
                         ArrayList<MessageObject> originalList = new ArrayList<>(playlistMessages);
-                        MessageObject starter = originalList.get(0);
-                        ArrayList<MessageObject> starterList = new ArrayList<>();
-                        starterList.add(starter);
-                        MediaController.getInstance().setPlaylist(starterList, starter, MediaController.WAVE_CONTEXT_ID);
-                        MediaController.getInstance().playMessage(starter);
+                        SharedConfig.shuffleMusic = false;
+                        SharedConfig.playOrderReversed = false;
                         SmartRadioEngine.stopWaveSession();
                         SmartRadioEngine.generateWaveByPlaylist(originalList, currentAccount,
                                 new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> waveQueue) {
                                         if (!waveQueue.isEmpty()) {
-                                            MediaController.getInstance().addTracksToPlaylist(waveQueue);
+                                            MediaController.getInstance().setPlaylist(waveQueue, waveQueue.get(0), MediaController.WAVE_CONTEXT_ID);
+                                            MediaController.getInstance().playMessage(waveQueue.get(0));
                                         }
                                     }
                                     @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
@@ -5829,6 +5831,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 AudioPlayerAlert.currentSourceLabel = "";
                 applySpringClick(v);
                 Toast.makeText(context, getString(R.string.wvc), Toast.LENGTH_SHORT).show();
+                SharedConfig.shuffleMusic = false;
+                SharedConfig.playOrderReversed = false;
                 SmartRadioEngine.stopWaveSession();
                 SmartRadioEngine.generateWaveByArtist(artistName, currentAccount,
                         new SmartRadioEngine.WaveCallback() {
@@ -6691,25 +6695,16 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         final String finalAlbum = aAlbum;
                         AudioPlayerAlert.currentSourceLabel = (!finalArtist.isEmpty() ? finalArtist + " - " : "") + finalAlbum;
                         ArrayList<MessageObject> currentTracks = new ArrayList<>(playlistMessages);
-                        if (!currentTracks.isEmpty()) {
-                            MessageObject starter = currentTracks.get(0);
-                            ArrayList<MessageObject> starterList = new ArrayList<>();
-                            starterList.add(starter);
-                            MediaController.getInstance().setPlaylist(starterList, starter, MediaController.WAVE_CONTEXT_ID);
-                            MediaController.getInstance().playMessage(starter);
-                        }
+                        SharedConfig.shuffleMusic = false;
+                        SharedConfig.playOrderReversed = false;
                         SmartRadioEngine.stopWaveSession();
                         SmartRadioEngine.generateWaveByAlbum(finalArtist, finalAlbum, currentTracks,
                                 currentAccount, new SmartRadioEngine.WaveCallback() {
                                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {
                                         if (!tracks.isEmpty()) {
-                                            if (!currentTracks.isEmpty()) {
-                                                MediaController.getInstance().addTracksToPlaylist(tracks);
-                                            } else {
-                                                MediaController.getInstance().setPlaylist(
-                                                        tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
-                                                MediaController.getInstance().playMessage(tracks.get(0));
-                                            }
+                                            MediaController.getInstance().setPlaylist(
+                                                    tracks, tracks.get(0), MediaController.WAVE_CONTEXT_ID);
+                                            MediaController.getInstance().playMessage(tracks.get(0));
                                         }
                                     }
                                     @Override public void onMoreTracksAdded(ArrayList<MessageObject> t) {
@@ -7145,6 +7140,8 @@ public static class ChipCell extends FrameLayout {
             applySpringClick(v);
             builder.getDismissRunnable().run();
             if (SmartRadioEngine.isWaveActive && AudioPlayerAlert.currentSource == AudioPlayerAlert.SOURCE_WAVE) {
+                SharedConfig.shuffleMusic = false;
+                SharedConfig.playOrderReversed = false;
                 SmartRadioEngine.stopWaveSession();
                 SmartRadioEngine.generateWaveFromSettings(currentAccount, new SmartRadioEngine.WaveCallback() {
                     @Override public void onTracksFound(ArrayList<MessageObject> tracks) {

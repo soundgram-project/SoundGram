@@ -218,6 +218,16 @@ public final class SmartRadioEngine {
     }
 
     /**
+     * Фиксация проигрывания трека в волне.
+     */
+    public static void reportTrackPlayed(MessageObject track) {
+        WaveQueueManager manager = sCurrentManager;
+        if (manager != null) {
+            manager.reportTrackPlayed(track);
+        }
+    }
+
+    /**
      * Добавление трека в библиотеку пользователя.
      */
     public static void reportLibraryAdd(String artist, String title) {

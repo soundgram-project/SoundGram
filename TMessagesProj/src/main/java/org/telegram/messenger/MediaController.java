@@ -3053,6 +3053,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             return;
         }
         if (playingMessageObject != null) {
+            if (playlistMergeDialogId == WAVE_CONTEXT_ID && soundgram.music.SmartRadioEngine.isWaveActive) {
+                long playedMs = (long) (playingMessageObject.audioProgressSec * 1000L);
+                soundgram.music.SmartRadioEngine.reportSkip(playingMessageObject.getMusicAuthor(), playingMessageObject.getMusicTitle(), playedMs);
+            }
             playingMessageObject.resetPlayingProgress();
         }
         playMusicAgain = true;
@@ -3837,6 +3841,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             downloadingCurrentMessage = false;
         }
         if (messageObject.isMusic()) {
+            if (playlistMergeDialogId == WAVE_CONTEXT_ID && soundgram.music.SmartRadioEngine.isWaveActive) {
+                soundgram.music.SmartRadioEngine.reportTrackPlayed(messageObject);
+            }
             checkIsNextMusicFileDownloaded(messageObject.currentAccount);
         } else {
             checkIsNextVoiceFileDownloaded(messageObject.currentAccount);
