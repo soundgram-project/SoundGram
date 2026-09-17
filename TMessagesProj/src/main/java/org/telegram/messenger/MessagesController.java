@@ -12360,6 +12360,10 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
 
+        if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && mode == 0) {
+            com.radolyn.ayugram.proprietary.AyuHistoryHook.mergeDeletedMessages(currentAccount, dialogId, threadMessageId, isTopic, load_type, max_id, count, isEnd, objects);
+        }
+
         Timer.done(t1);
         Timer.Task t2 = Timer.start(loaderLogger, "processLoadedMessages: runOnUIThread");
         AndroidUtilities.runOnUIThread(() -> {
@@ -12404,13 +12408,6 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                 }, classGuid, loaderLogger);
                 getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoad, dialogId, count, objects, isCache, first_unread_final, last_message_id, unread_count, last_date, load_type, isEnd, classGuid, loadIndex, max_id, mentionsCount, mode);
-            }
-
-            if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && mode == 0) {
-                android.util.Pair<Integer, Integer> pair = com.radolyn.ayugram.proprietary.AyuHistoryHook.getMinAndMaxIds(objects);
-                boolean isChannelComment = threadMessageId != 0 && !isTopic;
-                long topicId = isTopic ? threadMessageId : 0;
-                com.radolyn.ayugram.proprietary.AyuHistoryHook.doHookAsync(currentAccount, pair.first, pair.second, dialogId, count, topicId, load_type, isChannelComment, threadMessageId, isTopic);
             }
 
             if (!messagesToReload.isEmpty()) {
