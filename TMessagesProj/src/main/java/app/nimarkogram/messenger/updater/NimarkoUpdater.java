@@ -833,7 +833,7 @@ public class NimarkoUpdater {
         if (!isHttps(current)) throw new java.io.IOException("refusing non-https download url: " + current);
         for (int i = 0; i < 5; i++) {
             HttpURLConnection c = (HttpURLConnection) new URI(current).toURL().openConnection();
-            c.setRequestProperty("User-Agent", "NimarkoGram-OTA");
+            c.setRequestProperty("User-Agent", "SoundGram-OTA");
             c.setRequestProperty("Accept-Encoding", "identity");
             if (rangeStart > 0) c.setRequestProperty("Range", "bytes=" + rangeStart + "-");
             c.setConnectTimeout(15000);

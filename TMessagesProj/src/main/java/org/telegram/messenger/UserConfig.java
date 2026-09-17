@@ -85,6 +85,9 @@ public class UserConfig extends BaseController {
 
     private static volatile UserConfig[] Instance = new UserConfig[UserConfig.MAX_ACCOUNT_COUNT];
     public static UserConfig getInstance(int num) {
+        if (num < 0 || num >= MAX_ACCOUNT_COUNT) {
+            num = 0;
+        }
         UserConfig localInstance = Instance[num];
         if (localInstance == null) {
             synchronized (UserConfig.class) {
@@ -142,6 +145,9 @@ public class UserConfig extends BaseController {
                 try {
                     SharedPreferences.Editor editor = getPreferences().edit();
                     if (currentAccount == 0) {
+                        if (selectedAccount < 0 || selectedAccount >= MAX_ACCOUNT_COUNT) {
+                            selectedAccount = 0;
+                        }
                         editor.putInt("selectedAccount", selectedAccount);
                     }
                     editor.putBoolean("registeredForPush", registeredForPush);
@@ -295,6 +301,9 @@ public class UserConfig extends BaseController {
             SharedPreferences preferences = getPreferences();
             if (currentAccount == 0) {
                 selectedAccount = preferences.getInt("selectedAccount", 0);
+                if (selectedAccount < 0 || selectedAccount >= MAX_ACCOUNT_COUNT) {
+                    selectedAccount = 0;
+                }
             }
             registeredForPush = preferences.getBoolean("registeredForPush", false);
             lastSendMessageId = preferences.getInt("lastSendMessageId", -210000);

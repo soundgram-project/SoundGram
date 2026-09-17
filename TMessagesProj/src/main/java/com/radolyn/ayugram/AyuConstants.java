@@ -31,5 +31,13 @@ public class AyuConstants {
 
     public static String AYU_DATABASE = "ayu-data";
 
-    public static String APP_NAME = NekoConfig.customSavePath.String();
+    public static String APP_NAME = getSafeSavePath();
+
+    public static String getSafeSavePath() {
+        String path = NekoConfig.customSavePath.String();
+        if (android.text.TextUtils.isEmpty(path) || "Nagram".equalsIgnoreCase(path) || "NimarkoGram".equalsIgnoreCase(path)) {
+            return "SoundGram";
+        }
+        return path;
+    }
 }

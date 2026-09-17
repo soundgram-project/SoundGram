@@ -131,7 +131,7 @@ public class DebugPreferencesActivity extends BasePreferencesActivity {
             NimarkoConfig.toggleSendVideosAtMaxQuality();
             applyCheck(item, view, NimarkoConfig.sendVideosAtMaxQuality);
         } else if (id == ID_FORCE_CRASH && BuildVars.DEBUG_VERSION) {
-            throw new RuntimeException("NimarkoGram debug: force-crash button");
+            throw new RuntimeException("SoundGram debug: force-crash button");
         }
     }
 

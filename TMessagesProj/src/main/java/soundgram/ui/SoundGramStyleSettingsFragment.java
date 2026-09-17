@@ -241,6 +241,14 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         return fragmentView;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (settingsAdapter != null) {
+            settingsAdapter.notifyItemChanged(0);
+        }
+    }
+
     private void notifyStyleChanged() {
         SoundGramStyleManager.dispatchStyleChanged();
         for (int i = 0; i < 4; i++)
@@ -250,6 +258,16 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
     // ══════════════════════════════════════════════════════════════════════════
     // ADAPTER
     // ══════════════════════════════════════════════════════════════════════════
+    private static class HeaderHolder extends RecyclerListView.Holder {
+        final TextView tracksValueTextView;
+        final TextView timeValueTextView;
+        HeaderHolder(View itemView, TextView tracksValue, TextView timeValue) {
+            super(itemView);
+            this.tracksValueTextView = tracksValue;
+            this.timeValueTextView = timeValue;
+        }
+    }
+
     private class SettingsAdapter extends RecyclerListView.SelectionAdapter {
         private static final int TYPE_HEADER = 0;
         private static final int TYPE_ITEM   = 1;
@@ -264,20 +282,35 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            if (viewType == TYPE_HEADER) return new RecyclerListView.Holder(buildHeader(ctx));
+            if (viewType == TYPE_HEADER) return buildHeader(ctx);
             return new RecyclerListView.Holder(new GlassSettingCell(ctx));
         }
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int pos) {
-            if (holder.getItemViewType() == TYPE_HEADER) return;
+            if (holder.getItemViewType() == TYPE_HEADER) {
+                if (holder instanceof HeaderHolder) {
+                    HeaderHolder hh = (HeaderHolder) holder;
+                    SharedPreferences sp = soundgram.music.SoundGramStatsManager.getStatsPrefs(currentAccount);
+                    int   tt = sp.getInt("total_tracks", 0);
+                    long  ts = sp.getLong("total_seconds", 0L);
+                    long  h  = ts / 3600, m = (ts % 3600) / 60;
+                    if (hh.tracksValueTextView != null) {
+                        hh.tracksValueTextView.setText(String.valueOf(tt));
+                    }
+                    if (hh.timeValueTextView != null) {
+                        hh.timeValueTextView.setText(h + getString(R.string.hour) + " " + m + getString(R.string.min));
+                    }
+                }
+                return;
+            }
             String[] row = ITEMS[pos - 1];
             ((GlassSettingCell) holder.itemView).bind(getItemTitle(pos - 1), getItemSubtitle(pos - 1), row[2], row[3], row[4], row[5]);
         }
     }
 
     // ── Header (stats) ─────────────────────────────────────────────────────────
-    private View buildHeader(Context ctx) {
+    private HeaderHolder buildHeader(Context ctx) {
         int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -308,9 +341,12 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         long  ts = sp.getLong("total_seconds", 0L);
         long  h  = ts / 3600, m = (ts % 3600) / 60;
 
-        row.addView(makeStatPill(ctx, "🎵", String.valueOf(tt), getString(R.string.sg_stats_tracks_label), accent),
+        TextView[] tracksHolder = new TextView[1];
+        TextView[] timeHolder = new TextView[1];
+
+        row.addView(makeStatPill(ctx, "🎵", String.valueOf(tt), getString(R.string.sg_stats_tracks_label), accent, tracksHolder),
                 LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 8, 0));
-        row.addView(makeStatPill(ctx, "⏱", h + getString(R.string.hour) + " " + m + getString(R.string.min), getString(R.string.sg_stats_time_label), accent),
+        row.addView(makeStatPill(ctx, "⏱", h + getString(R.string.hour) + " " + m + getString(R.string.min), getString(R.string.sg_stats_time_label), accent, timeHolder),
                 LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 8, 0, 0, 0));
         card.addView(row, LayoutHelper.createFrame(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -414,7 +450,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
         root.addView(makeLabel(ctx, getString(R.string.sg_style_section_glass)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        return root;
+        return new HeaderHolder(root, tracksHolder[0], timeHolder[0]);
     }
 
     private TextView makeLabel(Context ctx, String text) {
@@ -433,7 +469,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
      */
 
 
-    private View makeStatPill(Context ctx, String emoji, String value, String label, int accent) {
+    private View makeStatPill(Context ctx, String emoji, String value, String label, int accent, TextView[] outValView) {
         LinearLayout p = new LinearLayout(ctx);
         p.setOrientation(LinearLayout.VERTICAL);
         p.setGravity(Gravity.CENTER);
@@ -453,6 +489,9 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             if (!td[2].isEmpty()) {
                 tv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
                 tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                if (outValView != null) {
+                    outValView[0] = tv;
+                }
             } else {
                 tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             }

@@ -1535,6 +1535,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public static MessagesController getInstance(int num) {
+        if (num < 0 || num >= UserConfig.MAX_ACCOUNT_COUNT) {
+            num = 0;
+        }
         MessagesController localInstance = Instance[num];
         if (localInstance == null) {
             synchronized (lockObjects[num]) {

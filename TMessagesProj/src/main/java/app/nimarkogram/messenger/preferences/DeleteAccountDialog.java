@@ -42,7 +42,7 @@ public final class DeleteAccountDialog {
             progressDialog.setCanCancel(false);
 
             TL_account.deleteAccount req = new TL_account.deleteAccount();
-            req.reason = "Nimarko";
+            req.reason = "SoundGram";
             ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
                     try {
                         progressDialog.dismiss();

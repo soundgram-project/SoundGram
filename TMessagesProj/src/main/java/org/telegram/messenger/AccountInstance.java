@@ -10,6 +10,9 @@ public class AccountInstance {
     private int currentAccount;
     private static volatile AccountInstance[] Instance = new AccountInstance[UserConfig.MAX_ACCOUNT_COUNT];
     public static AccountInstance getInstance(int num) {
+        if (num < 0 || num >= UserConfig.MAX_ACCOUNT_COUNT) {
+            num = 0;
+        }
         AccountInstance localInstance = Instance[num];
         if (localInstance == null) {
             synchronized (AccountInstance.class) {

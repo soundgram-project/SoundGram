@@ -369,7 +369,7 @@ public class MessagesAndProfilesPreferencesActivity extends BaseFragment {
                                 detailCell.setTextAndValue(getString(R.string.BusinessHoursProfileNowOpen), getString(R.string.BusinessHoursProfile), false);
                             } else if (position == businessLocationPreviewRow) {
                                 detailCell.textView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, getResourceProvider()));
-                                detailCell.setTextAndValue("NimarkoGram, Worldwide", getString(R.string.BusinessProfileLocation), false);
+                                detailCell.setTextAndValue("SoundGram, Worldwide", getString(R.string.BusinessProfileLocation), false);
                             }
                             break;
                         }

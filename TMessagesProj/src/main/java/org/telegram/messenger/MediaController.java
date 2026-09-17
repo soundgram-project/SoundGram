@@ -1026,6 +1026,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     private int playerNum;
     private String shouldSavePositionForCurrentAudio;
     private long lastSaveTime;
+    private long lastPlaybackStatsTickMs;
     private float currentPlaybackSpeed = 1.0f;
     private float currentMusicPlaybackSpeed = 1.0f;
     private float fastPlaybackSpeed = 1.0f;
@@ -1665,6 +1666,13 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                                             SharedPreferences.Editor editor = ApplicationLoader.applicationContext.getSharedPreferences("media_saved_pos", Activity.MODE_PRIVATE).edit();
                                             editor.putFloat(saveFor, value).commit();
                                         });
+                                    }
+                                    if (currentPlayingMessageObject != null && currentPlayingMessageObject.isMusic()) {
+                                        long now = SystemClock.elapsedRealtime();
+                                        if (now - lastPlaybackStatsTickMs >= 1000) {
+                                            lastPlaybackStatsTickMs = now;
+                                            soundgram.music.SoundGramStatsManager.recordPlaybackSecond(currentPlayingMessageObject.currentAccount);
+                                        }
                                     }
                                     NotificationCenter.getInstance(currentPlayingMessageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingProgressDidChanged, currentPlayingMessageObject.getId(), value);
                                 } catch (Exception e) {
@@ -3493,6 +3501,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 }
             }
         } else if (videoPlayer.isPlaying() && playbackState == ExoPlayer.STATE_ENDED) {
+            if (playingMessageObject != null && playingMessageObject.isMusic()) {
+                soundgram.music.SoundGramStatsManager.recordTrackCompleted(playingMessageObject.currentAccount);
+            }
             if (playingMessageObject != null && playingMessageObject.isVideo() && !destroyAtEnd && (playCount == null || playCount[0] < 4)) {
                 videoPlayer.seekTo(0);
                 if (playCount != null) {
@@ -3797,6 +3808,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         cleanupPlayer(notify, false);
         shouldSavePositionForCurrentAudio = null;
         lastSaveTime = 0;
+        lastPlaybackStatsTickMs = SystemClock.elapsedRealtime();
         playMusicAgain = false;
         seekToProgressPending = 0;
         File file = null;
@@ -4020,6 +4032,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         if (playbackState == ExoPlayer.STATE_ENDED || (playbackState == ExoPlayer.STATE_IDLE || playbackState == ExoPlayer.STATE_BUFFERING) && playWhenReady && messageObject.audioProgress >= 0.999f) {
                             messageObject.audioProgress = 1f;
                             NotificationCenter.getInstance(messageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingProgressDidChanged, messageObject.getId(), 0);
+                            if (messageObject.isMusic()) {
+                                soundgram.music.SoundGramStatsManager.recordTrackCompleted(messageObject.currentAccount);
+                            }
                             final boolean restored = restoreMusicPlaylistState();
                             if (!restored) {
                                 if (!playlist.isEmpty() && (playlist.size() > 1 || !messageObject.isVoice())) {
@@ -5726,11 +5741,11 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     } else {
                         File destFile;
                         if (type == 0) {
-                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "NimarkoGram");
+                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "SoundGram");
                             destFile.mkdirs();
                             destFile = new File(destFile, AndroidUtilities.generateFileName(0, FileLoader.getFileExtension(sourceFile)));
                         } else if (type == 1) {
-                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "NimarkoGram");
+                            destFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "SoundGram");
                             destFile.mkdirs();
                             destFile = new File(destFile, AndroidUtilities.generateFileName(1, FileLoader.getFileExtension(sourceFile)));
                         } else {
@@ -5740,7 +5755,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                             } else {
                                 dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC);
                             }
-                            dir = new File(dir, "NimarkoGram");
+                            dir = new File(dir, "SoundGram");
                             dir.mkdirs();
                             destFile = new File(dir, name);
                             if (destFile.exists()) {
@@ -5885,7 +5900,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     final String filename = AndroidUtilities.generateFileName(0, "jpg");
                     final ContentValues cv = new ContentValues();
                     final Uri uriToInsert = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-                    final File dirDest = new File(Environment.DIRECTORY_PICTURES, "NimarkoGram");
+                    final File dirDest = new File(Environment.DIRECTORY_PICTURES, "SoundGram");
                     cv.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                     cv.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
                     cv.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
@@ -5907,7 +5922,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         }
                     }
                 } else {
-                    final File destDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "NimarkoGram");
+                    final File destDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "SoundGram");
                     destDir.mkdirs();
                     File destFile = new File(destDir, AndroidUtilities.generateFileName(0, "jpg"));
                     if (!destFile.exists()) {
@@ -6038,7 +6053,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     filename = AndroidUtilities.generateFileName(0, extension);
                 }
                 uriToInsert = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-                File dirDest = new File(Environment.DIRECTORY_PICTURES, "NimarkoGram");
+                File dirDest = new File(Environment.DIRECTORY_PICTURES, "SoundGram");
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 contentValues.put(MediaStore.Images.Media.DISPLAY_NAME, filename);
                 contentValues.put(MediaStore.Images.Media.MIME_TYPE, mimeType);
@@ -6046,7 +6061,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (filename == null) {
                     filename = AndroidUtilities.generateFileName(1, extension);
                 }
-                File dirDest = new File(Environment.DIRECTORY_MOVIES, "NimarkoGram");
+                File dirDest = new File(Environment.DIRECTORY_MOVIES, "SoundGram");
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 uriToInsert = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Video.Media.DISPLAY_NAME, filename);
@@ -6054,7 +6069,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (filename == null) {
                     filename = sourceFile.getName();
                 }
-                File dirDest = new File(Environment.DIRECTORY_DOWNLOADS, "NimarkoGram");
+                File dirDest = new File(Environment.DIRECTORY_DOWNLOADS, "SoundGram");
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 uriToInsert = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Downloads.DISPLAY_NAME, filename);
@@ -6062,7 +6077,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (filename == null) {
                     filename = sourceFile.getName();
                 }
-                File dirDest = new File(Environment.DIRECTORY_MUSIC, "NimarkoGram");
+                File dirDest = new File(Environment.DIRECTORY_MUSIC, "SoundGram");
                 contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, dirDest + File.separator);
                 uriToInsert = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
                 contentValues.put(MediaStore.Audio.Media.DISPLAY_NAME, filename);

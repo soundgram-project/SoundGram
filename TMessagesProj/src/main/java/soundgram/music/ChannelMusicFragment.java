@@ -593,12 +593,35 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         });
     }
 
+    public static Context getSafeContext(Context context) {
+        if (context != null) return context;
+        if (ApplicationLoader.applicationContext != null) return ApplicationLoader.applicationContext;
+        return null;
+    }
+
+    public static void safeToast(Context context, CharSequence text, int duration) {
+        AndroidUtilities.runOnUIThread(() -> {
+            Context ctx = getSafeContext(context);
+            if (ctx != null && !TextUtils.isEmpty(text)) {
+                try {
+                    Toast.makeText(ctx, text, duration).show();
+                } catch (Exception e) {
+                    FileLog.e(e);
+                }
+            }
+        });
+    }
+
+    public static void safeToast(Context context, int resId, int duration) {
+        safeToast(context, getString(resId), duration);
+    }
+
     public void saveAlbumToChannel(String title, String url, String coverUrl) {
         long targetId = getTargetChannelId();
         if (targetId == 0) return;
         String text = "SG_ALBUM|||" + title + "|||" + url + "|||" + coverUrl;
         SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false));
-        Toast.makeText(getParentActivity(), getString(R.string.sg_album_saved_to_library), Toast.LENGTH_SHORT).show();
+        safeToast(getParentActivity(), getString(R.string.sg_album_saved_to_library), Toast.LENGTH_SHORT);
 
         countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
         isWaitingForUpload = true;
@@ -1217,7 +1240,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (position < webResultTracks.size()) {
                     MusicWebSearcher.WebTrack clickedTrack = webResultTracks.get(position);
                     if (TextUtils.isEmpty(clickedTrack.downloadUrl)) {
-                        Toast.makeText(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT).show();
+                        safeToast(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT);
                         new Thread(() -> {
                             MusicWebSearcher.WebTrack fresh = MusicWebSearcher.resolveHitmosSync(clickedTrack.title, clickedTrack.artist);
                             if (fresh != null && !TextUtils.isEmpty(fresh.downloadUrl)) {
@@ -1225,7 +1248,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             }
                             AndroidUtilities.runOnUIThread(() -> {
                                 if (TextUtils.isEmpty(clickedTrack.downloadUrl)) {
-                                    Toast.makeText(getParentActivity(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT).show();
+                                    safeToast(getParentActivity(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT);
                                     return;
                                 }
                                 ArrayList<MessageObject> queue = new ArrayList<>();
@@ -1874,17 +1897,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
         if (track == null) return;
         if (TextUtils.isEmpty(track.downloadUrl)) {
-            Toast.makeText(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT).show();
+            safeToast(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT);
             return;
         }
         if (TextUtils.isEmpty(track.title) || track.title.equals("Unknown")) {
-            Toast.makeText(getParentActivity(), getString(R.string.sg_track_title_unknown), Toast.LENGTH_SHORT).show();
+            safeToast(getParentActivity(), getString(R.string.sg_track_title_unknown), Toast.LENGTH_SHORT);
             return;
         }
 
         long targetId = getTargetChannelId();
         if (targetId == 0) {
-            Toast.makeText(getParentActivity(), getString(R.string.sg_library_not_found), Toast.LENGTH_SHORT).show();
+            safeToast(getParentActivity(), getString(R.string.sg_library_not_found), Toast.LENGTH_SHORT);
             return;
         }
 
@@ -1943,13 +1966,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             AndroidUtilities.runOnUIThread(() -> {
                 if (ok && finalFile != null) {
                     sendLocalAudioFileToChannel(finalFile, dlTitle, dlArtist, fTargetId, currentAccount, thumbPath);
-                    Toast.makeText(getParentActivity(), getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT).show();
+                    safeToast(getParentActivity(), getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT);
                     countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
                     isWaitingForUpload = true;
                     pollAttempts = 0;
                     AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
                 } else {
-                    Toast.makeText(getParentActivity(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT).show();
+                    safeToast(getParentActivity(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT);
                 }
             });
         }).start();
@@ -2771,6 +2794,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             // Показываем ПОЛНЫЙ ЭКРАН (не боттом-шит!)
             presentFragment(new SoundGramStyleSettingsFragment());
         });
+        statsBtn.setOnLongClickListener(v -> {
+            applySpringClick(v);
+            showStatisticsBottomSheet();
+            return true;
+        });
         headerTitle = new TextView(context);
         headerTitle.setText("SoundGram");
         headerTitle.setContentDescription("SoundGram");
@@ -3081,7 +3109,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         audioMessages.remove(msg);
         if (isSearching) searchResultMessages.remove(msg);
         safeNotifyAdapter(adapter, listView);
-        Toast.makeText(getParentActivity(), getString(R.string.dl), Toast.LENGTH_SHORT).show();
+        safeToast(getParentActivity(), getString(R.string.dl), Toast.LENGTH_SHORT);
     }
 
     private void createHorizontalPlaylists(Context context, LinearLayout container) {
@@ -3418,9 +3446,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         if (byHash.exists() && byHash.length() > 1024) {
                             track.messageOwner.attachPath = byHash.getAbsolutePath();
                         } else if (!org.telegram.messenger.ApplicationLoader.isNetworkOnline()) {
-                            if (getParentActivity() != null) {
-                                Toast.makeText(getParentActivity(), getString(R.string.sg_no_connection_track_not_downloaded), Toast.LENGTH_SHORT).show();
-                            }
+                            safeToast(getParentActivity(), getString(R.string.sg_no_connection_track_not_downloaded), Toast.LENGTH_SHORT);
                             return;
                         } else {
                             final MessageObject finalTrack = track;
@@ -4741,13 +4767,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private void addTelegramTrackToLibrary(MessageObject msg) {
         long targetId = getChannelIdFromFile();
         if (targetId == 0) {
-            Toast.makeText(getParentActivity(), getString(R.string.sg_open_music_first), Toast.LENGTH_LONG).show();
+            safeToast(getParentActivity(), getString(R.string.sg_open_music_first), Toast.LENGTH_LONG);
             return;
         }
         ArrayList<MessageObject> fmessages = new ArrayList<>();
         fmessages.add(msg);
         SendMessagesHelper.getInstance(currentAccount).sendMessage(fmessages, -targetId, false, false, true, 0, 0);
-        Toast.makeText(getParentActivity(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
+        safeToast(getParentActivity(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT);
     }
 
 
@@ -4956,7 +4982,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (!peer.chats.isEmpty()) {
                     fetchMusicFromResolvedChannel(peer.chats.get(0).id, ((TLRPC.TL_channel) peer.chats.get(0)).access_hash);
                 } else {
-                    AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_channel_not_found), Toast.LENGTH_SHORT).show());
+                    safeToast(getParentActivity(), getString(R.string.sg_channel_not_found), Toast.LENGTH_SHORT);
                     checkOrCreateMusicChannel();
                 }
             }
@@ -4979,7 +5005,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     if (messageObject.isMusic()) importedTracks.add(messageObject);
                 }
                 AndroidUtilities.runOnUIThread(() -> showImportSelectionSheet(importedTracks));
-            } else AndroidUtilities.runOnUIThread(() -> Toast.makeText(getParentActivity(), getString(R.string.sg_no_tracks_found), Toast.LENGTH_SHORT).show());
+            } else safeToast(getParentActivity(), getString(R.string.sg_no_tracks_found), Toast.LENGTH_SHORT);
         });
     }
 
@@ -6271,14 +6297,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                 safeNotifyAdapter(savedAlbumsAdapter, null);
                                 refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
                                 finishFragment();
-                                Toast.makeText(getParentActivity(), getString(R.string.sg_album_deleted), Toast.LENGTH_SHORT).show();
+                                safeToast(getParentActivity(), getString(R.string.sg_album_deleted), Toast.LENGTH_SHORT);
                             } else {
                                 AndroidUtilities.runOnUIThread(() -> {
                                     saveAlbumToChannel(title, albumUrl, coverUrl);
                                     if (menu != null && menu.getItem(1) != null) {
                                         menu.getItem(1).setIcon(R.drawable.msg_delete);
                                     }
-                                    Toast.makeText(getParentActivity(), getString(R.string.sg_album_saved), Toast.LENGTH_SHORT).show();
+                                    safeToast(getParentActivity(), getString(R.string.sg_album_saved), Toast.LENGTH_SHORT);
                                 });
                             }
                         }
@@ -6371,7 +6397,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
                     @Override
                     public void onFailed() {
-                        Toast.makeText(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT).show();
+                        safeToast(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT);
                     }
                 });
             } else {
@@ -6400,7 +6426,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                 MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long) wt.downloadUrl.hashCode(), wt.coverUrl);
                                 addLoadedTrack(msgObj);
                             }
-                            @Override public void onFailed() { Toast.makeText(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT).show(); }
+                            @Override public void onFailed() { safeToast(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT); }
                         });
                         return;
                     }
@@ -6426,7 +6452,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             MessageObject msgObj = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, parseDuration(wt.duration), -(long) wt.downloadUrl.hashCode(), wt.coverUrl);
                             addLoadedTrack(msgObj);
                         }
-                        @Override public void onFailed() { Toast.makeText(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT).show(); }
+                        @Override public void onFailed() { safeToast(getParentActivity(), getString(R.string.sg_album_not_found), Toast.LENGTH_SHORT); }
                     });
                 }
             });
@@ -6434,7 +6460,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private void playStrictInPlaylist(MessageObject messageObject) {
             if (messageObject != null && messageObject.messageOwner != null && (messageObject.messageOwner.attachPath == null || messageObject.messageOwner.attachPath.isEmpty())) {
-                Toast.makeText(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT).show();
+                safeToast(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT);
                 new Thread(() -> {
                     String tTitle = messageObject.getMusicTitle() != null ? messageObject.getMusicTitle() : "";
                     String tArtist = messageObject.getMusicAuthor() != null ? messageObject.getMusicAuthor() : "";
@@ -6444,7 +6470,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
                     AndroidUtilities.runOnUIThread(() -> {
                         if (messageObject.messageOwner.attachPath == null || messageObject.messageOwner.attachPath.isEmpty()) {
-                            Toast.makeText(getParentActivity(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT).show();
+                            safeToast(getParentActivity(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT);
                             return;
                         }
                         playStrictInPlaylistInternal(messageObject);
@@ -7295,7 +7321,7 @@ public static class ChipCell extends FrameLayout {
 
     private void startAlbumFilesDownload(String albumTitle, ArrayList<MessageObject> tracks) {
         if (tracks == null || tracks.isEmpty()) return;
-        Toast.makeText(getParentActivity(), String.format(getString(R.string.sg_album_downloading), albumTitle), Toast.LENGTH_SHORT).show();
+        safeToast(getParentActivity(), String.format(getString(R.string.sg_album_downloading), albumTitle), Toast.LENGTH_SHORT);
 
         new Thread(() -> {
             for (MessageObject mo : tracks) {
@@ -7332,7 +7358,7 @@ public static class ChipCell extends FrameLayout {
                 try { Thread.sleep(200); } catch (InterruptedException ignored) {}
             }
             AndroidUtilities.runOnUIThread(() ->
-                    Toast.makeText(getParentActivity(), String.format(getString(R.string.sg_album_downloaded), albumTitle), Toast.LENGTH_SHORT).show());
+                    safeToast(getParentActivity(), String.format(getString(R.string.sg_album_downloaded), albumTitle), Toast.LENGTH_SHORT));
         }).start();
     }
 

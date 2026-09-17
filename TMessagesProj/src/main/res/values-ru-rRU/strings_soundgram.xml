@@ -334,4 +334,5 @@
     <string name="sg_ta_section_cursor">КУРСОР</string>
     <string name="sg_ta_cursor_smooth">Плавный курсор</string>
     <string name="sg_ta_cursor_liquid">Жидкий курсор</string>
+    <string name="TelegramVersion">SoundGram для Android %1$s</string>
 </resources>

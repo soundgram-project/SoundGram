@@ -430,6 +430,9 @@ public class NotificationCenter {
 
     @UiThread
     public static NotificationCenter getInstance(int num) {
+        if (num < 0 || num >= UserConfig.MAX_ACCOUNT_COUNT) {
+            num = 0;
+        }
         NotificationCenter localInstance = Instance[num];
         if (localInstance == null) {
             synchronized (NotificationCenter.class) {

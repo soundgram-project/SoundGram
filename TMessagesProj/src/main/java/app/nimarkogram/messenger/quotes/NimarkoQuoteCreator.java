@@ -366,7 +366,7 @@ public final class NimarkoQuoteCreator {
         values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
         values.put(
                 MediaStore.Images.Media.RELATIVE_PATH,
-                Environment.DIRECTORY_PICTURES + File.separator + "NimarkoGram"
+                Environment.DIRECTORY_PICTURES + File.separator + "SoundGram"
         );
         values.put(MediaStore.Images.Media.IS_PENDING, 1);
         Uri uri = null;
@@ -400,7 +400,7 @@ public final class NimarkoQuoteCreator {
     private static Uri saveQuoteToLegacyPictures(File source) {
         File directory = new File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-                "NimarkoGram"
+                "SoundGram"
         );
         File destination = null;
         try {

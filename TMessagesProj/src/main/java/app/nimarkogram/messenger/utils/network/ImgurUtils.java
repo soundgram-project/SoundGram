@@ -61,7 +61,7 @@ public abstract class ImgurUtils {
             return null;
         }
 
-        String boundary = "----NimarkoGramImgur" + System.currentTimeMillis();
+        String boundary = "----SoundGramImgur" + System.currentTimeMillis();
         String lineEnd = "\r\n";
         String twoHyphens = "--";
 

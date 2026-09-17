@@ -220,7 +220,7 @@ public class NimarkoUpdaterSheet extends BottomSheet implements NimarkoUpdater.D
                 if (!downloadButtonClicked) {
                     downloadButtonClicked = true;
                     NimarkoUpdater.downloadApk(getContext(), update.downloadURL,
-                            "NimarkoGram " + update.version, downloadBindingToken);
+                            "SoundGram " + update.version, downloadBindingToken);
                 }
             });
             footerLayout.addView(downloadButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 14, 16, 0));

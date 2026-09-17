@@ -198,6 +198,9 @@ public class ConnectionsManager extends BaseController {
     
     private static final ConnectionsManager[] Instance = new ConnectionsManager[UserConfig.MAX_ACCOUNT_COUNT];
     public static ConnectionsManager getInstance(int num) {
+        if (num < 0 || num >= UserConfig.MAX_ACCOUNT_COUNT) {
+            num = 0;
+        }
         ConnectionsManager localInstance = Instance[num];
         if (localInstance == null) {
             synchronized (ConnectionsManager.class) {
@@ -295,7 +298,11 @@ public class ConnectionsManager extends BaseController {
         if (preferences.contains("pushConnection")) {
             return preferences.getBoolean("pushConnection", false);
         } else {
-            return MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("backgroundConnection", false);
+            int account = UserConfig.selectedAccount;
+            if (account < 0 || account >= UserConfig.MAX_ACCOUNT_COUNT) {
+                account = 0;
+            }
+            return MessagesController.getMainSettings(account).getBoolean("backgroundConnection", false);
         }
     }
 

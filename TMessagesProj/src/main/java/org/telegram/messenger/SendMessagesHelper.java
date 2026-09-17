@@ -950,6 +950,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
 
     private static volatile SendMessagesHelper[] Instance = new SendMessagesHelper[UserConfig.MAX_ACCOUNT_COUNT];
     public static SendMessagesHelper getInstance(int num) {
+        if (num < 0 || num >= UserConfig.MAX_ACCOUNT_COUNT) {
+            num = 0;
+        }
         SendMessagesHelper localInstance = Instance[num];
         if (localInstance == null) {
             synchronized (SendMessagesHelper.class) {

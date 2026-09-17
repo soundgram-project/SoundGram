@@ -14922,11 +14922,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
         }
-        // NimarkoGram: CG-parity. Settings entry is unconditional (CG keeps it
-        // outside the showCallsTab gate) and routes to MainPreferencesActivity —
-        // the NG settings hub — instead of the stock Telegram SettingsActivity.
         io.add(R.drawable.msg_settings_solar, getString(R.string.Settings), () -> {
-            presentFragment(new app.nimarkogram.messenger.preferences.MainPreferencesActivity());
+            presentFragment(new SettingsActivity());
         });
 
         if (proxyMenuSubItem != null) {

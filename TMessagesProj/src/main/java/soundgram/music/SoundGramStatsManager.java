@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 
 public class SoundGramStatsManager {
 
-    public static final long SYNC_INTERVAL_MS = 10 * 60 * 1000L; // 10 минут
+    public static final long SYNC_INTERVAL_MS = 2 * 60 * 1000L; // 2 минуты
     private static long lastSyncTimestamp = 0;
     private static boolean isSyncing = false;
     private static Runnable periodicSyncRunnable = null;
@@ -42,6 +42,11 @@ public class SoundGramStatsManager {
         SharedPreferences prefs = getStatsPrefs(account);
         long s = prefs.getLong("total_seconds", 0L) + 1;
         prefs.edit().putLong("total_seconds", s).apply();
+
+        long channelId = ChannelMusicFragment.getChannelIdFromFile(account);
+        if (channelId != 0) {
+            checkAndSync(account, channelId);
+        }
     }
 
     public static void recordTrackCompleted(int account) {
@@ -51,7 +56,7 @@ public class SoundGramStatsManager {
 
         long channelId = ChannelMusicFragment.getChannelIdFromFile(account);
         if (channelId != 0) {
-            checkAndSync(account, channelId);
+            forceSync(account, channelId);
         }
     }
 
@@ -85,6 +90,7 @@ public class SoundGramStatsManager {
         final long normalizedId = channelId;
 
         TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(normalizedId);
+        long accessHash = ChannelMusicFragment.getChannelHashFromFile(currentAccount);
         if (chat == null) {
             chat = org.telegram.messenger.MessagesStorage.getInstance(currentAccount).getChatSync(normalizedId);
             if (chat != null) {
@@ -92,19 +98,28 @@ public class SoundGramStatsManager {
             }
         }
         if (chat == null) {
-            long accessHash = ChannelMusicFragment.getChannelHashFromFile(currentAccount);
             TLRPC.TL_channel newChannel = new TLRPC.TL_channel();
             newChannel.id = normalizedId;
             newChannel.access_hash = accessHash;
             newChannel.broadcast = true;
             chat = newChannel;
             MessagesController.getInstance(currentAccount).putChat(chat, true);
+        } else if (chat.access_hash == 0 && accessHash != 0) {
+            chat.access_hash = accessHash;
+            MessagesController.getInstance(currentAccount).putChat(chat, true);
         }
 
         TLObject req;
         if (ChatObject.isChannel(chat)) {
             TLRPC.TL_channels_getFullChannel channelReq = new TLRPC.TL_channels_getFullChannel();
-            channelReq.channel = MessagesController.getInstance(currentAccount).getInputChannel(chat);
+            TLRPC.InputChannel inputChannel = MessagesController.getInstance(currentAccount).getInputChannel(chat);
+            if (inputChannel == null || (inputChannel.access_hash == 0 && accessHash != 0)) {
+                TLRPC.TL_inputChannel explicitChannel = new TLRPC.TL_inputChannel();
+                explicitChannel.channel_id = normalizedId;
+                explicitChannel.access_hash = chat != null && chat.access_hash != 0 ? chat.access_hash : accessHash;
+                inputChannel = explicitChannel;
+            }
+            channelReq.channel = inputChannel;
             req = channelReq;
         } else {
             TLRPC.TL_messages_getFullChat chatReq = new TLRPC.TL_messages_getFullChat();
@@ -145,19 +160,44 @@ public class SoundGramStatsManager {
                 }
             }
 
-            if (remoteSeconds > localSeconds) {
-                // Время в канале БОЛЬШЕ, чем в локальной памяти -> подгружаем из канала в память
-                int finalTracks = Math.max(localTracks, remoteTracks);
+            long finalSeconds = Math.max(localSeconds, remoteSeconds);
+            int finalTracks = Math.max(localTracks, remoteTracks);
+
+            if (finalSeconds > localSeconds || finalTracks > localTracks) {
                 prefs.edit()
-                        .putLong("total_seconds", remoteSeconds)
+                        .putLong("total_seconds", finalSeconds)
                         .putInt("total_tracks", finalTracks)
                         .apply();
-            } else {
-                // В локальной памяти время больше либо равно remote -> синхронизируем в канал
-                String newAbout = formatStatsDescription(localSeconds, localTracks);
-                if (!newAbout.equals(currentAbout)) {
-                    MessagesController.getInstance(currentAccount).updateChatAbout(channelId, newAbout, chatFull);
+            }
+
+            String newAbout = formatStatsDescription(finalSeconds, finalTracks);
+            if (!newAbout.equals(currentAbout)) {
+                long hash = ChannelMusicFragment.getChannelHashFromFile(currentAccount);
+                TLRPC.Chat c = MessagesController.getInstance(currentAccount).getChat(channelId);
+                if (c != null && c.access_hash != 0) {
+                    hash = c.access_hash;
                 }
+
+                TLRPC.TL_messages_editChatAbout editReq = new TLRPC.TL_messages_editChatAbout();
+                TLRPC.TL_inputPeerChannel peerChannel = new TLRPC.TL_inputPeerChannel();
+                peerChannel.channel_id = channelId;
+                peerChannel.access_hash = hash;
+                editReq.peer = peerChannel;
+                editReq.about = newAbout;
+
+                ConnectionsManager.getInstance(currentAccount).sendRequest(editReq, (response, error) -> {
+                    if (response instanceof TLRPC.TL_boolTrue) {
+                        AndroidUtilities.runOnUIThread(() -> {
+                            if (chatFull != null) {
+                                chatFull.about = newAbout;
+                                org.telegram.messenger.MessagesStorage.getInstance(currentAccount).updateChatInfo(chatFull, false);
+                                org.telegram.messenger.NotificationCenter.getInstance(currentAccount).postNotificationName(org.telegram.messenger.NotificationCenter.chatInfoDidLoad, chatFull, 0, false, false);
+                            }
+                        });
+                    } else if (error != null) {
+                        org.telegram.messenger.FileLog.e("SoundGramStatsManager updateChatAbout error: " + error.text);
+                    }
+                }, ConnectionsManager.RequestFlagInvokeAfter);
             }
         } catch (Exception e) {
             e.printStackTrace();
