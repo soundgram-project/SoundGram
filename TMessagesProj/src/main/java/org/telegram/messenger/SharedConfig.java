@@ -375,6 +375,12 @@ public class SharedConfig {
 
     public static class ProxyInfo {
         public @NonNull ProxySettings settings;
+        public String address = "";
+        public int port;
+        public String username = "";
+        public String password = "";
+        public String secret = "";
+        public long proxyCheckPingId;
         public long ping;
         public boolean checking;
         public boolean available;
@@ -382,6 +388,46 @@ public class SharedConfig {
 
         public ProxyInfo(@NonNull ProxySettings proxySettings) {
             settings = proxySettings;
+            address = proxySettings.getAddress();
+            port = proxySettings.getPort();
+            username = proxySettings.getUser();
+            password = proxySettings.getPassword();
+            secret = proxySettings.getSecret();
+        }
+
+        public ProxyInfo(String address, int port, String username, String password, String secret) {
+            this.address = address != null ? address : "";
+            this.port = port;
+            this.username = username != null ? username : "";
+            this.password = password != null ? password : "";
+            this.secret = secret != null ? secret : "";
+            ProxySettings.Builder builder = ProxySettings.builder()
+                    .setAddress(this.address)
+                    .setPort(this.port)
+                    .setUser(this.username)
+                    .setPassword(this.password)
+                    .setSecret(this.secret);
+            if (!TextUtils.isEmpty(this.secret)) {
+                builder.setType(ProxySettings.Type.MTPROTO);
+            } else {
+                builder.setType(ProxySettings.Type.SOCKS5);
+            }
+            this.settings = builder.build();
+        }
+
+        public void syncSettings() {
+            ProxySettings.Builder builder = ProxySettings.builder()
+                    .setAddress(address != null ? address : "")
+                    .setPort(port)
+                    .setUser(username != null ? username : "")
+                    .setPassword(password != null ? password : "")
+                    .setSecret(secret != null ? secret : "");
+            if (!TextUtils.isEmpty(secret)) {
+                builder.setType(ProxySettings.Type.MTPROTO);
+            } else {
+                builder.setType(ProxySettings.Type.SOCKS5);
+            }
+            settings = builder.build();
         }
 
         private static ProxyInfo fromSerializedData(int version, InputSerializedData data) {
@@ -417,6 +463,7 @@ public class SharedConfig {
         }
 
         private void toSerializedData(OutputSerializedData data) {
+            syncSettings();
             data.writeString(settings.getAddress());
             data.writeInt32(settings.getPort());
             data.writeString(settings.getUser());

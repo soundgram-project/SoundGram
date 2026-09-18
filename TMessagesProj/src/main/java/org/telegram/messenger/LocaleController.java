@@ -1542,6 +1542,9 @@ public class LocaleController {
         return getLocalizedStringByName(key);
     }
 
+    private static void clearStringResourceIdCache() {
+    }
+
     public static String nullable(String val) {
         if (val == null || val.startsWith("LOC_ERR")) return null;
         return val;

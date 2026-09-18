@@ -126,26 +126,26 @@ public class Emoji {
             final byte page = info.page;
             final short page2 = info.page2;
             if (emojiBmp[page][page2] == null) {
-                Bitmap bitmap = loadBitmap("emoji/" + String.format(Locale.US, "%d_%d.png", page, page2));
+                final EmojiPack emojiPack = EmojiPack.getInstance();
+                Bitmap bitmap = emojiPack.getEmoji(page, page2);
                 if (bitmap == null) {
                     return null;
                 }
-                if (emojiAlphaMasks == null) {
-                    emojiAlphaMasks = loadEmojiAlphaMasks();
-                }
-                int maskIndex = emojiAlphaMasks != null ? emojiAlphaMasks.get(page * 4096 + page2, -1) : -1;
+                final int maskIndex = emojiPack.getMaskId(page, page2);
                 if (maskIndex != -1) {
-                    Bitmap alphaBitmap = loadBitmap("emoji/masks/" + String.format(Locale.US, "%d.png", maskIndex));
+                    final Bitmap alphaBitmap = emojiPack.getMask(maskIndex);
                     if (alphaBitmap != null) {
-                        int w = bitmap.getWidth();
-                        int h = bitmap.getHeight();
-                        int[] rgbPixels = new int[w * h];
-                        int[] alphaPixels = new int[w * h];
+                        final int w = bitmap.getWidth();
+                        final int h = bitmap.getHeight();
+                        final int[] rgbPixels = new int[w * h];
+                        final int[] alphaPixels = new int[w * h];
                         bitmap.getPixels(rgbPixels, 0, w, 0, 0, w, h);
                         alphaBitmap.getPixels(alphaPixels, 0, w, 0, 0, w, h);
                         alphaBitmap.recycle();
                         for (int i = 0; i < rgbPixels.length; i++) {
-                            rgbPixels[i] = (rgbPixels[i] & 0x00FFFFFF) | ((alphaPixels[i] & 0xFF) << 24);
+                            int c = rgbPixels[i];
+                            c = (c & 0x00FFFFFF) | ((alphaPixels[i] & 0xFF) << 24);
+                            rgbPixels[i] = c;
                         }
                         bitmap.recycle();
                         bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);

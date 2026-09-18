@@ -803,6 +803,21 @@ public class ConnectionsManager extends BaseController {
         return native_checkProxy(currentAccount, settings.getAddress(), settings.getPort(), settings.getUser(), settings.getPassword(), settings.getSecret(), requestTimeDelegate);
     }
 
+    public long checkProxy(String address, int port, String username, String password, String secret, RequestTimeDelegate requestTimeDelegate) {
+        ProxySettings.Builder builder = ProxySettings.builder()
+                .setAddress(address)
+                .setPort(port)
+                .setUser(username)
+                .setPassword(password)
+                .setSecret(secret);
+        if (!android.text.TextUtils.isEmpty(secret)) {
+            builder.setType(ProxySettings.Type.MTPROTO);
+        } else {
+            builder.setType(ProxySettings.Type.SOCKS5);
+        }
+        return checkProxy(builder.build(), requestTimeDelegate);
+    }
+
     private void checkWebProxyInternal(ProxySettings settings, int port, RequestTimeDelegate requestTimeDelegate) {
         native_checkProxy(currentAccount, "127.0.0.1", port, "", "", settings.getSecret(), requestTimeDelegate);
     }
@@ -997,6 +1012,25 @@ public class ConnectionsManager extends BaseController {
 
     public static void onInternalPushReceived(final int currentAccount) {
         KeepAliveJob.startJob();
+    }
+
+    public static void setProxySettings(boolean enabled, String address, int port, String username, String password, String secret) {
+        if (!enabled) {
+            setProxySettings(false, null);
+            return;
+        }
+        ProxySettings.Builder builder = ProxySettings.builder()
+                .setAddress(address)
+                .setPort(port)
+                .setUser(username)
+                .setPassword(password)
+                .setSecret(secret);
+        if (!android.text.TextUtils.isEmpty(secret)) {
+            builder.setType(ProxySettings.Type.MTPROTO);
+        } else {
+            builder.setType(ProxySettings.Type.SOCKS5);
+        }
+        setProxySettings(true, builder.build());
     }
 
     public static void setProxySettings(boolean enabled, ProxySettings settings) {

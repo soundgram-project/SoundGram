@@ -446,8 +446,7 @@ public class QrActivity extends BaseFragment {
             if (logoOptimal == null) {
                 final int size = dp(60);
                 preparedLogo = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-                RLottieNative lottie = RLottieNative.createFromRawJson(
-                        readRes(R.raw.plane_logo_plain), "plane_logo_plain", null);
+                RLottieNative lottie = RLottieNative.createFromRawJson(readRes(R.raw.plane_logo_plain));
                 if (lottie != null) {
                     lottie.getFrame(LOGO_OPTIMAL_FRAME, preparedLogo, false);
                     lottie.recycle();

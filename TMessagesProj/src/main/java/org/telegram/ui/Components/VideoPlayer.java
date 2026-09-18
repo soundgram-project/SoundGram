@@ -27,6 +27,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.LongSparseArray;
 import android.view.Surface;
+import android.opengl.EGLContext;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.ViewGroup;
@@ -36,6 +37,7 @@ import androidx.annotation.Nullable;
 
 import androidx.annotation.OptIn;
 import androidx.media3.common.C;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.VideoListener;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
@@ -407,7 +409,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
 
     @Override
-    public void onAudioSessionIdChanged(com.google.android.exoplayer2.analytics.AnalyticsListener.EventTime eventTime, int audioSessionId) {
+    public void onAudioSessionIdChanged(AnalyticsListener.EventTime eventTime, int audioSessionId) {
         if (audioSessionId > 0) {
             org.telegram.messenger.AndroidUtilities.runOnUIThread(() -> {
                 soundgram.music.SoundGramAudioFX.initFX(audioSessionId);

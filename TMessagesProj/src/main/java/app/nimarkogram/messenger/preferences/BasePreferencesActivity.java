@@ -10,7 +10,7 @@ import android.view.HapticFeedbackConstants;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.core.view.ViewCompat;
 import app.nimarkogram.messenger.utils.ui.PopupUtils;
-import com.google.android.exoplayer2.util.Consumer;
+import androidx.core.util.Consumer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.ToIntFunction;
