@@ -414,13 +414,6 @@ public class LocaleController {
         return formatterScheduleSend[n];
     }
 
-<<<<<<< HEAD
-
-    private static final ConcurrentHashMap<Integer, String> resourcesCacheMap = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, Integer> stringResourceIds = new ConcurrentHashMap<>();
-
-=======
->>>>>>> 9552e5541
     private HashMap<String, PluralRules> allRules = new HashMap<>();
 
     private Locale currentLocale;
@@ -1458,18 +1451,11 @@ public class LocaleController {
     }
 
     private String getStringInternal(String key, String fallback, int fallbackRes, int res) {
-<<<<<<< HEAD
         boolean forceLocal = isNimarkoBrandedKey(key) || isNimarkoBrandedKey(fallback);
-        String value = (!forceLocal && BuildVars.USE_CLOUD_STRINGS) ? localeValues.get(key) : null;
+        String value = (!forceLocal && BuildVars.USE_CLOUD_STRINGS) ? localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, key, res) : null;
         if (value == null) {
             if (!forceLocal && BuildVars.USE_CLOUD_STRINGS && fallback != null) {
-                value = localeValues.get(fallback);
-=======
-        String value = BuildVars.USE_CLOUD_STRINGS ? localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, key, res) : null;
-        if (value == null) {
-            if (BuildVars.USE_CLOUD_STRINGS && fallback != null) {
                 value = localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, fallback, fallbackRes);
->>>>>>> 9552e5541
             }
             if (value == null) {
                 try {
@@ -1513,11 +1499,7 @@ public class LocaleController {
     public static String getServerString(String key) {
         String value = getInstance().localizationExternal.getByResName(key);
         if (value == null) {
-<<<<<<< HEAD
-            int resourceId = getStringResId(key);
-=======
             int resourceId = getLocalizedStringByName(key);
->>>>>>> 9552e5541
             if (resourceId != 0) {
                 value = getInstance().getLocalizedString(resourceId);
             }
@@ -1535,7 +1517,6 @@ public class LocaleController {
     }
 
     @Deprecated
-<<<<<<< HEAD
     public static String getString(String key, String fallback, int fallbackRes, int res) {
         return getInstance().getStringInternal(key, fallback, fallbackRes, res);
     }
@@ -1546,8 +1527,6 @@ public class LocaleController {
     }
 
     @Deprecated
-=======
->>>>>>> 9552e5541
     public static String getString(String key) {
         if (TextUtils.isEmpty(key)) {
             return "LOC_ERR:" + key;
@@ -1560,27 +1539,7 @@ public class LocaleController {
     }
 
     public static int getStringResId(String key) {
-<<<<<<< HEAD
-        if (TextUtils.isEmpty(key)) {
-            return 0;
-        }
-        Integer cached = stringResourceIds.get(key);
-        if (cached != null) {
-            return cached;
-        }
-        int resourceId = ApplicationLoader.applicationContext.getResources().getIdentifier(key, "string", ApplicationLoader.applicationContext.getPackageName());
-        if (resourceId == 0) {
-            return 0;
-        }
-        Integer previous = stringResourceIds.putIfAbsent(key, resourceId);
-        return previous != null ? previous : resourceId;
-    }
-
-    private static void clearStringResourceIdCache() {
-        stringResourceIds.clear();
-=======
         return getLocalizedStringByName(key);
->>>>>>> 9552e5541
     }
 
     public static String nullable(String val) {
@@ -1594,15 +1553,9 @@ public class LocaleController {
         }
         String param = getInstance().stringForQuantity(getInstance().currentPluralRules.quantityForNumber(plural));
         param = key + "_" + param;
-<<<<<<< HEAD
-        int resourceId = getStringResId(param);
-        int fallbackResourceId = getStringResId(key + "_other");
-        return getString(param, key + "_other", resourceId, fallbackResourceId);
-=======
         int resourceId = getLocalizedStringByName(param);
         int fallbackResourceId = getLocalizedStringByName(key + "_other");
         return getInstance().getStringInternal(param, key + "_other", fallbackResourceId, resourceId);
->>>>>>> 9552e5541
     }
 
     public static String formatPluralString(String key, int plural, Object... args) {
@@ -1611,13 +1564,8 @@ public class LocaleController {
         }
         String param = getInstance().stringForQuantity(getInstance().currentPluralRules.quantityForNumber(plural));
         param = key + "_" + param;
-<<<<<<< HEAD
-        int resourceId = getStringResId(param);
-        int fallbackResourceId = getStringResId(key + "_other");
-=======
         int resourceId = getLocalizedStringByName(param);
         int fallbackResourceId = getLocalizedStringByName(key + "_other");
->>>>>>> 9552e5541
         Object[] argsWithPlural = new Object[args.length + 1];
         argsWithPlural[0] = plural;
         System.arraycopy(args, 0, argsWithPlural, 1, args.length);
@@ -1630,13 +1578,8 @@ public class LocaleController {
         }
         String param = getInstance().stringForQuantity(getInstance().currentPluralRules.quantityForNumber(plural));
         param = key + "_" + param;
-<<<<<<< HEAD
-        int resourceId = getStringResId(param);
-        int fallbackResourceId = getStringResId(key + "_other");
-=======
         int resourceId = getLocalizedStringByName(param);
         int fallbackResourceId = getLocalizedStringByName(key + "_other");
->>>>>>> 9552e5541
         Object[] argsWithPlural = new Object[args.length + 1];
         argsWithPlural[0] = plural;
         System.arraycopy(args, 0, argsWithPlural, 1, args.length);
@@ -1697,15 +1640,6 @@ public class LocaleController {
             }
             if (value == null) {
                 try {
-<<<<<<< HEAD
-                    int resourceId = getStringResId(param);
-                    value = ApplicationLoader.applicationContext.getString(resourceId);
-                } catch (Exception e2) {}
-            }
-            if (value == null) {
-                int resourceId = getStringResId(key + "_other");
-                value = ApplicationLoader.applicationContext.getString(resourceId);
-=======
                     int resourceId = getLocalizedStringByName(param);
                     value = getInstance().getLocalizedString(resourceId);
                 } catch (Exception e2) {}
@@ -1713,7 +1647,6 @@ public class LocaleController {
             if (value == null) {
                 int resourceId = getLocalizedStringByName(key + "_other");
                 value = getInstance().getLocalizedString(resourceId);
->>>>>>> 9552e5541
             }
             value = value.replace("%d", "%1$s");
             value = value.replace("%1$d", "%1$s");
@@ -1764,18 +1697,11 @@ public class LocaleController {
 
     private static String formatString(String key, String fallback, int res, int fallbackRes, Object... args) {
         try {
-<<<<<<< HEAD
             boolean forceLocal = isNimarkoBrandedKey(key) || isNimarkoBrandedKey(fallback);
-            String value = (!forceLocal && BuildVars.USE_CLOUD_STRINGS) ? getInstance().localeValues.get(key) : null;
+            String value = (!forceLocal && BuildVars.USE_CLOUD_STRINGS) ? getInstance().localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, key, res) : null;
             if (value == null) {
                 if (!forceLocal && BuildVars.USE_CLOUD_STRINGS && fallback != null) {
-                    value = getInstance().localeValues.get(fallback);
-=======
-            String value = BuildVars.USE_CLOUD_STRINGS ? getInstance().localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, key, res) : null;
-            if (value == null) {
-                if (BuildVars.USE_CLOUD_STRINGS && fallback != null) {
                     value = getInstance().localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, fallback, fallbackRes);
->>>>>>> 9552e5541
                 }
                 if (value == null) {
                     if (res != 0) {
