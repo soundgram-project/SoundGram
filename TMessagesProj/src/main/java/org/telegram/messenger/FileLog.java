@@ -77,7 +77,6 @@ public class FileLog {
     private File networkFile = null;
     private File tonlibFile = null;
     private volatile boolean initied;
-    
     private final AtomicBoolean initStarted = new AtomicBoolean();
     public static boolean databaseIsMalformed = false;
 
@@ -95,6 +94,9 @@ public class FileLog {
                 localInstance = Instance;
                 if (localInstance == null) {
                     Instance = localInstance = new FileLog();
+                    if (BuildVars.LOGS_ENABLED) {
+                        localInstance.init();
+                    }
                 }
             }
         }
@@ -102,7 +104,6 @@ public class FileLog {
     }
 
     public FileLog() {
-        
     }
 
     private static Gson gson;
@@ -319,7 +320,7 @@ public class FileLog {
         if (initied) {
             return;
         }
-        
+
         if (!initStarted.compareAndSet(false, true)) {
             return;
         }
@@ -364,9 +365,6 @@ public class FileLog {
             });
         } catch (Exception e) {
             e.printStackTrace();
-        }
-        if (BuildVars.DEBUG_VERSION) {
-            new ANRDetector(this::dumpANR);
         }
         initied = true;
     }
@@ -519,7 +517,7 @@ public class FileLog {
         }
     }
 
-    private void dumpANR() {
+    public static void dumpANR() {
         StringBuilder sb = new StringBuilder();
         Map<Thread, StackTraceElement[]> allThreads = Thread.getAllStackTraces();
 
@@ -535,7 +533,7 @@ public class FileLog {
         }
 
         FileLog.e("ANR thread dump\n" + sb.toString());
-        dumpMemory(false);
+        getInstance().dumpMemory(false);
     }
 
     public static void fatal(final Throwable e, boolean logToAppCenter) {
@@ -660,7 +658,6 @@ public class FileLog {
         }
 
     }
-
     public class ANRDetector {
         private final long TIMEOUT_MS = 5000; 
         private final Handler mainHandler = new Handler(Looper.getMainLooper());

@@ -505,6 +505,8 @@ public class BotWebViewSheet extends Dialog implements NotificationCenter.Notifi
         tab.ready = webViewContainer != null && webViewContainer.isPageLoaded();
         tab.themeIsDark = Theme.isCurrentThemeDark();
         tab.lastUrl = webViewContainer != null ? webViewContainer.getUrlLoaded() : null;
+        tab.sameOrigin = webViewContainer != null && webViewContainer.isBridgeRestrictedToOrigin();
+        tab.trustedOrigin = webViewContainer != null ? webViewContainer.getTrustedOrigin() : null;
         tab.expanded = swipeContainer != null && swipeContainer.getSwipeOffsetY() < 0 || forceExpnaded || isFullSize() || fullscreen;
         tab.fullscreen = fullscreen;
         tab.fullscreenBlur = fullscreenBlur;
@@ -587,7 +589,8 @@ public class BotWebViewSheet extends Dialog implements NotificationCenter.Notifi
         currentAccount = tab.props != null ? tab.props.currentAccount : UserConfig.selectedAccount;
         if (tab.webView != null) {
 //            tab.webView.resumeTimers();
-            webViewContainer.replaceWebView(currentAccount, tab.webView, tab.proxy);
+            tab.webView.onResume();
+            webViewContainer.replaceWebView(currentAccount, tab.webView, tab.proxy, tab.trustedOrigin, tab.sameOrigin);
             webViewContainer.setState(tab.ready || tab.webView.isPageLoaded(), tab.lastUrl);
             if (Theme.isCurrentThemeDark() != tab.themeIsDark) {
                 restoreThemeUpdatePending = true;
@@ -2200,9 +2203,6 @@ public class BotWebViewSheet extends Dialog implements NotificationCenter.Notifi
             TLRPC.TL_simpleWebViewResultUrl resultUrl = (TLRPC.TL_simpleWebViewResultUrl) requestProps.response;
             queryId = 0;
             url = resultUrl.url;
-        }
-        if (sameOrigin) {
-            webViewContainer.setTrustedOrigin(url);
         }
         if (url != null && !fromTab) {
             MediaDataController.getInstance(currentAccount).increaseWebappRating(requestProps.botId);

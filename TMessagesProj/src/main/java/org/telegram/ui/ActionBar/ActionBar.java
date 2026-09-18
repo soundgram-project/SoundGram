@@ -73,6 +73,7 @@ import org.telegram.ui.Components.SnowflakesEffect;
 import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProvider;
+import org.telegram.ui.MainTabsLayout;
 
 import java.util.ArrayList;
 
@@ -2334,6 +2335,47 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (chatAvatarContainer != null && glassMode) {
+            if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+                final int x = (int) ev.getX();
+                final int y = (int) ev.getY();
+                View child = findChildUnder(this, x, y, chatAvatarContainer);
+                if (child == null) {
+                    child = findChildUnder(this, x, y, null);
+                }
+
+                boolean contains = false;
+                contains |= glassDrawable != null && glassDrawable.getBounds().contains(x, y);
+                if (child != null && child != chatAvatarContainer) {
+                    contains |= glassDrawableBack != null && glassDrawableBack.getBounds().contains(x, y);
+                    contains |= glassDrawableMenu != null && glassDrawableMenu.getBounds().contains(x, y);
+                }
+
+                if (!contains) {
+                    return false;
+                }
+            }
+        }
+
+        return super.dispatchTouchEvent(ev);
+    }
+
+    public static View findChildUnder(ViewGroup parent, float x, float y, View exclude) {
+        for (int i = parent.getChildCount() - 1; i >= 0; i--) {
+            View child = parent.getChildAt(i);
+
+            if (child.getVisibility() != View.VISIBLE || child == exclude) continue;
+
+            if (x >= child.getX() && x <= (child.getX() + child.getWidth())
+                    && y >= child.getTop() && y <= child.getBottom()) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (forceSkipTouches) {
             return false;
@@ -2886,7 +2928,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private int forcedMenuWidth;
+    private int forcedMenuMinWidth;
     private boolean hasForcedMenuWidth;
+    private boolean hasForcedMenuMinWidth;
 
     public void setForcedMenuWidth(int width) {
         width = Math.max(0, width);
@@ -2899,6 +2943,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                     || chatAvatarContainer.isInlineCenteredAvatar())) {
                 chatAvatarContainer.requestLayout();
             }
+        }
+    }
+
+    public void setForcedMenuMinWidth(int width) {
+        hasForcedMenuMinWidth = true;
+        if (forcedMenuMinWidth != width) {
+            forcedMenuMinWidth = width;
+            invalidate();
         }
     }
 
@@ -2928,8 +2980,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         final int s = dp(46);
         final float search = Utilities.clamp01(searchFactor);
 
-        final int menuWidth = Math.max(0,
-                hasForcedMenuWidth ? forcedMenuWidth : (int) animatorMenuItemsWidth.getFactor());
+        final float actionModeFactor = getActionModeFactor();
+        final int menuWidthA = hasForcedMenuWidth ? forcedMenuWidth : (int) animatorMenuItemsWidth.getFactor();
+        final int menuWidth = Math.max(0, hasForcedMenuMinWidth ? Math.max((int) (forcedMenuMinWidth * (1f - searchFactor)), menuWidthA) : menuWidthA);
 
         final boolean hasBackButton = backButtonImageView != null && backButtonImageView.getVisibility() == View.VISIBLE;
 

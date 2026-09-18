@@ -1,22 +1,25 @@
-## Keep ported extera classes (synthetic R8-style names with reflection callers).
--keep class app.nimarkogram.messenger.** { *; }
--keep class okhttp3.internal.url._UrlKt { *; }
--keep class com.exteragram.** { *; }
--keepclassmembers class com.exteragram.** { *; }
+-keep class androidx.sharetarget.** { *; }
 
+-dontwarn com.google.android.gms.internal.vision.**
+-dontwarn com.google.android.gms.vision.**
+-dontwarn com.google.android.gms.common.**
 
--keep public class com.google.android.gms.* { public *; }
--keepnames @com.google.android.gms.common.annotation.KeepName class *
--keepclassmembernames class * {
-    @com.google.android.gms.common.annotation.KeepName *;
-}
+-keep class com.google.android.gms.vision.face.** { *; }
+-keep class com.google.android.gms.vision.clearcut.** { *; }
+-keep class com.google.android.gms.internal.vision.** { *; }
+
+-keep class com.google.firebase.remoteconfig.** { *; }
+-keep class com.google.android.gms.internal.config.** { *; }
+
+-keep @androidx.annotation.Keep class * { *; }
+-keepclasseswithmembers class * { @androidx.annotation.Keep *; }
+
 -keep class org.webrtc.* { *; }
 -keep class org.webrtc.audio.* { *; }
 -keep class org.webrtc.voiceengine.* { *; }
 -keep class org.telegram.messenger.* { *; }
 -keep class org.telegram.messenger.camera.* { *; }
 -keep class org.telegram.messenger.secretmedia.* { *; }
--keep class org.telegram.messenger.support.* { *; }
 -keep class org.telegram.messenger.support.* { *; }
 -keep class org.telegram.messenger.time.* { *; }
 -keep class org.telegram.messenger.video.* { *; }
@@ -26,17 +29,11 @@
 -keep class org.telegram.tgnet.NativeByteBuffer { *; }
 -keep class org.telegram.tgnet.RequestTimeDelegate { *; }
 -keep class org.telegram.tgnet.RequestDelegate { *; }
+-keep class org.telegram.tgnet.** { *; }
 # Plugin compatibility: Python plugins (Chaquopy) import and Pine-hook ARBITRARY org.telegram classes by
 # their ORIGINAL names (e.g. `from org.telegram.tgnet.tl import TL_account`, hook `ChatActivityEnterView`).
-# R8 can't see these reflection-style uses, so without a broad keep it strips/renames classes a plugin needs
-# (nimarkoprivacy broke with "No module named 'org'" after R8 minified away org.telegram.tgnet.tl.TL_account
-# once 12.9.0 dropped its last Java reference). Keep the whole tree un-shrunk and un-renamed so practically
-# every plugin's imports/hooks resolve. (Subsumes the specific tgnet keeps above; kept for clarity.)
+# Keep the whole tree un-shrunk and un-renamed so practically every plugin's imports/hooks resolve.
 -keep class org.telegram.** { *; }
--keep class com.google.android.exoplayer2.ext.** { *; }
--keep class com.google.android.exoplayer2.extractor.FlacStreamMetadata { *; }
--keep class com.google.android.exoplayer2.metadata.flac.PictureFrame { *; }
--keep class com.google.android.exoplayer2.decoder.SimpleDecoderOutputBuffer { *; }
 -keep class org.telegram.ui.Stories.recorder.FfmpegAudioWaveformLoader { *; }
 -keep class androidx.mediarouter.app.MediaRouteButton { *; }
 -keepclassmembers class ** {
@@ -45,69 +42,6 @@
 
 # https://developers.google.com/ml-kit/known-issues#android_issues
 -keep class com.google.mlkit.nl.languageid.internal.LanguageIdentificationJni { *; }
-
-# Constant folding for resource integers may mean that a resource passed to this method appears to be unused. Keep the method to prevent this from happening.
--keep class com.google.android.exoplayer2.upstream.RawResourceDataSource {
-  public static android.net.Uri buildRawResourceUri(int);
-}
-
-# Methods accessed via reflection in DefaultExtractorsFactory
--dontnote com.google.android.exoplayer2.ext.flac.FlacLibrary
--keepclassmembers class com.google.android.exoplayer2.ext.flac.FlacLibrary {
-
-}
-
-# Some members of this class are being accessed from native methods. Keep them unobfuscated.
--keep class com.google.android.exoplayer2.decoder.VideoDecoderOutputBuffer {
-  *;
-}
-
--dontnote com.google.android.exoplayer2.ext.opus.LibopusAudioRenderer
--keepclassmembers class com.google.android.exoplayer2.ext.opus.LibopusAudioRenderer {
-  <init>(android.os.Handler, com.google.android.exoplayer2.audio.AudioRendererEventListener, com.google.android.exoplayer2.audio.AudioProcessor[]);
-}
--dontnote com.google.android.exoplayer2.ext.flac.LibflacAudioRenderer
--keepclassmembers class com.google.android.exoplayer2.ext.flac.LibflacAudioRenderer {
-  <init>(android.os.Handler, com.google.android.exoplayer2.audio.AudioRendererEventListener, com.google.android.exoplayer2.audio.AudioProcessor[]);
-}
--dontnote com.google.android.exoplayer2.ext.ffmpeg.FfmpegAudioRenderer
--keepclassmembers class com.google.android.exoplayer2.ext.ffmpeg.FfmpegAudioRenderer {
-  <init>(android.os.Handler, com.google.android.exoplayer2.audio.AudioRendererEventListener, com.google.android.exoplayer2.audio.AudioProcessor[]);
-}
-
-# Constructors accessed via reflection in DefaultExtractorsFactory
--dontnote com.google.android.exoplayer2.ext.flac.FlacExtractor
--keepclassmembers class com.google.android.exoplayer2.ext.flac.FlacExtractor {
-  <init>();
-}
-
-# Constructors accessed via reflection in DefaultDownloaderFactory
--dontnote com.google.android.exoplayer2.source.dash.offline.DashDownloader
--keepclassmembers class com.google.android.exoplayer2.source.dash.offline.DashDownloader {
-  <init>(android.net.Uri, java.util.List, com.google.android.exoplayer2.offline.DownloaderConstructorHelper);
-}
--dontnote com.google.android.exoplayer2.source.hls.offline.HlsDownloader
--keepclassmembers class com.google.android.exoplayer2.source.hls.offline.HlsDownloader {
-  <init>(android.net.Uri, java.util.List, com.google.android.exoplayer2.offline.DownloaderConstructorHelper);
-}
--dontnote com.google.android.exoplayer2.source.smoothstreaming.offline.SsDownloader
--keepclassmembers class com.google.android.exoplayer2.source.smoothstreaming.offline.SsDownloader {
-  <init>(android.net.Uri, java.util.List, com.google.android.exoplayer2.offline.DownloaderConstructorHelper);
-}
-
-# Constructors accessed via reflection in DownloadHelper
--dontnote com.google.android.exoplayer2.source.dash.DashMediaSource$Factory
--keepclasseswithmembers class com.google.android.exoplayer2.source.dash.DashMediaSource$Factory {
-  <init>(com.google.android.exoplayer2.upstream.DataSource$Factory);
-}
--dontnote com.google.android.exoplayer2.source.hls.HlsMediaSource$Factory
--keepclasseswithmembers class com.google.android.exoplayer2.source.hls.HlsMediaSource$Factory {
-  <init>(com.google.android.exoplayer2.upstream.DataSource$Factory);
-}
--dontnote com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource$Factory
--keepclasseswithmembers class com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource$Factory {
-  <init>(com.google.android.exoplayer2.upstream.DataSource$Factory);
-}
 
 # Huawei Services
 -keep class com.huawei.hianalytics.**{ *; }
@@ -125,10 +59,6 @@
 -keep class ru.noties.jlatexmath.** { *; }
 -dontwarn org.scilab.forge.jlatexmath.**
 
-# Use -keep to explicitly keep any other classes shrinking would remove
--dontoptimize
--dontobfuscate
-
 # Plugin reflection robustness: Chaquopy/Pine resolve nested classes (TLRPC$TL_message), read generic
 # signatures and annotations at runtime. Preserve the attributes reflection needs so any plugin importing a
 # nested TL type / reading annotations resolves correctly.
@@ -144,8 +74,3 @@
 # Java-version probe, so the references are dead on Android; silence R8.
 -dontwarn java.beans.ConstructorProperties
 -dontwarn java.beans.Transient
-
-# NG: jlatexmath-android — XML-driven font config and reflective class loading.
--keep class org.scilab.forge.jlatexmath.** { *; }
--keep class ru.noties.jlatexmath.** { *; }
--dontwarn org.scilab.forge.jlatexmath.**
