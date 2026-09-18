@@ -17,6 +17,10 @@ configurations {
 configurations.all {
     exclude group: 'com.google.firebase', module: 'firebase-core'
     exclude group: 'androidx.recyclerview', module: 'recyclerview'
+    exclude group: 'androidx.media3', module: 'media3-common'
+    exclude group: 'androidx.media3', module: 'media3-container'
+    exclude group: 'androidx.media3', module: 'media3-muxer'
+    exclude group: 'androidx.media3', module: 'media3-exoplayer'
 }
 
 dependencies {

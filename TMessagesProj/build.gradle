@@ -38,6 +38,10 @@ configurations {
 configurations.all {
     exclude group: 'com.google.firebase', module: 'firebase-core'
     exclude group: 'androidx.recyclerview', module: 'recyclerview'
+    exclude group: 'androidx.media3', module: 'media3-common'
+    exclude group: 'androidx.media3', module: 'media3-container'
+    exclude group: 'androidx.media3', module: 'media3-muxer'
+    exclude group: 'androidx.media3', module: 'media3-exoplayer'
 }
 
 dependencies {
@@ -104,6 +108,7 @@ dependencies {
     api project(":TMessagesProj_Modules:media3:media-lib-exoplayer-hls")
     api project(":TMessagesProj_Modules:media3:media-lib-decoder-ffmpeg")
     api project(":TMessagesProj_Modules:media3:media-lib-session")
+    api project(":TMessagesProj_Modules:media3:media-lib-muxer")
     api project(':jlatexmath')
 
 //    implementation 'com.google.mlkit:translate:17.0.3'
@@ -160,7 +165,9 @@ dependencies {
     implementation "androidx.camera:camera-camera2:$camerax_version"
     implementation "androidx.camera:camera-core:$camerax_version"
     implementation "androidx.camera:camera-lifecycle:$camerax_version"
-    implementation "androidx.camera:camera-video:$camerax_version"
+    implementation ("androidx.camera:camera-video:$camerax_version") {
+        exclude group: 'androidx.media3'
+    }
     implementation "androidx.camera:camera-view:$camerax_version"
 
 }
