@@ -58,7 +58,7 @@ echo "🔨 Сборка arm64-v8a..."
 export CC="$TOOLCHAIN/aarch64-linux-android21-clang"
 export CXX="$TOOLCHAIN/aarch64-linux-android21-clang++"
 export GOARCH=arm64
-go build -trimpath -ldflags="-s -w" -buildmode=c-shared -o "$OUT_BASE/arm64-v8a/libtgwsproxy.so" tg-ws-proxy.go
+go build -trimpath -ldflags="-s -w -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" -buildmode=c-shared -o "$OUT_BASE/arm64-v8a/libtgwsproxy.so" tg-ws-proxy.go
 
 # === 6. ARMv7 ===
 echo "🔨 Сборка armeabi-v7a..."
@@ -66,7 +66,7 @@ export CC="$TOOLCHAIN/armv7a-linux-androideabi21-clang"
 export CXX="$TOOLCHAIN/armv7a-linux-androideabi21-clang++"
 export GOARCH=arm
 export GOARM=7
-go build -trimpath -ldflags="-s -w" -buildmode=c-shared -o "$OUT_BASE/armeabi-v7a/libtgwsproxy.so" tg-ws-proxy.go
+go build -trimpath -ldflags="-s -w -extldflags '-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'" -buildmode=c-shared -o "$OUT_BASE/armeabi-v7a/libtgwsproxy.so" tg-ws-proxy.go
 
 echo ""
 echo "✅ Готово!"

@@ -4425,81 +4425,135 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         }
 
         if (replyToMsg != null && replyToMsg.isAyuDeleted()) {
-            String quoteText = null;
-            if (replyQuote != null && !TextUtils.isEmpty(replyQuote.getText())) {
-                quoteText = replyQuote.getText().toString();
-            } else if (!TextUtils.isEmpty(replyToMsg.messageText)) {
-                quoteText = replyToMsg.messageText.toString();
-            } else if (!TextUtils.isEmpty(replyToMsg.caption)) {
-                quoteText = replyToMsg.caption.toString();
-            }
-            if (TextUtils.isEmpty(quoteText)) {
-                if (replyToMsg.isPhoto()) quoteText = "📷 " + LocaleController.getString(R.string.AttachPhoto);
-                else if (replyToMsg.isVideo()) quoteText = "📹 " + LocaleController.getString(R.string.AttachVideo);
-                else if (replyToMsg.isVoice()) quoteText = "🎤 " + LocaleController.getString(R.string.AttachAudio);
-                else if (replyToMsg.isMusic()) quoteText = "🎵 " + LocaleController.getString(R.string.AttachMusic);
-                else if (replyToMsg.isDocument()) quoteText = "📁 " + LocaleController.getString(R.string.AttachDocument);
-                else quoteText = "";
-            }
+            boolean isMedia = (photo != null || document != null || videoEditedInfo != null || location != null);
+            boolean isVoiceOrRoundOrSticker = (document != null && (MessageObject.isVoiceDocument(document) || MessageObject.isRoundVideoDocument(document) || MessageObject.isStickerDocument(document)));
 
-            String senderName = null;
-            if (replyToMsg.getSenderId() != 0) {
-                long senderId = replyToMsg.getSenderId();
-                if (DialogObject.isUserDialog(senderId)) {
-                    TLRPC.User u = getMessagesController().getUser(senderId);
-                    if (u != null) {
-                        senderName = UserObject.getUserName(u);
-                    }
+            if (isVoiceOrRoundOrSticker) {
+                // Voice messages, round video notes, and stickers cannot have text blockquote captions.
+                // Simply clear the deleted reply reference so it won't fail with MESSAGE_ID_INVALID.
+                if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
+                    replyToMsg = replyToTopMsg;
                 } else {
-                    TLRPC.Chat c = getMessagesController().getChat(-senderId);
-                    if (c != null) {
-                        senderName = c.title;
+                    replyToMsg = null;
+                }
+                replyQuote = null;
+                if (sendMessageParams != null) {
+                    sendMessageParams.replyToMsg = replyToMsg;
+                    sendMessageParams.replyQuote = null;
+                }
+            } else {
+                // 1. Author name: only shown in group chats or channels, or cross-chat replies (like in AyuGram Desktop)
+                String name = "";
+                if (!DialogObject.isUserDialog(peer) || (replyToMsg.getDialogId() != 0 && replyToMsg.getDialogId() != peer)) {
+                    long senderId = replyToMsg.getSenderId();
+                    if (DialogObject.isUserDialog(senderId)) {
+                        TLRPC.User u = getMessagesController().getUser(senderId);
+                        if (u != null) {
+                            name = UserObject.getUserName(u);
+                        }
+                    } else {
+                        TLRPC.Chat c = getMessagesController().getChat(-senderId);
+                        if (c != null) {
+                            name = c.title;
+                        }
                     }
                 }
-            }
-            if (TextUtils.isEmpty(senderName)) {
-                senderName = LocaleController.getString(R.string.HiddenName);
-            }
 
-            String quoteHeaderAndText = senderName + ":\n" + quoteText;
-            String quotePrefix = quoteHeaderAndText + "\n\n";
-
-            TLRPC.TL_messageEntityBlockquote quoteEntity = new TLRPC.TL_messageEntityBlockquote();
-            quoteEntity.offset = 0;
-            quoteEntity.length = quoteHeaderAndText.length();
-
-            if (entities == null) {
-                entities = new ArrayList<>();
-            } else {
-                entities = new ArrayList<>(entities);
-                for (TLRPC.MessageEntity ent : entities) {
-                    ent.offset += quotePrefix.length();
+                // 2. Quote text
+                String quoteText = null;
+                if (replyQuote != null && !TextUtils.isEmpty(replyQuote.getText())) {
+                    quoteText = replyQuote.getText().toString();
+                } else if (!TextUtils.isEmpty(replyToMsg.messageText)) {
+                    quoteText = replyToMsg.messageText.toString();
+                } else if (!TextUtils.isEmpty(replyToMsg.caption)) {
+                    quoteText = replyToMsg.caption.toString();
                 }
-            }
-            entities.add(0, quoteEntity);
+                if (TextUtils.isEmpty(quoteText)) {
+                    if (replyToMsg.isPhoto()) quoteText = "📷 " + LocaleController.getString(R.string.AttachPhoto);
+                    else if (replyToMsg.isVideo()) quoteText = "📹 " + LocaleController.getString(R.string.AttachVideo);
+                    else if (replyToMsg.isVoice()) quoteText = "🎤 " + LocaleController.getString(R.string.AttachAudio);
+                    else if (replyToMsg.isMusic()) quoteText = "🎵 " + LocaleController.getString(R.string.AttachMusic);
+                    else if (replyToMsg.isDocument()) quoteText = "📁 " + LocaleController.getString(R.string.AttachDocument);
+                    else if (replyToMsg.isSticker() || replyToMsg.isAnimatedSticker()) quoteText = "🎭 " + LocaleController.getString(R.string.AttachSticker);
+                    else quoteText = "";
+                }
 
-            if (message != null) {
-                message = quotePrefix + message;
-            } else if (caption != null) {
-                caption = quotePrefix + caption;
-            } else if (photo != null || document != null || videoEditedInfo != null || location != null) {
-                caption = quoteHeaderAndText;
-            } else {
-                message = quoteHeaderAndText;
-            }
+                // Truncate to 100 characters with ellipsis like AyuGram Desktop
+                if (quoteText.length() > 100) {
+                    quoteText = quoteText.substring(0, 99) + "…";
+                }
 
-            if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
-                replyToMsg = replyToTopMsg;
-            } else {
-                replyToMsg = null;
-            }
-            replyQuote = null;
-            if (sendMessageParams != null) {
-                sendMessageParams.replyToMsg = replyToMsg;
-                sendMessageParams.replyQuote = null;
-                sendMessageParams.message = message;
-                sendMessageParams.caption = caption;
-                sendMessageParams.entities = entities;
+                // Prefix: name (if any) + \n + quoteText
+                String prefix = TextUtils.isEmpty(name) ? quoteText : (name + "\n" + quoteText);
+                int prefixLength = prefix.length();
+
+                int shiftOffset = 0;
+                if (!TextUtils.isEmpty(message)) {
+                    message = prefix + "\n" + message;
+                    shiftOffset = prefixLength + 1;
+                } else if (!TextUtils.isEmpty(caption)) {
+                    caption = prefix + "\n" + caption;
+                    shiftOffset = prefixLength + 1;
+                } else if (isMedia) {
+                    caption = prefix;
+                    shiftOffset = prefixLength;
+                } else {
+                    message = prefix;
+                    shiftOffset = prefixLength;
+                }
+
+                if (entities == null) {
+                    entities = new ArrayList<>();
+                } else {
+                    entities = new ArrayList<>(entities);
+                    if (shiftOffset > 0 && (!TextUtils.isEmpty(message) || !TextUtils.isEmpty(caption))) {
+                        // Shift existing entities that were after the prefix
+                        for (TLRPC.MessageEntity ent : entities) {
+                            ent.offset += shiftOffset;
+                        }
+                    }
+                }
+
+                // 1. Blockquote over the entire prefix
+                TLRPC.TL_messageEntityBlockquote quoteEntity = new TLRPC.TL_messageEntityBlockquote();
+                quoteEntity.offset = 0;
+                quoteEntity.length = prefixLength;
+                entities.add(0, quoteEntity);
+
+                // 2. Bold and mention over the name if present
+                if (!TextUtils.isEmpty(name)) {
+                    int nameLength = name.length();
+                    TLRPC.TL_messageEntityBold boldEntity = new TLRPC.TL_messageEntityBold();
+                    boldEntity.offset = 0;
+                    boldEntity.length = nameLength;
+                    entities.add(1, boldEntity);
+
+                    long senderId = replyToMsg.getSenderId();
+                    if (DialogObject.isUserDialog(senderId)) {
+                        TLRPC.InputUser inputUser = getMessagesController().getInputUser(senderId);
+                        if (inputUser != null) {
+                            TLRPC.TL_inputMessageEntityMentionName mentionEntity = new TLRPC.TL_inputMessageEntityMentionName();
+                            mentionEntity.offset = 0;
+                            mentionEntity.length = nameLength;
+                            mentionEntity.user_id = inputUser;
+                            entities.add(2, mentionEntity);
+                        }
+                    }
+                }
+
+                if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
+                    replyToMsg = replyToTopMsg;
+                } else {
+                    replyToMsg = null;
+                }
+                replyQuote = null;
+                if (sendMessageParams != null) {
+                    sendMessageParams.replyToMsg = replyToMsg;
+                    sendMessageParams.replyQuote = null;
+                    sendMessageParams.message = message;
+                    sendMessageParams.caption = caption;
+                    sendMessageParams.entities = entities;
+                }
             }
         }
 

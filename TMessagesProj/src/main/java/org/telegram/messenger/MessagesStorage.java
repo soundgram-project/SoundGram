@@ -4432,6 +4432,69 @@ public class MessagesStorage extends BaseController {
         return false;
     }
 
+    private void saveDeletedMessagesFromStorage(long did) {
+        if (!xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+            return;
+        }
+        SQLiteCursor cursor = null;
+        try {
+            cursor = database.queryFinalized("SELECT data FROM messages_v2 WHERE uid = " + did);
+            while (cursor.next()) {
+                NativeByteBuffer data = cursor.byteBufferValue(0);
+                if (data != null) {
+                    TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
+                    if (message != null) {
+                        message.readAttachPath(data, getUserConfig().clientUserId);
+                        if (!(message instanceof TLRPC.TL_messageEmpty)
+                                && !com.radolyn.ayugram.utils.AyuState.isDeletePermitted(did, message.id)
+                                && !com.radolyn.ayugram.messages.AyuMessagesController.getInstance().shouldSkipSaving(did, message.id)
+                                && (!message.out || com.radolyn.ayugram.messages.AyuMessagesController.getInstance().isSaveForMyself(did, message.id))) {
+                            message.dialog_id = did;
+                            var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
+                            prefs.setDialogId(did);
+                            com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs, false);
+                        }
+                    }
+                    data.reuse();
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        } finally {
+            if (cursor != null) {
+                cursor.dispose();
+            }
+        }
+        try {
+            cursor = database.queryFinalized("SELECT data FROM messages_topics WHERE uid = " + did);
+            while (cursor.next()) {
+                NativeByteBuffer data = cursor.byteBufferValue(0);
+                if (data != null) {
+                    TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
+                    if (message != null) {
+                        message.readAttachPath(data, getUserConfig().clientUserId);
+                        if (!(message instanceof TLRPC.TL_messageEmpty)
+                                && !com.radolyn.ayugram.utils.AyuState.isDeletePermitted(did, message.id)
+                                && !com.radolyn.ayugram.messages.AyuMessagesController.getInstance().shouldSkipSaving(did, message.id)
+                                && (!message.out || com.radolyn.ayugram.messages.AyuMessagesController.getInstance().isSaveForMyself(did, message.id))) {
+                            message.dialog_id = did;
+                            var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(message, currentAccount);
+                            prefs.setDialogId(did);
+                            com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs, false);
+                        }
+                    }
+                    data.reuse();
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        } finally {
+            if (cursor != null) {
+                cursor.dispose();
+            }
+        }
+    }
+
     public void deleteDialog(long did, int messagesOnly) {
         storageQueue.postRunnable(() -> {
             SQLiteCursor cursor = null;
@@ -4516,6 +4579,7 @@ public class MessagesStorage extends BaseController {
                         cursor2.dispose();
                         cursor2 = null;
 
+                        saveDeletedMessagesFromStorage(did);
                         database.executeFast("DELETE FROM messages_v2 WHERE uid = " + did + " AND mid != " + last_mid_i + " AND mid != " + last_mid).stepThis().dispose();
                         database.executeFast("DELETE FROM messages_topics WHERE uid = " + did + " AND mid != " + last_mid_i + " AND mid != " + last_mid).stepThis().dispose();
                         database.executeFast("DELETE FROM messages_holes WHERE uid = " + did).stepThis().dispose();
@@ -4542,6 +4606,7 @@ public class MessagesStorage extends BaseController {
                     return;
                 }
 
+                saveDeletedMessagesFromStorage(did);
                 database.executeFast("UPDATE dialogs SET unread_count = 0, unread_count_i = 0 WHERE did = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM messages_v2 WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM messages_topics WHERE uid = " + did).stepThis().dispose();
@@ -4653,6 +4718,12 @@ public class MessagesStorage extends BaseController {
                 cursor.dispose();
                 cursor = null;
                 String ids = "(" + TextUtils.join(",", dids) + ")";
+
+                if (dids != null) {
+                    for (int a = 0; a < dids.size(); a++) {
+                        saveDeletedMessagesFromStorage(dids.get(a));
+                    }
+                }
 
                 database.beginTransaction();
                 database.executeFast("DELETE FROM chat_pinned_count WHERE uid IN " + ids).stepThis().dispose();
@@ -11537,6 +11608,7 @@ public class MessagesStorage extends BaseController {
                 cursor.dispose();
                 cursor = null;
 
+                saveDeletedMessagesFromStorage(did);
                 database.executeFast("DELETE FROM chat_pinned_count WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM chat_pinned_v2 WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM messages_v2 WHERE uid = " + did).stepThis().dispose();

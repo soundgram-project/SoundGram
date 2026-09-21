@@ -1894,20 +1894,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         }).start();
     }
-    private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
+    public static void saveWebTrackToLibrary(BaseFragment fragment, MusicWebSearcher.WebTrack track) {
         if (track == null) return;
+        Context ctx = fragment != null && fragment.getParentActivity() != null ? fragment.getParentActivity() : ApplicationLoader.applicationContext;
         if (TextUtils.isEmpty(track.downloadUrl)) {
-            safeToast(getParentActivity(), getString(R.string.sg_track_loading), Toast.LENGTH_SHORT);
+            safeToast(ctx, LocaleController.getString(R.string.sg_track_loading), Toast.LENGTH_SHORT);
             return;
         }
         if (TextUtils.isEmpty(track.title) || track.title.equals("Unknown")) {
-            safeToast(getParentActivity(), getString(R.string.sg_track_title_unknown), Toast.LENGTH_SHORT);
+            safeToast(ctx, LocaleController.getString(R.string.sg_track_title_unknown), Toast.LENGTH_SHORT);
             return;
         }
 
-        long targetId = getTargetChannelId();
+        int account = fragment != null ? fragment.getCurrentAccount() : UserConfig.selectedAccount;
+        long targetId = getChannelIdFromFile(account);
         if (targetId == 0) {
-            safeToast(getParentActivity(), getString(R.string.sg_library_not_found), Toast.LENGTH_SHORT);
+            safeToast(ctx, LocaleController.getString(R.string.sg_library_not_found), Toast.LENGTH_SHORT);
             return;
         }
 
@@ -1920,7 +1922,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         final String dlArtist = safeArtist;
         final String dlTitle  = safeTitle;
         final long   fTargetId = targetId;
-        final String fSafeDur  = safeDur;
         String tempCover = safeCover;
 
         new Thread(() -> {
@@ -1965,17 +1966,24 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             AndroidUtilities.runOnUIThread(() -> {
                 if (ok && finalFile != null) {
-                    sendLocalAudioFileToChannel(finalFile, dlTitle, dlArtist, fTargetId, currentAccount, thumbPath);
-                    safeToast(getParentActivity(), getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT);
-                    countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
-                    isWaitingForUpload = true;
-                    pollAttempts = 0;
-                    AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+                    sendLocalAudioFileToChannel(finalFile, dlTitle, dlArtist, fTargetId, account, thumbPath);
+                    safeToast(ctx, LocaleController.getString(R.string.sg_added_to_library), Toast.LENGTH_SHORT);
+                    if (fragment instanceof ChannelMusicFragment) {
+                        ChannelMusicFragment cmf = (ChannelMusicFragment) fragment;
+                        cmf.countBeforeUpload = cmf.audioMessages.size() + cmf.savedAlbumMessages.size();
+                        cmf.isWaitingForUpload = true;
+                        cmf.pollAttempts = 0;
+                        AndroidUtilities.runOnUIThread(cmf.pollMessagesRunnable, 1500);
+                    }
                 } else {
-                    safeToast(getParentActivity(), getString(R.string.sg_download_error), Toast.LENGTH_SHORT);
+                    safeToast(ctx, LocaleController.getString(R.string.sg_download_error), Toast.LENGTH_SHORT);
                 }
             });
         }).start();
+    }
+
+    private void saveWebTrackToLibrary(MusicWebSearcher.WebTrack track) {
+        saveWebTrackToLibrary(this, track);
     }
 
 
@@ -2580,7 +2588,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (f.length() < 1024) continue; // битый/пустой файл
 
                 String rawName = f.getName().replace(".mp3", "");
-                String artist = getString(R.string.sg_unknown_artist);
+                String artist = LocaleController.getString(R.string.sg_unknown_artist);
                 String title  = rawName;
                 int dashIdx = rawName.indexOf(" - ");
                 if (dashIdx > 0) {
@@ -4871,7 +4879,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         container.addView(createGlassMenuOption(context, getString(R.string.addlb), R.drawable.msg_add, () -> {
             if (dialogRef[0] != null) dialogRef[0].dismiss();
-            saveWebTrackToLibrary(track);
+            saveWebTrackToLibrary(fragment, track);
         }));
 
         builder.setCustomView(container);

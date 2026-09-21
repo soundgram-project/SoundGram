@@ -59,6 +59,7 @@ public abstract class AyuHistoryHook {
 
         boolean isChannelComment = threadMessageId != 0 && !isTopic;
         List<DeletedMessageFull> deletedMessages = null;
+        int queryLimit = Math.max(limit, 100);
 
         if (loadType == 0) {
             if (max_id == 0) {
@@ -66,19 +67,19 @@ public abstract class AyuHistoryHook {
                     long startId = isEnd ? 0 : Math.max(0, minId);
                     long endId = Integer.MAX_VALUE;
                     if (isChannelComment) {
-                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
                     } else if (isTopic && threadMessageId != 0) {
-                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
                     } else {
-                        deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, limit);
+                        deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, queryLimit);
                     }
                 } else {
                     if (isChannelComment) {
-                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, 0, Integer.MAX_VALUE, limit);
+                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, 0, Integer.MAX_VALUE, queryLimit);
                     } else if (isTopic && threadMessageId != 0) {
-                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, 0, Integer.MAX_VALUE, limit);
+                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, 0, Integer.MAX_VALUE, queryLimit);
                     } else {
-                        deletedMessages = ayuController.getLatestMessages(clientUserId, dialogId, limit);
+                        deletedMessages = ayuController.getLatestMessages(clientUserId, dialogId, queryLimit);
                     }
                 }
             } else {
@@ -86,41 +87,41 @@ public abstract class AyuHistoryHook {
                     long startId = isEnd ? 0 : Math.max(0, minId);
                     long endId = Math.max(1, max_id);
                     if (isChannelComment) {
-                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
                     } else if (isTopic && threadMessageId != 0) {
-                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
                     } else {
-                        deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, limit);
+                        deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, queryLimit);
                     }
                 } else {
                     if (isChannelComment) {
-                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, 0, Math.max(1, max_id), limit);
+                        deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, 0, Math.max(1, max_id), queryLimit);
                     } else if (isTopic && threadMessageId != 0) {
-                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, 0, Math.max(1, max_id), limit);
+                        deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, 0, Math.max(1, max_id), queryLimit);
                     } else {
-                        deletedMessages = ayuController.getOlderMessagesBefore(clientUserId, dialogId, max_id, limit);
+                        deletedMessages = ayuController.getOlderMessagesBefore(clientUserId, dialogId, max_id, queryLimit);
                     }
                 }
             }
         } else if (loadType == 1) {
             long startId = minId != Integer.MAX_VALUE ? Math.max(0, minId) : (max_id > 0 ? max_id : 0);
-            long endId = maxId != Integer.MIN_VALUE ? maxId : Integer.MAX_VALUE;
+            long endId = Integer.MAX_VALUE;
             if (isChannelComment) {
-                deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
             } else if (isTopic && threadMessageId != 0) {
-                deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
             } else {
-                deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, limit);
+                deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, queryLimit);
             }
         } else {
             long startId = minId != Integer.MAX_VALUE ? Math.max(0, minId) : Math.max(0, max_id - limit / 2);
-            long endId = maxId != Integer.MIN_VALUE ? maxId : (max_id + limit / 2);
+            long endId = (max_id == 0 || loadType == 2) ? Integer.MAX_VALUE : (maxId != Integer.MIN_VALUE ? Math.max(maxId, max_id + limit / 2) : (max_id + limit / 2));
             if (isChannelComment) {
-                deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                deletedMessages = ayuController.getThreadMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
             } else if (isTopic && threadMessageId != 0) {
-                deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, limit);
+                deletedMessages = ayuController.getTopicMessages(clientUserId, dialogId, threadMessageId, startId, endId, queryLimit);
             } else {
-                deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, limit);
+                deletedMessages = ayuController.getMessages(clientUserId, dialogId, startId, endId, queryLimit);
             }
         }
 
@@ -244,8 +245,18 @@ public abstract class AyuHistoryHook {
         for (MessageObject msg : deletedObjects) {
             indexById.put(msg.getId(), msg);
         }
+        for (MessageObject messageObj : objects) {
+            if (messageObj.replyMessageObject == null && messageObj.messageOwner != null && messageObj.messageOwner.reply_to != null) {
+                int replyId = messageObj.messageOwner.reply_to.reply_to_msg_id;
+                MessageObject candidate = indexById.get(replyId);
+                if (candidate != null) {
+                    messageObj.messageOwner.replyMessage = candidate.messageOwner;
+                    messageObj.replyMessageObject = candidate;
+                }
+            }
+        }
         for (MessageObject messageObj : deletedObjects) {
-            if (messageObj.messageOwner.reply_to != null) {
+            if (messageObj.messageOwner != null && messageObj.messageOwner.reply_to != null) {
                 int replyId = messageObj.messageOwner.reply_to.reply_to_msg_id;
                 MessageObject candidate = indexById.get(replyId);
                 if (candidate != null) {

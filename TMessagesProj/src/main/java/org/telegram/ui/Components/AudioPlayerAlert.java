@@ -1477,17 +1477,7 @@ public class AudioPlayerAlert extends BottomSheet
         optionsButton.setShowSubmenuByMove(false);
         optionsButton.setShowedFromBottom(true);
         optionsButton.addSubItem(1, R.drawable.msg_shareout, getString(R.string.sg_menu_share));
-        boolean isInLibrary = false;
-        if (messageObject != null) {
-            for (MessageObject libMsg : soundgram.music.ChannelMusicFragment.getAudioMessages(currentAccount)) {
-                if (libMsg.getId() == messageObject.getId()
-                        || (libMsg.messageOwner.message != null && messageObject.messageOwner.message != null
-                                && libMsg.messageOwner.message.equals(messageObject.messageOwner.message))) {
-                    isInLibrary = true;
-                    break;
-                }
-            }
-        }
+        boolean isInLibrary = messageObject != null && findInLibrary(messageObject) != null;
         if (!isInLibrary)
         // [эквалайзер убран]
         optionsButton.addSubItem(100, R.drawable.msg_add, getString(R.string.sg_menu_add_to_playlist));
@@ -2861,6 +2851,7 @@ public class AudioPlayerAlert extends BottomSheet
         long moDocId = moDoc != null ? moDoc.id : 0;
 
         for (MessageObject libMsg : soundgram.music.ChannelMusicFragment.getAudioMessages(currentAccount)) {
+            if (libMsg == null) continue;
             // 1. По Telegram messageId (для треков, которые находятся прямо в библиотеке)
             if (mo.getId() > 0 && libMsg.getId() > 0 && libMsg.getId() == mo.getId()) return libMsg;
 
@@ -4129,15 +4120,7 @@ public class AudioPlayerAlert extends BottomSheet
             updateCover(messageObject, !sameMessageObject);
             // Показываем кнопки в зависимости от нахождения в библиотеке
             if (topOptionsButton != null) {
-                boolean isInLib = false;
-                for (MessageObject libMsg : soundgram.music.ChannelMusicFragment.getAudioMessages(currentAccount)) {
-                    if (libMsg.getId() == messageObject.getId() ||
-                            (libMsg.messageOwner.message != null && messageObject.messageOwner.message != null &&
-                                    libMsg.messageOwner.message.equals(messageObject.messageOwner.message))) {
-                        isInLib = true;
-                        break;
-                    }
-                }
+                boolean isInLib = messageObject != null && findInLibrary(messageObject) != null;
                 topOptionsButton.setSubItemShown(203, isInLib);
                 topOptionsButton.setSubItemShown(5, !isInLib); // <-- Показываем 'В библиотеку' если трека там нет
             }

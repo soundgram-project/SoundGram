@@ -334,4 +334,14 @@
     <string name="sg_ta_section_cursor">CURSEUR</string>
     <string name="sg_ta_cursor_smooth">Curseur fluide</string>
     <string name="sg_ta_cursor_liquid">Curseur liquide</string>
+    <!-- Relative Last Seen -->
+    <string name="CG_LastSeenNow">en ligne à l\'instant</string>
+    <string name="CG_LastSeenMinutes_one">en ligne il y a %1$d minute</string>
+    <string name="CG_LastSeenMinutes_few">en ligne il y a %1$d minutes</string>
+    <string name="CG_LastSeenMinutes_many">en ligne il y a %1$d minutes</string>
+    <string name="CG_LastSeenMinutes_other">en ligne il y a %1$d minutes</string>
+    <string name="CG_LastSeenHours_one">en ligne il y a %1$d heure</string>
+    <string name="CG_LastSeenHours_few">en ligne il y a %1$d heures</string>
+    <string name="CG_LastSeenHours_many">en ligne il y a %1$d heures</string>
+    <string name="CG_LastSeenHours_other">en ligne il y a %1$d heures</string>
 </resources>

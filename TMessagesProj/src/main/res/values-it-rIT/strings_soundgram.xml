@@ -334,4 +334,14 @@
     <string name="sg_ta_section_cursor">CURSORE</string>
     <string name="sg_ta_cursor_smooth">Cursore fluido</string>
     <string name="sg_ta_cursor_liquid">Cursore liquido</string>
+    <!-- Relative Last Seen -->
+    <string name="CG_LastSeenNow">ultimo accesso poco fa</string>
+    <string name="CG_LastSeenMinutes_one">ultimo accesso %1$d minuto fa</string>
+    <string name="CG_LastSeenMinutes_few">ultimo accesso %1$d minuti fa</string>
+    <string name="CG_LastSeenMinutes_many">ultimo accesso %1$d minuti fa</string>
+    <string name="CG_LastSeenMinutes_other">ultimo accesso %1$d minuti fa</string>
+    <string name="CG_LastSeenHours_one">ultimo accesso %1$d ora fa</string>
+    <string name="CG_LastSeenHours_few">ultimo accesso %1$d ore fa</string>
+    <string name="CG_LastSeenHours_many">ultimo accesso %1$d ore fa</string>
+    <string name="CG_LastSeenHours_other">ultimo accesso %1$d ore fa</string>
 </resources>

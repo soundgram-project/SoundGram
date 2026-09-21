@@ -15548,14 +15548,20 @@ public class ChatActivity extends BaseFragment implements
         // Skip in topics (matches CherrygramChatsConfig.autoQuoteReplies + !ChatsHelper.isTopic
         // gate in showFieldPanel's reply-icon branch).
         ReplyQuote autoQuote = null;
-        if (app.nimarkogram.messenger.NimarkoConfig.autoQuoteReplies && messageObjectToReply != null) {
-            try {
-                boolean isTopic = app.nimarkogram.messenger.utils.chats.NimarkoChatHelper
-                        .getInstance(currentAccount).isTopic(messageObjectToReply);
-                if (!isTopic) {
+        if (messageObjectToReply != null) {
+            if (messageObjectToReply.isAyuDeleted()) {
+                try {
                     autoQuote = ReplyQuote.from(messageObjectToReply);
-                }
-            } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {}
+            } else if (app.nimarkogram.messenger.NimarkoConfig.autoQuoteReplies) {
+                try {
+                    boolean isTopic = app.nimarkogram.messenger.utils.chats.NimarkoChatHelper
+                            .getInstance(currentAccount).isTopic(messageObjectToReply);
+                    if (!isTopic) {
+                        autoQuote = ReplyQuote.from(messageObjectToReply);
+                    }
+                } catch (Throwable ignored) {}
+            }
         }
         showFieldPanel(true, messageObjectToReply, null, null, null, true, 0, autoQuote, false, 0, true);
     }

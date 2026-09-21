@@ -334,4 +334,14 @@
     <string name="sg_ta_section_cursor">CURSOR</string>
     <string name="sg_ta_cursor_smooth">Sanfter Cursor</string>
     <string name="sg_ta_cursor_liquid">Flüssiger Cursor</string>
+    <!-- Relative Last Seen -->
+    <string name="CG_LastSeenNow">zuletzt gerade eben gesehen</string>
+    <string name="CG_LastSeenMinutes_one">zuletzt vor %1$d Minute gesehen</string>
+    <string name="CG_LastSeenMinutes_few">zuletzt vor %1$d Minuten gesehen</string>
+    <string name="CG_LastSeenMinutes_many">zuletzt vor %1$d Minuten gesehen</string>
+    <string name="CG_LastSeenMinutes_other">zuletzt vor %1$d Minuten gesehen</string>
+    <string name="CG_LastSeenHours_one">zuletzt vor %1$d Stunde gesehen</string>
+    <string name="CG_LastSeenHours_few">zuletzt vor %1$d Stunden gesehen</string>
+    <string name="CG_LastSeenHours_many">zuletzt vor %1$d Stunden gesehen</string>
+    <string name="CG_LastSeenHours_other">zuletzt vor %1$d Stunden gesehen</string>
 </resources>

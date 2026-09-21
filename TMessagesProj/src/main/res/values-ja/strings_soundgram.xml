@@ -334,4 +334,14 @@
     <string name="sg_ta_section_cursor">カーソル</string>
     <string name="sg_ta_cursor_smooth">スムーズカーソル</string>
     <string name="sg_ta_cursor_liquid">リキッドカーソル</string>
+    <!-- Relative Last Seen -->
+    <string name="CG_LastSeenNow">今オンライン</string>
+    <string name="CG_LastSeenMinutes_one">%1$d分前にオンライン</string>
+    <string name="CG_LastSeenMinutes_few">%1$d分前にオンライン</string>
+    <string name="CG_LastSeenMinutes_many">%1$d分前にオンライン</string>
+    <string name="CG_LastSeenMinutes_other">%1$d分前にオンライン</string>
+    <string name="CG_LastSeenHours_one">%1$d時間前にオンライン</string>
+    <string name="CG_LastSeenHours_few">%1$d時間前にオンライン</string>
+    <string name="CG_LastSeenHours_many">%1$d時間前にオンライン</string>
+    <string name="CG_LastSeenHours_other">%1$d時間前にオンライン</string>
 </resources>

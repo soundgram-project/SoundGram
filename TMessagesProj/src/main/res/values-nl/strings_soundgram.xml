@@ -334,4 +334,14 @@
     <string name="sg_ta_section_cursor">CURSOR</string>
     <string name="sg_ta_cursor_smooth">Vloeiende cursor</string>
     <string name="sg_ta_cursor_liquid">Vloeibare cursor</string>
+    <!-- Relative Last Seen -->
+    <string name="CG_LastSeenNow">zojuist gezien</string>
+    <string name="CG_LastSeenMinutes_one">%1$d minuut geleden gezien</string>
+    <string name="CG_LastSeenMinutes_few">%1$d minuten geleden gezien</string>
+    <string name="CG_LastSeenMinutes_many">%1$d minuten geleden gezien</string>
+    <string name="CG_LastSeenMinutes_other">%1$d minuten geleden gezien</string>
+    <string name="CG_LastSeenHours_one">%1$d uur geleden gezien</string>
+    <string name="CG_LastSeenHours_few">%1$d uur geleden gezien</string>
+    <string name="CG_LastSeenHours_many">%1$d uur geleden gezien</string>
+    <string name="CG_LastSeenHours_other">%1$d uur geleden gezien</string>
 </resources>

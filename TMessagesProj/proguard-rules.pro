@@ -42,6 +42,10 @@
 
 # https://developers.google.com/ml-kit/known-issues#android_issues
 -keep class com.google.mlkit.nl.languageid.internal.LanguageIdentificationJni { *; }
+-keep class soundgram.wsproxy.** { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
 
 # Huawei Services
 -keep class com.huawei.hianalytics.**{ *; }

@@ -2,17 +2,23 @@ package soundgram.wsproxy;
 
 import android.util.Log;
 
+import androidx.annotation.Keep;
+
+@Keep
 public class NativeProxy {
 
     static {
         try {
-            // Load Go .so first (contains StartProxy, SetPoolSize, etc.)
             System.loadLibrary("tgwsproxy");
-            // Then JNI bridge (uses dlopen to find symbols from Go .so)
+            Log.i("NativeProxy", "tgwsproxy loaded");
+        } catch (Throwable e) {
+            Log.e("NativeProxy", "Failed to load tgwsproxy", e);
+        }
+        try {
             System.loadLibrary("tgwsproxy_jni");
-            Log.i("NativeProxy", "All libraries loaded");
-        } catch (UnsatisfiedLinkError e) {
-            Log.e("NativeProxy", "Failed to load libraries", e);
+            Log.i("NativeProxy", "tgwsproxy_jni loaded");
+        } catch (Throwable e) {
+            Log.e("NativeProxy", "Failed to load tgwsproxy_jni", e);
         }
     }
 

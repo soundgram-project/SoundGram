@@ -334,4 +334,14 @@
     <string name="sg_ta_section_cursor">КУРСОР</string>
     <string name="sg_ta_cursor_smooth">Плавний курсор</string>
     <string name="sg_ta_cursor_liquid">Рідкий курсор</string>
+    <!-- Relative Last Seen -->
+    <string name="CG_LastSeenNow">був(ла) щойно</string>
+    <string name="CG_LastSeenMinutes_one">був(ла) %1$d хвилину тому</string>
+    <string name="CG_LastSeenMinutes_few">був(ла) %1$d хвилини тому</string>
+    <string name="CG_LastSeenMinutes_many">був(ла) %1$d хвилин тому</string>
+    <string name="CG_LastSeenMinutes_other">був(ла) %1$d хвилин тому</string>
+    <string name="CG_LastSeenHours_one">був(ла) %1$d годину тому</string>
+    <string name="CG_LastSeenHours_few">був(ла) %1$d години тому</string>
+    <string name="CG_LastSeenHours_many">був(ла) %1$d годин тому</string>
+    <string name="CG_LastSeenHours_other">був(ла) %1$d годин тому</string>
 </resources>

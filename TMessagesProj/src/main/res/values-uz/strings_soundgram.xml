@@ -334,4 +334,14 @@
     <string name="sg_ta_section_cursor">KURSOR</string>
     <string name="sg_ta_cursor_smooth">Silliq kursor</string>
     <string name="sg_ta_cursor_liquid">Suyuq kursor</string>
+    <!-- Relative Last Seen -->
+    <string name="CG_LastSeenNow">hozirgina onlayn edi</string>
+    <string name="CG_LastSeenMinutes_one">%1$d daqiqa oldin onlayn edi</string>
+    <string name="CG_LastSeenMinutes_few">%1$d daqiqa oldin onlayn edi</string>
+    <string name="CG_LastSeenMinutes_many">%1$d daqiqa oldin onlayn edi</string>
+    <string name="CG_LastSeenMinutes_other">%1$d daqiqa oldin onlayn edi</string>
+    <string name="CG_LastSeenHours_one">%1$d soat oldin onlayn edi</string>
+    <string name="CG_LastSeenHours_few">%1$d soat oldin onlayn edi</string>
+    <string name="CG_LastSeenHours_many">%1$d soat oldin onlayn edi</string>
+    <string name="CG_LastSeenHours_other">%1$d soat oldin onlayn edi</string>
 </resources>

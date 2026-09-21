@@ -277,4 +277,6 @@ android_ndk_import_module_cpufeatures()
 
 # tgwsproxy
 add_library(tgwsproxy_jni SHARED jni_bridge.c)
+target_link_options(tgwsproxy_jni PRIVATE "-Wl,-z,max-page-size=16384")
+target_link_options(tgwsproxy_jni PRIVATE "-Wl,-z,common-page-size=16384")
 target_link_libraries(tgwsproxy_jni log dl)

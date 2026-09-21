@@ -128,10 +128,26 @@ abstract class TelegramStringsTask : DefaultTask() {
                 .add(suffix)
         }
 
+        // Union of all custom string resources (from strings_soundgram.xml, strings_nimarko.xml, strings_na.xml, etc.)
+        val customStrings = sortedSetOf<String>()
+        for (file in defaultLocalizationFiles + localizationInputFiles) {
+            if (file.name != "strings.xml") {
+                collectStrings(
+                    file = file,
+                    destination = customStrings
+                )
+            }
+        }
+
         // Add synthetic plural roots.
         for ((key, forms) in foundPlurals) {
             allStrings.add(key)
-
+            if (forms.any { customStrings.contains("${key}_$it") } || customStrings.contains(key)) {
+                customStrings.add(key)
+                for (form in forms) {
+                    customStrings.add("${key}_$form")
+                }
+            }
 
             // Add missing plural forms.
             for (form in pluralForms) {
@@ -149,7 +165,8 @@ abstract class TelegramStringsTask : DefaultTask() {
         // the same generated placeholders from resource shrinker's safe-mode heuristics.
         generateResourceShrinkerRules(
             stringsDir = stringsDir,
-            strings = allStrings
+            strings = allStrings,
+            customStrings = customStrings
         )
 
         generateStableIds(
@@ -249,14 +266,15 @@ abstract class TelegramStringsTask : DefaultTask() {
 
     private fun generateResourceShrinkerRules(
         stringsDir: File,
-        strings: Set<String>
+        strings: Set<String>,
+        customStrings: Set<String>
     ) {
         val rawDir = stringsDir.resolve("raw")
         rawDir.mkdirs()
 
         val discard = strings
             .asSequence()
-            .filterNot { GENERATED_EXCLUSIONS.contains(it) }
+            .filterNot { GENERATED_EXCLUSIONS.contains(it) || customStrings.contains(it) || it.startsWith("CG_") || it.startsWith("NM_") }
             .joinToString(", ") { "@string/$it" }
 
         rawDir.resolve("strings_discard.xml")
@@ -327,8 +345,15 @@ abstract class TelegramStringsTask : DefaultTask() {
         }
 
         for ((languageTag, files) in localizedFilesByTag) {
+            val allFiles = ArrayList<File>()
+            if (languageTag.contains('-')) {
+                val baseTag = languageTag.substringBefore('-')
+                localizedFilesByTag[baseTag]?.let { allFiles.addAll(it) }
+            }
+            allFiles.addAll(files)
+
             addLocalization(
-                files = files,
+                files = allFiles,
                 languageTag = languageTag
             )
         }
