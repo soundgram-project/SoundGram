@@ -84,6 +84,10 @@ public class SeekBarView extends FrameLayout {
     private boolean hasCustomLineWidthValue = false;
     private int sliderStyleOverride = -1;
 
+    private boolean isWavy = false;
+    private Path wavePath = new Path();
+    private Paint wavePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     private Path path = new Path();
 
     private boolean twoSided;
@@ -197,6 +201,17 @@ public class SeekBarView extends FrameLayout {
 
     public boolean isTwoSided() {
         return twoSided;
+    }
+
+    public void setWavy(boolean wavy) {
+        if (isWavy != wavy) {
+            isWavy = wavy;
+            invalidate();
+        }
+    }
+
+    public boolean isWavy() {
+        return isWavy;
     }
 
     public void setInnerColor(int color) {
@@ -509,7 +524,12 @@ public class SeekBarView extends FrameLayout {
         float left = selectorWidth / 2f, right = getMeasuredWidth() - selectorWidth / 2;
         float top = centerY - AndroidUtilities.dp(lineWidthDp) / 2f, bottom = centerY + AndroidUtilities.dp(lineWidthDp) / 2f;
 
-        if (hasCustomLineWidthValue && lineWidthDp >= 16) {
+        if (isWavy && (timestamps == null || timestamps.isEmpty()) && !twoSided) {
+            drawWavySeekBar(canvas, left, right, centerY, thumbX);
+            if (!org.telegram.messenger.MediaController.getInstance().isMessagePaused()) {
+                postInvalidateOnAnimation();
+            }
+        } else if (hasCustomLineWidthValue && lineWidthDp >= 16) {
             float padding = AndroidUtilities.dp(8); // gap size
             float thumbCenterX = left + thumbX;
             float radius = (bottom - top) / 2f;
@@ -680,6 +700,80 @@ public class SeekBarView extends FrameLayout {
 
         if (needInvalidate) {
             postInvalidateOnAnimation();
+        }
+    }
+
+    private void drawWavySeekBar(Canvas canvas, float left, float right, float centerY, int thumbX) {
+        float endX = left + thumbX;
+        endX = Math.max(left, Math.min(right, endX));
+
+        // 1. Unplayed track: straight rounded bar from endX to right
+        if (endX < right) {
+            float trackHeight = AndroidUtilities.dp(4);
+            rect.set(endX, centerY - trackHeight / 2f, right, centerY + trackHeight / 2f);
+            float rad = trackHeight / 2f;
+            canvas.drawRoundRect(rect, rad, rad, innerPaint1);
+        }
+
+        // 1b. Buffered track if any
+        if (bufferedProgress > 0) {
+            float buffRight = left + bufferedProgress * (right - left);
+            if (buffRight > endX) {
+                float trackHeight = AndroidUtilities.dp(4);
+                Paint buffPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                buffPaint.setColor(getThemedColor(Theme.key_player_progressCachedBackground));
+                rect.set(endX, centerY - trackHeight / 2f, Math.min(right, buffRight), centerY + trackHeight / 2f);
+                float rad = trackHeight / 2f;
+                canvas.drawRoundRect(rect, rad, rad, buffPaint);
+            }
+        }
+
+        // 2. Played track: squiggly sine wave from left to endX
+        if (endX > left) {
+            float length = endX - left;
+            if (length < AndroidUtilities.dp(4)) {
+                float trackHeight = AndroidUtilities.dp(4);
+                rect.set(left, centerY - trackHeight / 2f, endX, centerY + trackHeight / 2f);
+                canvas.drawRoundRect(rect, trackHeight / 2f, trackHeight / 2f, outerPaint1);
+            } else {
+                if (wavePath == null) {
+                    wavePath = new Path();
+                }
+                wavePath.reset();
+                if (wavePaint == null) {
+                    wavePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                }
+                wavePaint.setStyle(Paint.Style.STROKE);
+                wavePaint.setStrokeCap(Paint.Cap.ROUND);
+                wavePaint.setStrokeJoin(Paint.Join.ROUND);
+                wavePaint.setColor(outerPaint1.getColor());
+                wavePaint.setStrokeWidth(AndroidUtilities.dp(4));
+
+                float wavelength = AndroidUtilities.dp(22);
+                float maxAmplitude = AndroidUtilities.dp(3.5f);
+                boolean isPlaying = !org.telegram.messenger.MediaController.getInstance().isMessagePaused();
+                float phase = isPlaying ? ((SystemClock.elapsedRealtime() / 240f) % ((float) Math.PI * 2f)) : 0f;
+
+                wavePath.moveTo(left, centerY);
+                float step = AndroidUtilities.dp(2);
+                float rampDist = AndroidUtilities.dp(10);
+
+                for (float x = left; x <= endX; x += step) {
+                    float dStart = x - left;
+                    float dEnd = endX - x;
+                    float ramp = 1f;
+                    if (dStart < rampDist) {
+                        ramp = Math.min(ramp, dStart / rampDist);
+                    }
+                    if (dEnd < rampDist) {
+                        ramp = Math.min(ramp, dEnd / rampDist);
+                    }
+                    float y = centerY + (float) Math.sin(((x - left) / wavelength) * 2f * Math.PI - phase) * maxAmplitude * ramp;
+                    wavePath.lineTo(x, y);
+                }
+                wavePath.lineTo(endX, centerY);
+                canvas.drawPath(wavePath, wavePaint);
+            }
         }
     }
 

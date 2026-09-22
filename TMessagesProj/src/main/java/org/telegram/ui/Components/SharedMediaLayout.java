@@ -6745,20 +6745,41 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
 
     public void onResume() {
         scrolling = true;
-        if (photoVideoAdapter != null) {
-            photoVideoAdapter.notifyDataSetChanged();
-        }
-        if (documentsAdapter != null) {
-            documentsAdapter.notifyDataSetChanged();
-        }
-        if (linksAdapter != null) {
-            linksAdapter.notifyDataSetChanged();
+        if (isAnyMediaListComputingLayout()) {
+            postAdaptersUpdate();
+        } else {
+            if (photoVideoAdapter != null) {
+                safeNotifyAdapter(photoVideoAdapter, 0);
+            }
+            if (documentsAdapter != null) {
+                safeNotifyAdapter(documentsAdapter, 2);
+            }
+            if (linksAdapter != null) {
+                safeNotifyAdapter(linksAdapter, 3);
+            }
         }
         for (int a = 0; a < mediaPages.length; a++) {
             fixLayoutInternal(a);
         }
         if (savedMessagesContainer != null) {
             savedMessagesContainer.onResume();
+        }
+    }
+
+    private void safeNotifyAdapter(androidx.recyclerview.widget.RecyclerView.Adapter<?> adapter, int pageIndex) {
+        if (adapter == null) return;
+        MediaPage page = (mediaPages != null && pageIndex >= 0 && pageIndex < mediaPages.length) ? mediaPages[pageIndex] : null;
+        RecyclerListView lv = page != null ? page.listView : null;
+        if (lv != null && lv.isComputingLayout()) {
+            lv.post(adapter::notifyDataSetChanged);
+        } else {
+            try {
+                adapter.notifyDataSetChanged();
+            } catch (Throwable t) {
+                if (lv != null) {
+                    lv.post(adapter::notifyDataSetChanged);
+                }
+            }
         }
     }
 

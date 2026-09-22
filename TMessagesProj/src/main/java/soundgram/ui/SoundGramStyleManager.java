@@ -60,6 +60,9 @@ public class SoundGramStyleManager {
 
         boolean strokeOn = p.getBoolean(keySwitch, false);
         int alpha        = p.getInt(keyAlpha, 180);
+        if (SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER.equals(keyAlpha)) {
+            alpha = Math.max(180, alpha);
+        }
 
         int bgColor = p.getInt(keyBgColor, -1);
         if (bgColor == -1) bgColor = Theme.getColor(Theme.key_dialogBackground);
@@ -90,6 +93,9 @@ public class SoundGramStyleManager {
 
         boolean strokeOn = p.getBoolean(keySwitch, false);
         int alpha        = p.getInt(keyAlpha, 180);
+        if (SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER.equals(keyAlpha)) {
+            alpha = Math.max(180, alpha);
+        }
         int bgColor      = Theme.getColor(Theme.key_dialogBackground);
 
         GradientDrawable gd = new GradientDrawable();

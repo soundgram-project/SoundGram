@@ -35,7 +35,11 @@ public class NimarkoIconResources extends Resources {
                     org.telegram.messenger.R.drawable.msg_autodelete_badge2_solar,
                     org.telegram.messenger.R.drawable.msg_mini_autodelete_empty,
                     org.telegram.messenger.R.drawable.msg_mini_autodelete_empty_solar,
-                    org.telegram.messenger.R.drawable.forwards_solar
+                    org.telegram.messenger.R.drawable.forwards_solar,
+                    org.telegram.messenger.R.drawable.ft_avd_toarrow_animation,
+                    org.telegram.messenger.R.drawable.ft_avd_tooverflow_animation,
+                    org.telegram.messenger.R.drawable.ft_avd_toarrow,
+                    org.telegram.messenger.R.drawable.ft_avd_tooverflow
             ));
 
     private static final java.util.Set<Integer> STOCK_COMPOSER_DRAWABLES =

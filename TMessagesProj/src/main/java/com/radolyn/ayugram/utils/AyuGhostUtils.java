@@ -303,14 +303,29 @@ public class AyuGhostUtils {
                 object instanceof TLRPC.TL_messages_sendMultiMedia;
     }
 
-    public record InterceptResult(boolean blockRequest, RequestDelegate effectiveOnComplete) {
+    public static final class InterceptResult {
+        public final boolean blockRequest;
+        public final RequestDelegate effectiveOnComplete;
+
+        public InterceptResult(boolean blockRequest, RequestDelegate effectiveOnComplete) {
+            this.blockRequest = blockRequest;
+            this.effectiveOnComplete = effectiveOnComplete;
+        }
+
+        public boolean blockRequest() {
+            return blockRequest;
+        }
+
+        public RequestDelegate effectiveOnComplete() {
+            return effectiveOnComplete;
+        }
 
         public static InterceptResult Blocked(RequestDelegate originalOnComplete) {
-                return new InterceptResult(true, originalOnComplete);
-            }
-
-            public static InterceptResult Proceed(RequestDelegate effectiveOnComplete) {
-                return new InterceptResult(false, effectiveOnComplete);
-            }
+            return new InterceptResult(true, originalOnComplete);
         }
+
+        public static InterceptResult Proceed(RequestDelegate effectiveOnComplete) {
+            return new InterceptResult(false, effectiveOnComplete);
+        }
+    }
 }

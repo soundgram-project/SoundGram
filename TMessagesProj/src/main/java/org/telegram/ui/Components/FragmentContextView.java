@@ -237,6 +237,11 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
         .5f, 1f, 1.2f, 1.5f, 1.7f, 2f
     };
 
+    private DynamicIslandView islandView;
+    private boolean isPlayerExpanded;
+    private float expandProgress;
+    private android.animation.ValueAnimator expandAnimator;
+
     @Override
     public void onAudioSettingsChanged() {
         boolean newMuted = VoIPService.getSharedInstance() != null && VoIPService.getSharedInstance().isMicMute();
@@ -845,7 +850,127 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             }
         });
 
+        islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, () -> {
+            final android.app.Activity activity = AndroidUtilities.findActivity(getContext());
+            if (activity instanceof LaunchActivity) {
+                new AudioPlayerAlert(activity, resourcesProvider).show();
+            } else if (AndroidUtilities.isContextSafe(LaunchActivity.instance)) {
+                new AudioPlayerAlert(LaunchActivity.instance, resourcesProvider).show();
+            } else if (fragment != null) {
+                fragment.showDialog(new AudioPlayerAlert(getContext(), resourcesProvider));
+            } else {
+                new AudioPlayerAlert(getContext(), resourcesProvider).show();
+            }
+        });
+        addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 96, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 8, 2, 8, 2));
+        islandView.setVisibility(GONE);
+        islandView.setAlpha(0f);
+
+        View.OnLongClickListener islandLongClickListener = v -> {
+            if (currentStyle == STYLE_AUDIO_PLAYER) {
+                MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
+                if (messageObject != null && messageObject.isMusic()) {
+                    v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                    togglePlayerExpansion();
+                    return true;
+                }
+            }
+            return false;
+        };
+        setOnLongClickListener(islandLongClickListener);
+        if (frameLayout != null) {
+            frameLayout.setOnLongClickListener(islandLongClickListener);
+        }
+        if (titleTextView != null) {
+            titleTextView.setOnLongClickListener(islandLongClickListener);
+        }
+        if (playButton != null) {
+            playButton.setOnLongClickListener(islandLongClickListener);
+        }
+
         setLeftMargin(leftMargin);
+    }
+
+    public void togglePlayerExpansion() {
+        if (currentStyle != STYLE_AUDIO_PLAYER) {
+            return;
+        }
+        MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
+        if (messageObject == null || !messageObject.isMusic()) {
+            return;
+        }
+        isPlayerExpanded = !isPlayerExpanded;
+        if (expandAnimator != null) {
+            expandAnimator.cancel();
+        }
+        float target = isPlayerExpanded ? 1.0f : 0.0f;
+        expandAnimator = android.animation.ValueAnimator.ofFloat(expandProgress, target);
+        expandAnimator.setDuration(320);
+        expandAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+        expandAnimator.addUpdateListener(anim -> {
+            expandProgress = (Float) anim.getAnimatedValue();
+            applyExpansionProgress();
+        });
+        expandAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                applyExpansionProgress();
+            }
+        });
+        expandAnimator.start();
+    }
+
+    private void applyExpansionProgress() {
+        int currentH = getStyleHeight();
+        if (visible) {
+            setTopPadding(AndroidUtilities.dp2(currentH));
+        }
+        if (frameLayout != null) {
+            frameLayout.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            frameLayout.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
+        }
+        if (playButton != null) {
+            playButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            playButton.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
+        }
+        if (closeButton != null) {
+            closeButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            closeButton.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
+        }
+        if (playbackSpeedButton != null) {
+            playbackSpeedButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            playbackSpeedButton.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
+        }
+        if (islandView != null) {
+            islandView.setVisibility(expandProgress <= 0.02f ? View.GONE : View.VISIBLE);
+            islandView.setAlpha(Math.max(0f, Math.min(1f, (expandProgress - 0.15f) / 0.85f)));
+
+            int horizontalMargin = Math.round(AndroidUtilities.dp(8) * expandProgress);
+            int verticalMargin = Math.round(AndroidUtilities.dp(2) * expandProgress);
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) islandView.getLayoutParams();
+            if (lp != null) {
+                lp.leftMargin = horizontalMargin;
+                lp.rightMargin = horizontalMargin;
+                lp.topMargin = verticalMargin;
+                lp.bottomMargin = verticalMargin;
+                lp.height = AndroidUtilities.dp(currentH) - verticalMargin * 2;
+                islandView.setLayoutParams(lp);
+            }
+        }
+        View pView = (View) getParent();
+        while (pView != null) {
+            pView.requestLayout();
+            if (pView instanceof ChatActivityTopPanelLayout || pView instanceof DialogsActivityTopPanelLayout) {
+                break;
+            }
+            if (pView.getParent() instanceof View) {
+                pView = (View) pView.getParent();
+            } else {
+                break;
+            }
+        }
+        requestLayout();
+        invalidate();
     }
 
     private boolean slidingSpeed;
@@ -1050,6 +1175,9 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                     }
                 }
             }
+        }
+        if (islandView != null) {
+            islandView.updateColors();
         }
     }
 
@@ -1504,7 +1632,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, AndroidUtilities.dp2(getStyleHeight()));
+        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(getStyleHeight()), MeasureSpec.EXACTLY));
     }
 
     @Override
@@ -1593,7 +1721,14 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             avatars.invalidate();
         } else if (id == NotificationCenter.messagePlayingProgressDidChanged) {
             if (currentStyle == STYLE_AUDIO_PLAYER) {
+                if (islandView != null && (isPlayerExpanded || expandProgress > 0)) {
+                    islandView.updateProgress();
+                }
                 invalidate();
+            }
+        } else if (id == NotificationCenter.messagePlayingPlayStateChanged) {
+            if (islandView != null) {
+                islandView.updatePlayPause(!MediaController.getInstance().isMessagePaused());
             }
         }
     }
@@ -1602,6 +1737,9 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     float micAmplitude;
 
     public int getStyleHeight() {
+        if (currentStyle == STYLE_AUDIO_PLAYER && (isPlayerExpanded || expandProgress > 0)) {
+            return Math.round(AndroidUtilities.lerp(36, 100, expandProgress));
+        }
         return currentStyle == STYLE_INACTIVE_GROUP_CALL ? 48 : 36;
     }
 
@@ -1825,6 +1963,11 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
         }
         boolean wasVisible = visible;
         if (messageObject == null || messageObject.getId() == 0 || messageObject.isVideo()) {
+            if (isPlayerExpanded) {
+                isPlayerExpanded = false;
+                expandProgress = 0f;
+                applyExpansionProgress();
+            }
             lastMessageObject = null;
             boolean callAvailable = supportsCalls && VoIPService.getSharedInstance() != null && !VoIPService.getSharedInstance().isHangingUp() && VoIPService.getSharedInstance().getCallState() != VoIPService.STATE_WAITING_INCOMING && !GroupCallPip.isShowing();
             if (!isPlayingVoice() && !callAvailable && chatActivity != null && !GroupCallPip.isShowing()) {
@@ -2002,6 +2145,9 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 TypefaceSpan span = new TypefaceSpan(AndroidUtilities.bold(), 0, getThemedColor(Theme.key_inappPlayerPerformer));
                 stringBuilder.setSpan(span, 0, messageObject.getMusicAuthor().length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
                 titleTextView.setText(stringBuilder, !create && wasVisible && isMusic);
+            }
+            if (islandView != null) {
+                islandView.updateTrackData();
             }
         }
     }
@@ -2654,7 +2800,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
 
         if (currentStyle == STYLE_AUDIO_PLAYER) {
             MessageObject playingMessageObject = MediaController.getInstance().getPlayingMessageObject();
-            if (playingMessageObject != null) {
+            if (playingMessageObject != null && expandProgress < 1.0f) {
                 final float left = -dpf2(1);
                 final float right = getMeasuredWidth() + dpf2(1);
                 final float p = lerp(left, right, playingMessageObject.audioProgress);
@@ -2662,6 +2808,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 final float top = bottom - dpf2(2);
 
                 progressPaint.setColor(getThemedColor(Theme.key_telegram_color));
+                progressPaint.setAlpha((int) (255 * (1.0f - expandProgress)));
                 canvas.drawRoundRect(left, top, p, bottom, dpf2(1), dpf2(1), progressPaint);
             }
         }

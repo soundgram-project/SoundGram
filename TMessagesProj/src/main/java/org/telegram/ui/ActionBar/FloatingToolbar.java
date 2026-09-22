@@ -424,10 +424,8 @@ public final class FloatingToolbar {
             mArrow.setAutoMirrored(true);
             mOverflow = mContext.getDrawable(R.drawable.ft_avd_toarrow).mutate();
             mOverflow.setAutoMirrored(true);
-            mToArrow = (AnimatedVectorDrawable) mContext.getDrawable(R.drawable.ft_avd_toarrow_animation).mutate();
-            mToArrow.setAutoMirrored(true);
-            mToOverflow = (AnimatedVectorDrawable) mContext.getDrawable(R.drawable.ft_avd_tooverflow_animation).mutate();
-            mToOverflow.setAutoMirrored(true);
+            mToArrow = getSafeAvd(mContext, R.drawable.ft_avd_toarrow_animation);
+            mToOverflow = getSafeAvd(mContext, R.drawable.ft_avd_tooverflow_animation);
 
             mOverflowButton = new FrameLayout(mContext);
             mOverflowButtonIcon = new ImageButton(mContext) {
@@ -465,10 +463,10 @@ public final class FloatingToolbar {
                 mOverflowButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ALL));
                 mOverflowButtonShadow.setBackgroundColor(getThemedColor(Theme.key_divider));
             }
-            mOverflow.setTint(color);
-            mArrow.setTint(color);
-            mToArrow.setTint(color);
-            mToOverflow.setTint(color);
+            if (mOverflow != null) mOverflow.setTint(color);
+            if (mArrow != null) mArrow.setTint(color);
+            if (mToArrow != null) mToArrow.setTint(color);
+            if (mToOverflow != null) mToOverflow.setTint(color);
             mOverflowButtonText.setTextColor(color);
             mOverflowButtonIcon.setOnClickListener(v -> onBackPressed());
             mOverflowButton.addView(mOverflowButtonIcon, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL | Gravity.LEFT));
@@ -504,14 +502,40 @@ public final class FloatingToolbar {
             });
         }
 
+        private static AnimatedVectorDrawable getSafeAvd(Context context, int resId) {
+            try {
+                Drawable d = context.getDrawable(resId);
+                if (d instanceof AnimatedVectorDrawable) {
+                    AnimatedVectorDrawable avd = (AnimatedVectorDrawable) d.mutate();
+                    avd.setAutoMirrored(true);
+                    return avd;
+                }
+                Drawable raw = org.telegram.messenger.ApplicationLoader.applicationContext.getResources().getDrawable(resId);
+                if (raw instanceof AnimatedVectorDrawable) {
+                    AnimatedVectorDrawable avd = (AnimatedVectorDrawable) raw.mutate();
+                    avd.setAutoMirrored(true);
+                    return avd;
+                }
+            } catch (Throwable ignore) {}
+            return null;
+        }
+
         private void onBackPressed() {
             if (mIsOverflowOpen) {
-                mOverflowButtonIcon.setImageDrawable(mToOverflow);
-                mToOverflow.start();
+                if (mToOverflow != null) {
+                    mOverflowButtonIcon.setImageDrawable(mToOverflow);
+                    mToOverflow.start();
+                } else {
+                    mOverflowButtonIcon.setImageDrawable(mOverflow);
+                }
                 closeOverflow();
             } else {
-                mOverflowButtonIcon.setImageDrawable(mToArrow);
-                mToArrow.start();
+                if (mToArrow != null) {
+                    mOverflowButtonIcon.setImageDrawable(mToArrow);
+                    mToArrow.start();
+                } else {
+                    mOverflowButtonIcon.setImageDrawable(mArrow);
+                }
                 openOverflow();
             }
         }
@@ -682,8 +706,8 @@ public final class FloatingToolbar {
             mContentContainer.clearAnimation();
             mMainPanel.animate().cancel();
             mOverflowPanel.animate().cancel();
-            mToArrow.stop();
-            mToOverflow.stop();
+            if (mToArrow != null) mToArrow.stop();
+            if (mToOverflow != null) mToOverflow.stop();
         }
 
         private void openOverflow() {

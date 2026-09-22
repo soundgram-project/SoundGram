@@ -148,7 +148,21 @@ public class GroupedIconsView extends FrameLayout {
         }
     }
 
-    private record OptionConfig(int iconResId, int shortPressOptionId, Integer longPressOptionId, boolean isEnabled, boolean isLongClickEnabled) {
+    private static final class OptionConfig {
+        final int iconResId;
+        final int shortPressOptionId;
+        final Integer longPressOptionId;
+        final boolean isEnabled;
+        final boolean isLongClickEnabled;
+
+        OptionConfig(int iconResId, int shortPressOptionId, Integer longPressOptionId, boolean isEnabled, boolean isLongClickEnabled) {
+            this.iconResId = iconResId;
+            this.shortPressOptionId = shortPressOptionId;
+            this.longPressOptionId = longPressOptionId;
+            this.isEnabled = isEnabled;
+            this.isLongClickEnabled = isLongClickEnabled;
+        }
+
         private OptionConfig(int iconResId, int shortPressOptionId) {
             this(iconResId, shortPressOptionId, null, true, false);
         }

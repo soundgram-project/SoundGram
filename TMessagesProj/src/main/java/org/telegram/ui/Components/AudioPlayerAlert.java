@@ -236,6 +236,10 @@ public class AudioPlayerAlert extends BottomSheet
     private ActionBarMenuSubItem reverseOrderItem;
     private ImageView playButton;
     private PlayPauseDrawable playPauseDrawable;
+    private Drawable lastCoverDrawable;
+    private ImageView eqBtn;
+    private ImageView lyricsBtnBottom;
+    private ImageView topOptionsBtn;
     private FrameLayout blurredView;
     private BackupImageView bigAlbumConver;
     private ActionBarMenuItem searchItem;
@@ -1234,6 +1238,7 @@ public class AudioPlayerAlert extends BottomSheet
                 } else {
                     base.setColor(Theme.getColor(Theme.key_dialogBackground));
                 }
+                lastCoverDrawable = base;
                 playerLayout.setBackground(base);
             }
         };
@@ -1264,7 +1269,7 @@ public class AudioPlayerAlert extends BottomSheet
                         Gravity.CENTER));
 
         // Кнопка сворачивания (сверху справа)
-        ImageView topOptionsBtn = new ImageView(context);
+        topOptionsBtn = new ImageView(context);
         topOptionsBtn.setImageResource(R.drawable.ic_ab_back);
         topOptionsBtn.setRotation(270f); // Стрелочка вниз
         topOptionsBtn.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000, PorterDuff.Mode.SRC_IN);
@@ -1568,7 +1573,8 @@ public class AudioPlayerAlert extends BottomSheet
 
         // SeekFrame for Expressive: No background, times below slider
         FrameLayout seekFrame = new FrameLayout(context);
-        seekBarView.setColors(Theme.isCurrentThemeDark() ? 0x40FFFFFF : 0x80000000, Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000);
+        seekBarView.setWavy(true);
+        seekBarView.setColors(getThemedColor(Theme.key_player_progressBackground), getThemedColor(Theme.key_player_progress));
         seekFrame.addView(seekBarView,
                 LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 32, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
         seekFrame.addView(progressView,
@@ -1972,7 +1978,7 @@ public class AudioPlayerAlert extends BottomSheet
         bottomActionGroup.addView(queueButton, LayoutHelper.createLinear(44, 44, 0, 0, 16, 0));
 
         // EQ/Volume button
-        ImageView eqBtn = new ImageView(context);
+        eqBtn = new ImageView(context);
         eqBtn.setImageResource(R.drawable.msg_customize);
         eqBtn.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN);
         eqBtn.setScaleType(ImageView.ScaleType.CENTER);
@@ -1987,7 +1993,7 @@ public class AudioPlayerAlert extends BottomSheet
         bottomActionGroup.addView(eqBtn, LayoutHelper.createLinear(44, 44, 0, 0, 16, 0));
 
         // Lyrics button
-        ImageView lyricsBtnBottom = new ImageView(context);
+        lyricsBtnBottom = new ImageView(context);
         lyricsBtnBottom.setImageResource(R.drawable.msg_photo_text_solar);
         lyricsBtnBottom.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN);
         lyricsBtnBottom.setScaleType(ImageView.ScaleType.CENTER);
@@ -2471,6 +2477,83 @@ public class AudioPlayerAlert extends BottomSheet
         }
         if (backwardButton != null) {
             backwardButton.setTextColor(getThemedColor(Theme.key_player_button));
+        }
+        final int titleColor = getThemedColor(Theme.key_player_actionBarTitle);
+        final int subtitleColor = getThemedColor(Theme.key_player_actionBarSubtitle);
+        final int timeColor = getThemedColor(Theme.key_player_time);
+        final int accentColor = getThemedColor(Theme.key_featuredStickers_addButton);
+        final int progressBg = getThemedColor(Theme.key_player_progressBackground);
+        final int progressColor = getThemedColor(Theme.key_player_progress);
+
+        if (seekBarView != null) {
+            seekBarView.setWavy(true);
+            seekBarView.setColors(progressBg, progressColor);
+        }
+        if (timeTextView != null) {
+            timeTextView.setTextColor(timeColor);
+        }
+        if (durationTextView != null) {
+            durationTextView.setTextColor(timeColor);
+        }
+        if (playButton != null) {
+            int iconColor = AndroidUtilities.computePerceivedBrightness(accentColor) > 0.72f ? 0xFF000000 : 0xFFFFFFFF;
+            playButton.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+            playButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(40), accentColor, Theme.blendOver(accentColor, 0x25000000)));
+        }
+        int btnBg = ColorUtils.setAlphaComponent(titleColor, 35);
+        int btnPressedBg = ColorUtils.setAlphaComponent(titleColor, 55);
+        if (prevButton != null) {
+            prevButton.setLayerColor("Triangle 3.**", titleColor);
+            prevButton.setLayerColor("Triangle 4.**", titleColor);
+            prevButton.setLayerColor("Rectangle 4.**", titleColor);
+            prevButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(32), btnBg, btnPressedBg));
+        }
+        if (nextButton != null) {
+            nextButton.setLayerColor("Triangle 3.**", titleColor);
+            nextButton.setLayerColor("Triangle 4.**", titleColor);
+            nextButton.setLayerColor("Rectangle 4.**", titleColor);
+            nextButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(32), btnBg, btnPressedBg));
+        }
+        if (queueButton != null) {
+            queueButton.setColorFilter(new PorterDuffColorFilter(titleColor, PorterDuff.Mode.SRC_IN));
+            queueButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), btnBg, btnPressedBg));
+        }
+        if (modeMenuButton != null) {
+            modeMenuButton.setIconColor(titleColor);
+            modeMenuButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), btnBg, btnPressedBg));
+        }
+        if (eqBtn != null) {
+            eqBtn.setColorFilter(titleColor, PorterDuff.Mode.SRC_IN);
+            eqBtn.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), btnBg, btnPressedBg));
+        }
+        if (lyricsBtnBottom != null) {
+            lyricsBtnBottom.setColorFilter(titleColor, PorterDuff.Mode.SRC_IN);
+            lyricsBtnBottom.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), btnBg, btnPressedBg));
+        }
+        if (topOptionsBtn != null) {
+            topOptionsBtn.setColorFilter(titleColor, PorterDuff.Mode.SRC_IN);
+        }
+        if (sourceChipTextView != null) {
+            sourceChipTextView.setTextColor(subtitleColor);
+        }
+        updatePlayerBackground();
+    }
+
+    public void updatePlayerBackground() {
+        if (playerLayout == null) return;
+        if (lastCoverDrawable != null) {
+            playerLayout.setBackground(lastCoverDrawable);
+        } else {
+            android.graphics.drawable.GradientDrawable base = new android.graphics.drawable.GradientDrawable();
+            base.setCornerRadii(new float[] {
+                    AndroidUtilities.dp(28), AndroidUtilities.dp(28),
+                    AndroidUtilities.dp(28), AndroidUtilities.dp(28),
+                    0, 0, 0, 0
+            });
+            int bg = getThemedColor(Theme.key_dialogBackground);
+            base.setColor(0xFF000000 | bg);
+            base.setStroke(AndroidUtilities.dp(1), 0x22FFFFFF);
+            playerLayout.setBackground(base);
         }
     }
 
@@ -4317,23 +4400,11 @@ public class AudioPlayerAlert extends BottomSheet
             // Список треков всегда скрыт
             listViewIsVisible = false;
             listView.setVisibility(View.GONE);
+            updatePlayerBackground();
+            playerShadow.setVisibility(View.VISIBLE);
             if (playlist.size() > 1) {
-                playerLayout.setBackground(SoundGramStyleManager.buildGlassDrawable(
-                        SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER,
-                        SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER,
-                        SoundGramStyleSettingsFragment.KEY_COLOR_BG_PLAYER,
-                        SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_PLAYER,
-                        28f));
-                playerShadow.setVisibility(View.VISIBLE);
                 listView.setPadding(0, listView.getPaddingTop(), 0, dp(179 + 52));
             } else {
-                playerLayout.setBackground(SoundGramStyleManager.buildGlassDrawable(
-                        SoundGramStyleSettingsFragment.KEY_GLASS_PLAYER,
-                        SoundGramStyleSettingsFragment.KEY_ALPHA_PLAYER,
-                        SoundGramStyleSettingsFragment.KEY_COLOR_BG_PLAYER,
-                        SoundGramStyleSettingsFragment.KEY_COLOR_STROKE_PLAYER,
-                        28f));
-                playerShadow.setVisibility(View.VISIBLE);
                 listView.setPadding(0, listView.getPaddingTop(), 0, 0);
             }
             updateEmptyView();
