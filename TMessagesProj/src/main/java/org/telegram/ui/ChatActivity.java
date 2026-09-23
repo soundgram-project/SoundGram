@@ -15548,20 +15548,14 @@ public class ChatActivity extends BaseFragment implements
         // Skip in topics (matches CherrygramChatsConfig.autoQuoteReplies + !ChatsHelper.isTopic
         // gate in showFieldPanel's reply-icon branch).
         ReplyQuote autoQuote = null;
-        if (messageObjectToReply != null) {
-            if (messageObjectToReply.isAyuDeleted()) {
-                try {
+        if (messageObjectToReply != null && app.nimarkogram.messenger.NimarkoConfig.autoQuoteReplies) {
+            try {
+                boolean isTopic = app.nimarkogram.messenger.utils.chats.NimarkoChatHelper
+                        .getInstance(currentAccount).isTopic(messageObjectToReply);
+                if (!isTopic) {
                     autoQuote = ReplyQuote.from(messageObjectToReply);
-                } catch (Throwable ignored) {}
-            } else if (app.nimarkogram.messenger.NimarkoConfig.autoQuoteReplies) {
-                try {
-                    boolean isTopic = app.nimarkogram.messenger.utils.chats.NimarkoChatHelper
-                            .getInstance(currentAccount).isTopic(messageObjectToReply);
-                    if (!isTopic) {
-                        autoQuote = ReplyQuote.from(messageObjectToReply);
-                    }
-                } catch (Throwable ignored) {}
-            }
+                }
+            } catch (Throwable ignored) {}
         }
         showFieldPanel(true, messageObjectToReply, null, null, null, true, 0, autoQuote, false, 0, true);
     }
@@ -31373,6 +31367,9 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onPause() {
         super.onPause();
+        if (fragmentContextView != null) {
+            fragmentContextView.collapsePlayer(false);
+        }
         if (chatListView != null) {
             chatListView.removeCallbacks(refreshChatAdapterRunnable);
             chatListView.removeCallbacks(pendingVisibleRowsRebindRunnable);

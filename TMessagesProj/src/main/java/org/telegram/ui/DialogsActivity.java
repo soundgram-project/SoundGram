@@ -7974,6 +7974,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onPause() {
         super.onPause();
+        if (fragmentContextView != null) {
+            fragmentContextView.collapsePlayer(false);
+        }
         if (chatListVideoPlayer != null) {
             chatListVideoPlayer.pause();
         }

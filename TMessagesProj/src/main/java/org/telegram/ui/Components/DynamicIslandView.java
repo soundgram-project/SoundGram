@@ -64,18 +64,18 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
 
     private void init(Context context) {
         cardBg = new GradientDrawable();
-        cardBg.setCornerRadius(AndroidUtilities.dp(20));
+        cardBg.setCornerRadii(new float[]{
+                0, 0,
+                0, 0,
+                AndroidUtilities.dp(16), AndroidUtilities.dp(16),
+                AndroidUtilities.dp(16), AndroidUtilities.dp(16)
+        });
         updateCardColors();
         setBackground(cardBg);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            setElevation(AndroidUtilities.dp(3));
-            setClipToOutline(true);
-        }
-
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(6), AndroidUtilities.dp(12), AndroidUtilities.dp(6));
+        content.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(6), AndroidUtilities.dp(14), AndroidUtilities.dp(6));
         addView(content, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         // 1. Header row: [Cover] [Title + Artist] [Collapse]
@@ -234,15 +234,9 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
 
     private void updateCardColors() {
         if (cardBg == null) return;
-        int bgCol = getThemedColor(Theme.key_inappPlayerBackground);
-        if (bgCol == 0) {
-            bgCol = Theme.isCurrentThemeDark() ? 0xF01C1C1E : 0xF8F2F2F7;
-        } else {
-            bgCol = 0xFF000000 | bgCol;
-        }
-        int strokeCol = Theme.isCurrentThemeDark() ? 0x22FFFFFF : 0x18000000;
-        cardBg.setColor(bgCol);
-        cardBg.setStroke(AndroidUtilities.dp(1), strokeCol);
+        cardBg.setColor(Color.TRANSPARENT);
+        int strokeCol = Theme.isCurrentThemeDark() ? 0x22FFFFFF : 0x15000000;
+        cardBg.setStroke(AndroidUtilities.dp(0.75f), strokeCol);
     }
 
     private ImageView createControlButton(Context context, int iconResId, int tintColor, int sizeDp, Runnable onClick) {

@@ -770,15 +770,10 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 }
             } else if (currentStyle == STYLE_AUDIO_PLAYER) {
                 MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
-                if (fragment != null && messageObject != null) {
+                if (messageObject != null) {
                     if (messageObject.isMusic()) {
-                        final Activity activity = AndroidUtilities.findActivity(getContext());
-                        if (activity instanceof LaunchActivity) {
-                            new AudioPlayerAlert(activity, resourcesProvider).show();
-                        } else if (AndroidUtilities.isContextSafe(LaunchActivity.instance)) {
-                            new AudioPlayerAlert(LaunchActivity.instance, resourcesProvider).show();
-                        }
-                    } else {
+                        openAudioPlayer();
+                    } else if (fragment != null) {
                         long dialogId = 0;
                         if (chatActivity != null) {
                             dialogId = chatActivity.getDialogId();
@@ -850,21 +845,21 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             }
         });
 
-        islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, () -> {
-            final android.app.Activity activity = AndroidUtilities.findActivity(getContext());
-            if (activity instanceof LaunchActivity) {
-                new AudioPlayerAlert(activity, resourcesProvider).show();
-            } else if (AndroidUtilities.isContextSafe(LaunchActivity.instance)) {
-                new AudioPlayerAlert(LaunchActivity.instance, resourcesProvider).show();
-            } else if (fragment != null) {
-                fragment.showDialog(new AudioPlayerAlert(getContext(), resourcesProvider));
-            } else {
-                new AudioPlayerAlert(getContext(), resourcesProvider).show();
-            }
-        });
-        addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 96, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 8, 2, 8, 2));
+        islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, this::openAudioPlayer);
+        addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
         islandView.setVisibility(GONE);
         islandView.setAlpha(0f);
+
+        View.OnClickListener openPlayerClick = v -> {
+            if (currentStyle == STYLE_AUDIO_PLAYER) {
+                MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
+                if (messageObject != null && messageObject.isMusic()) {
+                    openAudioPlayer();
+                    return;
+                }
+            }
+            performClick();
+        };
 
         View.OnLongClickListener islandLongClickListener = v -> {
             if (currentStyle == STYLE_AUDIO_PLAYER) {
@@ -877,18 +872,43 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             }
             return false;
         };
+
         setOnLongClickListener(islandLongClickListener);
         if (frameLayout != null) {
+            frameLayout.setOnClickListener(openPlayerClick);
             frameLayout.setOnLongClickListener(islandLongClickListener);
         }
         if (titleTextView != null) {
+            titleTextView.setOnClickListener(openPlayerClick);
             titleTextView.setOnLongClickListener(islandLongClickListener);
         }
-        if (playButton != null) {
-            playButton.setOnLongClickListener(islandLongClickListener);
+        if (subtitleTextView != null) {
+            subtitleTextView.setOnClickListener(openPlayerClick);
+            subtitleTextView.setOnLongClickListener(islandLongClickListener);
+        }
+        if (selector != null) {
+            selector.setOnClickListener(openPlayerClick);
+            selector.setOnLongClickListener(islandLongClickListener);
         }
 
         setLeftMargin(leftMargin);
+    }
+
+    public void openAudioPlayer() {
+        if (fragment != null) {
+            fragment.showDialog(new AudioPlayerAlert(getContext(), resourcesProvider));
+        } else {
+            final Activity activity = AndroidUtilities.findActivity(getContext());
+            if (activity instanceof LaunchActivity) {
+                new AudioPlayerAlert(activity, resourcesProvider).show();
+            } else if (AndroidUtilities.isContextSafe(LaunchActivity.instance)) {
+                new AudioPlayerAlert(LaunchActivity.instance, resourcesProvider).show();
+            } else if (activity != null) {
+                new AudioPlayerAlert(activity, resourcesProvider).show();
+            } else {
+                new AudioPlayerAlert(getContext(), resourcesProvider).show();
+            }
+        }
     }
 
     public void togglePlayerExpansion() {
@@ -905,72 +925,93 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
         }
         float target = isPlayerExpanded ? 1.0f : 0.0f;
         expandAnimator = android.animation.ValueAnimator.ofFloat(expandProgress, target);
-        expandAnimator.setDuration(320);
+        expandAnimator.setDuration(isPlayerExpanded ? 320 : 250);
         expandAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
         expandAnimator.addUpdateListener(anim -> {
             expandProgress = (Float) anim.getAnimatedValue();
-            applyExpansionProgress();
+            updateExpandViews();
         });
         expandAnimator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                applyExpansionProgress();
+                expandProgress = target;
+                updateExpandViews();
             }
         });
         expandAnimator.start();
+        updateExpandViews();
     }
 
-    private void applyExpansionProgress() {
-        int currentH = getStyleHeight();
+    private void updateExpandViews() {
         if (visible) {
-            setTopPadding(AndroidUtilities.dp2(currentH));
+            setTopPadding(AndroidUtilities.dp2(getStyleHeight()));
         }
         if (frameLayout != null) {
-            frameLayout.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            frameLayout.setAlpha(Math.max(0f, 1f - expandProgress * 2.0f));
             frameLayout.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
         }
         if (playButton != null) {
-            playButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            playButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.0f));
             playButton.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
         }
         if (closeButton != null) {
-            closeButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            closeButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.0f));
             closeButton.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
         }
         if (playbackSpeedButton != null) {
-            playbackSpeedButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.5f));
+            playbackSpeedButton.setAlpha(Math.max(0f, 1f - expandProgress * 2.0f));
             playbackSpeedButton.setVisibility(expandProgress >= 0.98f ? View.GONE : View.VISIBLE);
         }
         if (islandView != null) {
             islandView.setVisibility(expandProgress <= 0.02f ? View.GONE : View.VISIBLE);
-            islandView.setAlpha(Math.max(0f, Math.min(1f, (expandProgress - 0.15f) / 0.85f)));
-
-            int horizontalMargin = Math.round(AndroidUtilities.dp(8) * expandProgress);
-            int verticalMargin = Math.round(AndroidUtilities.dp(2) * expandProgress);
-            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) islandView.getLayoutParams();
-            if (lp != null) {
-                lp.leftMargin = horizontalMargin;
-                lp.rightMargin = horizontalMargin;
-                lp.topMargin = verticalMargin;
-                lp.bottomMargin = verticalMargin;
-                lp.height = AndroidUtilities.dp(currentH) - verticalMargin * 2;
-                islandView.setLayoutParams(lp);
-            }
+            islandView.setAlpha(Math.max(0f, Math.min(1f, (expandProgress - 0.08f) / 0.92f)));
+            islandView.setTranslationY(AndroidUtilities.dp(6) * (1f - expandProgress));
         }
-        View pView = (View) getParent();
-        while (pView != null) {
-            pView.requestLayout();
-            if (pView instanceof ChatActivityTopPanelLayout || pView instanceof DialogsActivityTopPanelLayout) {
+        requestLayout();
+        View p = (View) getParent();
+        while (p != null) {
+            p.requestLayout();
+            if (p instanceof ChatActivityTopPanelLayout || p instanceof DialogsActivityTopPanelLayout) {
                 break;
             }
-            if (pView.getParent() instanceof View) {
-                pView = (View) pView.getParent();
+            if (p.getParent() instanceof View) {
+                p = (View) p.getParent();
             } else {
                 break;
             }
         }
-        requestLayout();
         invalidate();
+    }
+
+    public void collapsePlayer(boolean animated) {
+        if (!isPlayerExpanded && expandProgress == 0f) {
+            return;
+        }
+        isPlayerExpanded = false;
+        if (expandAnimator != null) {
+            expandAnimator.cancel();
+            expandAnimator = null;
+        }
+        if (animated) {
+            expandAnimator = android.animation.ValueAnimator.ofFloat(expandProgress, 0f);
+            expandAnimator.setDuration(240);
+            expandAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+            expandAnimator.addUpdateListener(anim -> {
+                expandProgress = (Float) anim.getAnimatedValue();
+                updateExpandViews();
+            });
+            expandAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    expandProgress = 0f;
+                    updateExpandViews();
+                }
+            });
+            expandAnimator.start();
+        } else {
+            expandProgress = 0f;
+            updateExpandViews();
+        }
     }
 
     private boolean slidingSpeed;
@@ -1515,6 +1556,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        collapsePlayer(false);
         if (animatorSet != null) {
             animatorSet.cancel();
             animatorSet = null;
@@ -1737,8 +1779,12 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     float micAmplitude;
 
     public int getStyleHeight() {
-        if (currentStyle == STYLE_AUDIO_PLAYER && (isPlayerExpanded || expandProgress > 0)) {
-            return Math.round(AndroidUtilities.lerp(36, 100, expandProgress));
+        if (currentStyle == STYLE_AUDIO_PLAYER) {
+            if (expandProgress > 0f) {
+                return (int) Math.round(AndroidUtilities.lerp(36f, 116f, expandProgress));
+            } else if (isPlayerExpanded) {
+                return 116;
+            }
         }
         return currentStyle == STYLE_INACTIVE_GROUP_CALL ? 48 : 36;
     }
@@ -1964,9 +2010,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
         boolean wasVisible = visible;
         if (messageObject == null || messageObject.getId() == 0 || messageObject.isVideo()) {
             if (isPlayerExpanded) {
-                isPlayerExpanded = false;
-                expandProgress = 0f;
-                applyExpansionProgress();
+                collapsePlayer(false);
             }
             lastMessageObject = null;
             boolean callAvailable = supportsCalls && VoIPService.getSharedInstance() != null && !VoIPService.getSharedInstance().isHangingUp() && VoIPService.getSharedInstance().getCallState() != VoIPService.STATE_WAITING_INCOMING && !GroupCallPip.isShowing();

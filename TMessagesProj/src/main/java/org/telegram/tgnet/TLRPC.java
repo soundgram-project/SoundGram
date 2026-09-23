@@ -27563,6 +27563,7 @@ public class TLRPC {
         public int reply_to_top_id;
         public boolean reply_to_ephemeral;
         public long reply_to_random_id; //custom
+        public boolean isAyuDeleted; //custom
         public MessageFwdHeader reply_from;
         public MessageMedia reply_media;
         public String quote_text;
