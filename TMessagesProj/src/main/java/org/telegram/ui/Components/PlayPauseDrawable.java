@@ -101,12 +101,15 @@ public class PlayPauseDrawable extends Drawable {
     }
 
     public void setPause(boolean pause, boolean animated) {
-        if (this.pause != pause) {
+        if (this.pause != pause || !animated) {
             this.pause = pause;
             if (!animated) {
                 progress = pause ? 1f : 0f;
             }
             this.lastUpdateTime = AnimationUtils.currentAnimationTimeMillis();
+            if (parent != null) {
+                parent.invalidate();
+            }
             invalidateSelf();
         }
     }

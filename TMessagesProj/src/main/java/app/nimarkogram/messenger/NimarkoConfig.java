@@ -287,6 +287,12 @@ public final class NimarkoConfig {
         getEditor().putBoolean("unarchiveOnSwipe", unarchiveOnSwipe).apply();
     }
 
+    public static boolean autoOpenArchive = getPreferences().getBoolean("autoOpenArchive", false);
+    public static void toggleAutoOpenArchive() {
+        autoOpenArchive = !autoOpenArchive;
+        getEditor().putBoolean("autoOpenArchive", autoOpenArchive).apply();
+    }
+
     public static boolean forwardWithoutAuthor = getPreferences().getBoolean("forwardWithoutAuthor", false);
     public static void toggleForwardWithoutAuthor() {
         forwardWithoutAuthor = !forwardWithoutAuthor;

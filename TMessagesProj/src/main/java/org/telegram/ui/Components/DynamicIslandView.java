@@ -51,6 +51,10 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
     private ImageView nextButton;
     private ImageView collapseButton;
 
+    private LinearLayout headerLayout;
+    private LinearLayout timeLayout;
+    private LinearLayout controlsLayout;
+
     private boolean isDraggingSeek = false;
     private GradientDrawable cardBg;
 
@@ -79,13 +83,13 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         addView(content, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         // 1. Header row: [Cover] [Title + Artist] [Collapse]
-        LinearLayout header = new LinearLayout(context);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
+        headerLayout = new LinearLayout(context);
+        headerLayout.setOrientation(LinearLayout.HORIZONTAL);
+        headerLayout.setGravity(Gravity.CENTER_VERTICAL);
 
         coverImageView = new BackupImageView(context);
         coverImageView.setRoundRadius(AndroidUtilities.dp(8));
-        header.addView(coverImageView, LayoutHelper.createLinear(32, 32, Gravity.CENTER_VERTICAL));
+        headerLayout.addView(coverImageView, LayoutHelper.createLinear(32, 32, Gravity.CENTER_VERTICAL));
 
         LinearLayout textLayout = new LinearLayout(context);
         textLayout.setOrientation(LinearLayout.VERTICAL);
@@ -108,7 +112,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         artistTextView.setEllipsize(TextUtils.TruncateAt.END);
         textLayout.addView(artistTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 1, 0, 0));
 
-        header.addView(textLayout, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f, Gravity.CENTER_VERTICAL, 10, 0, 8, 0));
+        headerLayout.addView(textLayout, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f, Gravity.CENTER_VERTICAL, 10, 0, 8, 0));
 
         View.OnClickListener openPlayerListener = v -> {
             if (onOpenFullPlayer != null) {
@@ -117,7 +121,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         };
         setOnClickListener(openPlayerListener);
         content.setOnClickListener(openPlayerListener);
-        header.setOnClickListener(openPlayerListener);
+        headerLayout.setOnClickListener(openPlayerListener);
         coverImageView.setOnClickListener(openPlayerListener);
         textLayout.setOnClickListener(openPlayerListener);
 
@@ -132,12 +136,12 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
                 onCollapse.run();
             }
         });
-        header.addView(collapseButton, LayoutHelper.createLinear(26, 26, Gravity.CENTER_VERTICAL));
+        headerLayout.addView(collapseButton, LayoutHelper.createLinear(26, 26, Gravity.CENTER_VERTICAL));
 
-        content.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 32));
+        content.addView(headerLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 32));
 
         // 2. Squiggly Wavy Seekbar with Time Labels
-        LinearLayout timeLayout = new LinearLayout(context);
+        timeLayout = new LinearLayout(context);
         timeLayout.setOrientation(LinearLayout.HORIZONTAL);
         timeLayout.setGravity(Gravity.CENTER_VERTICAL);
 
@@ -175,14 +179,14 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         content.addView(timeLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 20, 0, 4, 0, 0));
 
         // 3. Playback Controls: [Prev] [Play/Pause] [Next]
-        LinearLayout controls = new LinearLayout(context);
-        controls.setOrientation(LinearLayout.HORIZONTAL);
-        controls.setGravity(Gravity.CENTER);
+        controlsLayout = new LinearLayout(context);
+        controlsLayout.setOrientation(LinearLayout.HORIZONTAL);
+        controlsLayout.setGravity(Gravity.CENTER);
 
         prevButton = createControlButton(context, R.drawable.round_skip_previous_36, titleColor, 28, () -> {
             MediaController.getInstance().playPreviousMessage();
         });
-        controls.addView(prevButton, LayoutHelper.createLinear(28, 28, Gravity.CENTER, 0, 0, 20, 0));
+        controlsLayout.addView(prevButton, LayoutHelper.createLinear(28, 28, Gravity.CENTER, 0, 0, 20, 0));
 
         playButton = new ImageView(context);
         playButton.setScaleType(ImageView.ScaleType.CENTER);
@@ -202,14 +206,14 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
                 MediaController.getInstance().pauseMessage(msg);
             }
         });
-        controls.addView(playButton, LayoutHelper.createLinear(34, 34, Gravity.CENTER, 0, 0, 20, 0));
+        controlsLayout.addView(playButton, LayoutHelper.createLinear(34, 34, Gravity.CENTER, 0, 0, 20, 0));
 
         nextButton = createControlButton(context, R.drawable.round_skip_next_36, titleColor, 28, () -> {
             MediaController.getInstance().playNextMessage();
         });
-        controls.addView(nextButton, LayoutHelper.createLinear(28, 28, Gravity.CENTER, 0, 0, 0, 0));
+        controlsLayout.addView(nextButton, LayoutHelper.createLinear(28, 28, Gravity.CENTER, 0, 0, 0, 0));
 
-        content.addView(controls, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 34, 0, 2, 0, 0));
+        content.addView(controlsLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 34, 0, 2, 0, 0));
 
         setOnLongClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -220,6 +224,38 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         });
 
         updateTrackData();
+    }
+
+    public void setExpandProgress(float progress) {
+        if (progress <= 0f) {
+            setVisibility(INVISIBLE);
+            setAlpha(0f);
+            return;
+        }
+        if (getVisibility() != VISIBLE) {
+            setVisibility(VISIBLE);
+        }
+
+        setAlpha(Math.min(1f, progress * 2.2f));
+        setTranslationY(AndroidUtilities.dp(3) * (1f - progress));
+
+        if (headerLayout != null) {
+            float headerAlpha = Math.min(1f, progress * 2.5f);
+            headerLayout.setAlpha(headerAlpha);
+            headerLayout.setTranslationY(AndroidUtilities.dp(2) * (1f - Math.min(1f, progress * 1.5f)));
+        }
+
+        if (timeLayout != null) {
+            float seekProgress = Math.max(0f, Math.min(1f, (progress - 0.12f) / 0.65f));
+            timeLayout.setAlpha(seekProgress);
+            timeLayout.setTranslationY(AndroidUtilities.dp(4) * (1f - seekProgress));
+        }
+
+        if (controlsLayout != null) {
+            float ctrlProgress = Math.max(0f, Math.min(1f, (progress - 0.25f) / 0.70f));
+            controlsLayout.setAlpha(ctrlProgress);
+            controlsLayout.setTranslationY(AndroidUtilities.dp(4) * (1f - ctrlProgress));
+        }
     }
 
     @Override
@@ -235,8 +271,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
     private void updateCardColors() {
         if (cardBg == null) return;
         cardBg.setColor(Color.TRANSPARENT);
-        int strokeCol = Theme.isCurrentThemeDark() ? 0x22FFFFFF : 0x15000000;
-        cardBg.setStroke(AndroidUtilities.dp(0.75f), strokeCol);
+        cardBg.setStroke(0, 0);
     }
 
     private ImageView createControlButton(Context context, int iconResId, int tintColor, int sizeDp, Runnable onClick) {

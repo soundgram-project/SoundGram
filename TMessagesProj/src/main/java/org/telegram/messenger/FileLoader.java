@@ -1277,6 +1277,12 @@ public class FileLoader extends BaseController {
         if (message == null) {
             return new File("");
         }
+        if (!TextUtils.isEmpty(message.attachPath)) {
+            File f = new File(message.attachPath);
+            if (f.exists()) {
+                return f;
+            }
+        }
         if (message instanceof TLRPC.TL_messageService) {
             if (message.action.photo != null) {
                 ArrayList<TLRPC.PhotoSize> sizes = message.action.photo.sizes;
@@ -1368,6 +1374,9 @@ public class FileLoader extends BaseController {
                 return getPathToAttach(photoSize, ext, false, useFileDatabaseQueue);
             } else if (attach instanceof TLRPC.PhotoSize) {
                 TLRPC.PhotoSize photoSize = (TLRPC.PhotoSize) attach;
+                if (photoSize.location instanceof com.radolyn.ayugram.utils.AyuFileLocation) {
+                    return new File(((com.radolyn.ayugram.utils.AyuFileLocation) photoSize.location).path);
+                }
                 if (photoSize instanceof TLRPC.TL_photoStrippedSize || photoSize instanceof TLRPC.TL_photoPathSize) {
                     dir = null;
                 } else if (photoSize.location == null || photoSize.location.key != null || photoSize.location.volume_id == Integer.MIN_VALUE && photoSize.location.local_id < 0 || photoSize.size < 0) {
@@ -1387,6 +1396,9 @@ public class FileLoader extends BaseController {
                 documentId = videoSize.location.volume_id;
                 dcId = videoSize.location.dc_id + (videoSize.location.local_id << 16);
             } else if (attach instanceof TLRPC.FileLocation) {
+                if (attach instanceof com.radolyn.ayugram.utils.AyuFileLocation) {
+                    return new File(((com.radolyn.ayugram.utils.AyuFileLocation) attach).path);
+                }
                 TLRPC.FileLocation fileLocation = (TLRPC.FileLocation) attach;
                 if (fileLocation.key != null || fileLocation.volume_id == Integer.MIN_VALUE && fileLocation.local_id < 0) {
                     dir = getDirectory(MEDIA_DIR_CACHE);
@@ -1674,6 +1686,9 @@ public class FileLoader extends BaseController {
             if (photo.location == null || photo.location instanceof TLRPC.TL_fileLocationUnavailable) {
                 return "";
             }
+            if (photo.location instanceof com.radolyn.ayugram.utils.AyuFileLocation) {
+                return new File(((com.radolyn.ayugram.utils.AyuFileLocation) photo.location).path).getName();
+            }
             return photo.location.volume_id + "_" + photo.location.local_id + "." + (ext != null ? ext : "jpg");
         } else if (attach instanceof TLRPC.TL_videoSize) {
             TLRPC.TL_videoSize video = (TLRPC.TL_videoSize) attach;
@@ -1684,6 +1699,9 @@ public class FileLoader extends BaseController {
         } else if (attach instanceof TLRPC.FileLocation) {
             if (attach instanceof TLRPC.TL_fileLocationUnavailable) {
                 return "";
+            }
+            if (attach instanceof com.radolyn.ayugram.utils.AyuFileLocation) {
+                return new File(((com.radolyn.ayugram.utils.AyuFileLocation) attach).path).getName();
             }
             TLRPC.FileLocation location = (TLRPC.FileLocation) attach;
             return location.volume_id + "_" + location.local_id + "." + (ext != null ? ext : "jpg");

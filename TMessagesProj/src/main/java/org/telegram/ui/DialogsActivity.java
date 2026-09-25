@@ -2209,6 +2209,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     }
                 }
             }
+            if (fragmentContextView != null && !fragmentContextView.isPlayerExpandingOrCollapsing()) {
+                setTranslationY(0f);
+            }
             ignoreLayout = false;
 
             if (firstLayout && getMessagesController().dialogsLoaded) {
@@ -2398,7 +2401,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         int diff = (view.getTop() - pTop) + view.getMeasuredHeight();
 
                         long pullingTime = System.currentTimeMillis() - startArchivePullingTime;
-                        if (diff < height || pullingTime < PullForegroundDrawable.minPullingTime) {
+                        if ((diff < height || pullingTime < PullForegroundDrawable.minPullingTime) && !canShowHiddenArchive) {
                             disableActionBarScrolling = true;
                             smoothScrollBy(0, diff, CubicBezierInterpolator.EASE_OUT_QUINT);
                             parentPage.archivePullViewState = ARCHIVE_ITEM_STATE_HIDDEN;
@@ -2425,6 +2428,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                                 if (AndroidUtilities.isAccessibilityScreenReaderEnabled()) {
                                     AndroidUtilities.makeAccessibilityAnnouncement(LocaleController.getString(R.string.AccDescrArchivedChatsShown));
                                 }
+                                if (app.nimarkogram.messenger.NimarkoConfig.autoOpenArchive) {
+                                    app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.openArchivedChats(DialogsActivity.this);
+                                }
                             }
                         }
 
@@ -2443,6 +2449,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                                 }
                             });
                             valueAnimator.start();
+                        }
+                    }
+                }
+            }
+            if (parentPage.dialogsType == DIALOGS_TYPE_DEFAULT && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && app.nimarkogram.messenger.NimarkoConfig.autoOpenArchive) {
+                if (parentPage.archivePullViewState != ARCHIVE_ITEM_STATE_HIDDEN) {
+                    LinearLayoutManager layoutManager = (LinearLayoutManager) getLayoutManager();
+                    if (layoutManager != null && layoutManager.findFirstVisibleItemPosition() == 0) {
+                        DialogCell archiveView = findArchiveDialogCell(parentPage);
+                        if (archiveView != null) {
+                            int pTop = getPaddingTop();
+                            if ((archiveView.getTop() - pTop) > dp(36)) {
+                                app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.openArchivedChats(DialogsActivity.this);
+                            }
                         }
                     }
                 }
@@ -5281,20 +5301,29 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (!onlySelect && initialDialogsType == 0) {
             topPanelLayout = new DialogsActivityTopPanelLayout(context);
             topPanelLayout.setOnAnimatedHeightChangedListener(() -> {
-                viewPages[0].listView.requestLayout();
-                blur3_InvalidateBlur();
+                boolean isIslandAnimating = fragmentContextView != null && fragmentContextView.isPlayerExpandingOrCollapsing();
+                if (!isIslandAnimating) {
+                    if (viewPages != null) {
+                        for (int i = 0; i < viewPages.length; i++) {
+                            if (viewPages[i] != null && viewPages[i].listView != null) {
+                                viewPages[i].listView.requestLayout();
+                            }
+                        }
+                    }
+                    blur3_InvalidateBlur();
 
-                TopicsFragment topicsFragment = null;
-                if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
-                    topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
-                }
-                if (topicsFragment != null) {
-                    topicsFragment.checkUi_listViewPadding();
-                }
-                checkUi_searchPagesPaddings(false);
-                updateContextViewPosition();
-                if (searchViewPager != null) {
-                    searchViewPager.invalidate();
+                    TopicsFragment topicsFragment = null;
+                    if (rightSlidingDialogContainer != null && rightSlidingDialogContainer.getFragment() instanceof TopicsFragment) {
+                        topicsFragment = (TopicsFragment) rightSlidingDialogContainer.getFragment();
+                    }
+                    if (topicsFragment != null) {
+                        topicsFragment.checkUi_listViewPadding();
+                    }
+                    checkUi_searchPagesPaddings(false);
+                    updateContextViewPosition();
+                    if (searchViewPager != null) {
+                        searchViewPager.invalidate();
+                    }
                 }
             });
 
@@ -5313,6 +5342,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             topPanelLayout.setViewVisible(fragmentLocationContextViewWrapper, true, false);
 
             fragmentContextViewWrapper = new FrameLayout(context);
+            fragmentContextViewWrapper.setClipChildren(false);
+            fragmentContextViewWrapper.setClipToPadding(false);
             topPanelLayout.addView(fragmentContextViewWrapper);
             topPanelLayout.setPriority(fragmentContextViewWrapper, 4);
             topPanelLayout.setDebugName(fragmentContextViewWrapper, "fragment context");
@@ -15528,6 +15559,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     public float getTopPanelVisibility() {
         return topPanelLayout != null ? topPanelLayout.getMetadata().getTotalVisibility() : 0;
+    }
+
+    public void setTopPanelExtraTranslation(float extraY) {
+        if (viewPages != null) {
+            for (int i = 0; i < viewPages.length; i++) {
+                if (viewPages[i] != null && viewPages[i].listView != null && viewPages[i].listView.getTranslationY() != 0) {
+                    viewPages[i].listView.setTranslationY(0);
+                }
+            }
+        }
+        if (searchViewPager != null && searchViewPager.getTranslationY() != 0) {
+            searchViewPager.setTranslationY(0);
+        }
     }
 
     private void checkInsets() {

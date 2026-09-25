@@ -59,6 +59,14 @@ public class AnimatedLinearLayout extends LinearLayout {
 
     private boolean skipNextAnimation;
 
+    public void setSkipNextAnimation(boolean skip) {
+        this.skipNextAnimation = skip;
+    }
+
+    public boolean isSkipNextAnimation() {
+        return skipNextAnimation;
+    }
+
     public void setViewVisible(View child, boolean visible, boolean animated) {
         if (child == null) {
             return;

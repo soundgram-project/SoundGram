@@ -164,6 +164,9 @@ final class NimarkoSettingsSearchIndex {
                 13, R.string.NM_GE_UploadSpeedBoost,
                 14, R.string.EP_SlowNetworkMode);
         rows(entries, guid, SCREEN_GENERAL, R.drawable.msg_settings_solar,
+                R.string.NM_Cat_General, R.string.NM_GEN_MiscHeader,
+                21, R.string.NM_AutoOpenArchive);
+        rows(entries, guid, SCREEN_GENERAL, R.drawable.msg_settings_solar,
                 R.string.NM_Cat_General, R.string.NM_SettingsSectionGiftsEmoji,
                 15, R.string.NM_GEN_DeletedGifts,
                 16, R.string.NM_GEN_LocalPremiumEmoji);
@@ -224,6 +227,7 @@ final class NimarkoSettingsSearchIndex {
                 R.string.NM_Cat_Chats, R.string.NM_SettingsSectionChatList,
                 1, R.string.CP_SortByUnread,
                 2, R.string.CP_UnarchiveOnSwipe,
+                6, R.string.NM_AutoOpenArchive,
                 4, R.string.EP_CustomChat);
         rows(entries, guid, SCREEN_CHATS, R.drawable.msg_msgbubble3_solar,
                 R.string.NM_Cat_Chats, R.string.NM_SettingsSectionInputText,
@@ -591,6 +595,7 @@ final class NimarkoSettingsSearchIndex {
         if (titleRes == R.string.CP_HideMuteUnmuteButton) return R.string.NM_SettingsDesc_HideMuteButton;
         if (titleRes == R.string.CP_SortByUnread) return R.string.NM_SettingsDesc_SortUnread;
         if (titleRes == R.string.CP_UnarchiveOnSwipe) return R.string.NM_SettingsDesc_UnarchiveSwipe;
+        if (titleRes == R.string.NM_AutoOpenArchive) return R.string.NM_AutoOpenArchive_Desc;
         if (titleRes == R.string.EP_CustomChat) return R.string.EP_CustomChat_Desc;
         if (titleRes == R.string.CP_Slider_RecentEmojisAndStickers) return R.string.NM_CH_RecentEmojisStickers_Desc;
         if (titleRes == R.string.AP_ShowPencilIcon) return R.string.NM_SettingsDesc_PencilIcon;

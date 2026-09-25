@@ -12101,6 +12101,13 @@ public class MessageObject {
         File cacheFile = null;
         attachPathExists = false;
         mediaExists = false;
+        if (messageOwner != null && !TextUtils.isEmpty(messageOwner.attachPath)) {
+            File f = new File(messageOwner.attachPath);
+            if (f.exists()) {
+                attachPathExists = true;
+                mediaExists = true;
+            }
+        }
         if (type == TYPE_EXTENDED_MEDIA_PREVIEW) {
             TLRPC.TL_messageExtendedMediaPreview preview = (TLRPC.TL_messageExtendedMediaPreview) messageOwner.media.extended_media.get(0);
             if (preview.thumb != null) {
@@ -12118,6 +12125,19 @@ public class MessageObject {
                 }
                 if (!mediaExists) {
                     mediaExists = file.exists();
+                }
+                if (!mediaExists) {
+                    file = FileLoader.getInstance(currentAccount).getPathToMessage(messageOwner, true, useFileDatabaseQueue);
+                    mediaExists = file != null && file.exists();
+                }
+                if (!mediaExists) {
+                    file = FileLoader.getInstance(currentAccount).getPathToAttach(currentPhotoObject, null, false, useFileDatabaseQueue);
+                    if (file != null && file.exists()) {
+                        mediaExists = true;
+                    } else {
+                        file = FileLoader.getInstance(currentAccount).getPathToAttach(currentPhotoObject, null, true, useFileDatabaseQueue);
+                        mediaExists = file != null && file.exists();
+                    }
                 }
             }
         }
@@ -12156,6 +12176,17 @@ public class MessageObject {
                     return;
                 }
                 mediaExists = FileLoader.getInstance(currentAccount).getPathToAttach(photo.video_sizes.get(0), null, true, useFileDatabaseQueue).exists();
+            }
+        }
+        if (!mediaExists && (isAyuDeleted() || deleted)) {
+            File file = FileLoader.getInstance(currentAccount).getPathToMessage(messageOwner, false, useFileDatabaseQueue);
+            if (file != null && file.exists()) {
+                mediaExists = true;
+            } else {
+                file = FileLoader.getInstance(currentAccount).getPathToMessage(messageOwner, true, useFileDatabaseQueue);
+                if (file != null && file.exists()) {
+                    mediaExists = true;
+                }
             }
         }
         updateQualitiesCached(useFileDatabaseQueue);
@@ -13287,7 +13318,39 @@ public class MessageObject {
         if (hasVideoQualities() && highestQuality != null) {
             return highestQuality.isCached();
         }
-        return mediaExists;
+        if (mediaExists) {
+            return true;
+        }
+        if (messageOwner != null && !TextUtils.isEmpty(messageOwner.attachPath)) {
+            if (new File(messageOwner.attachPath).exists()) {
+                attachPathExists = true;
+                return mediaExists = true;
+            }
+        }
+        if (messageOwner != null && (isAyuDeleted() || deleted)) {
+            File f = FileLoader.getInstance(currentAccount).getPathToMessage(messageOwner, false, false);
+            if (f != null && f.exists()) {
+                return mediaExists = true;
+            }
+            f = FileLoader.getInstance(currentAccount).getPathToMessage(messageOwner, true, false);
+            if (f != null && f.exists()) {
+                return mediaExists = true;
+            }
+            if (photoThumbs != null && !photoThumbs.isEmpty()) {
+                TLRPC.PhotoSize currentPhotoObject = FileLoader.getClosestPhotoSizeWithSize(photoThumbs, AndroidUtilities.getPhotoSize(true));
+                if (currentPhotoObject != null) {
+                    f = FileLoader.getInstance(currentAccount).getPathToAttach(currentPhotoObject, null, false, false);
+                    if (f != null && f.exists()) {
+                        return mediaExists = true;
+                    }
+                    f = FileLoader.getInstance(currentAccount).getPathToAttach(currentPhotoObject, null, true, false);
+                    if (f != null && f.exists()) {
+                        return mediaExists = true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     public void updateQualitiesCached(boolean useFileDatabaseQueue) {

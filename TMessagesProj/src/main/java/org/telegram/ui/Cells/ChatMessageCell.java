@@ -9142,8 +9142,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                                     photoImage.setImage(null, null, ImageLocation.getForDocument(currentPhotoObject, documentAttach), filter, 0, null, currentMessageObject, 0);
                                 }
                             } else {
-                                boolean photoExist = messageObject.mediaExists;
-                                String fileName = FileLoader.getAttachFileName(currentPhotoObject);
+                                boolean photoExist = messageObject.mediaExists || messageObject.mediaExists() || messageObject.attachPathExists;
+                                String fileName = currentMessageObject.attachPathExists && !TextUtils.isEmpty(currentMessageObject.messageOwner.attachPath) ? currentMessageObject.messageOwner.attachPath : FileLoader.getAttachFileName(currentPhotoObject);
                                 if (hasGamePreview || photoExist || DownloadController.getInstance(currentAccount).canDownloadMedia(currentMessageObject) || FileLoader.getInstance(currentAccount).isLoadingFile(fileName) || currentMessageObject.isSponsored()) {
                                     photoNotSet = false;
                                     if (currentPhotoLocation != null) {
@@ -10832,8 +10832,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         } else {
                             if (currentPhotoObject != null) {
                                 boolean photoExist = true;
-                                String fileName = FileLoader.getAttachFileName(currentPhotoObject);
-                                if (messageObject.mediaExists) {
+                                String fileName = currentMessageObject.attachPathExists && !TextUtils.isEmpty(currentMessageObject.messageOwner.attachPath) ? currentMessageObject.messageOwner.attachPath : FileLoader.getAttachFileName(currentPhotoObject);
+                                if (messageObject.mediaExists || messageObject.mediaExists() || messageObject.attachPathExists) {
                                     DownloadController.getInstance(currentAccount).removeLoadingFileObserver(this);
                                 } else {
                                     photoExist = false;
@@ -18071,8 +18071,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 radialProgress.setIcon(MediaActionDrawable.ICON_NONE, ifSame, animated);
                 return;
             }
-            fileName = FileLoader.getAttachFileName(currentPhotoObject);
-            fileExists = currentMessageObject.mediaExists();
+            if (currentMessageObject.attachPathExists && !TextUtils.isEmpty(currentMessageObject.messageOwner.attachPath)) {
+                fileName = currentMessageObject.messageOwner.attachPath;
+                fileExists = true;
+            } else {
+                fileName = FileLoader.getAttachFileName(currentPhotoObject);
+                fileExists = currentMessageObject.mediaExists();
+            }
         } else if (
             currentMessageObject.type == MessageObject.TYPE_GIF ||
             documentAttachType == DOCUMENT_ATTACH_TYPE_ROUND ||
@@ -18096,11 +18101,21 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 fileExists = currentMessageObject.mediaExists();
             }
         } else if (documentAttachType != DOCUMENT_ATTACH_TYPE_NONE) {
-            fileName = FileLoader.getAttachFileName(documentAttach);
-            fileExists = currentMessageObject.mediaExists();
+            if (currentMessageObject.attachPathExists && !TextUtils.isEmpty(currentMessageObject.messageOwner.attachPath)) {
+                fileName = currentMessageObject.messageOwner.attachPath;
+                fileExists = true;
+            } else {
+                fileName = FileLoader.getAttachFileName(documentAttach);
+                fileExists = currentMessageObject.mediaExists();
+            }
         } else if (currentPhotoObject != null) {
-            fileName = FileLoader.getAttachFileName(currentPhotoObject);
-            fileExists = currentMessageObject.mediaExists();
+            if (currentMessageObject.attachPathExists && !TextUtils.isEmpty(currentMessageObject.messageOwner.attachPath)) {
+                fileName = currentMessageObject.messageOwner.attachPath;
+                fileExists = true;
+            } else {
+                fileName = FileLoader.getAttachFileName(currentPhotoObject);
+                fileExists = currentMessageObject.mediaExists();
+            }
         }
 
         boolean autoDownload;

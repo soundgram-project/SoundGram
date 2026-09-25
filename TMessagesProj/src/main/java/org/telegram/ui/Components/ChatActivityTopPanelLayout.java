@@ -24,6 +24,8 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
         super(context);
 
         setOrientation(LinearLayout.VERTICAL);
+        setClipChildren(false);
+        setClipToPadding(false);
         updateColors();
     }
 
@@ -31,6 +33,20 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
 
     public void setBlurredBackground(BlurredBackgroundDrawable background) {
         backgroundDrawable = background;
+    }
+
+    private float extraHeight;
+
+    public void setExtraHeight(float extraHeight) {
+        if (this.extraHeight != extraHeight) {
+            this.extraHeight = extraHeight;
+            checkBoundsAndClipping();
+            invalidate();
+        }
+    }
+
+    public float getExtraHeight() {
+        return extraHeight;
     }
 
     @Override
@@ -63,7 +79,7 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
     private final RectF clipRectF = new RectF();
 
     private void checkBoundsAndClipping() {
-        final float bgHeight = getMetadata().getTotalHeight();
+        final float bgHeight = Math.max(0, getMetadata().getTotalHeight() + extraHeight);
         final float bgAlpha = getMetadata().getTotalVisibility();
 
         clipRectF.set(getPaddingLeft(), getPaddingTop(), getMeasuredWidth() - getPaddingRight(), getPaddingTop() + bgHeight);

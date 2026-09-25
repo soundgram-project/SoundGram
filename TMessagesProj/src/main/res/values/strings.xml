@@ -11719,6 +11719,8 @@
     <string name="AP_Header_General">General</string>
     <string name="EP_NavigationAnimation">Navigation animation</string>
     <string name="NM_PredictiveBackAnimation">Predictive back gesture</string>
+    <string name="NM_AutoOpenArchive">Auto-open archive</string>
+    <string name="NM_AutoOpenArchive_Desc">Automatically open the archive when pulling down the chat list.</string>
     <string name="CP_SilenceNonContacts">Silence non-contacts</string>
     <string name="CP_SilenceNonContacts_Desc">Play notification sounds only for contacts.</string>
     <string name="NM_ResidentNotification">Persistent notification</string>

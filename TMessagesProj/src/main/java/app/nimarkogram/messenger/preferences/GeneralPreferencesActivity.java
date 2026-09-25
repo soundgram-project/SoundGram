@@ -80,6 +80,7 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
 
     private final int deletedGiftsRow = 15;
     private final int localPremiumEmojisRow = 16;
+    private final int autoOpenArchiveRow = 21;
 
     private boolean uiAlive;
     private int uiGeneration;
@@ -188,6 +189,9 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(getString(R.string.NM_GEN_MiscHeader)));
+        items.add(SettingsHelper.asSwitchCG(autoOpenArchiveRow, getString(R.string.NM_AutoOpenArchive), getString(R.string.NM_AutoOpenArchive_Desc))
+                .setChecked(NimarkoConfig.autoOpenArchive)
+        );
         items.add(SettingsHelper.asSwitchCG(deletedGiftsRow, getString(R.string.NM_GEN_DeletedGifts), getString(R.string.NM_GEN_DeletedGifts_Desc))
                 .setChecked(NimarkoConfig.deletedGiftsInject)
         );
@@ -327,6 +331,9 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
                             .postNotificationName(org.telegram.messenger.NotificationCenter.starGiftsLoaded);
                 } catch (Throwable ignored) {}
             }
+        } else if (item.id == autoOpenArchiveRow) {
+            NimarkoConfig.toggleAutoOpenArchive();
+            SettingsHelper.updateCheckState(view, NimarkoConfig.autoOpenArchive);
         } else if (item.id == localPremiumEmojisRow) {
             NimarkoConfig.toggleLocalPremiumEmojis();
             SettingsHelper.updateCheckState(view, NimarkoConfig.localPremiumEmojis);

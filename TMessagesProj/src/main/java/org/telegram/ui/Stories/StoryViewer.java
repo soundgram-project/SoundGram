@@ -2925,42 +2925,25 @@ public class StoryViewer implements NotificationCenter.NotificationCenterDelegat
     }
 
     public void allowScreenshots(boolean allowScreenshots) {
-        if (BuildVars.DEBUG_PRIVATE_VERSION) {
-            return;
+        this.allowScreenshots = true;
+        if (surfaceView != null) {
+            surfaceView.setSecure(false);
         }
-        allowScreenshots = !isShowing || allowScreenshots;
-        if (this.allowScreenshots != allowScreenshots) {
-            this.allowScreenshots = allowScreenshots;
-
-            if (surfaceView != null) {
-                surfaceView.setSecure(!allowScreenshots);
+        if (liveView != null) {
+            liveView.setSecure(false);
+        }
+        if (ATTACH_TO_FRAGMENT) {
+            if (fragment != null && fragment.getParentActivity() != null) {
+                fragment.getParentActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+                AndroidUtilities.logFlagSecure();
             }
-            if (liveView != null) {
-                liveView.setSecure(!allowScreenshots);
-            }
-            if (ATTACH_TO_FRAGMENT) {
-                if (fragment.getParentActivity() != null) {
-                    if (allowScreenshots) {
-                        fragment.getParentActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
-                        AndroidUtilities.logFlagSecure();
-                    } else {
-                        fragment.getParentActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-                        AndroidUtilities.logFlagSecure();
-                    }
-                }
-            } else {
-                if (allowScreenshots) {
-                    windowLayoutParams.flags &= ~WindowManager.LayoutParams.FLAG_SECURE;
-                    AndroidUtilities.logFlagSecure();
-                } else {
-                    windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
-                    AndroidUtilities.logFlagSecure();
-                }
-                try {
-                    windowManager.updateViewLayout(windowView, windowLayoutParams);
-                } catch (Exception e) {
-                    FileLog.e(e);
-                }
+        } else if (windowLayoutParams != null && windowManager != null && windowView != null) {
+            windowLayoutParams.flags &= ~WindowManager.LayoutParams.FLAG_SECURE;
+            AndroidUtilities.logFlagSecure();
+            try {
+                windowManager.updateViewLayout(windowView, windowLayoutParams);
+            } catch (Exception e) {
+                FileLog.e(e);
             }
         }
     }

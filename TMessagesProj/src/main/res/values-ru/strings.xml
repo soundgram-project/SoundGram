@@ -1024,6 +1024,8 @@
     <string name="AP_Header_General">Основные</string>
     <string name="EP_NavigationAnimation">Анимация навигации</string>
     <string name="NM_PredictiveBackAnimation">Предиктивный жест назад</string>
+    <string name="NM_AutoOpenArchive">Автоматически открывать архив</string>
+    <string name="NM_AutoOpenArchive_Desc">Автоматически открывать архив при потягивании списка чатов вниз.</string>
     <string name="CP_SilenceNonContacts">Заглушить не-контакты</string>
     <string name="CP_SilenceNonContacts_Desc">Включать звук уведомлений только для контактов.</string>
     <string name="NM_ResidentNotification">Постоянное уведомление</string>

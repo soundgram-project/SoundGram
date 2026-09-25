@@ -8063,6 +8063,8 @@ public class ChatActivity extends BaseFragment implements
                 }
             };
             fragmentContextViewWrapper = new FrameLayout(context);
+            fragmentContextViewWrapper.setClipChildren(false);
+            fragmentContextViewWrapper.setClipToPadding(false);
             topPanelLayout.addView(fragmentContextViewWrapper);
             topPanelLayout.setPriority(fragmentContextViewWrapper, 5);
             topPanelLayout.setDebugName(fragmentContextViewWrapper, "fragment context");
@@ -15548,14 +15550,20 @@ public class ChatActivity extends BaseFragment implements
         // Skip in topics (matches CherrygramChatsConfig.autoQuoteReplies + !ChatsHelper.isTopic
         // gate in showFieldPanel's reply-icon branch).
         ReplyQuote autoQuote = null;
-        if (messageObjectToReply != null && app.nimarkogram.messenger.NimarkoConfig.autoQuoteReplies) {
-            try {
-                boolean isTopic = app.nimarkogram.messenger.utils.chats.NimarkoChatHelper
-                        .getInstance(currentAccount).isTopic(messageObjectToReply);
-                if (!isTopic) {
+        if (messageObjectToReply != null) {
+            if (messageObjectToReply.isAyuDeleted()) {
+                try {
                     autoQuote = ReplyQuote.from(messageObjectToReply);
-                }
-            } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {}
+            } else if (app.nimarkogram.messenger.NimarkoConfig.autoQuoteReplies) {
+                try {
+                    boolean isTopic = app.nimarkogram.messenger.utils.chats.NimarkoChatHelper
+                            .getInstance(currentAccount).isTopic(messageObjectToReply);
+                    if (!isTopic) {
+                        autoQuote = ReplyQuote.from(messageObjectToReply);
+                    }
+                } catch (Throwable ignored) {}
+            }
         }
         showFieldPanel(true, messageObjectToReply, null, null, null, true, 0, autoQuote, false, 0, true);
     }
@@ -49365,6 +49373,12 @@ public class ChatActivity extends BaseFragment implements
         ChatActivity chatActivity = parentChatActivity != null ? parentChatActivity : this;
         if (chatActivity.topPanelLayout == null) return 0;
         return chatActivity.topPanelLayout.getAnimatedHeightWithPadding(padding);
+    }
+
+    public void setTopPanelExtraTranslation(float extraY) {
+        if (chatListView != null && chatListView.getTranslationY() != 0) {
+            chatListView.setTranslationY(0);
+        }
     }
 
     private void checkUi_topPanelLayoutVisibility() {

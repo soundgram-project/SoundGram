@@ -23,6 +23,8 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
         super(context);
 
         setOrientation(LinearLayout.VERTICAL);
+        setClipChildren(false);
+        setClipToPadding(false);
         updateColors();
     }
 
@@ -32,9 +34,43 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
         backgroundDrawable = background;
     }
 
+    private float extraHeight;
+
+    public void setExtraHeight(float extraHeight) {
+        if (this.extraHeight != extraHeight) {
+            this.extraHeight = extraHeight;
+            checkBoundsAndClipping();
+            invalidate();
+        }
+    }
+
+    private boolean isChildBelowFragmentContext(View child) {
+        if (callFragmentContextView == null) return false;
+        View p = callFragmentContextView;
+        while (p.getParent() != null && p.getParent() != this) {
+            if (p.getParent() instanceof View) {
+                p = (View) p.getParent();
+            } else {
+                break;
+            }
+        }
+        return child != p && child.getTop() >= p.getTop();
+    }
+
+    public float getExtraHeight() {
+        return extraHeight;
+    }
+
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
+        extraHeight = 0f;
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child != null && isChildBelowFragmentContext(child)) {
+                child.setTranslationY(0f);
+            }
+        }
         checkBoundsAndClipping();
     }
 
@@ -55,7 +91,7 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
     private final RectF clipRectF = new RectF();
 
     private void checkBoundsAndClipping() {
-        final float bgHeight = getMetadata().getTotalHeight();
+        final float bgHeight = Math.max(0, getMetadata().getTotalHeight() + extraHeight);
         final float bgAlpha = getMetadata().getTotalVisibility();
 
         clipRectF.set(getPaddingLeft(), getPaddingTop(), getMeasuredWidth() - getPaddingRight(), getPaddingTop() + bgHeight);
@@ -99,6 +135,7 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
         if (getMetadata().getTotalVisibility() == 0) return;
+        checkBoundsAndClipping();
 
         if (backgroundDrawable != null) {
             backgroundDrawable.draw(canvas);
