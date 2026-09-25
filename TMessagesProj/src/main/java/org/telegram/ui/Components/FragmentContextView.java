@@ -850,10 +850,38 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             }
         });
 
-        islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, this::openAudioPlayer);
-        addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 116, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
-        islandView.setVisibility(GONE);
-        islandView.setAlpha(0f);
+        if (isChat()) {
+            islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, this::openAudioPlayer);
+            addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 116, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
+            islandView.setVisibility(GONE);
+            islandView.setAlpha(0f);
+
+            View.OnLongClickListener islandLongClickListener = v -> {
+                if (currentStyle == STYLE_AUDIO_PLAYER) {
+                    MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
+                    if (messageObject != null && messageObject.isMusic()) {
+                        v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                        togglePlayerExpansion();
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            setOnLongClickListener(islandLongClickListener);
+            if (frameLayout != null) {
+                frameLayout.setOnLongClickListener(islandLongClickListener);
+            }
+            if (titleTextView != null) {
+                titleTextView.setOnLongClickListener(islandLongClickListener);
+            }
+            if (subtitleTextView != null) {
+                subtitleTextView.setOnLongClickListener(islandLongClickListener);
+            }
+            if (selector != null) {
+                selector.setOnLongClickListener(islandLongClickListener);
+            }
+        }
 
         View.OnClickListener openPlayerClick = v -> {
             if (currentStyle == STYLE_AUDIO_PLAYER) {
@@ -866,37 +894,24 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             performClick();
         };
 
-        View.OnLongClickListener islandLongClickListener = v -> {
-            if (currentStyle == STYLE_AUDIO_PLAYER) {
-                MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
-                if (messageObject != null && messageObject.isMusic()) {
-                    v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                    togglePlayerExpansion();
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        setOnLongClickListener(islandLongClickListener);
         if (frameLayout != null) {
             frameLayout.setOnClickListener(openPlayerClick);
-            frameLayout.setOnLongClickListener(islandLongClickListener);
         }
         if (titleTextView != null) {
             titleTextView.setOnClickListener(openPlayerClick);
-            titleTextView.setOnLongClickListener(islandLongClickListener);
         }
         if (subtitleTextView != null) {
             subtitleTextView.setOnClickListener(openPlayerClick);
-            subtitleTextView.setOnLongClickListener(islandLongClickListener);
         }
         if (selector != null) {
             selector.setOnClickListener(openPlayerClick);
-            selector.setOnLongClickListener(islandLongClickListener);
         }
 
         setLeftMargin(leftMargin);
+    }
+
+    public boolean isChat() {
+        return chatActivity != null || fragment instanceof ChatActivity;
     }
 
     public void openAudioPlayer() {
@@ -917,6 +932,9 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     }
 
     public void togglePlayerExpansion() {
+        if (!isChat()) {
+            return;
+        }
         if (currentStyle != STYLE_AUDIO_PLAYER) {
             return;
         }
@@ -932,6 +950,9 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     }
 
     public void expandPlayer(boolean animated) {
+        if (!isChat()) {
+            return;
+        }
         if (isPlayerExpanded && expandProgress == 1f) {
             return;
         }
@@ -1054,9 +1075,9 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             islandView.setExpandProgress(expandProgress);
         }
         AnimatedLinearLayout topPanel = getTopPanelLayout();
-        float extraHeight = AndroidUtilities.dp(80) * expandProgress;
+        float extraHeight = isChat() ? AndroidUtilities.dp(80) * expandProgress : 0f;
         if (topPanel instanceof DialogsActivityTopPanelLayout) {
-            ((DialogsActivityTopPanelLayout) topPanel).setExtraHeight(extraHeight);
+            ((DialogsActivityTopPanelLayout) topPanel).setExtraHeight(0f);
         } else if (topPanel instanceof ChatActivityTopPanelLayout) {
             ((ChatActivityTopPanelLayout) topPanel).setExtraHeight(extraHeight);
         }
@@ -2122,6 +2143,9 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             }
         }
         boolean wasVisible = visible;
+        if (!isChat() && (isPlayerExpanded || expandProgress > 0f)) {
+            collapsePlayer(false);
+        }
         if (messageObject == null || messageObject.getId() == 0 || messageObject.isVideo()) {
             if (isPlayerExpanded) {
                 collapsePlayer(false);

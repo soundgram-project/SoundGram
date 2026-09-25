@@ -37,8 +37,8 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
     private float extraHeight;
 
     public void setExtraHeight(float extraHeight) {
-        if (this.extraHeight != extraHeight) {
-            this.extraHeight = extraHeight;
+        if (this.extraHeight != 0f) {
+            this.extraHeight = 0f;
             checkBoundsAndClipping();
             invalidate();
         }
