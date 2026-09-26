@@ -178,6 +178,10 @@ android {
     buildToolsVersion '36.0.0'
     ndkVersion "26.3.11579264"
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     sourceSets.main.jniLibs.srcDirs = ['./jni/']
 
 

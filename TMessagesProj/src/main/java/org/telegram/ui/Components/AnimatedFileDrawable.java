@@ -1205,7 +1205,7 @@ public final class AnimatedFileDrawable extends BitmapDrawable implements Animat
         mDecoder.getVideoFrame(null, false, startTime, endTime, loop);
     }
 
-    public ArrayList<ImageReceiver> getParents() {
+    public ReferenceList<ImageReceiver> getParents() {
         return parents;
     }
 

@@ -427,6 +427,8 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         fragmentView = contentView = new SizeNotifierFrameLayout(context) {
             {
                 setWillNotDraw(false);
+                setClipChildren(false);
+                setClipToPadding(false);
             }
 
             public int getActionBarFullHeight() {

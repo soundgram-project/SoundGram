@@ -69,8 +69,35 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
         invalidate();
     }
 
+    private boolean isIslandTouchTarget;
+
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (callFragmentContextView != null && (callFragmentContextView.isPlayerExpanded() || callFragmentContextView.getExpandProgress() > 0f)) {
+            View target = callFragmentContextView;
+            while (target.getParent() != null && target.getParent() != this) {
+                target = (View) target.getParent();
+            }
+            float x = ev.getX() - target.getX();
+            float y = ev.getY() - target.getY();
+            int action = ev.getActionMasked();
+            float maxIslandHeight = target.getHeight() + dp(80) * callFragmentContextView.getExpandProgress();
+            if (action == MotionEvent.ACTION_DOWN) {
+                isIslandTouchTarget = (x >= 0 && x <= target.getWidth() && y >= 0 && y <= maxIslandHeight);
+            }
+            if (isIslandTouchTarget) {
+                MotionEvent event = MotionEvent.obtain(ev);
+                event.setLocation(x, y);
+                boolean handled = target.dispatchTouchEvent(event);
+                event.recycle();
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    isIslandTouchTarget = false;
+                }
+                return true;
+            }
+        } else {
+            isIslandTouchTarget = false;
+        }
         return super.dispatchTouchEvent(ev)
                 || ev.getAction() == MotionEvent.ACTION_DOWN && backgroundDrawable != null && backgroundDrawable.getBounds().contains((int) ev.getX(), (int) ev.getY());
     }

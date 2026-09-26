@@ -1517,12 +1517,12 @@ public class LocaleController {
 
     @Deprecated
     public static String getString(String key, String fallback, int fallbackRes, int res) {
-        return getInstance().getStringInternal(key, fallback, fallbackRes, res);
+        return getInstance().getStringInternal(key, fallback, res != 0 ? res : fallbackRes);
     }
 
     @Deprecated
     public static String getString(String key, String fallback, int res) {
-        return getInstance().getStringInternal(key, fallback, 0, res);
+        return getInstance().getStringInternal(key, fallback, res);
     }
 
     @Deprecated
@@ -1531,6 +1531,10 @@ public class LocaleController {
             return "LOC_ERR:" + key;
         }
         return getString(key, 0);
+    }
+
+    public static int getStringResId(String key) {
+        return getLocalizedStringByName(key);
     }
 
     private static void clearStringResourceIdCache() {
@@ -4543,7 +4547,6 @@ public class LocaleController {
             return f.format(value, dir, unit);
         }
     }
-<<<<<<< HEAD
 
     public static String formatDateOnlineIOS(long date, boolean[] madeShorter) {
         try {

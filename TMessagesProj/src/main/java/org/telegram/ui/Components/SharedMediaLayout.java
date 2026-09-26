@@ -3717,6 +3717,8 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         addView(floatingDateView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 48 + 4, 0, 0));
 
         if (!customTabs()) {
+            setClipChildren(false);
+            setClipToPadding(false);
             topPanelLayout = new DialogsActivityTopPanelLayout(context);
             topPanelLayout.setPadding(dp(11), dp(21), dp(11), dp(21));
 

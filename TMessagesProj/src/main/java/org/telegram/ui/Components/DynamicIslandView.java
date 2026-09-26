@@ -129,14 +129,14 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         collapseButton.setImageResource(R.drawable.baseline_keyboard_arrow_down_24);
         collapseButton.setScaleType(ImageView.ScaleType.CENTER);
         collapseButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_inappPlayerClose), PorterDuff.Mode.SRC_IN));
-        collapseButton.setBackground(Theme.createSelectorDrawable(0x20FFFFFF, 1, AndroidUtilities.dp(13)));
+        collapseButton.setBackground(Theme.createSelectorDrawable(0x20FFFFFF, 1, AndroidUtilities.dp(16)));
         collapseButton.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             if (onCollapse != null) {
                 onCollapse.run();
             }
         });
-        headerLayout.addView(collapseButton, LayoutHelper.createLinear(26, 26, Gravity.CENTER_VERTICAL));
+        headerLayout.addView(collapseButton, LayoutHelper.createLinear(32, 32, Gravity.CENTER_VERTICAL));
 
         content.addView(headerLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 32));
 

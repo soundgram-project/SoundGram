@@ -150,6 +150,10 @@ public class ChatAttachAlertAudioLayout extends ChatAttachAlert.AttachAlertLayou
         lp.topMargin += AndroidUtilities.statusBarHeight;
         frameLayout.addView(searchField, lp);
 
+        frameLayout.setClipChildren(false);
+        frameLayout.setClipToPadding(false);
+        setClipChildren(false);
+        setClipToPadding(false);
         topPanelLayout = new DialogsActivityTopPanelLayout(context);
         topPanelLayout.setPadding(dp(11), dp(21), dp(11), dp(21));
         topPanelLayout.setOnAnimatedHeightChangedListener(() -> {

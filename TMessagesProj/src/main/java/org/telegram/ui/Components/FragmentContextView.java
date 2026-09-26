@@ -850,37 +850,38 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             }
         });
 
-        if (isChat()) {
-            islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, this::openAudioPlayer);
-            addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 116, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
-            islandView.setVisibility(GONE);
-            islandView.setAlpha(0f);
+        setClipChildren(false);
+        setClipToPadding(false);
 
-            View.OnLongClickListener islandLongClickListener = v -> {
-                if (currentStyle == STYLE_AUDIO_PLAYER) {
-                    MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
-                    if (messageObject != null && messageObject.isMusic()) {
-                        v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                        togglePlayerExpansion();
-                        return true;
-                    }
+        islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, this::openAudioPlayer);
+        addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 116, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
+        islandView.setVisibility(GONE);
+        islandView.setAlpha(0f);
+
+        View.OnLongClickListener islandLongClickListener = v -> {
+            if (currentStyle == STYLE_AUDIO_PLAYER) {
+                MessageObject messageObject = MediaController.getInstance().getPlayingMessageObject();
+                if (messageObject != null && messageObject.isMusic()) {
+                    v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                    togglePlayerExpansion();
+                    return true;
                 }
-                return false;
-            };
+            }
+            return false;
+        };
 
-            setOnLongClickListener(islandLongClickListener);
-            if (frameLayout != null) {
-                frameLayout.setOnLongClickListener(islandLongClickListener);
-            }
-            if (titleTextView != null) {
-                titleTextView.setOnLongClickListener(islandLongClickListener);
-            }
-            if (subtitleTextView != null) {
-                subtitleTextView.setOnLongClickListener(islandLongClickListener);
-            }
-            if (selector != null) {
-                selector.setOnLongClickListener(islandLongClickListener);
-            }
+        setOnLongClickListener(islandLongClickListener);
+        if (frameLayout != null) {
+            frameLayout.setOnLongClickListener(islandLongClickListener);
+        }
+        if (titleTextView != null) {
+            titleTextView.setOnLongClickListener(islandLongClickListener);
+        }
+        if (subtitleTextView != null) {
+            subtitleTextView.setOnLongClickListener(islandLongClickListener);
+        }
+        if (selector != null) {
+            selector.setOnLongClickListener(islandLongClickListener);
         }
 
         View.OnClickListener openPlayerClick = v -> {
@@ -932,9 +933,6 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     }
 
     public void togglePlayerExpansion() {
-        if (!isChat()) {
-            return;
-        }
         if (currentStyle != STYLE_AUDIO_PLAYER) {
             return;
         }
@@ -950,11 +948,12 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     }
 
     public void expandPlayer(boolean animated) {
-        if (!isChat()) {
-            return;
-        }
         if (isPlayerExpanded && expandProgress == 1f) {
             return;
+        }
+
+        if (islandView != null) {
+            islandView.updateTrackData();
         }
 
         if (expandAnimator != null) {
@@ -964,8 +963,8 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
 
         if (animated) {
             expandAnimator = android.animation.ValueAnimator.ofFloat(expandProgress, 1.0f);
-            long duration = (long) ((1.0f - expandProgress) * 340);
-            expandAnimator.setDuration(Math.max(120, duration));
+            long duration = (long) ((1.0f - expandProgress) * 380);
+            expandAnimator.setDuration(Math.max(140, duration));
             expandAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
             expandAnimator.addUpdateListener(anim -> {
                 expandProgress = (Float) anim.getAnimatedValue();
@@ -1071,17 +1070,61 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 importingImageView.setVisibility(View.GONE);
             }
         }
+        ViewParent p = getParent();
+        while (p instanceof ViewGroup) {
+            ViewGroup vg = (ViewGroup) p;
+            if (vg.getClipChildren()) {
+                vg.setClipChildren(false);
+            }
+            if (vg.getClipToPadding()) {
+                vg.setClipToPadding(false);
+            }
+            p = vg.getParent();
+        }
         if (islandView != null) {
             islandView.setExpandProgress(expandProgress);
         }
         AnimatedLinearLayout topPanel = getTopPanelLayout();
-        float extraHeight = isChat() ? AndroidUtilities.dp(80) * expandProgress : 0f;
+        float extraHeight = AndroidUtilities.dp(80) * expandProgress;
         if (topPanel instanceof DialogsActivityTopPanelLayout) {
-            ((DialogsActivityTopPanelLayout) topPanel).setExtraHeight(0f);
+            ((DialogsActivityTopPanelLayout) topPanel).setExtraHeight(extraHeight);
         } else if (topPanel instanceof ChatActivityTopPanelLayout) {
             ((ChatActivityTopPanelLayout) topPanel).setExtraHeight(extraHeight);
         }
         invalidate();
+        if (topPanel != null) {
+            topPanel.invalidate();
+            if (topPanel.getParent() instanceof View) {
+                ((View) topPanel.getParent()).invalidate();
+            }
+        }
+    }
+
+    private boolean isIslandViewTouchTarget;
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (islandView != null && (isPlayerExpanded || expandProgress > 0f) && islandView.getVisibility() == VISIBLE) {
+            float x = ev.getX() - islandView.getX();
+            float y = ev.getY() - islandView.getY();
+            int action = ev.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                isIslandViewTouchTarget = (x >= 0 && x <= islandView.getWidth() && y >= 0 && y <= islandView.getHeight());
+            }
+            if (isIslandViewTouchTarget) {
+                MotionEvent event = MotionEvent.obtain(ev);
+                event.setLocation(x, y);
+                boolean handled = islandView.dispatchTouchEvent(event);
+                event.recycle();
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    isIslandViewTouchTarget = false;
+                }
+                return true;
+            }
+        } else {
+            isIslandViewTouchTarget = false;
+        }
+        return super.dispatchTouchEvent(ev);
     }
 
     public boolean isPlayerExpanded() {
@@ -2154,9 +2197,6 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
             }
         }
         boolean wasVisible = visible;
-        if (!isChat() && (isPlayerExpanded || expandProgress > 0f)) {
-            collapsePlayer(false);
-        }
         if (messageObject == null || messageObject.getId() == 0 || messageObject.isVideo()) {
             if (isPlayerExpanded) {
                 collapsePlayer(false);

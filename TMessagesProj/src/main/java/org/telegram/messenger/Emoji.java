@@ -131,27 +131,6 @@ public class Emoji {
                 if (bitmap == null) {
                     return null;
                 }
-                final int maskIndex = emojiPack.getMaskId(page, page2);
-                if (maskIndex != -1) {
-                    final Bitmap alphaBitmap = emojiPack.getMask(maskIndex);
-                    if (alphaBitmap != null) {
-                        final int w = bitmap.getWidth();
-                        final int h = bitmap.getHeight();
-                        final int[] rgbPixels = new int[w * h];
-                        final int[] alphaPixels = new int[w * h];
-                        bitmap.getPixels(rgbPixels, 0, w, 0, 0, w, h);
-                        alphaBitmap.getPixels(alphaPixels, 0, w, 0, 0, w, h);
-                        alphaBitmap.recycle();
-                        for (int i = 0; i < rgbPixels.length; i++) {
-                            int c = rgbPixels[i];
-                            c = (c & 0x00FFFFFF) | ((alphaPixels[i] & 0xFF) << 24);
-                            rgbPixels[i] = c;
-                        }
-                        bitmap.recycle();
-                        bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-                        bitmap.setPixels(rgbPixels, 0, w, 0, 0, w, h);
-                    }
-                }
                 emojiBmp[page][page2] = bitmap;
             }
             EmojiDrawable ed = getEmojiDrawable(code);

@@ -544,7 +544,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                     SharedConfig.deleteProxy(info);
                 }
                 if (SharedConfig.currentProxy == null) {
-                    useProxyForCalls = false;
                     useProxySettings = false;
                 }
                 NotificationCenter.getGlobalInstance().removeObserver(ProxyListActivity.this, NotificationCenter.proxySettingsChanged);

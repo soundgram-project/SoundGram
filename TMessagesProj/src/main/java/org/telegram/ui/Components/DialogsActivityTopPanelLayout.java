@@ -37,24 +37,11 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
     private float extraHeight;
 
     public void setExtraHeight(float extraHeight) {
-        if (this.extraHeight != 0f) {
-            this.extraHeight = 0f;
+        if (this.extraHeight != extraHeight) {
+            this.extraHeight = extraHeight;
             checkBoundsAndClipping();
             invalidate();
         }
-    }
-
-    private boolean isChildBelowFragmentContext(View child) {
-        if (callFragmentContextView == null) return false;
-        View p = callFragmentContextView;
-        while (p.getParent() != null && p.getParent() != this) {
-            if (p.getParent() instanceof View) {
-                p = (View) p.getParent();
-            } else {
-                break;
-            }
-        }
-        return child != p && child.getTop() >= p.getTop();
     }
 
     public float getExtraHeight() {
@@ -64,13 +51,6 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
-        extraHeight = 0f;
-        for (int i = 0; i < getChildCount(); i++) {
-            View child = getChildAt(i);
-            if (child != null && isChildBelowFragmentContext(child)) {
-                child.setTranslationY(0f);
-            }
-        }
         checkBoundsAndClipping();
     }
 
@@ -82,7 +62,41 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
     }
 
     @Override
+    public void setPadding(int left, int top, int right, int bottom) {
+        super.setPadding(left, top, right, bottom);
+        checkBoundsAndClipping();
+        invalidate();
+    }
+
+    private boolean isIslandTouchTarget;
+
+    @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (callFragmentContextView != null && (callFragmentContextView.isPlayerExpanded() || callFragmentContextView.getExpandProgress() > 0f)) {
+            View target = callFragmentContextView;
+            while (target.getParent() != null && target.getParent() != this) {
+                target = (View) target.getParent();
+            }
+            float x = ev.getX() - target.getX();
+            float y = ev.getY() - target.getY();
+            int action = ev.getActionMasked();
+            float maxIslandHeight = target.getHeight() + dp(80) * callFragmentContextView.getExpandProgress();
+            if (action == MotionEvent.ACTION_DOWN) {
+                isIslandTouchTarget = (x >= 0 && x <= target.getWidth() && y >= 0 && y <= maxIslandHeight);
+            }
+            if (isIslandTouchTarget) {
+                MotionEvent event = MotionEvent.obtain(ev);
+                event.setLocation(x, y);
+                boolean handled = target.dispatchTouchEvent(event);
+                event.recycle();
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    isIslandTouchTarget = false;
+                }
+                return true;
+            }
+        } else {
+            isIslandTouchTarget = false;
+        }
         return super.dispatchTouchEvent(ev)
             || ev.getAction() == MotionEvent.ACTION_DOWN && backgroundDrawable != null && backgroundDrawable.getBounds().contains((int) ev.getX(), (int) ev.getY());
     }

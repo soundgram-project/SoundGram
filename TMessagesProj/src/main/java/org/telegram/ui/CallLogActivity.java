@@ -834,6 +834,8 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		}));
 
 		fragmentView = contentView;
+		contentView.setClipChildren(false);
+		contentView.setClipToPadding(false);
 		fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
 
 		flickerLoadingView = new FlickerLoadingView(context);
