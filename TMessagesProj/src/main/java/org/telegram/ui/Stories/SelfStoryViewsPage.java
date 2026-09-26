@@ -30,8 +30,6 @@ import androidx.annotation.NonNull;
 import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
-import androidx.media3.common.util.Consumer;
-
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.ContactsController;
@@ -45,6 +43,7 @@ import org.telegram.messenger.NotificationsController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
+import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_stories;
@@ -133,7 +132,7 @@ public class SelfStoryViewsPage extends FrameLayout implements NotificationCente
     private Runnable searchRunnable;
     private int searchGeneration;
     final FiltersState sharedFilterState;
-    Consumer<SelfStoryViewsPage> onSharedStateChanged;
+    Utilities.Callback<SelfStoryViewsPage> onSharedStateChanged;
     final FiltersState state = new FiltersState();
     HeaderView headerView;
     boolean isSearchDebounce;
@@ -174,7 +173,7 @@ public class SelfStoryViewsPage extends FrameLayout implements NotificationCente
         return true;
     }
 
-    public SelfStoryViewsPage(StoryViewer storyViewer, @NonNull Context context, FiltersState sharedFilterState, Consumer<SelfStoryViewsPage> onSharedStateChanged) {
+    public SelfStoryViewsPage(StoryViewer storyViewer, @NonNull Context context, FiltersState sharedFilterState, Utilities.Callback<SelfStoryViewsPage> onSharedStateChanged) {
         super(context);
         this.sharedFilterState = sharedFilterState;
         this.onSharedStateChanged = onSharedStateChanged;
@@ -1592,7 +1591,7 @@ public class SelfStoryViewsPage extends FrameLayout implements NotificationCente
                                 }
                                 updateViewState(true);
                                 reload();
-                                onSharedStateChanged.accept(SelfStoryViewsPage.this);
+                                onSharedStateChanged.run(SelfStoryViewsPage.this);
                             }
                             if (popupMenu != null) {
                                 popupMenu.dismiss();
@@ -1612,7 +1611,7 @@ public class SelfStoryViewsPage extends FrameLayout implements NotificationCente
                                 }
                                 updateViewState(true);
                                 reload();
-                                onSharedStateChanged.accept(SelfStoryViewsPage.this);
+                                onSharedStateChanged.run(SelfStoryViewsPage.this);
                             }
                             if (popupMenu != null) {
                                 popupMenu.dismiss();

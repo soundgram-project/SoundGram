@@ -3038,7 +3038,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private NotificationCenter.ObserversGroup observersGroup;
-    private NotificationCenter.ObserversGroup globalObserversGroup;
 
     @Override
     public boolean onFragmentCreate() {
@@ -3117,23 +3116,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
 
         observersGroup = getNotificationCenter().createObserversGroup(this);
-        globalObserversGroup = NotificationCenter.getGlobalInstance().createObserversGroup(this);
 
         if (searchString == null) {
             currentConnectionState = getConnectionsManager().getConnectionState();
 
-            globalObserversGroup.add(NotificationCenter.emojiLoaded);
-            globalObserversGroup.add(NotificationCenter.customTitleUpdated);   // NimarkoGram: live custom-title refresh
-            globalObserversGroup.add(NotificationCenter.pluginMenuItemsUpdated); // C5: rebuild the open overflow popup when plugins register/unregister
+            observersGroup.addGlobal(NotificationCenter.emojiLoaded);
+            observersGroup.addGlobal(NotificationCenter.customTitleUpdated);   // NimarkoGram: live custom-title refresh
+            observersGroup.addGlobal(NotificationCenter.pluginMenuItemsUpdated); // C5: rebuild the open overflow popup when plugins register/unregister
             if (!onlySelect) {
-                globalObserversGroup.add(NotificationCenter.closeSearchByActiveAction);
-                globalObserversGroup.add(NotificationCenter.proxySettingsChanged);
+                observersGroup.addGlobal(NotificationCenter.closeSearchByActiveAction);
+                observersGroup.addGlobal(NotificationCenter.proxySettingsChanged);
                 // NimarkoGram: info-cards master toggle / active-set flip. Fragment-scoped (not view-bound)
                 // so it is delivered even while the info-cards settings screen is presented on top and this
                 // fragment's view is detached. Handler re-runs checkUi_searchFieldVisibility() so the home
                 // capsule (and the search-field strip's host) refresh the moment the toggle is enabled,
                 // WITHOUT a client restart.
-                globalObserversGroup.add(NotificationCenter.infoCardsLayoutChanged);
+                observersGroup.addGlobal(NotificationCenter.infoCardsLayoutChanged);
                 observersGroup.add(NotificationCenter.filterSettingsUpdated);
                 observersGroup.add(NotificationCenter.dialogsUnreadCounterChanged);
             }
@@ -3166,7 +3164,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // NimarkoGram: CG search-field visibility toggle.
                 .add(NotificationCenter.cgUpdateSearchFiledVisibility);
 
-            globalObserversGroup.add(NotificationCenter.didSetPasscode);
+            observersGroup.addGlobal(NotificationCenter.didSetPasscode);
         }
         observersGroup
             .add(NotificationCenter.messagesDeleted)
@@ -3374,10 +3372,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (observersGroup != null) {
             observersGroup.removeAllObservers();
             observersGroup = null;
-        }
-        if (globalObserversGroup != null) {
-            globalObserversGroup.removeAllObservers();
-            globalObserversGroup = null;
         }
 
         if (commentView != null) {

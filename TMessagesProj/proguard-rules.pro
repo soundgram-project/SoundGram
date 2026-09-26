@@ -58,6 +58,8 @@
 
 -keep class io.nano.tex.** {*;}
 
+-keep class org.telegram.tgnet.** { *; }
+
 # JLatexMath: macro/atom classes are loaded reflectively by Class.forName
 -keep class org.scilab.forge.jlatexmath.** { *; }
 -keep class ru.noties.jlatexmath.** { *; }
@@ -78,3 +80,7 @@
 # Java-version probe, so the references are dead on Android; silence R8.
 -dontwarn java.beans.ConstructorProperties
 -dontwarn java.beans.Transient
+
+# Use -keep to explicitly keep any other classes shrinking would remove
+#-dontoptimize
+#-dontobfuscate

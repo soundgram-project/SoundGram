@@ -28,14 +28,14 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.format.DateUtils;
-import android.util.SparseArray;
 import android.util.Xml;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 
-import org.telegram.localization.Localization;
+import org.telegram.utils.localization.Localization;
 import org.telegram.localization.LocalizationUtils;
 import org.telegram.messenger.time.FastDateFormat;
 import org.telegram.tgnet.Vector;
@@ -1447,75 +1447,13 @@ public class LocaleController {
     }
 
     private String getStringInternal(String key, int res) {
-        return getStringInternal(key, null, 0, res);
+        return getStringInternal(key, null, res);
     }
 
-    private String getStringInternal(String key, String fallback, int fallbackRes, int res) {
-        if (key == null && res != 0 && ApplicationLoader.applicationContext != null) {
-            try {
-                key = ApplicationLoader.applicationContext.getResources().getResourceEntryName(res);
-            } catch (Exception ignored) {}
-        }
-        boolean forceLocal = isNimarkoBrandedKey(key) || isNimarkoBrandedRes(res) || isNimarkoBrandedKey(fallback) || isNimarkoBrandedRes(fallbackRes);
-        String value = (!forceLocal && BuildVars.USE_CLOUD_STRINGS) ? localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, key, res) : null;
-        if (value == null && !forceLocal && BuildVars.USE_CLOUD_STRINGS && fallback != null) {
-            value = localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, fallback, fallbackRes);
-        }
-
+    private String getStringInternal(String key, String fallback, int res) {
+        final String value = getStringV2(key, res, fallback);
         if (value == null) {
-            checkLocalizationInternal();
-            if (localizationInternal != null) {
-                if (key != null) {
-                    value = localizationInternal.getByResName(key);
-                }
-                if (value == null && res != 0) {
-                    try {
-                        value = getLocalizedString(res);
-                    } catch (Exception ignored) {}
-                }
-                if (value == null && fallback != null) {
-                    value = localizationInternal.getByResName(fallback);
-                }
-                if (value == null && fallbackRes != 0) {
-                    try {
-                        value = getLocalizedString(fallbackRes);
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-
-        if (value == null && localizationInternalDefault != null) {
-            if (key != null) {
-                value = localizationInternalDefault.getByResName(key);
-            }
-            if (value == null && res != 0) {
-                try {
-                    value = localizationInternalDefault.getByResId(ApplicationLoader.applicationContext, res);
-                } catch (Exception ignored) {}
-            }
-            if (value == null && fallback != null) {
-                value = localizationInternalDefault.getByResName(fallback);
-            }
-            if (value == null && fallbackRes != 0) {
-                try {
-                    value = localizationInternalDefault.getByResId(ApplicationLoader.applicationContext, fallbackRes);
-                } catch (Exception ignored) {}
-            }
-        }
-
-        if (value == null && res != 0 && ApplicationLoader.applicationContext != null) {
-            try {
-                value = ApplicationLoader.applicationContext.getString(res);
-            } catch (Exception ignored) {}
-        }
-        if (value == null && fallbackRes != 0 && ApplicationLoader.applicationContext != null) {
-            try {
-                value = ApplicationLoader.applicationContext.getString(fallbackRes);
-            } catch (Exception ignored) {}
-        }
-
-        if (value == null) {
-            value = "LOC_ERR:" + (key != null ? key : res);
+            return "LOC_ERR:" + (key != null ? key : res);
         }
         return value;
     }
@@ -1563,10 +1501,7 @@ public class LocaleController {
     public static String getServerString(String key) {
         String value = getInstance().localizationExternal.getByResName(key);
         if (value == null) {
-            int resourceId = getLocalizedStringByName(key);
-            if (resourceId != 0) {
-                value = getInstance().getLocalizedString(resourceId);
-            }
+            value = getInstance().getLocalizedString(key);
         }
         return value;
     }
@@ -1595,15 +1530,7 @@ public class LocaleController {
         if (TextUtils.isEmpty(key)) {
             return "LOC_ERR:" + key;
         }
-        int resourceId = getStringResId(key);
-        if (resourceId != 0) {
-            return getString(key, resourceId);
-        }
-        return getServerString(key);
-    }
-
-    public static int getStringResId(String key) {
-        return getLocalizedStringByName(key);
+        return getString(key, 0);
     }
 
     private static void clearStringResourceIdCache() {
@@ -1620,9 +1547,7 @@ public class LocaleController {
         }
         String param = getInstance().stringForQuantity(getInstance().currentPluralRules.quantityForNumber(plural));
         param = key + "_" + param;
-        int resourceId = getLocalizedStringByName(param);
-        int fallbackResourceId = getLocalizedStringByName(key + "_other");
-        return getInstance().getStringInternal(param, key + "_other", fallbackResourceId, resourceId);
+        return getInstance().getStringInternal(param, key + "_other", 0);
     }
 
     public static String formatPluralString(String key, int plural, Object... args) {
@@ -1631,12 +1556,10 @@ public class LocaleController {
         }
         String param = getInstance().stringForQuantity(getInstance().currentPluralRules.quantityForNumber(plural));
         param = key + "_" + param;
-        int resourceId = getLocalizedStringByName(param);
-        int fallbackResourceId = getLocalizedStringByName(key + "_other");
         Object[] argsWithPlural = new Object[args.length + 1];
         argsWithPlural[0] = plural;
         System.arraycopy(args, 0, argsWithPlural, 1, args.length);
-        return formatString(param, key + "_other", resourceId, fallbackResourceId, argsWithPlural);
+        return formatString(param, key + "_other", 0, argsWithPlural);
     }
 
     public static CharSequence formatPluralSpannable(String key, int plural, CharSequence... args) {
@@ -1645,12 +1568,10 @@ public class LocaleController {
         }
         String param = getInstance().stringForQuantity(getInstance().currentPluralRules.quantityForNumber(plural));
         param = key + "_" + param;
-        int resourceId = getLocalizedStringByName(param);
-        int fallbackResourceId = getLocalizedStringByName(key + "_other");
         Object[] argsWithPlural = new Object[args.length + 1];
         argsWithPlural[0] = plural;
         System.arraycopy(args, 0, argsWithPlural, 1, args.length);
-        return formatSpannable(param, key + "_other", resourceId, fallbackResourceId, argsWithPlural);
+        return formatSpannable(param, key + "_other", 0, argsWithPlural);
     }
 
     public static String getStringParamForNumber(int number) {
@@ -1722,13 +1643,11 @@ public class LocaleController {
             }
             if (value == null) {
                 try {
-                    int resourceId = getLocalizedStringByName(param);
-                    value = getInstance().getLocalizedString(resourceId);
+                    value = getInstance().getLocalizedString(param);
                 } catch (Exception e2) {}
             }
             if (value == null) {
-                int resourceId = getLocalizedStringByName(key + "_other");
-                value = getInstance().getLocalizedString(resourceId);
+                value = getInstance().getLocalizedString(key + "_other");
             }
             if (value == null) {
                 return "LOC_ERR: " + key;
@@ -1777,72 +1696,14 @@ public class LocaleController {
 
     @Deprecated
     public static String formatString(String key, int res, Object... args) {
-        return formatString(key, null, res, 0, args);
+        return formatString(key, null, res, args);
     }
 
-    private static String formatString(String key, String fallback, int res, int fallbackRes, Object... args) {
+    private static String formatString(String key, String fallback, int res, Object... args) {
         try {
-            if (key == null && res != 0 && ApplicationLoader.applicationContext != null) {
-                try {
-                    key = ApplicationLoader.applicationContext.getResources().getResourceEntryName(res);
-                } catch (Exception ignored) {}
-            }
-            boolean forceLocal = isNimarkoBrandedKey(key) || isNimarkoBrandedRes(res) || isNimarkoBrandedKey(fallback) || isNimarkoBrandedRes(fallbackRes);
-            String value = (!forceLocal && BuildVars.USE_CLOUD_STRINGS) ? getInstance().localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, key, res) : null;
-            if (value == null && !forceLocal && BuildVars.USE_CLOUD_STRINGS && fallback != null) {
-                value = getInstance().localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, fallback, fallbackRes);
-            }
-
+            final String value = getInstance().getStringV2(key, res, fallback);
             if (value == null) {
-                getInstance().checkLocalizationInternal();
-                if (getInstance().localizationInternal != null) {
-                    if (key != null) {
-                        value = getInstance().localizationInternal.getByResName(key);
-                    }
-                    if (value == null && res != 0) {
-                        try {
-                            value = getInstance().getLocalizedString(res);
-                        } catch (Exception ignored) {}
-                    }
-                    if (value == null && fallback != null) {
-                        value = getInstance().localizationInternal.getByResName(fallback);
-                    }
-                    if (value == null && fallbackRes != 0) {
-                        try {
-                            value = getInstance().getLocalizedString(fallbackRes);
-                        } catch (Exception ignored) {}
-                    }
-                }
-            }
-
-            if (value == null && getInstance().localizationInternalDefault != null) {
-                if (key != null) {
-                    value = getInstance().localizationInternalDefault.getByResName(key);
-                }
-                if (value == null && res != 0) {
-                    try {
-                        value = getInstance().localizationInternalDefault.getByResId(ApplicationLoader.applicationContext, res);
-                    } catch (Exception ignored) {}
-                }
-                if (value == null && fallback != null) {
-                    value = getInstance().localizationInternalDefault.getByResName(fallback);
-                }
-                if (value == null && fallbackRes != 0) {
-                    try {
-                        value = getInstance().localizationInternalDefault.getByResId(ApplicationLoader.applicationContext, fallbackRes);
-                    } catch (Exception ignored) {}
-                }
-            }
-
-            if (value == null && res != 0 && ApplicationLoader.applicationContext != null) {
-                try {
-                    value = ApplicationLoader.applicationContext.getString(res);
-                } catch (Exception ignored) {}
-            }
-            if (value == null && fallbackRes != 0 && ApplicationLoader.applicationContext != null) {
-                try {
-                    value = ApplicationLoader.applicationContext.getString(fallbackRes);
-                } catch (Exception ignored) {}
+                return "LOC_ERR: " + (key != null ? key : res);
             }
 
             if (value == null) {
@@ -1875,74 +1736,12 @@ public class LocaleController {
     }
 
     public static CharSequence formatSpannable(String key, int res, Object... args) {
-        return formatSpannable(key, null, res, 0, args);
+        return formatSpannable(key, null, res, args);
     }
 
-    private static CharSequence formatSpannable(String key, String fallback, int res, int fallbackRes, Object... args) {
+    private static CharSequence formatSpannable(String key, String fallback, int res, Object... args) {
         try {
-            if (key == null && res != 0 && ApplicationLoader.applicationContext != null) {
-                try {
-                    key = ApplicationLoader.applicationContext.getResources().getResourceEntryName(res);
-                } catch (Exception ignored) {}
-            }
-            boolean forceLocal = isNimarkoBrandedKey(key) || isNimarkoBrandedRes(res) || isNimarkoBrandedKey(fallback) || isNimarkoBrandedRes(fallbackRes);
-            String value = (!forceLocal && BuildVars.USE_CLOUD_STRINGS) ? getInstance().localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, key, res) : null;
-            if (value == null && !forceLocal && BuildVars.USE_CLOUD_STRINGS && fallback != null) {
-                value = getInstance().localizationExternal.getByResNameOrResId(ApplicationLoader.applicationContext, fallback, fallbackRes);
-            }
-
-            if (value == null) {
-                getInstance().checkLocalizationInternal();
-                if (getInstance().localizationInternal != null) {
-                    if (key != null) {
-                        value = getInstance().localizationInternal.getByResName(key);
-                    }
-                    if (value == null && res != 0) {
-                        try {
-                            value = getInstance().getLocalizedString(res);
-                        } catch (Exception ignored) {}
-                    }
-                    if (value == null && fallback != null) {
-                        value = getInstance().localizationInternal.getByResName(fallback);
-                    }
-                    if (value == null && fallbackRes != 0) {
-                        try {
-                            value = getInstance().getLocalizedString(fallbackRes);
-                        } catch (Exception ignored) {}
-                    }
-                }
-            }
-
-            if (value == null && getInstance().localizationInternalDefault != null) {
-                if (key != null) {
-                    value = getInstance().localizationInternalDefault.getByResName(key);
-                }
-                if (value == null && res != 0) {
-                    try {
-                        value = getInstance().localizationInternalDefault.getByResId(ApplicationLoader.applicationContext, res);
-                    } catch (Exception ignored) {}
-                }
-                if (value == null && fallback != null) {
-                    value = getInstance().localizationInternalDefault.getByResName(fallback);
-                }
-                if (value == null && fallbackRes != 0) {
-                    try {
-                        value = getInstance().localizationInternalDefault.getByResId(ApplicationLoader.applicationContext, fallbackRes);
-                    } catch (Exception ignored) {}
-                }
-            }
-
-            if (value == null && res != 0 && ApplicationLoader.applicationContext != null) {
-                try {
-                    value = ApplicationLoader.applicationContext.getString(res);
-                } catch (Exception ignored) {}
-            }
-            if (value == null && fallbackRes != 0 && ApplicationLoader.applicationContext != null) {
-                try {
-                    value = ApplicationLoader.applicationContext.getString(fallbackRes);
-                } catch (Exception ignored) {}
-            }
-
+            final String value = getInstance().getStringV2(key, res, fallback);
             if (value == null) {
                 return "LOC_ERR: " + (key != null ? key : res);
             }
@@ -4744,6 +4543,7 @@ public class LocaleController {
             return f.format(value, dir, unit);
         }
     }
+<<<<<<< HEAD
 
     public static String formatDateOnlineIOS(long date, boolean[] madeShorter) {
         try {
@@ -4852,9 +4652,50 @@ public class LocaleController {
         return ApplicationLoader.applicationContext.getResources().getIdentifier(key, "string", ApplicationLoader.applicationContext.getPackageName());
     }
 
-    private String getLocalizedString(@StringRes int stringRes) {
+    private String getLocalizedString(String key) {
         checkLocalizationInternal();
-        return localizationInternal.getByResId(ApplicationLoader.applicationContext, stringRes);
+        return localizationInternal.getByResName(key);
+    }
+
+    @Nullable
+    private String getStringV2(String key, @StringRes int stringRes, String fallback) {
+        final Context context = ApplicationLoader.applicationContext;
+        String value;
+
+        boolean forceLocal = isNimarkoBrandedKey(key) || isNimarkoBrandedRes(stringRes) || isNimarkoBrandedKey(fallback);
+        if (!forceLocal && BuildVars.USE_CLOUD_STRINGS) {
+            value = localizationExternal.getByResNameOrResId(context, key, stringRes);
+            if (value != null) {
+                return value;
+            }
+
+            value = localizationExternal.getByResName(fallback);
+            if (value != null) {
+                return value;
+            }
+        }
+
+        checkLocalizationInternal();
+        value = localizationInternal.getByResNameOrResId(context, key, stringRes);
+        if (value != null) {
+            return value;
+        }
+
+        value = localizationInternal.getByResName(fallback);
+        if (value != null) {
+            return value;
+        }
+
+        if (stringRes != 0 && context != null) {
+            try {
+                value = context.getString(stringRes);
+                if (value != null) {
+                    return value;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return null;
     }
 
 
