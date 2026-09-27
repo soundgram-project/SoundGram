@@ -132,7 +132,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         receiptBtn.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText));
         receiptBtn.setText(tr("btn_receipt"));
         receiptBtn.setOnClickListener(v -> {
-            Browser.openUrl(getContext(), "https://t.me/vlsv_srg");
+            Browser.openUrl(getContext(), "https://t.me/im3ff");
             dismiss();
         });
         root.addView(receiptBtn, LayoutHelper.createLinear(

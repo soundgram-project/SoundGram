@@ -1271,15 +1271,20 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
 
                     ArrayList<MessageObject> queue = new ArrayList<>();
+                    MessageObject targetMsg = null;
                     for (MusicWebSearcher.WebTrack wt : webResultTracks) {
                         if (TextUtils.isEmpty(wt.downloadUrl)) continue;
                         int durSec = parseDuration(wt.duration);
                         MessageObject fakeMsg = createWebMessageObject(currentAccount, wt.title, wt.artist, wt.downloadUrl, durSec, -(long)wt.downloadUrl.hashCode(), wt.coverUrl);
                         queue.add(fakeMsg);
+                        if (wt == clickedTrack) {
+                            targetMsg = fakeMsg;
+                        }
                     }
-                    MessageObject streamMsg = position < queue.size() ? queue.get(position) : (!queue.isEmpty() ? queue.get(0) : null);
-                    if (streamMsg != null) {
-                        playContext(streamMsg, queue, -Math.abs((long) "search_context".hashCode()));
+                    if (targetMsg != null) {
+                        playContext(targetMsg, queue, -Math.abs((long) "search_context".hashCode()));
+                    } else if (!queue.isEmpty()) {
+                        playContext(queue.get(0), queue, -Math.abs((long) "search_context".hashCode()));
                     }
                 } else {
                     int localPos = position - webResultTracks.size();

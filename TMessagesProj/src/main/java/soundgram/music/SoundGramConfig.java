@@ -10,6 +10,7 @@ import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.UserConfig;
+import org.telegram.tgnet.TLRPC;
 
 import java.net.URL;
 import java.net.URLConnection;
@@ -30,6 +31,69 @@ public class SoundGramConfig {
     public static String activeZeroChatKey = null;
     public static HashMap<String, String> zeroChatKeys = new HashMap<>();
     public static HashMap<Long, String> customUserBadges = new HashMap<>();
+
+    public static boolean hasBadge(long id) {
+        if (id == 0) return false;
+        if (customUserBadges.containsKey(id)) return true;
+        if (id < -1000000000000L) {
+            long rawId = -id - 1000000000000L;
+            if (customUserBadges.containsKey(rawId) || customUserBadges.containsKey(-rawId)) return true;
+        } else if (id > 0) {
+            long channelDialogId = -1000000000000L - id;
+            if (customUserBadges.containsKey(channelDialogId) || customUserBadges.containsKey(-id)) return true;
+        } else if (id < 0) {
+            long rawId = -id;
+            long channelDialogId = -1000000000000L - rawId;
+            if (customUserBadges.containsKey(rawId) || customUserBadges.containsKey(channelDialogId)) return true;
+        }
+        return false;
+    }
+
+    public static String getBadge(long id) {
+        if (id == 0) return null;
+        String b = customUserBadges.get(id);
+        if (b != null) return b;
+        if (id < -1000000000000L) {
+            long rawId = -id - 1000000000000L;
+            b = customUserBadges.get(rawId);
+            if (b != null) return b;
+            return customUserBadges.get(-rawId);
+        } else if (id > 0) {
+            long channelDialogId = -1000000000000L - id;
+            b = customUserBadges.get(channelDialogId);
+            if (b != null) return b;
+            return customUserBadges.get(-id);
+        } else {
+            long rawId = -id;
+            b = customUserBadges.get(rawId);
+            if (b != null) return b;
+            long channelDialogId = -1000000000000L - rawId;
+            return customUserBadges.get(channelDialogId);
+        }
+    }
+
+    public static boolean hasBadgeForChat(TLRPC.Chat chat) {
+        if (chat == null) return false;
+        long dialogId;
+        if (org.telegram.messenger.ChatObject.isChannel(chat)) {
+            dialogId = -1000000000000L - chat.id;
+        } else {
+            dialogId = -chat.id;
+        }
+        return hasBadge(dialogId) || hasBadge(chat.id) || hasBadge(-chat.id);
+    }
+
+    public static boolean hasBadgeForUser(TLRPC.User user) {
+        if (user == null) return false;
+        return hasBadge(user.id);
+    }
+
+    public static boolean hasBadgeForDialog(long dialogId, TLRPC.User user, TLRPC.Chat chat) {
+        if (user != null && hasBadgeForUser(user)) return true;
+        if (chat != null && hasBadgeForChat(chat)) return true;
+        if (dialogId != 0 && hasBadge(dialogId)) return true;
+        return false;
+    }
 
     public static void load() {
         SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences(KEY, Context.MODE_PRIVATE);

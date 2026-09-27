@@ -1650,7 +1650,9 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         titleTextView.setRightDrawable2OnClick(null);
 
         TLRPC.User user = parentFragment != null ? parentFragment.getCurrentUser() : null;
-        boolean isSoundGram = user != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(user.id) && !org.telegram.messenger.UserObject.isUserSelf(user);
+        TLRPC.Chat chat = parentFragment != null ? parentFragment.getCurrentChat() : null;
+        boolean isSoundGram = (user != null && soundgram.music.SoundGramConfig.hasBadgeForUser(user) && !org.telegram.messenger.UserObject.isUserSelf(user))
+                || (chat != null && soundgram.music.SoundGramConfig.hasBadgeForChat(chat));
         if (isSoundGram) {
             if (soundGramDrawable == null) {
                 soundGramDrawable = getResources().getDrawable(R.drawable.ic_soundgram_badge).mutate();

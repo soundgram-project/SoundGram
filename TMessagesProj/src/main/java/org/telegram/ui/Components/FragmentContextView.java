@@ -1070,17 +1070,6 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 importingImageView.setVisibility(View.GONE);
             }
         }
-        ViewParent p = getParent();
-        while (p instanceof ViewGroup) {
-            ViewGroup vg = (ViewGroup) p;
-            if (vg.getClipChildren()) {
-                vg.setClipChildren(false);
-            }
-            if (vg.getClipToPadding()) {
-                vg.setClipToPadding(false);
-            }
-            p = vg.getParent();
-        }
         if (islandView != null) {
             islandView.setExpandProgress(expandProgress);
         }

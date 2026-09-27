@@ -19669,7 +19669,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 currentNameString = getAuthorName();
                 currentNameStatus = getAuthorStatus();
                 currentNameBotVerificationId = getAuthorBotVerificationId();
-                isSoundGramUser = currentUser != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(currentUser.id) && !isSavedChat;
+                isSoundGramUser = ((currentUser != null && soundgram.music.SoundGramConfig.hasBadgeForUser(currentUser))
+                        || (currentChat != null && soundgram.music.SoundGramConfig.hasBadgeForChat(currentChat))) && !isSavedChat;
             } else {
                 currentNameString = "";
             }

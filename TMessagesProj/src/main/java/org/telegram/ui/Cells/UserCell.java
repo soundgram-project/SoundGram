@@ -674,7 +674,8 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
             nameTextView.setLeftDrawable(botVerification);
         }
         boolean isPremium = currentUser != null && MessagesController.getInstance(currentAccount).isPremiumUser(currentUser) && !MessagesController.getInstance(currentAccount).premiumFeaturesBlocked() && !app.nimarkogram.messenger.NimarkoConfig.disablePremiumStatuses;
-        boolean isSoundGram = currentUser != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(currentUser.id);
+        boolean isSoundGram = (currentUser != null && soundgram.music.SoundGramConfig.hasBadgeForUser(currentUser))
+                || (currentChat != null && soundgram.music.SoundGramConfig.hasBadgeForChat(currentChat));
 
         if (isPremium) {
             if (DialogObject.getEmojiStatusDocumentId(currentUser.emoji_status) != 0) {

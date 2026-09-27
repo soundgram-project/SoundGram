@@ -13136,7 +13136,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     nameTextView[a].setRightDrawableOutside(true);
                 }
 
-                boolean isSoundGram = user != null && soundgram.music.SoundGramConfig.customUserBadges.containsKey(user.id);
+                boolean isSoundGram = user != null && soundgram.music.SoundGramConfig.hasBadgeForUser(user);
                 if (isSoundGram) {
                     Drawable soundGramDrawable = androidx.core.content.ContextCompat.getDrawable(getParentActivity(), R.drawable.ic_soundgram_badge).mutate();
                     soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, AndroidUtilities.dp(20), AndroidUtilities.dp(20)) {
@@ -13483,6 +13483,40 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     nameTextView[a].setLeftDrawable(getBotVerificationDrawable(chat.bot_verification_icon, false, a));
                 } else {
                     nameTextView[a].setLeftDrawable(null);
+                }
+
+                boolean isSoundGram = soundgram.music.SoundGramConfig.hasBadgeForChat(chat);
+                if (isSoundGram) {
+                    Drawable soundGramDrawable = androidx.core.content.ContextCompat.getDrawable(getParentActivity(), R.drawable.ic_soundgram_badge).mutate();
+                    soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, AndroidUtilities.dp(20), AndroidUtilities.dp(20)) {
+                        @Override
+                        public void draw(@androidx.annotation.NonNull android.graphics.Canvas canvas) {
+                            canvas.save();
+                            canvas.translate(0, AndroidUtilities.dp(1));
+                            super.draw(canvas);
+                            canvas.restore();
+                        }
+                    };
+
+                    if (nameTextView[a].getRightDrawable() == null) {
+                        nameTextView[a].setRightDrawable(soundGramDrawable);
+                    } else if (nameTextView[a].getRightDrawable2() == null) {
+                        nameTextView[a].setRightDrawable2(soundGramDrawable);
+                    } else {
+                        nameTextView[a].setRightDrawable2(soundGramDrawable);
+                    }
+                    nameTextView[a].requestLayout();
+
+                    android.view.View.OnClickListener badgeClickListener = v -> {
+                        soundgram.ui.SoundGramBadgeBottomSheet bottomSheet = new soundgram.ui.SoundGramBadgeBottomSheet(ProfileActivity.this.getParentActivity(), resourcesProvider);
+                        showDialog(bottomSheet);
+                    };
+
+                    if (nameTextView[a].getRightDrawable() == soundGramDrawable) {
+                        nameTextView[a].setRightDrawableOnClick(badgeClickListener);
+                    } else if (nameTextView[a].getRightDrawable2() == soundGramDrawable) {
+                        nameTextView[a].setRightDrawable2OnClick(badgeClickListener);
+                    }
                 }
 
                 if (a == 0 && onlineTextOverride != null) {

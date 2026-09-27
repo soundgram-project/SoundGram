@@ -1560,8 +1560,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                             // badge sparkles inherited from the previous binding.
                             emojiStatus.setParticles(false, false);
                         }
-                        long uid = user != null ? user.id : (currentDialogId > 0 ? currentDialogId : 0);
-                        drawSoundGram = uid != 0 && soundgram.music.SoundGramConfig.customUserBadges.containsKey(uid);
+                        drawSoundGram = soundgram.music.SoundGramConfig.hasBadgeForDialog(currentDialogId, user, chat);
                         if (drawSoundGram) {
                             nameLayoutEllipsizeByGradient = true;
                         }

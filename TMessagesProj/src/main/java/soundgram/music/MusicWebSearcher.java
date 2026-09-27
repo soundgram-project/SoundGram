@@ -177,30 +177,97 @@ public class MusicWebSearcher {
     }
 
     public static WebTrack resolveHitmosSync(String title, String artist) {
+        if (title == null || title.isEmpty()) return null;
         try {
-            String query = (artist + " " + title)
-                    .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            String cleanTitle = title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+            String cleanArtist = artist != null ? artist.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim() : "";
+            String primaryArtist = cleanArtist.split("[,&/]|\\bfeat\\b|\\bft\\b")[0].trim();
+
+            // 1. Поиск: "Артист Название"
+            WebTrack match = searchAndMatchHitmos(cleanArtist + " " + cleanTitle, cleanTitle, cleanArtist);
+            if (match != null) return match;
+
+            // 2. Поиск: "ОсновнойАртист Название" (если несколько авторов или коллаб)
+            if (!primaryArtist.isEmpty() && !primaryArtist.equalsIgnoreCase(cleanArtist)) {
+                match = searchAndMatchHitmos(primaryArtist + " " + cleanTitle, cleanTitle, cleanArtist);
+                if (match != null) return match;
+            }
+
+            // 3. Резервный поиск с транслитерацией кириллицы (для обхода ограничений поисковика)
+            String translitQuery = (transliterate(cleanArtist) + " " + transliterate(cleanTitle)).trim();
+            if (!translitQuery.equalsIgnoreCase(cleanArtist + " " + cleanTitle)) {
+                match = searchAndMatchHitmos(translitQuery, cleanTitle, cleanArtist);
+                if (match != null) return match;
+            }
+
+            // 4. Поиск только по названию (часто на Hitmos псевдоним отличается, например рус/англ)
+            if (!cleanTitle.isEmpty() && cleanTitle.length() > 2) {
+                match = searchAndMatchHitmos(cleanTitle, cleanTitle, cleanArtist);
+                if (match != null) return match;
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return null;
+    }
+
+    private static WebTrack searchAndMatchHitmos(String query, String cleanTitle, String cleanArtist) {
+        try {
+            query = query.replaceAll("\\s+", " ").trim();
+            if (query.isEmpty()) return null;
+
             String cacheKey = "hitmos:" + query.toLowerCase();
-
-            ArrayList<WebTrack> cached = getCachedSearch(cacheKey);
-            if (cached == null) {
+            ArrayList<WebTrack> list = getCachedSearch(cacheKey);
+            if (list == null) {
                 String html = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
-                cached = new ArrayList<>();
-                parseHtmlToResults(html, cached, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                putCachedSearch(cacheKey, cached);
+                list = new ArrayList<>();
+                parseHtmlToResults(html, list, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                putCachedSearch(cacheKey, list);
             }
-            if (!cached.isEmpty()) return cached.get(0);
+            if (list == null || list.isEmpty()) return null;
 
-            // Резервный поиск с транслитерацией кириллицы (для обхода ограничения поисковика при VPN)
-            String translitQuery = (transliterate(artist) + " " + transliterate(title))
-                    .replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
-            if (!translitQuery.equalsIgnoreCase(query)) {
-                String html2 = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(translitQuery, "UTF-8"));
-                ArrayList<WebTrack> cached2 = new ArrayList<>();
-                parseHtmlToResults(html2, cached2, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-                if (!cached2.isEmpty()) return cached2.get(0);
+            String lowerTitle = cleanTitle.toLowerCase();
+            String lowerArtist = cleanArtist != null ? cleanArtist.toLowerCase() : "";
+
+            // Приоритет 1: совпадение названия и артиста
+            for (WebTrack wt : list) {
+                if (wt.downloadUrl == null || wt.downloadUrl.isEmpty()) continue;
+                String wtTitle = wt.title != null ? wt.title.toLowerCase() : "";
+                String wtArtist = wt.artist != null ? wt.artist.toLowerCase() : "";
+                boolean tMatch = wtTitle.contains(lowerTitle) || lowerTitle.contains(wtTitle);
+                boolean aMatch = lowerArtist.isEmpty() || isArtistMatch(wt.artist, cleanArtist) || wtArtist.contains(lowerArtist) || lowerArtist.contains(wtArtist);
+                if (tMatch && aMatch) {
+                    return wt;
+                }
             }
-        } catch (Exception e) { FileLog.e(e); }
+
+            // Приоритет 2: строгое совпадение по названию
+            for (WebTrack wt : list) {
+                if (wt.downloadUrl == null || wt.downloadUrl.isEmpty()) continue;
+                String wtTitle = wt.title != null ? wt.title.toLowerCase() : "";
+                if (wtTitle.contains(lowerTitle) || lowerTitle.contains(wtTitle)) {
+                    return wt;
+                }
+            }
+
+            // Приоритет 3: если запрос включал артиста и название, проверить совпадение слов названия
+            for (WebTrack wt : list) {
+                if (wt.downloadUrl == null || wt.downloadUrl.isEmpty()) continue;
+                String wtTitle = wt.title != null ? wt.title.toLowerCase() : "";
+                String[] words = lowerTitle.split("\\s+");
+                int matchCount = 0;
+                for (String w : words) {
+                    if (w.length() >= 3 && wtTitle.contains(w)) {
+                        matchCount++;
+                    }
+                }
+                if (matchCount > 0 && matchCount >= (words.length + 1) / 2) {
+                    return wt;
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
         return null;
     }
 
@@ -399,7 +466,7 @@ public class MusicWebSearcher {
 
         // 4. Бонус за готовый прямой поток
         if (hasStream) {
-            score += 100;
+            score += 250;
         }
 
         return score;
@@ -500,16 +567,29 @@ public class MusicWebSearcher {
 
                 for (WebTrack dt : deezerTracks) {
                     String key = (dt.title + "|||" + dt.artist).toLowerCase();
+                    WebTrack existingHitmos = null;
                     if (addedKeys.contains(key)) {
-                        // Переносим обложку высокой четкости Deezer на трек Hitmos
                         for (WebTrack existing : tracks) {
-                            String exKey = (existing.title + "|||" + existing.artist).toLowerCase();
-                            if (exKey.equals(key)) {
-                                if ((existing.coverUrl == null || existing.coverUrl.isEmpty()) && !dt.coverUrl.isEmpty()) {
-                                    existing.coverUrl = dt.coverUrl;
-                                }
+                            if ((existing.title + "|||" + existing.artist).equalsIgnoreCase(key)) {
+                                existingHitmos = existing;
                                 break;
                             }
+                        }
+                    } else {
+                        // Поиск совпадений с Hitmos по чистому названию и артисту
+                        String cleanDtTitle = dt.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
+                        for (WebTrack existing : tracks) {
+                            String cleanExTitle = existing.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
+                            if (cleanDtTitle.equals(cleanExTitle) && (isArtistMatch(existing.artist, dt.artist) || existing.artist.equalsIgnoreCase(dt.artist))) {
+                                existingHitmos = existing;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (existingHitmos != null) {
+                        if ((existingHitmos.coverUrl == null || existingHitmos.coverUrl.isEmpty()) && !dt.coverUrl.isEmpty()) {
+                            existingHitmos.coverUrl = dt.coverUrl;
                         }
                     } else {
                         addedKeys.add(key);
