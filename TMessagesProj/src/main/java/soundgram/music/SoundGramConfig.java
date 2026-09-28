@@ -95,6 +95,20 @@ public class SoundGramConfig {
         return false;
     }
 
+    public static class SoundGramBadgeWrapDrawable extends org.telegram.ui.Components.AnimatedEmojiDrawable.WrapSizeDrawable {
+        public SoundGramBadgeWrapDrawable(android.graphics.drawable.Drawable drawable) {
+            super(drawable, org.telegram.messenger.AndroidUtilities.dp(20), org.telegram.messenger.AndroidUtilities.dp(20));
+        }
+
+        @Override
+        public void draw(@androidx.annotation.NonNull android.graphics.Canvas canvas) {
+            canvas.save();
+            canvas.translate(0, org.telegram.messenger.AndroidUtilities.dp(1));
+            super.draw(canvas);
+            canvas.restore();
+        }
+    }
+
     public static void load() {
         SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences(KEY, Context.MODE_PRIVATE);
 

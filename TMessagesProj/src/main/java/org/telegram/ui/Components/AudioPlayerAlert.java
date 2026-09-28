@@ -418,13 +418,20 @@ public class AudioPlayerAlert extends BottomSheet
                 && mo.messageOwner.message != null
                 && mo.messageOwner.message.startsWith("SG_STREAM|||");
 
+        boolean isDark = Theme.isCurrentThemeDark();
+        int popupBgColor = isDark ? 0xF2202023 : getThemedColor(Theme.key_actionBarDefaultSubmenuBackground);
+        if (popupBgColor == 0) {
+            popupBgColor = isDark ? 0xF2202023 : 0xFFFFFFFF;
+        }
+        int strokeColor = isDark ? 0x28FFFFFF : 0x1A000000;
+
         LinearLayout container = new LinearLayout(getContext());
         container.setOrientation(LinearLayout.VERTICAL);
         {
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(0xF2202023);
+            bg.setColor(popupBgColor);
             bg.setCornerRadius(AndroidUtilities.dp(16));
-            bg.setStroke(AndroidUtilities.dp(1), 0x28FFFFFF);
+            bg.setStroke(AndroidUtilities.dp(1), strokeColor);
             container.setBackground(bg);
         }
         container.setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(6));
@@ -541,25 +548,30 @@ public class AudioPlayerAlert extends BottomSheet
     }
 
     private LinearLayout buildPopupRow(String title, int iconRes, boolean isLast, Runnable onClick) {
+        boolean isDark = Theme.isCurrentThemeDark();
+        int textColor = isDark ? 0xFFFFFFFF : getThemedColor(Theme.key_actionBarDefaultSubmenuItem);
+        int iconColor = isDark ? 0xFFFFFFFF : getThemedColor(Theme.key_actionBarDefaultSubmenuItemIcon);
+        int selectorColor = isDark ? 0x18FFFFFF : getThemedColor(Theme.key_listSelector);
+
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(AndroidUtilities.dp(52));
         row.setPadding(AndroidUtilities.dp(18), 0, AndroidUtilities.dp(24), 0);
         if (Build.VERSION.SDK_INT >= 21)
-            row.setBackground(Theme.createSelectorDrawable(0x18FFFFFF, 0));
+            row.setBackground(Theme.createSelectorDrawable(selectorColor, 0));
         row.setOnClickListener(v -> onClick.run());
 
         ImageView iconView = new ImageView(getContext());
         iconView.setImageResource(iconRes);
-        iconView.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000, PorterDuff.Mode.SRC_IN);
+        iconView.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
         iconView.setScaleType(ImageView.ScaleType.CENTER);
         row.addView(iconView, LayoutHelper.createLinear(28, 28, Gravity.CENTER_VERTICAL));
 
         TextView tv = new TextView(getContext());
         tv.setText(title);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        tv.setTextColor(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000);
+        tv.setTextColor(textColor);
         tv.setSingleLine(true);
         row.addView(tv, LayoutHelper.createLinear(
                 LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
@@ -569,8 +581,10 @@ public class AudioPlayerAlert extends BottomSheet
     }
 
     private View buildPopupDivider() {
+        boolean isDark = Theme.isCurrentThemeDark();
+        int dividerColor = isDark ? 0x20FFFFFF : 0x14000000;
         View v = new View(getContext());
-        v.setBackgroundColor(0x20FFFFFF);
+        v.setBackgroundColor(dividerColor);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(0.5f));
         lp.setMargins(AndroidUtilities.dp(18), 0, AndroidUtilities.dp(18), 0);
@@ -743,14 +757,22 @@ public class AudioPlayerAlert extends BottomSheet
         if (getContext() == null || modeMenuButton == null)
             return;
 
+        boolean isDark = Theme.isCurrentThemeDark();
+        int popupBgColor = isDark ? 0xF2202023 : getThemedColor(Theme.key_actionBarDefaultSubmenuBackground);
+        if (popupBgColor == 0) {
+            popupBgColor = isDark ? 0xF2202023 : 0xFFFFFFFF;
+        }
+        int strokeColor = isDark ? 0x28FFFFFF : 0x1A000000;
+        int selectorColor = isDark ? 0x18FFFFFF : getThemedColor(Theme.key_listSelector);
+
         // Собираем контейнер попапа
         LinearLayout container = new LinearLayout(getContext());
         container.setOrientation(LinearLayout.VERTICAL);
         {
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(0xF2202023);
+            bg.setColor(popupBgColor);
             bg.setCornerRadius(AndroidUtilities.dp(16));
-            bg.setStroke(AndroidUtilities.dp(1), 0x28FFFFFF);
+            bg.setStroke(AndroidUtilities.dp(1), strokeColor);
             container.setBackground(bg);
         }
         container.setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(6));
@@ -776,7 +798,7 @@ public class AudioPlayerAlert extends BottomSheet
         for (int i = 0; i < modeIds.length; i++) {
             final int id = modeIds[i];
             boolean active = isModeActive(id);
-            int color = active ? getThemedColor(Theme.key_player_buttonActive) : (Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000);
+            int color = active ? getThemedColor(Theme.key_player_buttonActive) : (isDark ? 0xFFFFFFFF : getThemedColor(Theme.key_actionBarDefaultSubmenuItem));
 
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -784,7 +806,7 @@ public class AudioPlayerAlert extends BottomSheet
             row.setMinimumHeight(AndroidUtilities.dp(52));
             row.setPadding(AndroidUtilities.dp(18), 0, AndroidUtilities.dp(24), 0);
             if (Build.VERSION.SDK_INT >= 21)
-                row.setBackground(Theme.createSelectorDrawable(0x18FFFFFF, 0));
+                row.setBackground(Theme.createSelectorDrawable(selectorColor, 0));
 
             ImageView iconView = new ImageView(getContext());
             iconView.setImageResource(modeIcons[i]);

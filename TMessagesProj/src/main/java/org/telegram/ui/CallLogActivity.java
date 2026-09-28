@@ -755,6 +755,10 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		listView.setSections();
 		listView.adapter.setApplyBackground(false);
 		contentView = new SizeNotifierFrameLayout(context) {
+			{
+				setClipChildren(false);
+				setClipToPadding(false);
+			}
 			@Override
 			protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 				measureChildWithMargins(actionBar, widthMeasureSpec, 0, heightMeasureSpec, 0);
@@ -910,6 +914,8 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		topPanelLayout.setBlurredBackground(topPanelLayoutBackground);
 
 		fragmentContextViewWrapper = new FrameLayout(context);
+		fragmentContextViewWrapper.setClipChildren(false);
+		fragmentContextViewWrapper.setClipToPadding(false);
 		topPanelLayout.addView(fragmentContextViewWrapper);
 		topPanelLayout.setViewVisible(fragmentContextViewWrapper, true, false);
 		fragmentContextView = new FragmentContextView(context, this, contentView, false, resourceProvider) {

@@ -4424,6 +4424,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         });
 
         ContentView contentView = new ContentView(context);
+        contentView.setClipChildren(false);
+        contentView.setClipToPadding(false);
         fragmentView = contentView;
         if (!android.text.TextUtils.isEmpty(soundgram.music.SoundGramConfig.chatListWallPath) || !android.text.TextUtils.isEmpty(soundgram.music.SoundGramConfig.chatListWallVideoPath)) {
             try {

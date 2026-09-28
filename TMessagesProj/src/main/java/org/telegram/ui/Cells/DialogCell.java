@@ -1558,17 +1558,16 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                             // NG: non-premium user binding on a recycled row — clear
                             // particles state so search / list cells don't show stray
                             // badge sparkles inherited from the previous binding.
-                            emojiStatus.setParticles(false, false);
-                        }
-                        drawSoundGram = soundgram.music.SoundGramConfig.hasBadgeForDialog(currentDialogId, user, chat);
-                        if (drawSoundGram) {
-                            nameLayoutEllipsizeByGradient = true;
                         }
                     }
                     if (dialogBotVerificationIcon != 0 && drawBotVerified) {
                         botVerification.set(dialogBotVerificationIcon, false);
                     }
 
+                    drawSoundGram = soundgram.music.SoundGramConfig.hasBadgeForDialog(currentDialogId, user, chat);
+                    if (drawSoundGram) {
+                        nameLayoutEllipsizeByGradient = true;
+                    }
                 }
             }
 

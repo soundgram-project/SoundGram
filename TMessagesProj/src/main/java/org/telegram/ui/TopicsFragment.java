@@ -427,6 +427,8 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         fragmentView = contentView = new SizeNotifierFrameLayout(context) {
             {
                 setWillNotDraw(false);
+                setClipChildren(false);
+                setClipToPadding(false);
             }
 
             public int getActionBarFullHeight() {
@@ -1583,6 +1585,8 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
 
         if (!inPreviewMode) {
             fragmentContextViewWrapper = new FrameLayout(context);
+            fragmentContextViewWrapper.setClipChildren(false);
+            fragmentContextViewWrapper.setClipToPadding(false);
             topPanelLayout.addView(fragmentContextViewWrapper);
             topPanelLayout.setPriority(fragmentContextViewWrapper, 4);
             topPanelLayout.setDebugName(fragmentContextViewWrapper, "fragment context");

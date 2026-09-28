@@ -1655,16 +1655,8 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
                 || (chat != null && soundgram.music.SoundGramConfig.hasBadgeForChat(chat));
         if (isSoundGram) {
             if (soundGramDrawable == null) {
-                soundGramDrawable = getResources().getDrawable(R.drawable.ic_soundgram_badge).mutate();
-                soundGramDrawable = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramDrawable, dp(20), dp(20)) {
-                    @Override
-                    public void draw(@NonNull android.graphics.Canvas canvas) {
-                        canvas.save();
-                        canvas.translate(0, dp(1));
-                        super.draw(canvas);
-                        canvas.restore();
-                    }
-                };
+                Drawable raw = getResources().getDrawable(R.drawable.ic_soundgram_badge).mutate();
+                soundGramDrawable = new soundgram.music.SoundGramConfig.SoundGramBadgeWrapDrawable(raw);
             }
             View.OnClickListener badgeClickListener = v -> {
                 if (parentFragment != null && parentFragment.getParentActivity() != null) {

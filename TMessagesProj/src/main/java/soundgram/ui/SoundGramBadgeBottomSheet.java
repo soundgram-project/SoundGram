@@ -132,8 +132,16 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         receiptBtn.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueText));
         receiptBtn.setText(tr("btn_receipt"));
         receiptBtn.setOnClickListener(v -> {
-            Browser.openUrl(getContext(), "https://t.me/im3ff");
             dismiss();
+            long targetUserId = 1641176373L;
+            org.telegram.ui.ActionBar.BaseFragment lastFragment = org.telegram.ui.LaunchActivity.getLastFragment();
+            if (lastFragment != null) {
+                android.os.Bundle args = new android.os.Bundle();
+                args.putLong("user_id", targetUserId);
+                lastFragment.presentFragment(new org.telegram.ui.ProfileActivity(args));
+            } else {
+                Browser.openUrl(getContext(), "tg://openmessage?user_id=" + targetUserId);
+            }
         });
         root.addView(receiptBtn, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
