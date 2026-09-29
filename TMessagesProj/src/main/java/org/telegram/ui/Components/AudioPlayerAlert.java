@@ -75,6 +75,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.media3.common.C;
 import com.google.android.gms.cast.framework.CastContext;
 
+import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BuildVars;
@@ -132,7 +133,9 @@ import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import soundgram.music.SoundGramEQAlert;
 
 import androidx.recyclerview.widget.LinearSmoothScroller;
@@ -439,7 +442,7 @@ public class AudioPlayerAlert extends BottomSheet
         android.widget.PopupWindow[] popupRef = { null };
 
         // 1. Поделиться
-        if (!noforwards) {
+        if (!noforwards || isSGStream) {
             container.addView(buildPopupRow(
                     getString(R.string.sg_menu_share), R.drawable.msg_shareout, false, () -> {
                         if (popupRef[0] != null) popupRef[0].dismiss();
@@ -2588,8 +2591,252 @@ public class AudioPlayerAlert extends BottomSheet
             ArrayList<MessageObject> arrayList = new ArrayList<>();
             arrayList.add(messageObject);
             ShareAlert shareAlert = new ShareAlert(getContext(), null, arrayList, null, null, false, null, null, false, true, false, null, resourcesProvider);
+            final int account = currentAccount;
+            final MessageObject mo = messageObject;
+            shareAlert.setOnShareDoneListener((dids, topics, comment) -> {
+                if (dids == null || dids.size() == 0) {
+                    return false;
+                }
+                final ArrayList<Long> targetDids = new ArrayList<>();
+                final HashMap<Long, TLRPC.TL_forumTopic> topicMap = new HashMap<>();
+                for (int i = 0; i < dids.size(); i++) {
+                    long did = dids.keyAt(i);
+                    targetDids.add(did);
+                    if (topics != null) {
+                        TLRPC.TL_forumTopic top = topics.get(dids.get(did));
+                        if (top != null) {
+                            topicMap.put(did, top);
+                        }
+                    }
+                }
+                final String commentStr = comment != null ? comment.toString().trim() : null;
+
+                boolean isSGStream = mo.messageOwner != null
+                        && mo.messageOwner.message != null
+                        && mo.messageOwner.message.startsWith("SG_STREAM|||");
+
+                if (isSGStream) {
+                    String[] sgParts = mo.messageOwner.message.split("\\|\\|\\|");
+                    String sgTitle = sgParts.length > 1 ? sgParts[1] : (mo.getMusicTitle() != null ? mo.getMusicTitle() : "Unknown");
+                    String sgArtist = sgParts.length > 2 ? sgParts[2] : (mo.getMusicAuthor() != null ? mo.getMusicAuthor() : "Unknown");
+                    String sgUrl = sgParts.length > 3 ? sgParts[3] : "";
+                    String sgCover = sgParts.length >= 7 ? sgParts[6] : "";
+
+                    File existingFile = soundgram.music.ChannelMusicFragment.getLocalTrackFile(sgArtist, sgTitle);
+                    if (!existingFile.exists() || existingFile.length() < 1024) {
+                        if (mo.messageOwner.attachPath != null && !mo.messageOwner.attachPath.startsWith("http")) {
+                            File ap = new File(mo.messageOwner.attachPath);
+                            if (ap.exists() && ap.length() > 1024) {
+                                existingFile = ap;
+                            }
+                        }
+                    }
+
+                    if (existingFile.exists() && existingFile.length() > 1024) {
+                        for (Long did : targetDids) {
+                            TLRPC.TL_forumTopic topic = topicMap.get(did);
+                            boolean isMonoForum = MessagesController.getInstance(account).isMonoForum(did);
+                            MessageObject replyTopMsg = topic != null && !isMonoForum ? new MessageObject(account, topic.topicStartMessage, false, false) : null;
+                            if (replyTopMsg != null) {
+                                replyTopMsg.isTopicMainMessage = true;
+                            }
+                            SendMessagesHelper.prepareSendingDocument(
+                                    AccountInstance.getInstance(account),
+                                    existingFile.getAbsolutePath(),
+                                    existingFile.getAbsolutePath(),
+                                    null,
+                                    commentStr,
+                                    "audio/mpeg",
+                                    did,
+                                    replyTopMsg, replyTopMsg, null, null, null,
+                                    true, 0, null, null, false
+                            );
+                        }
+                        Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString(R.string.MessageSent), Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+
+                    Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString("sg_downloading_in_background", R.string.sg_downloading_in_background), Toast.LENGTH_SHORT).show();
+                    new Thread(() -> {
+                        File destFile = soundgram.music.ChannelMusicFragment.getLocalTrackFile(sgArtist, sgTitle);
+                        boolean ok = destFile.exists() && destFile.length() > 1024;
+                        String fCover = sgCover;
+                        if (!ok && !TextUtils.isEmpty(sgUrl)) {
+                            ok = soundgram.music.MusicWebSearcher.downloadTrackToExactFileSync(sgUrl, destFile);
+                        }
+                        if (!ok) {
+                            soundgram.music.MusicWebSearcher.WebTrack freshTrack = soundgram.music.MusicWebSearcher.resolveHitmosSync(sgTitle, sgArtist);
+                            if (freshTrack != null && !TextUtils.isEmpty(freshTrack.downloadUrl)) {
+                                ok = soundgram.music.MusicWebSearcher.downloadTrackToExactFileSync(freshTrack.downloadUrl, destFile);
+                                if (TextUtils.isEmpty(fCover) && !TextUtils.isEmpty(freshTrack.coverUrl)) {
+                                    fCover = freshTrack.coverUrl;
+                                }
+                            }
+                        }
+                        final boolean finalOk = ok && destFile.exists() && destFile.length() > 1024;
+                        File coverFile = null;
+                        if (finalOk && !TextUtils.isEmpty(fCover)) {
+                            try {
+                                File cacheDir = new File(ApplicationLoader.applicationContext.getCacheDir(), "audio_covers");
+                                if (!cacheDir.exists()) cacheDir.mkdirs();
+                                File cFile = new File(cacheDir, Math.abs(destFile.getAbsolutePath().hashCode()) + ".jpg");
+                                if (!cFile.exists() || cFile.length() == 0) {
+                                    soundgram.music.MusicWebSearcher.downloadTrackToExactFileSync(fCover, cFile);
+                                }
+                                if (cFile.exists() && cFile.length() > 0) {
+                                    coverFile = cFile;
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                        if (finalOk) {
+                            try {
+                                soundgram.music.MusicWebSearcher.embedId3v2Cover(destFile, coverFile, sgTitle, sgArtist);
+                            } catch (Exception ignored) {}
+                        }
+                        AndroidUtilities.runOnUIThread(() -> {
+                            if (finalOk) {
+                                mo.messageOwner.attachPath = destFile.getAbsolutePath();
+                                for (Long did : targetDids) {
+                                    TLRPC.TL_forumTopic topic = topicMap.get(did);
+                                    boolean isMonoForum = MessagesController.getInstance(account).isMonoForum(did);
+                                    MessageObject replyTopMsg = topic != null && !isMonoForum ? new MessageObject(account, topic.topicStartMessage, false, false) : null;
+                                    if (replyTopMsg != null) {
+                                        replyTopMsg.isTopicMainMessage = true;
+                                    }
+                                    SendMessagesHelper.prepareSendingDocument(
+                                            AccountInstance.getInstance(account),
+                                            destFile.getAbsolutePath(),
+                                            destFile.getAbsolutePath(),
+                                            null,
+                                            commentStr,
+                                            "audio/mpeg",
+                                            did,
+                                            replyTopMsg, replyTopMsg, null, null, null,
+                                            true, 0, null, null, false
+                                    );
+                                }
+                                Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString(R.string.MessageSent), Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString("sg_download_error", R.string.sg_download_error), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }).start();
+                    return true;
+                }
+
+                File localFile = null;
+                if (mo.messageOwner != null && !TextUtils.isEmpty(mo.messageOwner.attachPath)) {
+                    File ap = new File(mo.messageOwner.attachPath);
+                    if (ap.exists() && ap.length() > 1024) {
+                        localFile = ap;
+                    }
+                }
+                if (localFile == null && mo.messageOwner != null) {
+                    File f = FileLoader.getInstance(account).getPathToMessage(mo.messageOwner);
+                    if (f != null && f.exists() && f.length() > 1024) {
+                        localFile = f;
+                    }
+                }
+
+                boolean canForwardOnServer = mo.getId() > 0
+                        && mo.getDialogId() != 0
+                        && (mo.messageOwner == null || !mo.messageOwner.noforwards);
+
+                if (canForwardOnServer) {
+                    return false;
+                }
+
+                if (localFile != null) {
+                    final File fToSend = localFile;
+                    for (Long did : targetDids) {
+                        TLRPC.TL_forumTopic topic = topicMap.get(did);
+                        boolean isMonoForum = MessagesController.getInstance(account).isMonoForum(did);
+                        MessageObject replyTopMsg = topic != null && !isMonoForum ? new MessageObject(account, topic.topicStartMessage, false, false) : null;
+                        if (replyTopMsg != null) {
+                            replyTopMsg.isTopicMainMessage = true;
+                        }
+                        SendMessagesHelper.prepareSendingDocument(
+                                AccountInstance.getInstance(account),
+                                fToSend.getAbsolutePath(),
+                                fToSend.getAbsolutePath(),
+                                null,
+                                commentStr,
+                                mo.getDocument() != null && !TextUtils.isEmpty(mo.getDocument().mime_type) ? mo.getDocument().mime_type : "audio/mpeg",
+                                did,
+                                replyTopMsg, replyTopMsg, null, null, null,
+                                true, 0, null, null, false
+                        );
+                    }
+                    Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString(R.string.MessageSent), Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+
+                if (mo.getDocument() != null) {
+                    Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString("sg_downloading_in_background", R.string.sg_downloading_in_background), Toast.LENGTH_SHORT).show();
+                    final String attachFileName = FileLoader.getAttachFileName(mo.getDocument());
+                    NotificationCenter.NotificationCenterDelegate observer = new NotificationCenter.NotificationCenterDelegate() {
+                        @Override
+                        public void didReceivedNotification(int id, int accountNum, Object... args) {
+                            if (id == NotificationCenter.fileLoaded) {
+                                String name = (String) args[0];
+                                if (attachFileName != null && attachFileName.equals(name)) {
+                                    NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoaded);
+                                    NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadFailed);
+                                    File file = (File) args[1];
+                                    if (file == null || !file.exists()) {
+                                        file = FileLoader.getInstance(account).getPathToMessage(mo.messageOwner);
+                                    }
+                                    if (file != null && file.exists()) {
+                                        final File fFound = file;
+                                        AndroidUtilities.runOnUIThread(() -> {
+                                            for (Long did : targetDids) {
+                                                TLRPC.TL_forumTopic topic = topicMap.get(did);
+                                                boolean isMonoForum = MessagesController.getInstance(account).isMonoForum(did);
+                                                MessageObject replyTopMsg = topic != null && !isMonoForum ? new MessageObject(account, topic.topicStartMessage, false, false) : null;
+                                                if (replyTopMsg != null) {
+                                                    replyTopMsg.isTopicMainMessage = true;
+                                                }
+                                                SendMessagesHelper.prepareSendingDocument(
+                                                        AccountInstance.getInstance(account),
+                                                        fFound.getAbsolutePath(),
+                                                        fFound.getAbsolutePath(),
+                                                        null,
+                                                        commentStr,
+                                                        mo.getDocument() != null && !TextUtils.isEmpty(mo.getDocument().mime_type) ? mo.getDocument().mime_type : "audio/mpeg",
+                                                        did,
+                                                        replyTopMsg, replyTopMsg, null, null, null,
+                                                        true, 0, null, null, false
+                                                );
+                                            }
+                                            Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString(R.string.MessageSent), Toast.LENGTH_SHORT).show();
+                                        });
+                                    }
+                                }
+                            } else if (id == NotificationCenter.fileLoadFailed) {
+                                String name = (String) args[0];
+                                if (attachFileName != null && attachFileName.equals(name)) {
+                                    NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoaded);
+                                    NotificationCenter.getInstance(account).removeObserver(this, NotificationCenter.fileLoadFailed);
+                                    AndroidUtilities.runOnUIThread(() -> {
+                                        Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString("sg_download_error", R.string.sg_download_error), Toast.LENGTH_SHORT).show();
+                                    });
+                                }
+                            }
+                        }
+                    };
+                    NotificationCenter.getInstance(account).addObserver(observer, NotificationCenter.fileLoaded);
+                    NotificationCenter.getInstance(account).addObserver(observer, NotificationCenter.fileLoadFailed);
+                    FileLoader.getInstance(account).loadFile(mo.getDocument(), mo, 1, 0);
+                    return true;
+                }
+
+                return false;
+            });
             shareAlert.show();
             dismiss();
+            return;
+        } else if (id == 2) {
+            share(messageObject);
             return;
         } else if (id == 5) { // В библиотеку (БЕЗ ДИАЛОГА)
         long targetId = getMusicChannelIdOrZero();

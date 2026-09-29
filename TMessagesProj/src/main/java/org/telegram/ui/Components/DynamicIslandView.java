@@ -67,6 +67,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
     }
 
     private void init(Context context) {
+        setClickable(true);
         cardBg = new GradientDrawable();
         cardBg.setCornerRadii(new float[]{
                 0, 0,
@@ -266,6 +267,12 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         }
         int constrainedWidth = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY);
         super.onMeasure(constrainedWidth, heightMeasureSpec);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        super.onTouchEvent(event);
+        return true;
     }
 
     private void updateCardColors() {

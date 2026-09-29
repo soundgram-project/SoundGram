@@ -18548,6 +18548,18 @@ public class ChatActivity extends BaseFragment implements
 
         @Override
         public boolean dispatchTouchEvent(MotionEvent ev) {
+            if (topPanelLayout != null && topPanelLayout.getVisibility() == View.VISIBLE && topPanelLayout.isIslandTouch(ev)) {
+                float localX = ev.getX() - topPanelLayout.getX();
+                float localY = ev.getY() - topPanelLayout.getY();
+                MotionEvent event = MotionEvent.obtain(ev);
+                event.setLocation(localX, localY);
+                boolean handled = topPanelLayout.dispatchTouchEvent(event);
+                event.recycle();
+                if (handled) {
+                    return true;
+                }
+            }
+
             if (messageMetricsView != null) {
                 messageMetricsView.setIsUserActive();
             }

@@ -28,12 +28,20 @@ public final class InnerTubeClient {
         public final String title;
         public final String artist;
         public final int durationSec;
+        public final String downloadUrl;
+        public final String coverUrl;
 
         public RawTrack(String videoId, String title, String artist, int durationSec) {
+            this(videoId, title, artist, durationSec, null, null);
+        }
+
+        public RawTrack(String videoId, String title, String artist, int durationSec, String downloadUrl, String coverUrl) {
             this.videoId = videoId;
             this.title = title != null ? title : "";
             this.artist = artist != null ? artist : "";
             this.durationSec = durationSec;
+            this.downloadUrl = downloadUrl;
+            this.coverUrl = coverUrl;
         }
 
         @Override

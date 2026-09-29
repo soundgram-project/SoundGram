@@ -234,6 +234,22 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         return mediaPages[0].listView.getFastScroll().dispatchTouchEvent(ev);
     }
 
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (topPanelLayout != null && topPanelLayout.getVisibility() == View.VISIBLE && topPanelLayout.isIslandTouch(ev)) {
+            float localX = ev.getX() - topPanelLayout.getX();
+            float localY = ev.getY() - topPanelLayout.getY();
+            MotionEvent event = MotionEvent.obtain(ev);
+            event.setLocation(localX, localY);
+            boolean handled = topPanelLayout.dispatchTouchEvent(event);
+            event.recycle();
+            if (handled) {
+                return true;
+            }
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
     boolean isInPinchToZoomTouchMode;
     boolean maybePinchToZoomTouchMode;
     boolean maybePinchToZoomTouchMode2;
@@ -1595,6 +1611,8 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
 
     public SharedMediaLayout(Context context, long did, SharedMediaPreloader preloader, int commonGroupsCount, ArrayList<Integer> sortedUsers, TLRPC.ChatFull chatInfo, TLRPC.UserFull userInfo, int initialTab, int initialStoryAlbumId, BaseFragment parent, Delegate delegate, int viewType, Theme.ResourcesProvider resourcesProvider, BlurredBackgroundDrawableViewFactory iBlur3FactoryLiquidGlass) {
         super(context);
+        setClipChildren(false);
+        setClipToPadding(false);
         forceGiftsTabUntilInfoLoaded = initialTab == TAB_GIFTS;
 
         iBlur3SourceColor = new BlurredBackgroundSourceColor();
@@ -11711,6 +11729,11 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
 
     @Override
     protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
+        final boolean prevClip = getClipChildren();
+        if (child == topPanelLayout && prevClip) {
+            setClipChildren(false);
+        }
+        boolean b;
         if (child == fragmentContextView && topPanelLayout == null) {
             canvas.save();
 
@@ -11720,11 +11743,15 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             }
 
             canvas.clipRect(0, y, child.getMeasuredWidth(),y + child.getMeasuredHeight() + dp(12));
-            boolean b = super.drawChild(canvas, child, drawingTime);
+            b = super.drawChild(canvas, child, drawingTime);
             canvas.restore();
-            return b;
+        } else {
+            b = super.drawChild(canvas, child, drawingTime);
         }
-        return super.drawChild(canvas, child, drawingTime);
+        if (child == topPanelLayout && prevClip) {
+            setClipChildren(true);
+        }
+        return b;
     }
 
     public class ScrollSlidingTextTabStripInner extends ScrollSlidingTextTabStrip {

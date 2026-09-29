@@ -70,24 +70,63 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
 
     private boolean isIslandTouchTarget;
 
+    public boolean isIslandTouch(MotionEvent ev) {
+        if (isIslandTouchTarget) {
+            return true;
+        }
+        if (callFragmentContextView == null || callFragmentContextView.getVisibility() != VISIBLE) {
+            return false;
+        }
+        if (!callFragmentContextView.isPlayerExpanded() && callFragmentContextView.getExpandProgress() <= 0f) {
+            return false;
+        }
+        float localX = ev.getX() - getX();
+        float localY = ev.getY() - getY();
+
+        float targetX = 0;
+        float targetY = 0;
+        View v = callFragmentContextView;
+        while (v != null && v != this) {
+            targetX += v.getX();
+            targetY += v.getY();
+            if (v.getParent() instanceof View) {
+                v = (View) v.getParent();
+            } else {
+                break;
+            }
+        }
+        float fx = localX - targetX;
+        float fy = localY - targetY;
+        float islandHeight = dp(116);
+        return fx >= 0 && fx <= callFragmentContextView.getWidth() && fy >= 0 && fy <= islandHeight;
+    }
+
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        if (callFragmentContextView != null && (callFragmentContextView.isPlayerExpanded() || callFragmentContextView.getExpandProgress() > 0f)) {
-            View target = callFragmentContextView;
-            while (target.getParent() != null && target.getParent() != this) {
-                target = (View) target.getParent();
+        if (callFragmentContextView != null && callFragmentContextView.getVisibility() == VISIBLE && (callFragmentContextView.isPlayerExpanded() || callFragmentContextView.getExpandProgress() > 0f)) {
+            float targetX = 0;
+            float targetY = 0;
+            View v = callFragmentContextView;
+            while (v != null && v != this) {
+                targetX += v.getX();
+                targetY += v.getY();
+                if (v.getParent() instanceof View) {
+                    v = (View) v.getParent();
+                } else {
+                    break;
+                }
             }
-            float x = ev.getX() - target.getX();
-            float y = ev.getY() - target.getY();
+            float x = ev.getX() - targetX;
+            float y = ev.getY() - targetY;
             int action = ev.getActionMasked();
-            float maxIslandHeight = target.getHeight() + dp(80) * callFragmentContextView.getExpandProgress();
+            float islandHeight = dp(116);
             if (action == MotionEvent.ACTION_DOWN) {
-                isIslandTouchTarget = (x >= 0 && x <= target.getWidth() && y >= 0 && y <= maxIslandHeight);
+                isIslandTouchTarget = (x >= 0 && x <= callFragmentContextView.getWidth() && y >= 0 && y <= islandHeight);
             }
             if (isIslandTouchTarget) {
                 MotionEvent event = MotionEvent.obtain(ev);
                 event.setLocation(x, y);
-                boolean handled = target.dispatchTouchEvent(event);
+                boolean handled = callFragmentContextView.dispatchTouchEvent(event);
                 event.recycle();
                 if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                     isIslandTouchTarget = false;

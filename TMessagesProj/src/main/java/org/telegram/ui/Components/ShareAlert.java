@@ -243,6 +243,15 @@ public class ShareAlert extends BottomSheet implements NotificationCenter.Notifi
         }
     }
 
+    public interface OnShareDoneListener {
+        boolean onShare(LongSparseArray<TLRPC.Dialog> dids, Map<TLRPC.Dialog, TLRPC.TL_forumTopic> topics, CharSequence comment);
+    }
+    private OnShareDoneListener onShareDoneListener;
+
+    public void setOnShareDoneListener(OnShareDoneListener listener) {
+        this.onShareDoneListener = listener;
+    }
+
     @SuppressWarnings("FieldCanBeLocal")
     private class SwitchView extends FrameLayout {
 
@@ -2486,6 +2495,13 @@ public class ShareAlert extends BottomSheet implements NotificationCenter.Notifi
 
         AlertsCreator.ensurePaidMessagesMultiConfirmation(currentAccount, paidDialogIds, messagesCount, prices -> {
             boolean hadPaid = false;
+            if (onShareDoneListener != null && onShareDoneListener.onShare(selectedDialogs, selectedDialogTopics, commentTextView != null ? commentTextView.getText() : null)) {
+                if (delegate != null) {
+                    delegate.didShare();
+                }
+                dismiss();
+                return;
+            }
             if (sendingMessageObjects != null) {
                 List<Long> removeKeys = new ArrayList<>();
                 for (int a = 0; a < selectedDialogs.size(); a++) {

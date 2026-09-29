@@ -205,8 +205,8 @@ public final class WaveQueueManager {
                 List<InnerTubeClient.RawTrack> initialPool = interleaveBatches(batches);
                 addCandidatesFiltered(initialPool);
 
-                // Если кандидатов нет, сразу запускаем re-seeding
-                if (candidatesPool.isEmpty()) {
+                // Если кандидатов мало или это спецрежим (Артист/Альбом/Плейлист), сразу первично наполняем пул
+                if (candidatesPool.size() < 10 || waveMode == MODE_ARTIST || waveMode == MODE_ALBUM || waveMode == MODE_PLAYLIST) {
                     triggerDynamicReSeeding();
                 }
 
@@ -320,6 +320,18 @@ public final class WaveQueueManager {
                 sessionPlayedKeys.add(candidateKey);
                 return null;
             }
+        }
+
+        // Если у кандидата уже есть прямой downloadUrl — создаем MessageObject мгновенно
+        if (candidate.downloadUrl != null && !candidate.downloadUrl.isEmpty()) {
+            int dur = candidate.durationSec > 0 ? candidate.durationSec : 180;
+            MessageObject msg = ChannelMusicFragment.createWebMessageObject(
+                    currentAccount, cleanTitle, cleanArtist, candidate.downloadUrl, dur,
+                    -(long) candidate.downloadUrl.hashCode(), candidate.coverUrl);
+
+            sessionPlayedKeys.add(candidateKey);
+            historyDb.markAsPlayed(TrackSanitizer.generateHash(cleanArtist, cleanTitle));
+            return msg;
         }
 
         // Поиск через музыкальный сервис (Hitmos / Deezer) с чистым фолбэком
@@ -685,7 +697,22 @@ public final class WaveQueueManager {
                 }
             }
 
-            // Г. Deezer фолбэк при малом числе кандидатов
+            // Г. Hitmos поиск по жанру
+            ArrayList<MusicWebSearcher.WebTrack> hitmosGenre = MusicWebSearcher.searchTracksSync(g);
+            if (hitmosGenre != null && !hitmosGenre.isEmpty()) {
+                List<InnerTubeClient.RawTrack> hRaw = new ArrayList<>();
+                for (MusicWebSearcher.WebTrack wt : hitmosGenre) {
+                    if (wt.downloadUrl != null && !wt.downloadUrl.isEmpty()) {
+                        hRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), wt.downloadUrl, wt.coverUrl));
+                    }
+                }
+                if (!hRaw.isEmpty()) {
+                    Collections.shuffle(hRaw, sRandom);
+                    addCandidatesFiltered(hRaw);
+                }
+            }
+
+            // Д. Deezer фолбэк при малом числе кандидатов
             if (candidatesPool.size() < 15) {
                 ArrayList<MusicWebSearcher.WebTrack> deezerTracks = MusicWebSearcher.getGenreTracksSync(g);
                 if (deezerTracks != null && !deezerTracks.isEmpty()) {
@@ -707,21 +734,37 @@ public final class WaveQueueManager {
                 List<InnerTubeClient.RawTrack> pTracks = new ArrayList<>();
                 for (MessageObject m : playlistContextTracks) {
                     if (m != null && m.getMusicAuthor() != null && m.getMusicTitle() != null) {
-                        pTracks.add(new InnerTubeClient.RawTrack(null, m.getMusicTitle(), m.getMusicAuthor(), (int) m.getDuration()));
+                        String dlUrl = null;
+                        String covUrl = null;
+                        if (m.messageOwner != null && m.messageOwner.message != null && m.messageOwner.message.startsWith("SG_STREAM|||")) {
+                            String[] parts = m.messageOwner.message.split("\\|\\|\\|");
+                            if (parts.length >= 2) dlUrl = parts[1];
+                            if (parts.length >= 3) covUrl = parts[2];
+                        }
+                        pTracks.add(new InnerTubeClient.RawTrack(null, m.getMusicTitle(), m.getMusicAuthor(), (int) m.getDuration(), dlUrl, covUrl));
                     }
                 }
                 Collections.shuffle(pTracks, sRandom);
                 addCandidatesFiltered(pTracks);
             }
 
-            // Б. Артисты плейлиста
+            // Б. Треки артистов плейлиста на Hitmos
             if (!playlistContextArtists.isEmpty()) {
                 List<String> artistsPool = new ArrayList<>(playlistContextArtists);
                 Collections.shuffle(artistsPool, sRandom);
-                for (String artist : artistsPool.subList(0, Math.min(2, artistsPool.size()))) {
-                    List<InnerTubeClient.RawTrack> s = InnerTubeClient.searchSongs(artist + " популярные треки", 10, cancelFlag);
-                    if (!s.isEmpty()) {
-                        addCandidatesFiltered(s);
+                for (String artist : artistsPool.subList(0, Math.min(3, artistsPool.size()))) {
+                    ArrayList<MusicWebSearcher.WebTrack> aTracks = MusicWebSearcher.searchTracksSync(artist);
+                    if (aTracks != null && !aTracks.isEmpty()) {
+                        List<InnerTubeClient.RawTrack> rawList = new ArrayList<>();
+                        for (MusicWebSearcher.WebTrack wt : aTracks) {
+                            if (MusicWebSearcher.isArtistMatch(wt.artist, artist)) {
+                                rawList.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), wt.downloadUrl, wt.coverUrl));
+                            }
+                        }
+                        if (!rawList.isEmpty()) {
+                            Collections.shuffle(rawList, sRandom);
+                            addCandidatesFiltered(rawList);
+                        }
                     }
                 }
             }
@@ -754,21 +797,62 @@ public final class WaveQueueManager {
 
         // ── 3. РЕЖИМ АРТИСТА ──
         if (waveMode == MODE_ARTIST && !targetName.isEmpty()) {
+            // А. Прямой поиск на Hitmos треков артиста
+            ArrayList<MusicWebSearcher.WebTrack> hitmosSongs = MusicWebSearcher.searchTracksSync(targetName);
+            if (hitmosSongs != null && !hitmosSongs.isEmpty()) {
+                List<InnerTubeClient.RawTrack> directArtistTracks = new ArrayList<>();
+                for (MusicWebSearcher.WebTrack wt : hitmosSongs) {
+                    if (MusicWebSearcher.isArtistMatch(wt.artist, targetName)) {
+                        directArtistTracks.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), wt.downloadUrl, wt.coverUrl));
+                    }
+                }
+                if (!directArtistTracks.isEmpty()) {
+                    Collections.shuffle(directArtistTracks, sRandom);
+                    addCandidatesFiltered(directArtistTracks);
+                }
+            }
+
+            // Б. Похожие исполнители через Deezer
+            ArrayList<String> similar = MusicWebSearcher.getSimilarArtistsSync(targetName);
+            if (similar != null && !similar.isEmpty()) {
+                Collections.shuffle(similar, sRandom);
+                for (String simArtist : similar.subList(0, Math.min(2, similar.size()))) {
+                    ArrayList<MusicWebSearcher.WebTrack> simTracks = MusicWebSearcher.searchTracksSync(simArtist);
+                    if (simTracks != null && !simTracks.isEmpty()) {
+                        List<InnerTubeClient.RawTrack> simRaw = new ArrayList<>();
+                        for (MusicWebSearcher.WebTrack wt : simTracks) {
+                            if (MusicWebSearcher.isArtistMatch(wt.artist, simArtist)) {
+                                simRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), wt.downloadUrl, wt.coverUrl));
+                            }
+                        }
+                        if (!simRaw.isEmpty()) {
+                            Collections.shuffle(simRaw, sRandom);
+                            addCandidatesFiltered(simRaw);
+                        }
+                    }
+                }
+            }
+
+            // В. InnerTube поиск по артисту с обязательной фильтрацией
             String[] artistQueries = {
                     targetName + " популярные треки",
                     targetName + " лучшие песни",
                     targetName + " альбомы",
-                    targetName + " синглы",
-                    targetName + " feat",
-                    targetName + " радио",
-                    targetName + " remix",
                     targetName
             };
             int qIdx = Math.abs(playedTracksCount.get() + sRandom.nextInt(4)) % artistQueries.length;
             List<InnerTubeClient.RawTrack> artistSongs = InnerTubeClient.searchSongs(artistQueries[qIdx], 20, cancelFlag);
             if (!artistSongs.isEmpty()) {
-                Collections.shuffle(artistSongs, sRandom);
-                addCandidatesFiltered(artistSongs);
+                List<InnerTubeClient.RawTrack> filtered = new ArrayList<>();
+                for (InnerTubeClient.RawTrack t : artistSongs) {
+                    if (MusicWebSearcher.isArtistMatch(t.artist, targetName)) {
+                        filtered.add(t);
+                    }
+                }
+                if (!filtered.isEmpty()) {
+                    Collections.shuffle(filtered, sRandom);
+                    addCandidatesFiltered(filtered);
+                }
             }
 
             // Радио по недавним трекам сессии или трекам артиста
@@ -790,31 +874,6 @@ public final class WaveQueueManager {
                         }
                     }
                 }
-            } else if (!artistSongs.isEmpty()) {
-                for (InnerTubeClient.RawTrack t : artistSongs) {
-                    if (t.videoId != null && !activeSeedIds.contains(t.videoId)) {
-                        activeSeedIds.add(t.videoId);
-                        InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(t.videoId, null, cancelFlag);
-                        if (nr != null && !nr.tracks.isEmpty()) {
-                            addCandidatesFiltered(nr.tracks);
-                            if (nr.continuationToken != null) {
-                                seedContinuationTokens.put(t.videoId, nr.continuationToken);
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (candidatesPool.size() < 15) {
-                ArrayList<MusicWebSearcher.WebTrack> deezer = MusicWebSearcher.getGenreTracksSync(targetName);
-                if (deezer != null && !deezer.isEmpty()) {
-                    List<InnerTubeClient.RawTrack> dRaw = new ArrayList<>();
-                    for (MusicWebSearcher.WebTrack wt : deezer) {
-                        dRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration)));
-                    }
-                    addCandidatesFiltered(dRaw);
-                }
             }
             return;
         }
@@ -829,31 +888,54 @@ public final class WaveQueueManager {
                 List<InnerTubeClient.RawTrack> fromAlbum = new ArrayList<>();
                 for (MessageObject m : albumContextTracks) {
                     if (m != null && m.getMusicAuthor() != null && m.getMusicTitle() != null) {
-                        fromAlbum.add(new InnerTubeClient.RawTrack(null, m.getMusicTitle(), m.getMusicAuthor(), (int) m.getDuration()));
+                        String dlUrl = null;
+                        String covUrl = null;
+                        if (m.messageOwner != null && m.messageOwner.message != null && m.messageOwner.message.startsWith("SG_STREAM|||")) {
+                            String[] parts = m.messageOwner.message.split("\\|\\|\\|");
+                            if (parts.length >= 2) dlUrl = parts[1];
+                            if (parts.length >= 3) covUrl = parts[2];
+                        }
+                        fromAlbum.add(new InnerTubeClient.RawTrack(null, m.getMusicTitle(), m.getMusicAuthor(), (int) m.getDuration(), dlUrl, covUrl));
                     }
                 }
                 addCandidatesFiltered(fromAlbum);
             }
 
-            // Б. Поиск треков альбома, исполнителя и родственных релизов
-            if (!art.isEmpty()) {
-                String[] albumQueries = {
-                        (art + " " + alb).trim() + " треки",
-                        (art + " " + alb).trim(),
-                        art + " популярные треки",
-                        art + " лучшие песни",
-                        art + " альбомы",
-                        art + " синглы"
-                };
-                int qIdx = Math.abs(playedTracksCount.get() + sRandom.nextInt(3)) % albumQueries.length;
-                List<InnerTubeClient.RawTrack> found = InnerTubeClient.searchSongs(albumQueries[qIdx], 20, cancelFlag);
-                if (!found.isEmpty()) {
-                    Collections.shuffle(found, sRandom);
-                    addCandidatesFiltered(found);
+            // Б. Поиск треков альбома на Hitmos
+            if (!alb.isEmpty() || !art.isEmpty()) {
+                String q = (!art.isEmpty() ? art + " " : "") + alb;
+                ArrayList<MusicWebSearcher.WebTrack> albHitmos = MusicWebSearcher.searchTracksSync(q.trim());
+                if (albHitmos != null && !albHitmos.isEmpty()) {
+                    List<InnerTubeClient.RawTrack> albRaw = new ArrayList<>();
+                    for (MusicWebSearcher.WebTrack wt : albHitmos) {
+                        if (art.isEmpty() || MusicWebSearcher.isArtistMatch(wt.artist, art)) {
+                            albRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), wt.downloadUrl, wt.coverUrl));
+                        }
+                    }
+                    if (!albRaw.isEmpty()) {
+                        addCandidatesFiltered(albRaw);
+                    }
                 }
             }
 
-            // В. Радио по неиспользованным трекам альбома или сессии
+            // В. Другие треки артиста альбома
+            if (!art.isEmpty()) {
+                ArrayList<MusicWebSearcher.WebTrack> artHitmos = MusicWebSearcher.searchTracksSync(art);
+                if (artHitmos != null && !artHitmos.isEmpty()) {
+                    List<InnerTubeClient.RawTrack> artRaw = new ArrayList<>();
+                    for (MusicWebSearcher.WebTrack wt : artHitmos) {
+                        if (MusicWebSearcher.isArtistMatch(wt.artist, art)) {
+                            artRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), wt.downloadUrl, wt.coverUrl));
+                        }
+                    }
+                    if (!artRaw.isEmpty()) {
+                        Collections.shuffle(artRaw, sRandom);
+                        addCandidatesFiltered(artRaw);
+                    }
+                }
+            }
+
+            // Г. InnerTube радио по неиспользованным трекам альбома или сессии
             List<MessageObject> seedPool = new ArrayList<>();
             if (!albumContextTracks.isEmpty()) {
                 seedPool.addAll(albumContextTracks);
@@ -877,17 +959,6 @@ public final class WaveQueueManager {
                         }
                         break;
                     }
-                }
-            }
-
-            if (candidatesPool.size() < 15 && !art.isEmpty()) {
-                ArrayList<MusicWebSearcher.WebTrack> deezer = MusicWebSearcher.getGenreTracksSync(art);
-                if (deezer != null && !deezer.isEmpty()) {
-                    List<InnerTubeClient.RawTrack> dRaw = new ArrayList<>();
-                    for (MusicWebSearcher.WebTrack wt : deezer) {
-                        dRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration)));
-                    }
-                    addCandidatesFiltered(dRaw);
                 }
             }
             return;

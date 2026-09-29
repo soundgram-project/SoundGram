@@ -442,6 +442,22 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
             }
 
             @Override
+            public boolean dispatchTouchEvent(MotionEvent ev) {
+                if (topPanelLayout != null && topPanelLayout.getVisibility() == View.VISIBLE && topPanelLayout.isIslandTouch(ev)) {
+                    float localX = ev.getX() - topPanelLayout.getX();
+                    float localY = ev.getY() - topPanelLayout.getY();
+                    MotionEvent event = MotionEvent.obtain(ev);
+                    event.setLocation(localX, localY);
+                    boolean handled = topPanelLayout.dispatchTouchEvent(event);
+                    event.recycle();
+                    if (handled) {
+                        return true;
+                    }
+                }
+                return super.dispatchTouchEvent(ev);
+            }
+
+            @Override
             protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
                 if (child == actionBar && !isInPreviewMode()) {
                     int y = (int) (actionBar.getY() + getActionBarFullHeight());
@@ -459,7 +475,15 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
                         }
                     }
                 }
-                return super.drawChild(canvas, child, drawingTime);
+                final boolean prevClip = getClipChildren();
+                if (child == topPanelLayout && prevClip) {
+                    setClipChildren(false);
+                }
+                boolean res = super.drawChild(canvas, child, drawingTime);
+                if (child == topPanelLayout && prevClip) {
+                    setClipChildren(true);
+                }
+                return res;
             }
 
             private boolean ignoreLayout;
@@ -4825,8 +4849,8 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
                 v.setClipToPadding(false);
             } else {
                 v.setLayerType(View.LAYER_TYPE_NONE, null);
-                v.setClipChildren(true);
-                v.setClipToPadding(true);
+                v.setClipChildren(false);
+                v.setClipToPadding(false);
             }
         }
         contentView.requestLayout();

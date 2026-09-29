@@ -855,7 +855,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
 
         islandView = new DynamicIslandView(context, resourcesProvider, this::togglePlayerExpansion, this::openAudioPlayer);
         addView(islandView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 116, Gravity.TOP | Gravity.LEFT, 0, 0, 0, 0));
-        islandView.setVisibility(GONE);
+        islandView.setVisibility(INVISIBLE);
         islandView.setAlpha(0f);
 
         View.OnLongClickListener islandLongClickListener = v -> {
@@ -1849,7 +1849,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(getStyleHeight()), MeasureSpec.EXACTLY));
-        if (islandView != null && islandView.getVisibility() != GONE) {
+        if (islandView != null) {
             islandView.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(116), MeasureSpec.EXACTLY));
         }
     }
@@ -1857,7 +1857,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
-        if (islandView != null && islandView.getVisibility() != GONE) {
+        if (islandView != null) {
             islandView.layout(0, 0, getMeasuredWidth(), AndroidUtilities.dp(116));
         }
     }

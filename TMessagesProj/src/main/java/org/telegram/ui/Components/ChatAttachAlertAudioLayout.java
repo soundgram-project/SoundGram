@@ -16,11 +16,13 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -111,7 +113,36 @@ public class ChatAttachAlertAudioLayout extends ChatAttachAlert.AttachAlertLayou
         fadeView = new ChatAttachAlert.SearchFadeView(context, Theme.key_windowBackgroundWhite, resourcesProvider);
         fadeView.setVisibility(INVISIBLE);
 
-        frameLayout = new FrameLayout(context);
+        frameLayout = new FrameLayout(context) {
+            @Override
+            public boolean dispatchTouchEvent(MotionEvent ev) {
+                if (topPanelLayout != null && topPanelLayout.getVisibility() == View.VISIBLE && topPanelLayout.isIslandTouch(ev)) {
+                    float localX = ev.getX() - topPanelLayout.getX();
+                    float localY = ev.getY() - topPanelLayout.getY();
+                    MotionEvent event = MotionEvent.obtain(ev);
+                    event.setLocation(localX, localY);
+                    boolean handled = topPanelLayout.dispatchTouchEvent(event);
+                    event.recycle();
+                    if (handled) {
+                        return true;
+                    }
+                }
+                return super.dispatchTouchEvent(ev);
+            }
+
+            @Override
+            protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
+                final boolean prevClip = getClipChildren();
+                if (child == topPanelLayout && prevClip) {
+                    setClipChildren(false);
+                }
+                boolean res = super.drawChild(canvas, child, drawingTime);
+                if (child == topPanelLayout && prevClip) {
+                    setClipChildren(true);
+                }
+                return res;
+            }
+        };
         searchField = new ChatAttachAlert.AttachSearchField(context, parentAlert, resourcesProvider);
         searchField.setPadding(dp(4), dp(4), dp(4), dp(4));
         searchField.editText.addTextChangedListener(new TextWatcherImpl() {

@@ -984,7 +984,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                         canvas.scale(s, s, 0, -getY() + scrollYOffset + getActionBarFullHeight());
                     }
                 }
+                final boolean prevClip = getClipChildren();
+                if (child == topPanelLayout && prevClip) {
+                    setClipChildren(false);
+                }
                 result = super.drawChild(canvas, child, drawingTime);
+                if (child == topPanelLayout && prevClip) {
+                    setClipChildren(true);
+                }
                 canvas.restore();
             } else if (child == actionBar && slideFragmentProgress != 1f) {
                 canvas.save();
@@ -1690,6 +1697,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public boolean dispatchTouchEvent(MotionEvent ev) {
+            if (topPanelLayout != null && topPanelLayout.getVisibility() == View.VISIBLE && topPanelLayout.isIslandTouch(ev)) {
+                float localX = ev.getX() - topPanelLayout.getX();
+                float localY = ev.getY() - topPanelLayout.getY();
+                MotionEvent event = MotionEvent.obtain(ev);
+                event.setLocation(localX, localY);
+                boolean handled = topPanelLayout.dispatchTouchEvent(event);
+                event.recycle();
+                if (handled) {
+                    return true;
+                }
+            }
             return clickHelper.onTouchEvent(this, ev) || super.dispatchTouchEvent(ev);
         }
 
@@ -13759,7 +13777,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 dialogStoriesCell.setLayerType(View.LAYER_TYPE_NONE, null);
             }
             if (fragmentView != null) {
-                ((ViewGroup) fragmentView).setClipChildren(true);
+                ((ViewGroup) fragmentView).setClipChildren(false);
                 fragmentView.requestLayout();
             }
         }

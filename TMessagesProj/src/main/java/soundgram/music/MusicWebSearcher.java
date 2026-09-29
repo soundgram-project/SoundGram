@@ -126,6 +126,52 @@ public class MusicWebSearcher {
         void run(String result);
     }
 
+    public static ArrayList<WebTrack> searchTracksSync(String query) {
+        ArrayList<WebTrack> tracks = new ArrayList<>();
+        if (query == null || query.trim().isEmpty()) return tracks;
+        try {
+            String cleanQuery = query.replaceAll("\\s+$", "").trim();
+            String searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+            String hitmoHtml = fetchHtml(searchUrl);
+            if (hitmoHtml != null && !hitmoHtml.isEmpty()) {
+                parseHtmlToResults(hitmoHtml, tracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return tracks;
+    }
+
+    public static ArrayList<WebTrack> searchDeezerTracksSync(String query) {
+        ArrayList<WebTrack> res = new ArrayList<>();
+        if (query == null || query.trim().isEmpty()) return res;
+        try {
+            String dTrackSearch = "https://api.deezer.com/search?q=" + URLEncoder.encode(query.trim(), "UTF-8") + "&limit=30";
+            String dResp = fetchHtml(dTrackSearch);
+            if (dResp != null && !dResp.isEmpty()) {
+                JSONObject dJson = new JSONObject(dResp);
+                if (dJson.has("data")) {
+                    JSONArray data = dJson.getJSONArray("data");
+                    for (int i = 0; i < data.length(); i++) {
+                        JSONObject obj = data.getJSONObject(i);
+                        String title = obj.optString("title", "");
+                        String artist = obj.has("artist") ? obj.getJSONObject("artist").optString("name", "") : "";
+                        String cover = obj.has("album") ? obj.getJSONObject("album").optString("cover_xl", "") : "";
+                        int duration = obj.optInt("duration", 0);
+                        String durStr = String.format(Locale.US, "%d:%02d", duration / 60, duration % 60);
+
+                        if (!title.isEmpty()) {
+                            res.add(new WebTrack(title, artist, "", durStr, cover));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return res;
+    }
+
     public static ArrayList<WebTrack> getGenreTracksSync(String genre) {
         ArrayList<WebTrack> res = new ArrayList<>();
         try {
@@ -200,7 +246,7 @@ public class MusicWebSearcher {
                 if (match != null) return match;
             }
 
-            // 4. Поиск только по названию (часто на Hitmos псевдоним отличается, например рус/англ)
+            // 4. Поиск только по названию (только если артист не задан или совпадает)
             if (!cleanTitle.isEmpty() && cleanTitle.length() > 2) {
                 match = searchAndMatchHitmos(cleanTitle, cleanTitle, cleanArtist);
                 if (match != null) return match;
@@ -227,7 +273,7 @@ public class MusicWebSearcher {
             if (list == null || list.isEmpty()) return null;
 
             String lowerTitle = cleanTitle.toLowerCase();
-            String lowerArtist = cleanArtist != null ? cleanArtist.toLowerCase() : "";
+            String lowerArtist = cleanArtist != null ? cleanArtist.toLowerCase().trim() : "";
 
             // Приоритет 1: совпадение названия и артиста
             for (WebTrack wt : list) {
@@ -241,18 +287,20 @@ public class MusicWebSearcher {
                 }
             }
 
-            // Приоритет 2: строгое совпадение по названию
+            // Приоритет 2: строгое совпадение по названию (только если артист совпадает или не задан)
             for (WebTrack wt : list) {
                 if (wt.downloadUrl == null || wt.downloadUrl.isEmpty()) continue;
+                if (!lowerArtist.isEmpty() && !isArtistMatch(wt.artist, cleanArtist)) continue;
                 String wtTitle = wt.title != null ? wt.title.toLowerCase() : "";
                 if (wtTitle.contains(lowerTitle) || lowerTitle.contains(wtTitle)) {
                     return wt;
                 }
             }
 
-            // Приоритет 3: если запрос включал артиста и название, проверить совпадение слов названия
+            // Приоритет 3: если запрос включал артиста и название, проверить совпадение слов названия (но строго артист)
             for (WebTrack wt : list) {
                 if (wt.downloadUrl == null || wt.downloadUrl.isEmpty()) continue;
+                if (!lowerArtist.isEmpty() && !isArtistMatch(wt.artist, cleanArtist)) continue;
                 String wtTitle = wt.title != null ? wt.title.toLowerCase() : "";
                 String[] words = lowerTitle.split("\\s+");
                 int matchCount = 0;
@@ -2086,6 +2134,10 @@ public class MusicWebSearcher {
             boolean artistMatch = exactArtistMatch || hitArtist.contains(cleanExpectedArtist) || cleanExpectedArtist.contains(hitArtist)
                     || (!normExpectedArtist.isEmpty() && (normHitArtist.contains(normExpectedArtist) || normExpectedArtist.contains(normHitArtist)));
 
+            if (!cleanExpectedArtist.isEmpty() && !artistMatch) {
+                continue;
+            }
+
             if (!titleMatch && !exactArtistMatch) continue;
 
             if (strictArtist && !exactArtistMatch) continue;
@@ -2112,6 +2164,9 @@ public class MusicWebSearcher {
         if (bestScore >= 35) return best;
         if (best == null && !hitmosResults.isEmpty()) {
             for (WebTrack wt : hitmosResults) {
+                if (!cleanExpectedArtist.isEmpty() && !isArtistMatch(wt.artist, expectedArtist)) {
+                    continue;
+                }
                 String hitTitle = wt.title.toLowerCase();
                 String normHitTitle = hitTitle.replaceAll("[^a-zа-я0-9]", "");
                 if (hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle)
