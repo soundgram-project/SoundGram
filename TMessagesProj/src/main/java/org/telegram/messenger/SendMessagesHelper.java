@@ -213,6 +213,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     public TLRPC.InputReplyTo createReplyInput(TLRPC.TL_messageReplyHeader replyHeader) {
+        if (replyHeader == null || replyHeader.reply_to_msg_id == 0) {
+            return null;
+        }
         TLRPC.TL_inputReplyToMessage replyTo = new TLRPC.TL_inputReplyToMessage();
         replyTo.reply_to_msg_id = replyHeader.reply_to_msg_id;
         if ((replyHeader.flags & 2) != 0) {
@@ -220,8 +223,10 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             replyTo.top_msg_id = replyHeader.reply_to_top_id;
         }
         if ((replyHeader.flags & 1) != 0) {
-            replyTo.flags |= 2;
             replyTo.reply_to_peer_id = MessagesController.getInstance(currentAccount).getInputPeer(replyHeader.reply_to_peer_id);
+            if (replyTo.reply_to_peer_id != null) {
+                replyTo.flags |= 2;
+            }
         }
         if (replyHeader.quote) {
             if ((replyHeader.flags & 64) != 0) {
@@ -5372,10 +5377,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         reqSend.media = inputWebPage;
                         if (replyToStoryItem != null) {
                             reqSend.reply_to = createReplyInput(replyToStoryItem);
-                            reqSend.flags |= 1;
+                            if (reqSend.reply_to != null) {
+                                reqSend.flags |= 1;
+                            }
                         } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
                             reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
-                            reqSend.flags |= 1;
+                            if (reqSend.reply_to != null) {
+                                reqSend.flags |= 1;
+                            }
                         }
                         if (updateStickersOrder && SharedConfig.updateStickersOrderOnSend) {
                             reqSend.update_stickersets_order = true;
@@ -5431,10 +5440,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         }
                         if (replyToStoryItem != null) {
                             reqSend.reply_to = createReplyInput(replyToStoryItem);
-                            reqSend.flags |= 1;
+                            if (reqSend.reply_to != null) {
+                                reqSend.flags |= 1;
+                            }
                         } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
                             reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
-                            reqSend.flags |= 1;
+                            if (reqSend.reply_to != null) {
+                                reqSend.flags |= 1;
+                            }
                         }
 
                         if (newMsg.quick_reply_shortcut != null) {
@@ -5528,10 +5541,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 }
                 if (replyToStoryItem != null) {
                     reqSend.reply_to = createReplyInput(replyToStoryItem);
-                    reqSend.flags |= 1;
+                    if (reqSend.reply_to != null) {
+                        reqSend.flags |= 1;
+                    }
                 } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
                     reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
-                    reqSend.flags |= 1;
+                    if (reqSend.reply_to != null) {
+                        reqSend.flags |= 1;
+                    }
                 }
                 if (newMsg.quick_reply_shortcut != null) {
                     reqSend.flags |= 131072;
@@ -5875,11 +5892,15 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             }
 
                             if (newMsg.replyStory != null) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput(replyToStoryItem);
+                                if (req.reply_to != null) {
+                                    req.flags |= 1;
+                                }
                             } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                                if (req.reply_to != null) {
+                                    req.flags |= 1;
+                                }
                             }
                             if (scheduleDate != 0) {
                                 req.schedule_date = scheduleDate;
@@ -5926,11 +5947,15 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             }
 
                             if (newMsg.replyStory != null) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput(replyToStoryItem);
+                                if (req.reply_to != null) {
+                                    req.flags |= 1;
+                                }
                             } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                                if (req.reply_to != null) {
+                                    req.flags |= 1;
+                                }
                             }
                             if (scheduleDate != 0) {
                                 req.schedule_date = scheduleDate;
@@ -5970,11 +5995,15 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             req.silent = newMsg.silent;
 
                             if (newMsg.replyStory != null) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput(replyToStoryItem);
+                                if (req.reply_to != null) {
+                                    req.flags |= 1;
+                                }
                             } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                                if (req.reply_to != null) {
+                                    req.flags |= 1;
+                                }
                             }
                             if (scheduleDate != 0) {
                                 req.schedule_date = scheduleDate;
@@ -6059,10 +6088,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         }
                         if (replyToStoryItem != null) {
                             request.reply_to = createReplyInput(replyToStoryItem);
-                            request.flags |= 1;
+                            if (request.reply_to != null) {
+                                request.flags |= 1;
+                            }
                         } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                            request.flags |= 1;
                             request.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                            if (request.reply_to != null) {
+                                request.flags |= 1;
+                            }
                         }
                         if (payStars > 0) {
                             request.flags |= 2097152;
@@ -6507,10 +6540,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 reqSend.hide_via = !params.containsKey("bot");
                 if (replyToStoryItem != null) {
                     reqSend.reply_to = createReplyInput(replyToStoryItem);
-                    reqSend.flags |= 1;
+                    if (reqSend.reply_to != null) {
+                        reqSend.flags |= 1;
+                    }
                 } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                    reqSend.flags |= 1;
                     reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                    if (reqSend.reply_to != null) {
+                        reqSend.flags |= 1;
+                    }
                 }
                 reqSend.silent = newMsg.silent;
                 if (scheduleDate != 0) {
@@ -8521,7 +8558,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 });
                             }
                         }
-                    } else if (error != null && "MESSAGE_ID_INVALID".equalsIgnoreCase(error.text) && req instanceof TLRPC.TL_messages_sendMessage && ((TLRPC.TL_messages_sendMessage) req).reply_to != null) {
+                    } else if (error != null && error.text != null && (
+                            "MESSAGE_ID_INVALID".equalsIgnoreCase(error.text) ||
+                            "REPLY_TO_INVALID".equalsIgnoreCase(error.text) ||
+                            error.text.contains("MESSAGE_ID") ||
+                            error.text.contains("REPLY_TO")
+                    ) && req instanceof TLRPC.TL_messages_sendMessage && ((TLRPC.TL_messages_sendMessage) req).reply_to != null) {
                         final TLRPC.TL_messages_sendMessage r = (TLRPC.TL_messages_sendMessage) req;
                         r.reply_to = null;
                         r.flags &= ~1;
@@ -8534,7 +8576,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         }
                         performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
                         return;
-                    } else if (error != null && "MESSAGE_ID_INVALID".equalsIgnoreCase(error.text) && req instanceof TLRPC.TL_messages_sendMedia && ((TLRPC.TL_messages_sendMedia) req).reply_to != null) {
+                    } else if (error != null && error.text != null && (
+                            "MESSAGE_ID_INVALID".equalsIgnoreCase(error.text) ||
+                            "REPLY_TO_INVALID".equalsIgnoreCase(error.text) ||
+                            error.text.contains("MESSAGE_ID") ||
+                            error.text.contains("REPLY_TO")
+                    ) && req instanceof TLRPC.TL_messages_sendMedia && ((TLRPC.TL_messages_sendMedia) req).reply_to != null) {
                         final TLRPC.TL_messages_sendMedia r = (TLRPC.TL_messages_sendMedia) req;
                         r.reply_to = null;
                         r.flags &= ~1;

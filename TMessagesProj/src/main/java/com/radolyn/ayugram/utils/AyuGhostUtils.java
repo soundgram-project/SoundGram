@@ -215,7 +215,7 @@ public class AyuGhostUtils {
 
             return (response, error) -> {
                 if (onCompleteOrig != null) {
-                    Utilities.stageQueue.postRunnable(() -> onCompleteOrig.run(response, error));
+                    onCompleteOrig.run(response, error);
                 }
 
                 FileLog.d("GhostMode: Scheduling delayed offline status update.");

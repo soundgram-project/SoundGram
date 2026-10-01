@@ -2457,8 +2457,12 @@ public class AudioPlayerAlert extends BottomSheet
             return;
         }
         float currentPlaybackSpeed = MediaController.getInstance().getPlaybackSpeed(true);
-        speedIcon.setValue(currentPlaybackSpeed, animated);
-        speedSlider.setSpeed(currentPlaybackSpeed, animated);
+        if (speedIcon != null) {
+            speedIcon.setValue(currentPlaybackSpeed, animated);
+        }
+        if (speedSlider != null) {
+            speedSlider.setSpeed(currentPlaybackSpeed, animated);
+        }
         updateColors();
 
         boolean isFinal = !slidingSpeed;
