@@ -353,6 +353,75 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         root.addView(card, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
+        // ── Public library setting ────────────────────────────────────────────────
+        FrameLayout pubCard = new FrameLayout(ctx);
+        GradientDrawable pubCardBg = new GradientDrawable();
+        pubCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        pubCardBg.setCornerRadius(AndroidUtilities.dp(20));
+        pubCard.setBackground(pubCardBg);
+        if (Build.VERSION.SDK_INT >= 21) pubCard.setElevation(AndroidUtilities.dp(2));
+
+        LinearLayout pubRow = new LinearLayout(ctx);
+        pubRow.setOrientation(LinearLayout.HORIZONTAL);
+        pubRow.setGravity(Gravity.CENTER_VERTICAL);
+        pubRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
+                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        LinearLayout pubTextCol = new LinearLayout(ctx);
+        pubTextCol.setOrientation(LinearLayout.VERTICAL);
+
+        TextView pubTitle = new TextView(ctx);
+        pubTitle.setText(getString(R.string.sg_public_library_title));
+        pubTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        pubTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        pubTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        pubTextCol.addView(pubTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        TextView pubSub = new TextView(ctx);
+        pubSub.setText(getString(R.string.sg_public_library_subtitle));
+        pubSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        pubSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        pubTextCol.addView(pubSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+
+        pubRow.addView(pubTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+
+        Switch pubSwitch = new Switch(ctx);
+        pubSwitch.setChecked(soundgram.music.PublicLibraryManager.isLibraryPublic(currentAccount));
+        pubSwitch.setOnClickListener(v -> {
+            long channelId = soundgram.music.ChannelMusicFragment.getChannelIdFromFile(currentAccount);
+            if (channelId == 0) {
+                pubSwitch.setChecked(false);
+                android.widget.Toast.makeText(ctx, getString(R.string.sg_open_music_first), android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            org.telegram.tgnet.TLRPC.Chat chat = org.telegram.messenger.MessagesController.getInstance(currentAccount).getChat(channelId);
+            String username = chat != null ? org.telegram.messenger.ChatObject.getPublicUsername(chat) : null;
+            if (!android.text.TextUtils.isEmpty(username)) {
+                boolean enable = pubSwitch.isChecked();
+                soundgram.music.PublicLibraryManager.setLibraryPublic(currentAccount, enable);
+                if (enable) {
+                    soundgram.music.PublicLibraryManager.setupPhantomTrack(currentAccount, channelId, username, null);
+                } else {
+                    soundgram.music.PublicLibraryManager.unsavePhantomTrack(currentAccount);
+                }
+            } else {
+                pubSwitch.setChecked(false);
+                org.telegram.ui.ActionBar.AlertDialog.Builder builder = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
+                builder.setTitle(getString(R.string.sg_public_library_title));
+                builder.setMessage(getString(R.string.sg_public_library_username_required));
+                builder.setNegativeButton(getString(R.string.Cancel), null);
+                builder.setPositiveButton(getString(R.string.sg_set_username), (d, w) -> {
+                    presentFragment(new org.telegram.ui.ChatEditTypeActivity(channelId, false));
+                });
+                showDialog(builder.create());
+            }
+        });
+        pubRow.addView(pubSwitch, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+
+        pubCard.addView(pubRow);
+        root.addView(pubCard, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+
         // Rays count setting
         root.addView(makeLabel(ctx, getString(R.string.sg_sphere_settings)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));

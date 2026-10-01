@@ -321,4 +321,17 @@
     <string name="sg_ta_cursor_smooth">Плавный курсор</string>
     <string name="sg_ta_cursor_liquid">Жидкий курсор</string>
     <string name="TelegramVersion">SoundGram для Android %1$s</string>
+    <!-- Public Library Settings -->
+    <string name="sg_public_library_title">Сделать библиотеку общедоступной</string>
+    <string name="sg_public_library_subtitle">Позволяет другим пользователям слушать вашу музыку из профиля</string>
+    <string name="sg_public_library_username_required">Для того чтобы сделать библиотеку общедоступной, каналу библиотеки необходим юзернейм (публичная ссылка).</string>
+    <string name="sg_set_username">Установить юзернейм</string>
+    <string name="sg_public_library">Библиотека</string>
+    <string name="sg_open_library">Слушать музыку</string>
+    <string name="sg_add_to_library">Добавить в библиотеку</string>
+    <string name="sg_add_playlist_to_me">Добавить плейлист себе</string>
+    <string name="sg_playlist_added">Плейлист добавлен в вашу библиотеку</string>
+    <string name="sg_cloning_playlist">Добавление плейлиста…</string>
+    <string name="SoundGramLibrary">Библиотека</string>
+    <string name="SoundGramListenMusic">Слушать музыку</string>
 </resources>

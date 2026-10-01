@@ -676,6 +676,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int userInfoRow;
     private int channelInfoRow;
     private int usernameRow;
+    private int musicLibraryRow = -1;
+    private TLRPC.Chat libraryChannel;
+    private String libraryChannelUsername;
+    private boolean hasLibraryStats;
     private int notificationsDividerRow;
     private int notificationsRow;
     private int bizHoursRow;
@@ -2262,6 +2266,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
             userInfo = getMessagesController().getUserFull(userId);
             getMessagesController().loadFullUser(getMessagesController().getUser(userId), classGuid, true);
+            checkProfileLibrary();
             participantsMap = null;
 
             if (UserObject.isUserSelf(user)) {
@@ -4085,6 +4090,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 musicView.setMusicDocument(userInfo.saved_music);
             }
             musicView.setOnClickListener(v -> {
+                if (libraryChannel != null && hasLibraryStats) {
+                    presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
+                    return;
+                }
                 if (savedMusicList == null) {
                     if (
                         MediaController.getInstance().currentSavedMusicList != null &&
@@ -7903,6 +7912,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private boolean processOnClickOrPress(final int position, final View view, final float x, final float y) {
+        if (position == musicLibraryRow) {
+            if (libraryChannel != null) {
+                presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
+            }
+            return true;
+        }
         if (position == usernameRow || position == setUsernameRow) {
             final String username;
             final TLRPC.TL_username usernameObj;
@@ -8017,6 +8032,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } catch (Exception e) {
                     FileLog.e(e);
                 }
+            }
+            return true;
+        } else if (position == musicLibraryRow) {
+            if (libraryChannel != null) {
+                presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
             }
             return true;
         } else if (position == noteRow) {
@@ -9975,6 +9995,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
         } else if (id == NotificationCenter.chatInfoDidLoad) {
             final TLRPC.ChatFull chatFull = (TLRPC.ChatFull) args[0];
+            if (libraryChannel != null && chatFull != null && chatFull.id == libraryChannel.id) {
+                checkProfileLibrary();
+            }
             if (userId != 0) {
                 TLRPC.User user = getMessagesController().getUser(userId);
                 if (user != null && chatFull.id == user.linked_community_id) {
@@ -10051,6 +10074,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             final long uid = (Long) args[0];
             if (uid == userId) {
                 userInfo = (TLRPC.UserFull) args[1];
+                checkProfileLibrary();
                 if (ratingView != null) {
                     ratingView.set(userInfo.stars_rating);
                 }
@@ -10210,6 +10234,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (newUserInfo != null) {
                     userInfo = newUserInfo;
                 }
+                checkProfileLibrary();
                 requestProfileRowsUpdate(false, true);
             }
         } else if (id == NotificationCenter.updatedChatRanks) {
@@ -12004,6 +12029,66 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         return chatId != 0;
     }
 
+    private void checkProfileLibrary() {
+        if (userInfo == null || userInfo.saved_music == null) {
+            boolean changed = (libraryChannel != null || hasLibraryStats);
+            libraryChannel = null;
+            libraryChannelUsername = null;
+            hasLibraryStats = false;
+            if (changed) {
+                requestProfileRowsUpdate(false, false);
+            }
+            return;
+        }
+
+        String username = soundgram.music.PublicLibraryManager.extractLibraryUsername(userInfo.saved_music);
+        if (TextUtils.isEmpty(username)) {
+            boolean changed = (libraryChannel != null || hasLibraryStats);
+            libraryChannel = null;
+            libraryChannelUsername = null;
+            hasLibraryStats = false;
+            if (changed) {
+                requestProfileRowsUpdate(false, false);
+            }
+            return;
+        }
+
+        libraryChannelUsername = username;
+        TLObject chatObj = getMessagesController().getUserOrChat(username);
+        TLRPC.Chat chat = chatObj instanceof TLRPC.Chat ? (TLRPC.Chat) chatObj : null;
+        if (chat == null) {
+            final String u = username;
+            TLRPC.TL_contacts_resolveUsername req = new TLRPC.TL_contacts_resolveUsername();
+            req.username = username;
+            getConnectionsManager().sendRequest(req, (response, error) -> {
+                if (response instanceof TLRPC.TL_contacts_resolvedPeer) {
+                    TLRPC.TL_contacts_resolvedPeer resolved = (TLRPC.TL_contacts_resolvedPeer) response;
+                    getMessagesController().putUsers(resolved.users, false);
+                    getMessagesController().putChats(resolved.chats, false);
+                    getMessagesStorage().putUsersAndChats(resolved.users, resolved.chats, false, true);
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (!isFinishing() && TextUtils.equals(libraryChannelUsername, u)) {
+                            checkProfileLibrary();
+                        }
+                    });
+                }
+            });
+            return;
+        }
+
+        libraryChannel = chat;
+        TLRPC.ChatFull chatFull = getMessagesController().getChatFull(chat.id);
+        if (chatFull != null) {
+            boolean prevStats = hasLibraryStats;
+            hasLibraryStats = soundgram.music.PublicLibraryManager.isLibraryChannel(chatFull);
+            if (hasLibraryStats != prevStats) {
+                requestProfileRowsUpdate(false, false);
+            }
+        } else {
+            getMessagesController().loadFullChat(chat.id, 0, true);
+        }
+    }
+
     private void updateRowsIds() {
         updateNotifications(false);
 
@@ -12084,6 +12169,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         locationRow = -1;
         channelInfoRow = -1;
         usernameRow = -1;
+        musicLibraryRow = -1;
         settingsTimerRow = -1;
         settingsKeyRow = -1;
         notificationsDividerRow = -1;
@@ -12284,6 +12370,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 if (user != null && username != null) {
                     usernameRow = rowCount++;
+                }
+                if (libraryChannel != null && hasLibraryStats) {
+                    musicLibraryRow = rowCount++;
                 }
                 if (app.nimarkogram.messenger.NimarkoConfig.showIDDC) {
                     idDcRow = rowCount++;
@@ -15217,6 +15306,21 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                         + ", " + app.nimarkogram.messenger.utils.ResourcesUtils.getDCGeo(dcId))
                                 : "DC ?";
                         detailCell.setTextAndValue("ID: " + formattedID, dcValue, false);
+                    } else if (position == musicLibraryRow) {
+                        String handle = "@" + (libraryChannelUsername != null ? libraryChannelUsername : "");
+                        TLRPC.ChatFull cf = libraryChannel != null ? getMessagesController().getChatFull(libraryChannel.id) : null;
+                        soundgram.music.PublicLibraryManager.ChannelMusicStats stats = soundgram.music.PublicLibraryManager.parseStatsFromDescription(cf != null ? cf.about : null);
+                        String valueText;
+                        if (stats != null && stats.trackCount > 0) {
+                            valueText = handle + " • " + stats.formatStats(LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic));
+                        } else {
+                            valueText = handle + " • " + LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic);
+                        }
+                        detailCell.setTextAndValue(
+                                LocaleController.getString("SoundGramLibrary", R.string.SoundGramLibrary),
+                                valueText,
+                                false
+                        );
                     } else if (position == birthdayRow) {
                         TLRPC.UserFull userFull = getMessagesController().getUserFull(userId);
                         if (userFull != null && userFull.birthday != null) {
@@ -15421,6 +15525,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             cal.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(getThemedColor(Theme.key_actionBarDefaultIcon), false), PorterDuff.Mode.MULTIPLY));
                             detailCell.setImage(cal, LocaleController.getString(R.string.NM_RegDate));
                             detailCell.setImageClickListener(ProfileActivity.this::onTextDetailCellImageClicked);
+                        } else {
+                            detailCell.setImage(null);
+                            detailCell.setImageClickListener(null);
+                        }
+                    } else if (position == musicLibraryRow) {
+                        Drawable headphones = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.msg_filled_data_music);
+                        if (headphones != null) {
+                            headphones.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false), PorterDuff.Mode.MULTIPLY));
+                            detailCell.setImage(headphones, LocaleController.getString(R.string.SoundGramLibrary));
+                            detailCell.setImageClickListener(v -> {
+                                if (libraryChannel != null) {
+                                    presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
+                                }
+                            });
                         } else {
                             detailCell.setImage(null);
                             detailCell.setImageClickListener(null);
@@ -16102,7 +16220,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (position == infoHeaderRow || position == membersHeaderRow || position == settingsSectionRow2 ||
                     position == numberSectionRow || position == helpHeaderRow || position == debugHeaderRow || position == botPermissionsHeader) {
                 return VIEW_TYPE_HEADER;
-            } else if (position == phoneRow || position == locationRow || position == numberRow || position == birthdayRow || position == idDcRow) {
+            } else if (position == phoneRow || position == locationRow || position == numberRow || position == birthdayRow || position == idDcRow || position == musicLibraryRow) {
                 return VIEW_TYPE_TEXT_DETAIL;
             } else if (position == usernameRow || position == setUsernameRow) {
                 return VIEW_TYPE_TEXT_DETAIL_MULTILINE;

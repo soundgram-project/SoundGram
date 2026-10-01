@@ -316,4 +316,17 @@
     <string name="sg_ta_section_cursor">CURSOR</string>
     <string name="sg_ta_cursor_smooth">Smooth Cursor</string>
     <string name="sg_ta_cursor_liquid">Liquid Cursor</string>
+    <!-- Public Library Settings -->
+    <string name="sg_public_library_title">Make library public</string>
+    <string name="sg_public_library_subtitle">Allows other users to browse and listen to your music library from your profile</string>
+    <string name="sg_public_library_username_required">In order to make your library public, a public username (link) must be set for the library channel.</string>
+    <string name="sg_set_username">Set username</string>
+    <string name="sg_public_library">Library</string>
+    <string name="sg_open_library">Listen to music</string>
+    <string name="sg_add_to_library">Add to library</string>
+    <string name="sg_add_playlist_to_me">Add playlist to my library</string>
+    <string name="sg_playlist_added">Playlist added to your library</string>
+    <string name="sg_cloning_playlist">Adding playlist…</string>
+    <string name="SoundGramLibrary">Library</string>
+    <string name="SoundGramListenMusic">Listen to music</string>
 </resources>
