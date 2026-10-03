@@ -334,4 +334,29 @@
     <string name="sg_cloning_playlist">Добавление плейлиста…</string>
     <string name="SoundGramLibrary">Библиотека</string>
     <string name="SoundGramListenMusic">Слушать музыку</string>
+
+    <!-- Accessibility -->
+    <string name="A11ySettingsTitle">Для слабовидящих</string>
+    <string name="A11ySettingsSubtitle">Настройки для скринридеров и удобства восприятия</string>
+    <string name="A11ySectionButtons">Кнопки сообщений и подписи</string>
+    <string name="A11yHideShareAndTranscribe">Скрыть кнопки «Поделиться» и расшифровки</string>
+    <string name="A11yHideShareAndTranscribeDesc">Скрывает кнопки «Поделиться» и транскрипции аудио рядом с сообщениями</string>
+    <string name="A11yHideAdminTags">Скрыть звания и теги в группах</string>
+    <string name="A11yHideAdminTagsDesc">Отключает чтение скринридером и показ тегов (например, «Владелец», «Администратор»)</string>
+    <string name="A11yHideGroupNicknames">Скрыть имена авторов в группах</string>
+    <string name="A11yHideGroupNicknamesDesc">Оставляет только текст постов в группах без озвучивания и показа никнеймов</string>
+    <string name="A11yToggleNames">Имена авторов в группах</string>
+    <string name="A11ySectionVoiceMedia">Голосовые и медиа</string>
+    <string name="A11yDisableVoiceAutoplay">Отключить автопереход к следующему ГС</string>
+    <string name="A11yDisableVoiceAutoplayDesc">Не воспроизводить следующее голосовое или видеосообщение автоматически</string>
+    <string name="A11ySectionDownloads">Загрузка файлов</string>
+    <string name="A11yDownloadSound">Звук завершения загрузки</string>
+    <string name="A11yDownloadSoundDesc">Воспроизводит короткий сигнал при завершении скачивания ГС, музыки или файлов</string>
+    <string name="A11yDownloadPercentTalkback">Озвучивать проценты скачивания</string>
+    <string name="A11yDownloadPercentTalkbackDesc">Добавляет текущие проценты загрузки в описание сообщения для скринридера</string>
+    <string name="A11ySectionComposer">Поле ввода и спецэффекты</string>
+    <string name="A11yHideComposerEditorButtons">Скрыть кнопки «Редактор» и «ИИ» при наборе</string>
+    <string name="A11yHideComposerEditorButtonsDesc">Скрывает кнопки расширенного редактора и ИИ рядом с кнопкой отправки</string>
+    <string name="A11yDisableAllAnimations">Отключить все анимации и спецэффекты</string>
+    <string name="A11yDisableAllAnimationsDesc">Облегчённый режим для слабовидящих: выключает анимации переходов и частицы</string>
 </resources>

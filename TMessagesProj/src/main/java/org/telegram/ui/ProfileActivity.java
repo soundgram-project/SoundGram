@@ -2256,6 +2256,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getNotificationCenter().addObserver(this, NotificationCenter.blockedUsersDidLoad);
             getNotificationCenter().addObserver(this, NotificationCenter.botInfoDidLoad);
             getNotificationCenter().addObserver(this, NotificationCenter.userInfoDidLoad);
+            getNotificationCenter().addObserver(this, NotificationCenter.chatInfoDidLoad);
             getNotificationCenter().addObserver(this, NotificationCenter.privacyRulesUpdated);
             NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.reloadInterface);
 
@@ -2539,6 +2540,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             getNotificationCenter().removeObserver(this, NotificationCenter.blockedUsersDidLoad);
             getNotificationCenter().removeObserver(this, NotificationCenter.botInfoDidLoad);
             getNotificationCenter().removeObserver(this, NotificationCenter.userInfoDidLoad);
+            getNotificationCenter().removeObserver(this, NotificationCenter.chatInfoDidLoad);
             getNotificationCenter().removeObserver(this, NotificationCenter.privacyRulesUpdated);
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.reloadInterface);
             getMessagesController().cancelLoadFullUser(userId);
@@ -4090,8 +4092,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 musicView.setMusicDocument(userInfo.saved_music);
             }
             musicView.setOnClickListener(v -> {
-                if (libraryChannel != null && hasLibraryStats) {
-                    presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
+                if (libraryChannel != null) {
+                    openMusicLibrary();
                     return;
                 }
                 if (savedMusicList == null) {
@@ -7913,9 +7915,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private boolean processOnClickOrPress(final int position, final View view, final float x, final float y) {
         if (position == musicLibraryRow) {
-            if (libraryChannel != null) {
-                presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
-            }
+            openMusicLibrary();
             return true;
         }
         if (position == usernameRow || position == setUsernameRow) {
@@ -8035,9 +8035,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
             return true;
         } else if (position == musicLibraryRow) {
-            if (libraryChannel != null) {
-                presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
-            }
+            openMusicLibrary();
             return true;
         } else if (position == noteRow) {
 
@@ -12030,6 +12028,37 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void checkProfileLibrary() {
+        if (myProfile) {
+            long myChannelId = soundgram.music.ChannelMusicFragment.getChannelIdFromFile(currentAccount);
+            if (myChannelId != 0) {
+                TLRPC.Chat chat = getMessagesController().getChat(myChannelId);
+                if (chat == null) {
+                    chat = getMessagesStorage().getChat(myChannelId);
+                    if (chat != null) {
+                        getMessagesController().putChat(chat, true);
+                    }
+                }
+                if (chat != null) {
+                    libraryChannel = chat;
+                    libraryChannelUsername = ChatObject.getPublicUsername(chat);
+                    requestProfileRowsUpdate(false, false);
+                    TLRPC.ChatFull chatFull = getMessagesController().getChatFull(chat.id);
+                    if (chatFull != null) {
+                        boolean prevStats = hasLibraryStats;
+                        hasLibraryStats = soundgram.music.PublicLibraryManager.isLibraryChannel(chatFull);
+                        if (hasLibraryStats != prevStats) {
+                            requestProfileRowsUpdate(false, false);
+                        }
+                    } else {
+                        getMessagesController().loadFullChat(chat.id, 0, true);
+                    }
+                    return;
+                } else {
+                    getMessagesController().loadFullChat(myChannelId, 0, true);
+                }
+            }
+        }
+
         if (userInfo == null || userInfo.saved_music == null) {
             boolean changed = (libraryChannel != null || hasLibraryStats);
             libraryChannel = null;
@@ -12068,7 +12097,19 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     getMessagesStorage().putUsersAndChats(resolved.users, resolved.chats, false, true);
                     AndroidUtilities.runOnUIThread(() -> {
                         if (!isFinishing() && TextUtils.equals(libraryChannelUsername, u)) {
-                            checkProfileLibrary();
+                            if (!resolved.chats.isEmpty()) {
+                                libraryChannel = resolved.chats.get(0);
+                                requestProfileRowsUpdate(false, false);
+                                TLRPC.ChatFull chatFull = getMessagesController().getChatFull(libraryChannel.id);
+                                if (chatFull != null) {
+                                    hasLibraryStats = soundgram.music.PublicLibraryManager.isLibraryChannel(chatFull);
+                                    requestProfileRowsUpdate(false, false);
+                                } else {
+                                    getMessagesController().loadFullChat(libraryChannel.id, 0, true);
+                                }
+                            } else {
+                                checkProfileLibrary();
+                            }
                         }
                     });
                 }
@@ -12077,6 +12118,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         libraryChannel = chat;
+        requestProfileRowsUpdate(false, false);
         TLRPC.ChatFull chatFull = getMessagesController().getChatFull(chat.id);
         if (chatFull != null) {
             boolean prevStats = hasLibraryStats;
@@ -12086,6 +12128,16 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
         } else {
             getMessagesController().loadFullChat(chat.id, 0, true);
+        }
+    }
+
+    private void openMusicLibrary() {
+        if (libraryChannel != null) {
+            long targetUserId = userId != 0 ? userId : (dialogId > 0 ? dialogId : 0);
+            long myUserId = getUserConfig().getClientUserId();
+            long myChannelId = soundgram.music.ChannelMusicFragment.getChannelIdFromFile(currentAccount);
+            boolean isForeign = !myProfile && (targetUserId != 0 && targetUserId != myUserId) && (libraryChannel.id == 0 || libraryChannel.id != myChannelId);
+            presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, isForeign, isForeign ? targetUserId : 0));
         }
     }
 
@@ -12371,7 +12423,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (user != null && username != null) {
                     usernameRow = rowCount++;
                 }
-                if (libraryChannel != null && hasLibraryStats) {
+                if (libraryChannel != null) {
                     musicLibraryRow = rowCount++;
                 }
                 if (app.nimarkogram.messenger.NimarkoConfig.showIDDC) {
@@ -15307,20 +15359,40 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                 : "DC ?";
                         detailCell.setTextAndValue("ID: " + formattedID, dcValue, false);
                     } else if (position == musicLibraryRow) {
-                        String handle = "@" + (libraryChannelUsername != null ? libraryChannelUsername : "");
+                        String handle = !TextUtils.isEmpty(libraryChannelUsername) ? ("@" + libraryChannelUsername) : "";
                         TLRPC.ChatFull cf = libraryChannel != null ? getMessagesController().getChatFull(libraryChannel.id) : null;
                         soundgram.music.PublicLibraryManager.ChannelMusicStats stats = soundgram.music.PublicLibraryManager.parseStatsFromDescription(cf != null ? cf.about : null);
-                        String valueText;
-                        if (stats != null && stats.trackCount > 0) {
-                            valueText = handle + " • " + stats.formatStats(LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic));
-                        } else {
-                            valueText = handle + " • " + LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic);
+
+                        SpannableStringBuilder topText = new SpannableStringBuilder();
+                        topText.append("🎵  ");
+                        topText.append(LocaleController.getString("SoundGramLibrary", R.string.SoundGramLibrary));
+                        if (libraryChannel != null && !TextUtils.isEmpty(libraryChannel.title) &&
+                                !libraryChannel.title.equalsIgnoreCase("SoundGram Music") &&
+                                !libraryChannel.title.equalsIgnoreCase(LocaleController.getString("SoundGramLibrary", R.string.SoundGramLibrary))) {
+                            topText.append(" • ").append(libraryChannel.title);
                         }
-                        detailCell.setTextAndValue(
-                                LocaleController.getString("SoundGramLibrary", R.string.SoundGramLibrary),
-                                valueText,
-                                false
-                        );
+
+                        SpannableStringBuilder subText = new SpannableStringBuilder();
+                        int accentColor = dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false);
+                        if (!TextUtils.isEmpty(handle)) {
+                            int start = subText.length();
+                            subText.append(handle);
+                            subText.setSpan(new ForegroundColorSpan(accentColor), start, subText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        }
+                        if (stats != null && stats.trackCount > 0) {
+                            if (subText.length() > 0) {
+                                subText.append(" • ");
+                            }
+                            subText.append(stats.formatStats(LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic)));
+                        } else {
+                            if (subText.length() > 0) {
+                                subText.append(" • ");
+                            }
+                            subText.append(LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic));
+                        }
+
+                        boolean hasRowAfter = (idDcRow != -1 || birthdayRow != -1 || bizHoursRow != -1 || bizLocationRow != -1 || noteRow != -1);
+                        detailCell.setTextAndValue(topText, subText, hasRowAfter);
                     } else if (position == birthdayRow) {
                         TLRPC.UserFull userFull = getMessagesController().getUserFull(userId);
                         if (userFull != null && userFull.birthday != null) {
@@ -15532,12 +15604,15 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     } else if (position == musicLibraryRow) {
                         Drawable headphones = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.msg_filled_data_music);
                         if (headphones != null) {
-                            headphones.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false), PorterDuff.Mode.MULTIPLY));
+                            int accentColor = dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false);
+                            headphones.setColorFilter(new PorterDuffColorFilter(accentColor, PorterDuff.Mode.SRC_IN));
                             detailCell.setImage(headphones, LocaleController.getString(R.string.SoundGramLibrary));
+                            int circleBg = ColorUtils.setAlphaComponent(accentColor, 38);
+                            int rippleColor = Theme.getColor(Theme.key_listSelector, resourcesProvider);
+                            detailCell.getImageView().setBackground(Theme.createSimpleSelectorCircleDrawable(AndroidUtilities.dp(38), circleBg, rippleColor));
+                            detailCell.getImageView().setPadding(AndroidUtilities.dp(6), AndroidUtilities.dp(6), AndroidUtilities.dp(6), AndroidUtilities.dp(6));
                             detailCell.setImageClickListener(v -> {
-                                if (libraryChannel != null) {
-                                    presentFragment(new soundgram.music.ChannelMusicFragment(libraryChannel.id, true));
-                                }
+                                openMusicLibrary();
                             });
                         } else {
                             detailCell.setImage(null);

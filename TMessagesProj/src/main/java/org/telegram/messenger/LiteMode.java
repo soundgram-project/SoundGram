@@ -100,6 +100,9 @@ public class LiteMode {
     }
 
     public static int getValue(boolean ignorePowerSaving) {
+        if (app.nimarkogram.messenger.NimarkoConfig.a11yDisableAllAnimations) {
+            return PRESET_POWER_SAVER;
+        }
         if (!loaded) {
             loadPreference();
         }

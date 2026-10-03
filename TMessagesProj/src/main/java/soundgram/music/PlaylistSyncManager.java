@@ -33,6 +33,7 @@ public class PlaylistSyncManager {
         public int msgId = 0;
         public boolean pendingSync = false;
         public boolean isDeleted = false;
+        public MessageObject playlistMsg;
         public ArrayList<String> trackLines = new ArrayList<>();
     }
 

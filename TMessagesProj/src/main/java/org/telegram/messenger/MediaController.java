@@ -2608,7 +2608,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         voiceMessagesPlaylistMap = null;
                     }
                 }
-                if (voiceMessagesPlaylist != null && index < voiceMessagesPlaylist.size()) {
+                if (voiceMessagesPlaylist != null && index < voiceMessagesPlaylist.size() && !app.nimarkogram.messenger.NimarkoConfig.a11yDisableVoiceAutoplay) {
                     MessageObject nextVoiceMessage = voiceMessagesPlaylist.get(index);
                     playMessage(nextVoiceMessage);
                     playingNext = true;
@@ -2616,7 +2616,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         closePipRoundVideo(true);
                     }
                 } else {
-                    if ((lastFile.isVoice() || lastFile.isRoundVideo()) && lastFile.getId() != 0) {
+                    if ((lastFile.isVoice() || lastFile.isRoundVideo()) && lastFile.getId() != 0 && !app.nimarkogram.messenger.NimarkoConfig.a11yDisableVoiceAutoplay) {
                         startRecordingIfFromSpeaker();
                     }
                     NotificationCenter.getInstance(lastFile.currentAccount).postNotificationName(NotificationCenter.messagePlayingDidReset, lastFile.getId(), stopService);
@@ -3006,6 +3006,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
 
     private void playNextMessageWithoutOrder(boolean byStop) {
+        if (byStop && app.nimarkogram.messenger.NimarkoConfig.a11yDisableVoiceAutoplay && playingMessageObject != null && (playingMessageObject.isVoice() || playingMessageObject.isRoundVideo())) {
+            cleanupPlayer(true, true, playingMessageObject.isVoice(), false);
+            return;
+        }
         ArrayList<MessageObject> currentPlayList = SharedConfig.shuffleMusic ? shuffledPlaylist : playlist;
 
         if (byStop && (SharedConfig.repeatMode == 2 || SharedConfig.repeatMode == 1 && currentPlayList.size() == 1) && !forceLoopCurrentPlaylist) {
@@ -4040,7 +4044,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                             }
                             final boolean restored = restoreMusicPlaylistState();
                             if (!restored) {
-                                if (!playlist.isEmpty() && (playlist.size() > 1 || !messageObject.isVoice())) {
+                                if (app.nimarkogram.messenger.NimarkoConfig.a11yDisableVoiceAutoplay && (messageObject.isVoice() || messageObject.isRoundVideo())) {
+                                    cleanupPlayer(true, true, messageObject.isVoice(), false);
+                                } else if (!playlist.isEmpty() && (playlist.size() > 1 || !messageObject.isVoice())) {
                                     playNextMessageWithoutOrder(true);
                                 } else {
                                     cleanupPlayer(true, hasNoNextVoiceOrRoundVideoMessage(), messageObject.isVoice(), false);

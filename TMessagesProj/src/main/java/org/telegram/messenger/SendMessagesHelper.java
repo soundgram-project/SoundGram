@@ -213,12 +213,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     public TLRPC.InputReplyTo createReplyInput(TLRPC.TL_messageReplyHeader replyHeader) {
-        if (replyHeader == null || replyHeader.reply_to_msg_id == 0) {
+        if (replyHeader == null || (replyHeader.reply_to_msg_id == 0 && (replyHeader.flags & 2) == 0 && replyHeader.reply_to_top_id == 0)) {
             return null;
         }
         TLRPC.TL_inputReplyToMessage replyTo = new TLRPC.TL_inputReplyToMessage();
-        replyTo.reply_to_msg_id = replyHeader.reply_to_msg_id;
-        if ((replyHeader.flags & 2) != 0) {
+        replyTo.reply_to_msg_id = replyHeader.reply_to_msg_id != 0 ? replyHeader.reply_to_msg_id : replyHeader.reply_to_top_id;
+        if ((replyHeader.flags & 2) != 0 || replyHeader.reply_to_top_id != 0) {
             replyTo.flags |= 1;
             replyTo.top_msg_id = replyHeader.reply_to_top_id;
         }
@@ -8567,12 +8567,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         final TLRPC.TL_messages_sendMessage r = (TLRPC.TL_messages_sendMessage) req;
                         r.reply_to = null;
                         r.flags &= ~1;
-                        r.random_id = getNextRandomId();
-                        if (newMsgObj != null) {
-                            if (newMsgObj.reply_to != null) {
-                                newMsgObj.flags &= ~8;
-                            }
-                            newMsgObj.random_id = r.random_id;
+                        if (newMsgObj != null && newMsgObj.reply_to != null) {
+                            newMsgObj.flags &= ~8;
                         }
                         performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
                         return;
@@ -8585,12 +8581,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         final TLRPC.TL_messages_sendMedia r = (TLRPC.TL_messages_sendMedia) req;
                         r.reply_to = null;
                         r.flags &= ~1;
-                        r.random_id = getNextRandomId();
-                        if (newMsgObj != null) {
-                            if (newMsgObj.reply_to != null) {
-                                newMsgObj.flags &= ~8;
-                            }
-                            newMsgObj.random_id = r.random_id;
+                        if (newMsgObj != null && newMsgObj.reply_to != null) {
+                            newMsgObj.flags &= ~8;
                         }
                         performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
                         return;
@@ -9480,11 +9472,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         if ((path == null || path.length() == 0) && uri == null) {
             return ERROR_TYPE_UNSUPPORTED;
         }
-        if (uri != null && AndroidUtilities.isInternalUri(uri)) {
-            return ERROR_TYPE_UNSUPPORTED;
-        }
-        if (path != null && AndroidUtilities.isInternalUri(Uri.fromFile(new File(path)))) {
-            return ERROR_TYPE_UNSUPPORTED;
+        boolean isPhantom = (path != null && path.contains("sg_phantom_")) || (uri != null && String.valueOf(uri).contains("sg_phantom_"));
+        if (!isPhantom) {
+            if (uri != null && AndroidUtilities.isInternalUri(uri)) {
+                return ERROR_TYPE_UNSUPPORTED;
+            }
+            if (path != null && AndroidUtilities.isInternalUri(Uri.fromFile(new File(path)))) {
+                return ERROR_TYPE_UNSUPPORTED;
+            }
         }
         MimeTypeMap myMime = MimeTypeMap.getSingleton();
         TLRPC.TL_documentAttributeAudio attributeAudio = null;

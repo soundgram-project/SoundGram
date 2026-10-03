@@ -533,7 +533,8 @@ public class MessagesController extends BaseController implements NotificationCe
     public String mapKey;
     public int maxMessageLength;
     public int getMaxMessageLength() {
-        return getUserConfig().isPremium() ? config.messageLengthLimitPremium.get() : config.messageLengthLimitDefault.get();
+        boolean realPremium = getUserConfig().getCurrentUser() != null && getUserConfig().getCurrentUser().premium;
+        return realPremium ? config.messageLengthLimitPremium.get() : config.messageLengthLimitDefault.get();
     }
     public int maxCaptionLength;
     public int roundVideoSize;

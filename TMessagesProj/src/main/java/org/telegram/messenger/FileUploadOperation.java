@@ -296,6 +296,9 @@ public class FileUploadOperation {
                 } catch (Throwable e) {
                     FileLog.e(e);
                 }
+                if (uploadingFilePath != null && uploadingFilePath.contains("sg_phantom_")) {
+                    isInternalFile = false;
+                }
                 if (isInternalFile) {
                     throw new Exception("trying to upload internal file");
                 }

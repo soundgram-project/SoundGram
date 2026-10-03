@@ -329,4 +329,29 @@
     <string name="sg_cloning_playlist">Adding playlist…</string>
     <string name="SoundGramLibrary">Library</string>
     <string name="SoundGramListenMusic">Listen to music</string>
+
+    <!-- Accessibility -->
+    <string name="A11ySettingsTitle">Accessibility</string>
+    <string name="A11ySettingsSubtitle">Interface &amp; screen reader accessibility options</string>
+    <string name="A11ySectionButtons">Message Buttons &amp; Labels</string>
+    <string name="A11yHideShareAndTranscribe">Hide Share and Transcribe buttons</string>
+    <string name="A11yHideShareAndTranscribeDesc">Removes Share and audio transcribe buttons next to messages</string>
+    <string name="A11yHideAdminTags">Hide admin &amp; role tags in groups</string>
+    <string name="A11yHideAdminTagsDesc">Prevents screen readers and UI from reading tags like \"Owner\", \"Admin\"</string>
+    <string name="A11yHideGroupNicknames">Hide author names in groups</string>
+    <string name="A11yHideGroupNicknamesDesc">Only keep message texts in group chats for easier listening</string>
+    <string name="A11yToggleNames">Toggle group author names</string>
+    <string name="A11ySectionVoiceMedia">Voice &amp; Media Playback</string>
+    <string name="A11yDisableVoiceAutoplay">Disable voice message autoplay</string>
+    <string name="A11yDisableVoiceAutoplayDesc">Do not automatically play the next voice or video note when current finishes</string>
+    <string name="A11ySectionDownloads">File Downloads &amp; Feedback</string>
+    <string name="A11yDownloadSound">Download completion sound</string>
+    <string name="A11yDownloadSoundDesc">Plays a short audio cue when a voice note, music, or file finishes downloading</string>
+    <string name="A11yDownloadPercentTalkback">Announce download percentage</string>
+    <string name="A11yDownloadPercentTalkbackDesc">Includes download progress percentage in message accessibility details</string>
+    <string name="A11ySectionComposer">Composer &amp; Visuals</string>
+    <string name="A11yHideComposerEditorButtons">Hide Editor and AI buttons in composer</string>
+    <string name="A11yHideComposerEditorButtonsDesc">Hides Article Editor and AI Assistant buttons that appear next to send</string>
+    <string name="A11yDisableAllAnimations">Disable all animations &amp; visual effects</string>
+    <string name="A11yDisableAllAnimationsDesc">Ultra-lightweight mode: turns off transitions, particles, and visual effects</string>
 </resources>

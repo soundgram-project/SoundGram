@@ -1859,6 +1859,9 @@ public class SharedConfig {
     }
 
     public static boolean animationsEnabled() {
+        if (app.nimarkogram.messenger.NimarkoConfig.a11yDisableAllAnimations) {
+            return false;
+        }
         if (animationsEnabled == null) {
             animationsEnabled = MessagesController.getGlobalMainSettings().getBoolean("view_animations", true);
         }

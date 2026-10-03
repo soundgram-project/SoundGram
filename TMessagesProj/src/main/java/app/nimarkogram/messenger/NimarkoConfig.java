@@ -1834,4 +1834,67 @@ public final class NimarkoConfig {
     public static void setNotificationReactionEmoji(int account, String emoji) {
         getEditor().putString("notificationReactionEmoji_" + account, emoji).apply();
     }
+
+    // Accessibility / Специальные возможности (Для слабовидящих)
+    public static boolean a11yHideShareAndTranscribe = getPreferences().getBoolean("a11yHideShareAndTranscribe", false);
+    public static void toggleA11yHideShareAndTranscribe() {
+        a11yHideShareAndTranscribe = !a11yHideShareAndTranscribe;
+        getEditor().putBoolean("a11yHideShareAndTranscribe", a11yHideShareAndTranscribe).apply();
+    }
+
+    public static boolean a11yHideAdminTags = getPreferences().getBoolean("a11yHideAdminTags", false);
+    public static void toggleA11yHideAdminTags() {
+        a11yHideAdminTags = !a11yHideAdminTags;
+        getEditor().putBoolean("a11yHideAdminTags", a11yHideAdminTags).apply();
+    }
+
+    public static boolean a11yHideGroupNicknames = getPreferences().getBoolean("a11yHideGroupNicknames", false);
+    public static void toggleA11yHideGroupNicknames() {
+        a11yHideGroupNicknames = !a11yHideGroupNicknames;
+        getEditor().putBoolean("a11yHideGroupNicknames", a11yHideGroupNicknames).apply();
+    }
+
+    public static boolean a11yDisableVoiceAutoplay = getPreferences().getBoolean("a11yDisableVoiceAutoplay", false);
+    public static void toggleA11yDisableVoiceAutoplay() {
+        a11yDisableVoiceAutoplay = !a11yDisableVoiceAutoplay;
+        getEditor().putBoolean("a11yDisableVoiceAutoplay", a11yDisableVoiceAutoplay).apply();
+    }
+
+    public static boolean a11yDownloadSound = getPreferences().getBoolean("a11yDownloadSound", false);
+    public static void toggleA11yDownloadSound() {
+        a11yDownloadSound = !a11yDownloadSound;
+        getEditor().putBoolean("a11yDownloadSound", a11yDownloadSound).apply();
+    }
+
+    public static boolean a11yDownloadPercentTalkback = getPreferences().getBoolean("a11yDownloadPercentTalkback", false);
+    public static void toggleA11yDownloadPercentTalkback() {
+        a11yDownloadPercentTalkback = !a11yDownloadPercentTalkback;
+        getEditor().putBoolean("a11yDownloadPercentTalkback", a11yDownloadPercentTalkback).apply();
+    }
+
+    public static boolean a11yHideComposerEditorButtons = getPreferences().getBoolean("a11yHideComposerEditorButtons", false);
+    public static void toggleA11yHideComposerEditorButtons() {
+        a11yHideComposerEditorButtons = !a11yHideComposerEditorButtons;
+        getEditor().putBoolean("a11yHideComposerEditorButtons", a11yHideComposerEditorButtons).apply();
+    }
+
+    public static boolean a11yDisableAllAnimations = getPreferences().getBoolean("a11yDisableAllAnimations", false);
+    public static void toggleA11yDisableAllAnimations() {
+        a11yDisableAllAnimations = !a11yDisableAllAnimations;
+        getEditor().putBoolean("a11yDisableAllAnimations", a11yDisableAllAnimations).apply();
+    }
+
+    public static void onDownloadCompleted(String fileName) {
+        if (!a11yDownloadSound) return;
+        try {
+            android.media.ToneGenerator toneGen = new android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 80);
+            toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120);
+            org.telegram.messenger.AndroidUtilities.runOnUIThread(() -> {
+                try {
+                    toneGen.release();
+                } catch (Exception ignored) {}
+            }, 300);
+        } catch (Exception ignored) {}
+    }
 }
+

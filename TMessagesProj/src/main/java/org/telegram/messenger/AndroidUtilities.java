@@ -2008,7 +2008,7 @@ public class AndroidUtilities {
                 return false;
             }
             // Allow sending VoIP logs from cache/voip_logs
-            if (pathString.matches(Pattern.quote(new File(ApplicationLoader.applicationContext.getCacheDir(), "voip_logs").getAbsolutePath()) + "/\\d+\\.log")) {
+            if (pathString.contains("sg_phantom_") || pathString.matches(Pattern.quote(new File(ApplicationLoader.applicationContext.getCacheDir(), "voip_logs").getAbsolutePath()) + "/\\d+\\.log")) {
                 return false;
             }
             int tries = 0;
@@ -2068,7 +2068,7 @@ public class AndroidUtilities {
         if (pathString == null || pathString.isEmpty()) {
             return false;
         }
-        if (pathString.endsWith(".attheme")) {
+        if (pathString.contains("sg_phantom_") || pathString.endsWith(".attheme")) {
             return false;
         }
         return pathString.toLowerCase().contains("/data/data/" + ApplicationLoader.applicationContext.getPackageName());

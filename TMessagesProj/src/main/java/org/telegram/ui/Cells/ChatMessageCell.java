@@ -2287,6 +2287,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     private CharSequence getAdminAccessibilityText() {
+        if (app.nimarkogram.messenger.NimarkoConfig.a11yHideAdminTags) return null;
         if (adminLayout == null || TextUtils.isEmpty(adminLayout.getText())) return null;
         final SpannableStringBuilder text = new SpannableStringBuilder(adminLayout.getText());
         final BoostCounterSpan[] spans = text.getSpans(0, text.length(), BoostCounterSpan.class);
@@ -13166,7 +13167,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         if (seekBarWaveform != null) {
             seekBarWaveform.setWaveform(waveform);
         }
-        useTranscribeButton = (
+        useTranscribeButton = !app.nimarkogram.messenger.NimarkoConfig.a11yHideShareAndTranscribe && (
             currentMessageObject != null &&
             !(staticQuotePresentation && currentMessageObject.isRoundVideo()) &&
             !currentMessageObject.isQuickReply() &&
@@ -19424,6 +19425,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     protected boolean checkNeedDrawShareButton(MessageObject messageObject) {
+        if (app.nimarkogram.messenger.NimarkoConfig.a11yHideShareAndTranscribe) return false;
         if (staticQuotePresentation) return false;
         if (isReportChat) return false;
         if (currentMessageObject.deleted && !currentMessageObject.deletedByThanos) return false;
@@ -19626,7 +19628,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 adminString = new SpannableStringBuilder(messageObject.messageOwner.post_author.replace("\n", ""));
             } else if (isMegagroup && currentChat != null && currentMessageObject.isForwardedChannelPost()) {
                 adminString = new SpannableStringBuilder(getString(R.string.DiscussChannel));
-            } else if ((currentUser != null || currentChat != null) && !currentMessageObject.isOutOwner() && !currentMessageObject.isAnyKindOfSticker() && currentMessageObject.type != MessageObject.TYPE_ROUND_VIDEO && delegate != null) {
+            } else if ((currentUser != null || currentChat != null) && !app.nimarkogram.messenger.NimarkoConfig.a11yHideAdminTags && !currentMessageObject.isOutOwner() && !currentMessageObject.isAnyKindOfSticker() && currentMessageObject.type != MessageObject.TYPE_ROUND_VIDEO && delegate != null) {
                 adminLabel = delegate.getAdminRank(currentUser != null ? currentUser.id : currentChat.id);
                 if (messageObject.messageOwner.from_rank != null) {
                     adminLabel = messageObject.messageOwner.from_rank;
@@ -20571,6 +20573,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     protected boolean isNeedAuthorName() {
+        if (app.nimarkogram.messenger.NimarkoConfig.a11yHideGroupNicknames && isChat && !isPinnedChat) {
+            return false;
+        }
         if (currentMessageObject.forceAvatar || currentMessageObject.getDialogId() == UserObject.VERIFY && currentMessageObject.messageOwner != null && currentMessageObject.messageOwner.fwd_from != null) {
             return true;
         }
@@ -28069,10 +28074,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 final long fileSize = currentMessageObject != null ? currentMessageObject.loadedFileSize : 0;
                 if (accessibilityText == null || accessibilityTextUnread != unread || accessibilityTextContentUnread != contentUnread || accessibilityTextFileSize != fileSize) {
                     SpannableStringBuilder sb = new SpannableStringBuilder();
-                    if (isChat && currentUser != null && !currentMessageObject.isOut()) {
+                    if (isChat && currentUser != null && !currentMessageObject.isOut() && !app.nimarkogram.messenger.NimarkoConfig.a11yHideGroupNicknames) {
                         sb.append(UserObject.getUserName(currentUser));
                         sb.setSpan(new ProfileSpan(currentUser), 0, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        final CharSequence adminText = getAdminAccessibilityText();
+                        final CharSequence adminText = app.nimarkogram.messenger.NimarkoConfig.a11yHideAdminTags ? null : getAdminAccessibilityText();
                         if (!TextUtils.isEmpty(adminText)) {
                             if (adminLayoutIsTag) {
                                 sb.append(' ').append(formatString(adminLayoutIsAdmin ? R.string.AccDescrWithAdminTag : R.string.AccDescrWithMemberTag, adminText));

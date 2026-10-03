@@ -58,6 +58,7 @@ import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.AccountInstance;
+import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
@@ -137,15 +138,31 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private org.telegram.ui.Components.blur3.capture.IBlur3Capture iBlur3Capture;
 
     public ChannelMusicFragment() {
-        this(0, false);
+        this(0, false, 0);
     }
 
     public ChannelMusicFragment(long foreignChannelId, boolean isForeign) {
+        this(foreignChannelId, isForeign, 0);
+    }
+
+    public ChannelMusicFragment(long foreignChannelId, boolean isForeign, long foreignUserId) {
         super();
-        this.customChannelId = foreignChannelId;
-        this.isForeignLibrary = isForeign;
-        if (foreignChannelId != 0) {
-            this.musicChannelId = foreignChannelId;
+        long myChannelId = getChannelIdFromFile(currentAccount);
+        long myUserId = UserConfig.getInstance(currentAccount).getClientUserId();
+        if ((foreignChannelId != 0 && foreignChannelId == myChannelId) || (foreignUserId != 0 && foreignUserId == myUserId)) {
+            isForeign = false;
+        }
+        if (!isForeign) {
+            this.customChannelId = 0;
+            this.isForeignLibrary = false;
+            this.foreignUserId = 0;
+        } else {
+            this.customChannelId = foreignChannelId;
+            this.isForeignLibrary = true;
+            this.foreignUserId = foreignUserId;
+            if (foreignChannelId != 0) {
+                this.musicChannelId = foreignChannelId;
+            }
         }
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             scrollableViewNoiseSuppressor = new org.telegram.ui.Components.blur3.DownscaleScrollableNoiseSuppressor();
@@ -291,6 +308,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private long musicChannelId = 0;
     private long musicChannelHash = 0;
     private boolean isForeignLibrary = false;
+    private long foreignUserId = 0;
     private long customChannelId = 0;
     private ArrayList<PlaylistSyncManager.PlaylistData> foreignPlaylists = new ArrayList<>();
     private boolean isSearching = false;
@@ -314,6 +332,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidStart);
+        NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.userInfoDidLoad);
+        NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.updateInterfaces);
+
+        if (isForeignLibrary && foreignUserId != 0) {
+            TLRPC.User u = MessagesController.getInstance(currentAccount).getUser(foreignUserId);
+            if (u == null) {
+                u = MessagesStorage.getInstance(currentAccount).getUser(foreignUserId);
+            }
+            if (u != null) {
+                MessagesController.getInstance(currentAccount).loadUserInfo(u, false, getClassGuid());
+            }
+        }
 
         checkOrCreateMusicChannel();
         if (!isForeignLibrary) {
@@ -483,6 +513,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidStart);
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.userInfoDidLoad);
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.updateInterfaces);
 
     }
 
@@ -642,16 +674,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
     public void saveAlbumToChannel(String title, String url, String coverUrl) {
-        long targetId = getTargetChannelId();
+        long targetId = getChannelIdFromFile(currentAccount);
         if (targetId == 0) return;
         String text = "SG_ALBUM|||" + title + "|||" + url + "|||" + coverUrl;
         SendMessagesHelper.getInstance(currentAccount).sendMessage(SendMessagesHelper.SendMessageParams.of(text, -targetId, null, null, null, true, null, null, null, true, 0, 0, null, false));
         safeToast(getParentActivity(), getString(R.string.sg_album_saved_to_library), Toast.LENGTH_SHORT);
 
-        countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
-        isWaitingForUpload = true;
-        pollAttempts = 0;
-        AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+        if (!isForeignLibrary) {
+            countBeforeUpload = audioMessages.size() + savedAlbumMessages.size();
+            isWaitingForUpload = true;
+            pollAttempts = 0;
+            AndroidUtilities.runOnUIThread(pollMessagesRunnable, 1500);
+        }
     }
 
     private TextView createYmTab(Context context, String text) {
@@ -1237,7 +1271,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── MINI PLAYER ───────────────────────────────────────────────────────
         MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
-        int bottomTabsOffset = app.nimarkogram.messenger.NimarkoConfig.showMainTabs ? 88 : 0;
+        boolean isInTabs = !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1);
+        int bottomTabsOffset = isInTabs ? 88 : 0;
         content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, bottomTabsOffset + 8));
         SoundGramStyleManager.applyGlass(
                 miniPlayerView,
@@ -1493,6 +1528,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         else if (id == NotificationCenter.messagePlayingDidReset || id == NotificationCenter.messagePlayingPlayStateChanged) {
             safeNotifyAdapter(adapter, listView);
             updateWavePlayButton();
+        } else if (id == NotificationCenter.userInfoDidLoad) {
+            long uid = (Long) args[0];
+            if (isForeignLibrary && uid == foreignUserId) {
+                updateForeignHeaderTitle();
+            }
+        } else if (id == NotificationCenter.updateInterfaces) {
+            int mask = (Integer) args[0];
+            if ((mask & MessagesController.UPDATE_MASK_NAME) != 0) {
+                if (isForeignLibrary && foreignUserId != 0) {
+                    updateForeignHeaderTitle();
+                }
+            }
         }
     }
 
@@ -1691,9 +1738,23 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         0, 0, 0, 20));
 
         // Данные статистики
-        SharedPreferences prefs = SoundGramStatsManager.getStatsPrefs(currentAccount);
-        int totalTracks = prefs.getInt("total_tracks", 0);
-        long totalSeconds = prefs.getLong("total_seconds", 0L);
+        int totalTracks;
+        long totalSeconds;
+        if (isForeignLibrary) {
+            totalTracks = audioMessages != null ? audioMessages.size() : 0;
+            totalSeconds = 0;
+            if (audioMessages != null) {
+                for (MessageObject mo : audioMessages) {
+                    if (mo != null) {
+                        totalSeconds += mo.getDuration();
+                    }
+                }
+            }
+        } else {
+            SharedPreferences prefs = SoundGramStatsManager.getStatsPrefs(currentAccount);
+            totalTracks = prefs.getInt("total_tracks", 0);
+            totalSeconds = prefs.getLong("total_seconds", 0L);
+        }
         long days = totalSeconds / 86400, hours = (totalSeconds % 86400) / 3600;
         long minutes = (totalSeconds % 3600) / 60, seconds = totalSeconds % 60;
         StringBuilder timeFormatted = new StringBuilder();
@@ -2570,6 +2631,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (mo.messageOwner != null && mo.messageOwner.message != null) {
                     PlaylistSyncManager.PlaylistData pd = PlaylistSyncManager.parseChannelPlaylistMessage(mo.messageOwner.message, mo.getId());
                     if (pd != null && !pd.isDeleted) {
+                        pd.playlistMsg = mo;
                         foreignPlaylists.add(pd);
                     }
                 }
@@ -2837,6 +2899,54 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
 
+    private void updateForeignHeaderTitle() {
+        if (!isForeignLibrary || headerTitle == null) return;
+        String title = null;
+        if (foreignUserId != 0) {
+            TLRPC.User u = MessagesController.getInstance(currentAccount).getUser(foreignUserId);
+            if (u == null) {
+                u = MessagesStorage.getInstance(currentAccount).getUser(foreignUserId);
+            }
+            if (u != null) {
+                String nick = org.telegram.messenger.UserObject.getPublicUsername(u);
+                if (!TextUtils.isEmpty(nick)) {
+                    title = "@" + nick;
+                } else {
+                    title = org.telegram.messenger.UserObject.getUserName(u);
+                }
+            }
+        }
+        if (TextUtils.isEmpty(title) && getTargetChannelId() != 0) {
+            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(getTargetChannelId());
+            if (chat != null && !TextUtils.isEmpty(chat.title) && chat.title.startsWith("id") && chat.title.endsWith("soundgram")) {
+                try {
+                    String idStr = chat.title.substring(2, chat.title.length() - "soundgram".length());
+                    long uid = Long.parseLong(idStr);
+                    if (uid != 0) {
+                        foreignUserId = uid;
+                        TLRPC.User u = MessagesController.getInstance(currentAccount).getUser(uid);
+                        if (u == null) {
+                            u = MessagesStorage.getInstance(currentAccount).getUser(uid);
+                        }
+                        if (u != null) {
+                            String nick = org.telegram.messenger.UserObject.getPublicUsername(u);
+                            if (!TextUtils.isEmpty(nick)) {
+                                title = "@" + nick;
+                            } else {
+                                title = org.telegram.messenger.UserObject.getUserName(u);
+                            }
+                        }
+                    }
+                } catch (Exception ignore) {}
+            }
+        }
+        if (TextUtils.isEmpty(title)) {
+            title = getString(R.string.sg_public_library);
+        }
+        headerTitle.setText(title);
+        headerTitle.setContentDescription(title);
+    }
+
     private void createSearchMenu(Context context, LinearLayout container) {
         int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
         int bgColor = Theme.getColor(Theme.key_windowBackgroundWhite);
@@ -2849,25 +2959,39 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         standardHeaderLayout.setGravity(Gravity.CENTER_VERTICAL);
         standardHeaderLayout.setPadding(AndroidUtilities.dp(4), 0, AndroidUtilities.dp(4), 0);
 
+        boolean needBackBtn = isForeignLibrary || (parentLayout != null && parentLayout.getFragmentStack().size() > 1);
+        ImageView backBtn = null;
+        if (needBackBtn) {
+            backBtn = new ImageView(context);
+            backBtn.setImageResource(R.drawable.ic_ab_back);
+            backBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN);
+            backBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
+            backBtn.setScaleType(ImageView.ScaleType.CENTER);
+            backBtn.setContentDescription(LocaleController.getString(R.string.Back));
+            backBtn.setOnClickListener(v -> finishFragment());
+        }
+
         statsBtn = new ImageView(context);
+        statsBtn.setImageResource(R.drawable.msg_info);
+        statsBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN);
+        statsBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
+        statsBtn.setScaleType(ImageView.ScaleType.CENTER);
+        statsBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+
         if (isForeignLibrary) {
-            statsBtn.setImageResource(R.drawable.ic_ab_back);
-            statsBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), PorterDuff.Mode.SRC_IN);
-            statsBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
-            statsBtn.setScaleType(ImageView.ScaleType.CENTER);
-            statsBtn.setOnClickListener(v -> finishFragment());
+            statsBtn.setContentDescription(getString(R.string.stat));
+            statsBtn.setOnClickListener(v -> {
+                applySpringClick(v);
+                SoundGramTTS.speak(v, statsBtn.getContentDescription());
+                showStatisticsBottomSheet();
+            });
+            statsBtn.setOnLongClickListener(null);
         } else {
-            statsBtn.setImageResource(R.drawable.msg_info);
-            statsBtn.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.SRC_IN);
-            statsBtn.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1));
-            statsBtn.setScaleType(ImageView.ScaleType.CENTER);
             statsBtn.setContentDescription(LocaleController.getString(R.string.AccDescrMusicSettings));
-            statsBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             statsBtn.setOnClickListener(v -> {
                 applySpringClick(v);
                 SoundGramTTS.speak(v, statsBtn.getContentDescription());
                 setSphereVisible(false);
-                // Показываем ПОЛНЫЙ ЭКРАН (не боттом-шит!)
                 presentFragment(new SoundGramStyleSettingsFragment());
             });
             statsBtn.setOnLongClickListener(v -> {
@@ -2876,21 +3000,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 return true;
             });
         }
+
         headerTitle = new TextView(context);
         if (isForeignLibrary) {
-            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(getTargetChannelId());
-            String title = chat != null ? chat.title : getString(R.string.sg_public_library);
-            headerTitle.setText(title);
+            updateForeignHeaderTitle();
         } else {
             headerTitle.setText("SoundGram");
+            headerTitle.setContentDescription("SoundGram");
         }
-        headerTitle.setContentDescription(headerTitle.getText());
         headerTitle.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         headerTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
         headerTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         headerTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         headerTitle.setGravity(Gravity.CENTER);
         headerTitle.setLetterSpacing(-0.02f);
+        headerTitle.setSingleLine(true);
+        headerTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
 
         searchIconBtn = new ImageView(context);
         searchIconBtn.setImageResource(R.drawable.msg_search);
@@ -2910,6 +3035,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         refreshBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         refreshBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, refreshBtn.getContentDescription()); showImportDialog(); });
 
+        if (backBtn != null) {
+            standardHeaderLayout.addView(backBtn, LayoutHelper.createLinear(48, 48));
+        }
         standardHeaderLayout.addView(statsBtn,
                 LayoutHelper.createLinear(48, 48));
         standardHeaderLayout.addView(headerTitle,
@@ -3863,7 +3991,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     else if (id == 1) {
                         if (isForeign) {
                             Toast.makeText(context, getString(R.string.sg_cloning_playlist), Toast.LENGTH_SHORT).show();
-                            PublicLibraryManager.clonePlaylistToMyLibrary(currentAccount, channelId, currentPlaylistName, playlistMessages, () -> {
+                            MessageObject foreignCoverMsg = (foreignData != null) ? foreignData.playlistMsg : null;
+                            PublicLibraryManager.clonePlaylistToMyLibrary(currentAccount, channelId, currentPlaylistName, playlistMessages, foreignCoverMsg, () -> {
                                 Toast.makeText(context, getString(R.string.sg_playlist_added), Toast.LENGTH_SHORT).show();
                             }, (err) -> {
                                 Toast.makeText(context, err, Toast.LENGTH_SHORT).show();
@@ -4485,8 +4614,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     for (MessageObject m : playlistMessages) {
                         if (hasValidIcon(m)) { coverMsg = m; break; }
                     }
-                    setPlaylistCover(bgCover,     currentPlaylistName, coverMsg, 0);
-                    setPlaylistCover(centerCover, currentPlaylistName, coverMsg, 16);
+                    MessageObject playlistCoverMsg = (foreignData != null) ? foreignData.playlistMsg : null;
+                    setPlaylistCover(bgCover,     currentPlaylistName, coverMsg, playlistCoverMsg, 0);
+                    setPlaylistCover(centerCover, currentPlaylistName, coverMsg, playlistCoverMsg, 16);
                     return; // дальше не продолжаем
                 }
 
@@ -4637,7 +4767,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
 
                 countText.setText(trackCount + " " + getString(R.string.trck));
-                setPlaylistCover(coverImage, pName, coverMsg, 16);
+                setPlaylistCover(coverImage, pName, coverMsg, pData.playlistMsg, 16);
                 return;
             }
 
@@ -5309,15 +5439,35 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
     public static void setPlaylistCover(BackupImageView coverImage, String playlistName, MessageObject defaultMsg, int radius) {
+        setPlaylistCover(coverImage, playlistName, defaultMsg, null, radius);
+    }
+
+    public static void setPlaylistCover(BackupImageView coverImage, String playlistName, MessageObject defaultMsg, MessageObject playlistMsg, int radius) {
+        if (coverImage == null) return;
+        coverImage.setRoundRadius(AndroidUtilities.dp(radius));
+        android.graphics.drawable.Drawable placeholder = Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_graySection));
+
         File coverFile = new File(getPlaylistsDir(), playlistName + "_cover.jpg");
         if (coverFile.exists()) {
-            coverImage.setRoundRadius(AndroidUtilities.dp(radius));
             android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(coverFile.getAbsolutePath());
             if (bmp != null) {
                 coverImage.setImageBitmap(bmp);
                 return;
             }
         }
+
+        if (playlistMsg != null && playlistMsg.messageOwner != null && playlistMsg.messageOwner.media instanceof TLRPC.TL_messageMediaPhoto) {
+            TLRPC.TL_messageMediaPhoto mediaPhoto = (TLRPC.TL_messageMediaPhoto) playlistMsg.messageOwner.media;
+            if (mediaPhoto.photo != null && mediaPhoto.photo.sizes != null && !mediaPhoto.photo.sizes.isEmpty()) {
+                TLRPC.PhotoSize bigSize = FileLoader.getClosestPhotoSizeWithSize(mediaPhoto.photo.sizes, 600);
+                TLRPC.PhotoSize thumbSize = FileLoader.getClosestPhotoSizeWithSize(mediaPhoto.photo.sizes, 80);
+                org.telegram.messenger.ImageLocation bigLoc = org.telegram.messenger.ImageLocation.getForPhoto(bigSize, mediaPhoto.photo);
+                org.telegram.messenger.ImageLocation thumbLoc = org.telegram.messenger.ImageLocation.getForPhoto(thumbSize, mediaPhoto.photo);
+                coverImage.setImage(bigLoc, "100_100", thumbLoc, "100_100_b", placeholder, playlistMsg);
+                return;
+            }
+        }
+
         setAudioCover(coverImage, defaultMsg, "100_100_b", radius);
     }
 
@@ -6460,9 +6610,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         private MessageObject getSavedAlbumMessage() {
             if (albumUrl == null) return null; // ИСПРАВЛЕНИЕ: Защита от NPE
-            for (MessageObject msg : savedAlbumMessages) {
-                if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.contains(albumUrl)) {
-                    return msg;
+            ArrayList<MessageObject> myAlbums = ChannelMusicFragment.getSavedAlbumMessages(currentAccount);
+            if (myAlbums != null) {
+                for (MessageObject msg : myAlbums) {
+                    if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.contains(albumUrl)) {
+                        return msg;
+                    }
                 }
             }
             return null;
@@ -6533,10 +6686,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             MessageObject savedMsg = getSavedAlbumMessage();
                             if (savedMsg != null) {
                                 deleteTrackFromChannel(savedMsg);
-                                savedAlbumMessages.remove(savedMsg);
-                                safeNotifyAdapter(savedAlbumsAdapter, null);
-                                refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
-                                finishFragment();
+                                ArrayList<MessageObject> myAlbums = ChannelMusicFragment.getSavedAlbumMessages(currentAccount);
+                                if (myAlbums != null) {
+                                    myAlbums.remove(savedMsg);
+                                }
+                                if (!isForeignLibrary) {
+                                    savedAlbumMessages.remove(savedMsg);
+                                    safeNotifyAdapter(savedAlbumsAdapter, null);
+                                    refreshAlbumsTabVisibility(albumsTabBtnRef, tabAccentColor, tabInactiveColor);
+                                }
+                                if (menu != null && menu.getItem(1) != null) {
+                                    menu.getItem(1).setIcon(R.drawable.msg_add);
+                                }
                                 safeToast(getParentActivity(), getString(R.string.sg_album_deleted), Toast.LENGTH_SHORT);
                             } else {
                                 AndroidUtilities.runOnUIThread(() -> {

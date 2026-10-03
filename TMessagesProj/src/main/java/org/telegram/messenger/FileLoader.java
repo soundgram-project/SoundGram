@@ -1022,6 +1022,7 @@ public class FileLoader extends BaseController {
                     if (delegate != null) {
                         delegate.fileDidLoaded(fileName, finalFile, parentObject, finalType);
                     }
+                    app.nimarkogram.messenger.NimarkoConfig.onDownloadCompleted(fileName);
                 }
 
                 checkDownloadQueue(operation, operation.getQueue(), 0);

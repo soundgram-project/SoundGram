@@ -3497,7 +3497,7 @@ public class AudioPlayerAlert extends BottomSheet
         titleRow.setPadding(dp(18), dp(8), dp(18), dp(8));
 
         TextView title = new TextView(ctx);
-        title.setText(getString("R.string.sg_queue_title"));
+        title.setText(LocaleController.getString(R.string.sg_queue_title));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         title.setTypeface(AndroidUtilities.bold());
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);

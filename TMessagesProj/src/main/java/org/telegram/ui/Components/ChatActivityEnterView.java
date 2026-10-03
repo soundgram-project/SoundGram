@@ -6730,9 +6730,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         // upper 44dp slot while attachment is hidden created an empty lower half,
         // a reverse left-edge motion and a second height change for long edits.
         // AI remains available for regular/rich drafts and edit stays stable.
-        final boolean showAi = allow && editingMessageObject == null
+        final boolean showAi = !app.nimarkogram.messenger.NimarkoConfig.a11yHideComposerEditorButtons && allow && editingMessageObject == null
                 && ((visibleRegularText && showForText) || visibleRichDraft);
-        final boolean showRich = allow && (showForText || visibleRichDraft)
+        final boolean showRich = !app.nimarkogram.messenger.NimarkoConfig.a11yHideComposerEditorButtons && allow && (showForText || visibleRichDraft)
                 && editingMessageObject == null
                 && MessagesController.getInstance(currentAccount).richEditorAvailable();
         final boolean aiChanged = shownAiButton != showAi;
@@ -7062,9 +7062,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         final boolean allowAssistant = parentFragment != null
                 && !parentFragment.isSecretChat()
                 && !recordingAudioVideo;
-        final boolean showAi = allowAssistant && editingMessageObject == null
+        final boolean showAi = !app.nimarkogram.messenger.NimarkoConfig.a11yHideComposerEditorButtons && allowAssistant && editingMessageObject == null
                 && (richDraftActive || hasLongText);
-        final boolean showRich = allowAssistant && (richDraftActive || hasLongText)
+        final boolean showRich = !app.nimarkogram.messenger.NimarkoConfig.a11yHideComposerEditorButtons && allowAssistant && (richDraftActive || hasLongText)
                 && editingMessageObject == null
                 && MessagesController.getInstance(currentAccount).richEditorAvailable();
 
@@ -8791,7 +8791,8 @@ public class ChatActivityEnterView extends FrameLayout implements
             text = AndroidUtilities.getTrimmedString(text);
         }
         boolean supportsNewEntities = supportsSendingNewEntities();
-        int maxLength = accountInstance.getMessagesController().getMaxMessageLength();
+        boolean realPremium = UserConfig.getInstance(currentAccount).getCurrentUser() != null && UserConfig.getInstance(currentAccount).getCurrentUser().premium;
+        int maxLength = realPremium ? accountInstance.getMessagesController().getMaxMessageLength() : 4096;
         if (text.length() != 0) {
             if (delegate != null && parentFragment != null && (scheduleDate != 0) == parentFragment.isInScheduleMode()) {
                 delegate.prepareMessageSending();
@@ -8887,18 +8888,23 @@ public class ChatActivityEnterView extends FrameLayout implements
                     params.mediaWebPage.force_large_media = parentFragment != null && parentFragment.messagePreviewParams != null && !parentFragment.messagePreviewParams.webpageSmall;
                     params.mediaWebPage.force_small_media = parentFragment != null && parentFragment.messagePreviewParams != null && parentFragment.messagePreviewParams.webpageSmall;
                 }
-                if (parentFragment != null) {
-                    parentFragment.editingMessageObject = null;
-                    parentFragment.foundWebPage = null;
-                    if (parentFragment.messagePreviewParams != null) {
-                        parentFragment.messagePreviewParams.updateLink(currentAccount, null, "", null, null, null);
-                    }
-                    setWebPage(null, true);
-                    parentFragment.fallbackFieldPanel();
-                }
+                messageWebPage = null;
                 SendMessagesHelper.getInstance(currentAccount).sendMessage(params);
-                start = end + 1;
+                if (end < text.length() && (tabIndex > 0 || enterIndex > 0 || whitespaceIndex > 0)) {
+                    start = end + 1;
+                } else {
+                    start = end;
+                }
             } while (end != text.length());
+            if (parentFragment != null) {
+                parentFragment.editingMessageObject = null;
+                parentFragment.foundWebPage = null;
+                if (parentFragment.messagePreviewParams != null) {
+                    parentFragment.messagePreviewParams.updateLink(currentAccount, null, "", null, null, null);
+                }
+                setWebPage(null, true);
+                parentFragment.fallbackFieldPanel();
+            }
             return true;
         }
         return false;

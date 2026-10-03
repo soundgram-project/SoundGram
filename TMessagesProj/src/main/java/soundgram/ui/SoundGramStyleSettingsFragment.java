@@ -398,11 +398,17 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             String username = chat != null ? org.telegram.messenger.ChatObject.getPublicUsername(chat) : null;
             if (!android.text.TextUtils.isEmpty(username)) {
                 boolean enable = pubSwitch.isChecked();
-                soundgram.music.PublicLibraryManager.setLibraryPublic(currentAccount, enable);
                 if (enable) {
-                    soundgram.music.PublicLibraryManager.setupPhantomTrack(currentAccount, channelId, username, null);
+                    pubSwitch.setChecked(false);
+                    soundgram.music.PublicLibraryManager.publishLibraryWithTrack(currentAccount, getParentActivity(), success -> {
+                        pubSwitch.setChecked(success);
+                        if (success) {
+                            android.widget.Toast.makeText(ctx, "Библиотека теперь общедоступна в вашем профиле", android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 } else {
                     soundgram.music.PublicLibraryManager.unsavePhantomTrack(currentAccount);
+                    pubSwitch.setChecked(false);
                 }
             } else {
                 pubSwitch.setChecked(false);
