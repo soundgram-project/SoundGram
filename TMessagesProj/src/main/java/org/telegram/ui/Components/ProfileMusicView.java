@@ -147,9 +147,29 @@ public class ProfileMusicView extends View {
         }
     }
 
+    public static CharSequence sanitizeTitle(CharSequence title) {
+        if (title == null) return null;
+        String t = title.toString();
+        t = t.replaceAll("[\u200B\u200C\u200D\uFEFF]", "");
+        t = t.replaceAll("\\[SG_STATS:[^\\]]*\\]", "");
+        t = t.replaceAll("\\s*[|•\\-]\\s*@[a-zA-Z0-9_]{3,32}\\s*$", "");
+        t = t.replaceAll("\\s+@[a-zA-Z0-9_]{3,32}\\s*$", "");
+        return t.trim();
+    }
+
+    public static CharSequence sanitizeAuthor(CharSequence author) {
+        if (author == null) return null;
+        String a = author.toString();
+        a = a.replaceAll("[\u200B\u200C\u200D\uFEFF]", "");
+        a = a.replaceAll("\\[SG_STATS:[^\\]]*\\]", "");
+        a = a.replaceAll("\\s*[|•\\-]\\s*@[a-zA-Z0-9_]{3,32}\\s*$", "");
+        a = a.replaceAll("\\s+@[a-zA-Z0-9_]{3,32}\\s*$", "");
+        return a.trim();
+    }
+
     public void setMusicDocument(TLRPC.Document document) {
-        CharSequence author = getAuthor(document);
-        CharSequence title = getTitle(document);
+        CharSequence author = sanitizeAuthor(getAuthor(document));
+        CharSequence title = sanitizeTitle(getTitle(document));
         if (TextUtils.isEmpty(author)) {
             if (TextUtils.isEmpty(title)) {
                 author = getString(R.string.AudioUnknownArtist);

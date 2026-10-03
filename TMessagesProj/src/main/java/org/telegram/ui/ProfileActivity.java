@@ -4092,10 +4092,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 musicView.setMusicDocument(userInfo.saved_music);
             }
             musicView.setOnClickListener(v -> {
-                if (libraryChannel != null) {
-                    openMusicLibrary();
-                    return;
-                }
                 if (savedMusicList == null) {
                     if (
                         MediaController.getInstance().currentSavedMusicList != null &&
@@ -15363,32 +15359,66 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         TLRPC.ChatFull cf = libraryChannel != null ? getMessagesController().getChatFull(libraryChannel.id) : null;
                         soundgram.music.PublicLibraryManager.ChannelMusicStats stats = soundgram.music.PublicLibraryManager.parseStatsFromDescription(cf != null ? cf.about : null);
 
-                        SpannableStringBuilder topText = new SpannableStringBuilder();
-                        topText.append("🎵  ");
-                        topText.append(LocaleController.getString("SoundGramLibrary", R.string.SoundGramLibrary));
-                        if (libraryChannel != null && !TextUtils.isEmpty(libraryChannel.title) &&
+                        String defaultLibraryName = LocaleController.getString("SoundGramLibrary", R.string.SoundGramLibrary);
+                        boolean isCustomTitle = libraryChannel != null && !TextUtils.isEmpty(libraryChannel.title) &&
                                 !libraryChannel.title.equalsIgnoreCase("SoundGram Music") &&
-                                !libraryChannel.title.equalsIgnoreCase(LocaleController.getString("SoundGramLibrary", R.string.SoundGramLibrary))) {
-                            topText.append(" • ").append(libraryChannel.title);
+                                !libraryChannel.title.equalsIgnoreCase("SoundGramLibrary") &&
+                                !libraryChannel.title.equalsIgnoreCase(defaultLibraryName);
+
+                        String topText = isCustomTitle ? libraryChannel.title : defaultLibraryName;
+
+                        String trackString = null;
+                        if (stats != null && stats.trackCount > 0) {
+                            long count = stats.trackCount;
+                            java.util.Locale currentLocale = LocaleController.getInstance().getCurrentLocale();
+                            String lang = currentLocale != null ? currentLocale.getLanguage() : "ru";
+                            boolean isRu = lang != null && (lang.startsWith("ru") || lang.startsWith("uk") || lang.startsWith("be"));
+                            if (isRu) {
+                                long c10 = count % 10;
+                                long c100 = count % 100;
+                                if (c100 >= 11 && c100 <= 19) {
+                                    trackString = count + " треков";
+                                } else if (c10 == 1) {
+                                    trackString = count + " трек";
+                                } else if (c10 >= 2 && c10 <= 4) {
+                                    trackString = count + " трека";
+                                } else {
+                                    trackString = count + " треков";
+                                }
+                            } else {
+                                trackString = count == 1 ? "1 track" : (count + " tracks");
+                            }
                         }
 
-                        SpannableStringBuilder subText = new SpannableStringBuilder();
-                        int accentColor = dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false);
-                        if (!TextUtils.isEmpty(handle)) {
-                            int start = subText.length();
-                            subText.append(handle);
-                            subText.setSpan(new ForegroundColorSpan(accentColor), start, subText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        }
-                        if (stats != null && stats.trackCount > 0) {
-                            if (subText.length() > 0) {
-                                subText.append(" • ");
+                        String subText;
+                        if (isCustomTitle) {
+                            if (trackString != null) {
+                                subText = defaultLibraryName + " • " + trackString;
+                            } else {
+                                subText = defaultLibraryName;
                             }
-                            subText.append(stats.formatStats(LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic)));
                         } else {
-                            if (subText.length() > 0) {
-                                subText.append(" • ");
+                            if (trackString != null) {
+                                if (!TextUtils.isEmpty(handle)) {
+                                    subText = trackString + " • " + handle;
+                                } else if (stats != null && stats.totalSeconds >= 60) {
+                                    long hours = stats.totalSeconds / 3600;
+                                    long mins = (stats.totalSeconds % 3600) / 60;
+                                    if (hours > 0) {
+                                        subText = trackString + " • " + hours + " " + LocaleController.getString(R.string.hour) + (mins > 0 ? " " + mins + " " + LocaleController.getString(R.string.min) : "");
+                                    } else {
+                                        subText = trackString + " • " + mins + " " + LocaleController.getString(R.string.min);
+                                    }
+                                } else {
+                                    subText = trackString;
+                                }
+                            } else {
+                                if (!TextUtils.isEmpty(handle)) {
+                                    subText = handle;
+                                } else {
+                                    subText = LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic);
+                                }
                             }
-                            subText.append(LocaleController.getString("SoundGramListenMusic", R.string.SoundGramListenMusic));
                         }
 
                         boolean hasRowAfter = (idDcRow != -1 || birthdayRow != -1 || bizHoursRow != -1 || bizLocationRow != -1 || noteRow != -1);
@@ -15604,13 +15634,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     } else if (position == musicLibraryRow) {
                         Drawable headphones = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.msg_filled_data_music);
                         if (headphones != null) {
-                            int accentColor = dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false);
-                            headphones.setColorFilter(new PorterDuffColorFilter(accentColor, PorterDuff.Mode.SRC_IN));
+                            headphones.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayIcon), false), PorterDuff.Mode.MULTIPLY));
+                            detailCell.getImageView().setPadding(0, 0, 0, 0);
                             detailCell.setImage(headphones, LocaleController.getString(R.string.SoundGramLibrary));
-                            int circleBg = ColorUtils.setAlphaComponent(accentColor, 38);
-                            int rippleColor = Theme.getColor(Theme.key_listSelector, resourcesProvider);
-                            detailCell.getImageView().setBackground(Theme.createSimpleSelectorCircleDrawable(AndroidUtilities.dp(38), circleBg, rippleColor));
-                            detailCell.getImageView().setPadding(AndroidUtilities.dp(6), AndroidUtilities.dp(6), AndroidUtilities.dp(6), AndroidUtilities.dp(6));
                             detailCell.setImageClickListener(v -> {
                                 openMusicLibrary();
                             });

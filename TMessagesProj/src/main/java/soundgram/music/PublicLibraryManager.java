@@ -413,20 +413,25 @@ public class PublicLibraryManager {
         }
     }
 
-    public static void publishLibraryWithTrack(int currentAccount, Context context, Utilities.Callback<Boolean> callback) {
+    public interface PublishListener {
+        void onProgress(float progress);
+        void onDone(boolean success);
+    }
+
+    public static void publishLibraryWithTrack(int currentAccount, Context context, PublishListener listener) {
         long userId = ChannelMusicFragment.getValidUserId(currentAccount);
         if (userId == 0) userId = UserConfig.getInstance(currentAccount).getClientUserId();
         final long finalUserId = userId;
 
         long channelId = ChannelMusicFragment.getChannelIdFromFile(currentAccount);
         if (channelId == 0) {
-            if (callback != null) callback.run(false);
+            if (listener != null) listener.onDone(false);
             return;
         }
         TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(channelId);
         String username = chat != null ? ChatObject.getPublicUsername(chat) : null;
         if (TextUtils.isEmpty(username)) {
-            if (callback != null) callback.run(false);
+            if (listener != null) listener.onDone(false);
             return;
         }
         final String finalUsername = username;
@@ -435,7 +440,7 @@ public class PublicLibraryManager {
         TLRPC.Document pinnedDoc = userFull != null ? userFull.saved_music : null;
 
         if (pinnedDoc != null) {
-            prepareAndSendTrack(currentAccount, context, pinnedDoc, finalUsername, finalUserId, callback);
+            prepareAndSendTrack(currentAccount, context, pinnedDoc, finalUsername, finalUserId, listener);
         } else {
             ArrayList<MessageObject> myTracks = ChannelMusicFragment.getAudioMessages(currentAccount);
             MessageObject lastTrack = (myTracks != null && !myTracks.isEmpty()) ? myTracks.get(0) : null;
@@ -443,47 +448,38 @@ public class PublicLibraryManager {
                 if (context != null) {
                     Toast.makeText(context, "В вашей библиотеке нет треков", Toast.LENGTH_SHORT).show();
                 }
-                if (callback != null) callback.run(false);
+                if (listener != null) listener.onDone(false);
                 return;
             }
 
-            if (context != null) {
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle(LocaleController.getString("AppName", R.string.AppName));
-                builder.setMessage("В вашем профиле нет закреплённых треков. Прикрепить последний добавленный трек из вашей библиотеки?");
-                builder.setNegativeButton(LocaleController.getString("Cancel", R.string.Cancel), (d, w) -> {
-                    if (callback != null) callback.run(false);
-                });
-                builder.setPositiveButton(LocaleController.getString("OK", R.string.OK), (d, w) -> {
-                    prepareAndSendTrack(currentAccount, context, lastTrack.getDocument(), finalUsername, finalUserId, callback);
-                });
-                builder.show();
-            } else {
-                prepareAndSendTrack(currentAccount, context, lastTrack.getDocument(), finalUsername, finalUserId, callback);
-            }
+            prepareAndSendTrack(currentAccount, context, lastTrack.getDocument(), finalUsername, finalUserId, listener);
         }
     }
 
-    private static void prepareAndSendTrack(int currentAccount, Context context, TLRPC.Document doc, String username, long userId, Utilities.Callback<Boolean> callback) {
+    public static void publishLibraryWithTrack(int currentAccount, Context context, Utilities.Callback<Boolean> callback) {
+        publishLibraryWithTrack(currentAccount, context, new PublishListener() {
+            @Override
+            public void onProgress(float progress) {}
+
+            @Override
+            public void onDone(boolean success) {
+                if (callback != null) callback.run(success);
+            }
+        });
+    }
+
+    private static void prepareAndSendTrack(int currentAccount, Context context, TLRPC.Document doc, String username, long userId, PublishListener listener) {
         File cacheDir = ApplicationLoader.applicationContext != null ? ApplicationLoader.applicationContext.getCacheDir() : null;
         if (cacheDir == null) {
-            if (callback != null) callback.run(false);
+            if (listener != null) listener.onDone(false);
             return;
         }
 
         File localFile = FileLoader.getInstance(currentAccount).getPathToAttach(doc, true);
         if (localFile != null && localFile.exists() && localFile.length() > 0) {
-            modifyAndUploadTrack(currentAccount, localFile, doc, username, userId, callback);
+            modifyAndUploadTrack(currentAccount, localFile, doc, username, userId, listener);
             return;
         }
-
-        AlertDialog progressDialog = null;
-        if (context != null) {
-            progressDialog = new AlertDialog(context, 3);
-            progressDialog.setCanCancel(false);
-            progressDialog.show();
-        }
-        final AlertDialog finalProgress = progressDialog;
 
         NotificationCenter.NotificationCenterDelegate loadDelegate = new NotificationCenter.NotificationCenterDelegate() {
             @Override
@@ -494,14 +490,11 @@ public class PublicLibraryManager {
                     if (attachFileName != null && attachFileName.equals(fileName)) {
                         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileLoaded);
                         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileLoadFailed);
-                        if (finalProgress != null) {
-                            AndroidUtilities.runOnUIThread(finalProgress::dismiss);
-                        }
                         File downloaded = (File) args[1];
                         if (downloaded == null || !downloaded.exists()) {
                             downloaded = FileLoader.getInstance(currentAccount).getPathToAttach(doc, true);
                         }
-                        modifyAndUploadTrack(currentAccount, downloaded, doc, username, userId, callback);
+                        modifyAndUploadTrack(currentAccount, downloaded, doc, username, userId, listener);
                     }
                 } else if (id == NotificationCenter.fileLoadFailed && account == currentAccount) {
                     String fileName = (String) args[0];
@@ -509,10 +502,7 @@ public class PublicLibraryManager {
                     if (attachFileName != null && attachFileName.equals(fileName)) {
                         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileLoaded);
                         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileLoadFailed);
-                        if (finalProgress != null) {
-                            AndroidUtilities.runOnUIThread(finalProgress::dismiss);
-                        }
-                        if (callback != null) callback.run(false);
+                        if (listener != null) listener.onDone(false);
                     }
                 }
             }
@@ -523,7 +513,7 @@ public class PublicLibraryManager {
         FileLoader.getInstance(currentAccount).loadFile(doc, null, 0, 0);
     }
 
-    private static void modifyAndUploadTrack(int currentAccount, File sourceFile, TLRPC.Document doc, String username, long userId, Utilities.Callback<Boolean> callback) {
+    private static void modifyAndUploadTrack(int currentAccount, File sourceFile, TLRPC.Document doc, String username, long userId, PublishListener listener) {
         File cacheDir = ApplicationLoader.applicationContext.getCacheDir();
         File destFile = new File(cacheDir, "sg_phantom_pinned_" + userId + ".mp3");
         if (destFile.exists()) {
@@ -550,7 +540,7 @@ public class PublicLibraryManager {
         boolean written = writeModifiedMp3(sourceFile, destFile, newTitle);
         if (!written || !destFile.exists() || destFile.length() == 0) {
             FileLog.e("modifyAndUploadTrack: failed to write modified mp3 to " + destFile.getAbsolutePath());
-            if (callback != null) callback.run(false);
+            if (listener != null) listener.onDone(false);
             return;
         }
 
@@ -580,6 +570,18 @@ public class PublicLibraryManager {
                             }
                         }
                     }
+                } else if (id == NotificationCenter.fileUploadProgressChanged) {
+                    String location = (String) args[0];
+                    if (location != null && location.equals(destFile.getAbsolutePath())) {
+                        long uploadedSize = (Long) args[1];
+                        long totalSize = (Long) args[2];
+                        if (totalSize > 0) {
+                            float progress = uploadedSize / (float) totalSize;
+                            if (listener != null) {
+                                AndroidUtilities.runOnUIThread(() -> listener.onProgress(progress));
+                            }
+                        }
+                    }
                 } else if (id == NotificationCenter.messageReceivedByServer) {
                     int oldId = (Integer) args[0];
                     int newId = (Integer) args[1];
@@ -602,6 +604,11 @@ public class PublicLibraryManager {
                         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.didReceiveNewMessages);
                         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messageReceivedByServer);
                         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messageSendError);
+                        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileUploadProgressChanged);
+
+                        if (listener != null) {
+                            AndroidUtilities.runOnUIThread(() -> listener.onProgress(1.0f));
+                        }
 
                         TLRPC.Document serverDoc = null;
                         if (msg != null && msg.media instanceof TLRPC.TL_messageMediaDocument) {
@@ -632,11 +639,11 @@ public class PublicLibraryManager {
 
                                     if (destFile.exists()) destFile.delete();
                                 }
-                                if (callback != null) callback.run(success);
+                                if (listener != null) listener.onDone(success);
                             });
                         } else {
                             if (destFile.exists()) destFile.delete();
-                            if (callback != null) callback.run(false);
+                            if (listener != null) listener.onDone(false);
                         }
                     }
                 } else if (id == NotificationCenter.messageSendError) {
@@ -647,8 +654,9 @@ public class PublicLibraryManager {
                             NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.didReceiveNewMessages);
                             NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messageReceivedByServer);
                             NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messageSendError);
+                            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileUploadProgressChanged);
                             if (destFile.exists()) destFile.delete();
-                            if (callback != null) callback.run(false);
+                            if (listener != null) listener.onDone(false);
                         }
                     }
                 }
@@ -658,6 +666,7 @@ public class PublicLibraryManager {
         NotificationCenter.getInstance(currentAccount).addObserver(msgDelegate, NotificationCenter.didReceiveNewMessages);
         NotificationCenter.getInstance(currentAccount).addObserver(msgDelegate, NotificationCenter.messageReceivedByServer);
         NotificationCenter.getInstance(currentAccount).addObserver(msgDelegate, NotificationCenter.messageSendError);
+        NotificationCenter.getInstance(currentAccount).addObserver(msgDelegate, NotificationCenter.fileUploadProgressChanged);
 
         AndroidUtilities.runOnUIThread(() -> {
             if (!completed[0]) {
@@ -665,8 +674,9 @@ public class PublicLibraryManager {
                 NotificationCenter.getInstance(currentAccount).removeObserver(msgDelegate, NotificationCenter.didReceiveNewMessages);
                 NotificationCenter.getInstance(currentAccount).removeObserver(msgDelegate, NotificationCenter.messageReceivedByServer);
                 NotificationCenter.getInstance(currentAccount).removeObserver(msgDelegate, NotificationCenter.messageSendError);
+                NotificationCenter.getInstance(currentAccount).removeObserver(msgDelegate, NotificationCenter.fileUploadProgressChanged);
                 if (destFile.exists()) destFile.delete();
-                if (callback != null) callback.run(false);
+                if (listener != null) listener.onDone(false);
             }
         }, 60000);
 

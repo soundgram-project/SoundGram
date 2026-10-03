@@ -1609,10 +1609,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     .setInterpolator(new OvershootInterpolator(1.5f)).start();
         }
         if (libraryListHeader != null) {
-            libraryListHeader.setVisibility(View.VISIBLE);
-            libraryListHeader.animate().alpha(1f).setDuration(180).start();
+            boolean showPlaylists = !isForeignLibrary || !foreignPlaylists.isEmpty();
+            if (showPlaylists) {
+                libraryListHeader.setVisibility(View.VISIBLE);
+                libraryListHeader.animate().alpha(1f).setDuration(180).start();
+            } else {
+                libraryListHeader.setVisibility(View.GONE);
+            }
         }
-        if (playlistsListView != null) playlistsListView.setVisibility(View.VISIBLE);
+        if (playlistsListView != null) {
+            boolean showPlaylists = !isForeignLibrary || !foreignPlaylists.isEmpty();
+            playlistsListView.setVisibility(showPlaylists ? View.VISIBLE : View.GONE);
+        }
 
         artistRecyclerView.setVisibility(View.GONE);
         albumsRecyclerView.setVisibility(View.GONE);
@@ -2637,8 +2645,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 }
             }
         }
+        boolean hasPlaylists = !foreignPlaylists.isEmpty();
         if (emptyPlaylistsText != null) {
-            emptyPlaylistsText.setVisibility(foreignPlaylists.isEmpty() ? View.VISIBLE : View.GONE);
+            emptyPlaylistsText.setVisibility(View.GONE);
+        }
+        if (playlistsContainer != null) {
+            playlistsContainer.setVisibility(hasPlaylists ? View.VISIBLE : View.GONE);
+        }
+        if (libraryListHeader != null) {
+            libraryListHeader.setVisibility(hasPlaylists ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -2979,12 +2994,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         statsBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
 
         if (isForeignLibrary) {
-            statsBtn.setContentDescription(getString(R.string.stat));
-            statsBtn.setOnClickListener(v -> {
-                applySpringClick(v);
-                SoundGramTTS.speak(v, statsBtn.getContentDescription());
-                showStatisticsBottomSheet();
-            });
+            statsBtn.setVisibility(View.GONE);
+            statsBtn.setOnClickListener(null);
             statsBtn.setOnLongClickListener(null);
         } else {
             statsBtn.setContentDescription(LocaleController.getString(R.string.AccDescrMusicSettings));
@@ -3364,7 +3375,16 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         container.addView(playlistsContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 4));
 
-        refreshPlaylistFiles();
+        if (isForeignLibrary) {
+            boolean hasPlaylists = !foreignPlaylists.isEmpty();
+            playlistsContainer.setVisibility(hasPlaylists ? View.VISIBLE : View.GONE);
+            if (libraryListHeader != null) {
+                libraryListHeader.setVisibility(hasPlaylists ? View.VISIBLE : View.GONE);
+            }
+            emptyPlaylistsText.setVisibility(View.GONE);
+        } else {
+            refreshPlaylistFiles();
+        }
     }
 
     private void showCreatePlaylistDialog() {
@@ -5893,7 +5913,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             webResultTracks.clear();
 
             if (tabStrip != null) tabStrip.setVisibility(View.VISIBLE);
-            if (libraryListHeader != null) libraryListHeader.setVisibility(View.VISIBLE);
+            if (libraryListHeader != null) libraryListHeader.setVisibility((!isForeignLibrary || !foreignPlaylists.isEmpty()) ? View.VISIBLE : View.GONE);
 
             artistRecyclerView.setVisibility(View.GONE);
             albumsRecyclerView.setVisibility(View.GONE);

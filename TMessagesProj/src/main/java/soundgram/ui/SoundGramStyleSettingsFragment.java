@@ -62,9 +62,12 @@ import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Components.Bulletin;
+import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
+import soundgram.music.PublicLibraryManager;
 
 public class SoundGramStyleSettingsFragment extends BaseFragment {
 
@@ -386,12 +389,14 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         pubRow.addView(pubTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
 
         Switch pubSwitch = new Switch(ctx);
-        pubSwitch.setChecked(soundgram.music.PublicLibraryManager.isLibraryPublic(currentAccount));
+        pubSwitch.setChecked(PublicLibraryManager.isLibraryPublic(currentAccount));
         pubSwitch.setOnClickListener(v -> {
             long channelId = soundgram.music.ChannelMusicFragment.getChannelIdFromFile(currentAccount);
             if (channelId == 0) {
                 pubSwitch.setChecked(false);
-                android.widget.Toast.makeText(ctx, getString(R.string.sg_open_music_first), android.widget.Toast.LENGTH_SHORT).show();
+                BulletinFactory.of(SoundGramStyleSettingsFragment.this)
+                        .createErrorBulletin(getString(R.string.sg_open_music_first))
+                        .show();
                 return;
             }
             org.telegram.tgnet.TLRPC.Chat chat = org.telegram.messenger.MessagesController.getInstance(currentAccount).getChat(channelId);
@@ -399,16 +404,53 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             if (!android.text.TextUtils.isEmpty(username)) {
                 boolean enable = pubSwitch.isChecked();
                 if (enable) {
-                    pubSwitch.setChecked(false);
-                    soundgram.music.PublicLibraryManager.publishLibraryWithTrack(currentAccount, getParentActivity(), success -> {
-                        pubSwitch.setChecked(success);
-                        if (success) {
-                            android.widget.Toast.makeText(ctx, "Библиотека теперь общедоступна в вашем профиле", android.widget.Toast.LENGTH_SHORT).show();
+                    pubSwitch.setChecked(true);
+
+                    Bulletin.ProgressTwoLineAnimatedTitleLottieLayout layout = new Bulletin.ProgressTwoLineAnimatedTitleLottieLayout(ctx, getResourceProvider());
+                    layout.titleTextView.setText("Публикация библиотеки");
+                    layout.subtitleTextView.setText("Отправка трека... 0%");
+                    layout.setAnimation(R.raw.ic_save_to_music, "Box", "Arrow");
+                    layout.setProgress(0.01f);
+
+                    Bulletin progressBulletin = Bulletin.make(SoundGramStyleSettingsFragment.this, layout, 60000);
+                    progressBulletin.setCanHide(false);
+                    progressBulletin.show();
+
+                    PublicLibraryManager.publishLibraryWithTrack(currentAccount, getParentActivity(), new PublicLibraryManager.PublishListener() {
+                        @Override
+                        public void onProgress(float progress) {
+                            AndroidUtilities.runOnUIThread(() -> {
+                                layout.setProgress(progress);
+                                layout.subtitleTextView.setText("Отправка трека... " + (int) (progress * 100) + "%");
+                            });
+                        }
+
+                        @Override
+                        public void onDone(boolean success) {
+                            AndroidUtilities.runOnUIThread(() -> {
+                                if (progressBulletin != null) {
+                                    progressBulletin.setCanHide(true);
+                                    progressBulletin.hide();
+                                }
+                                pubSwitch.setChecked(success);
+                                if (success) {
+                                    BulletinFactory.of(SoundGramStyleSettingsFragment.this)
+                                            .createSimpleBulletin(R.raw.contact_check, "Библиотека открыта")
+                                            .show();
+                                } else {
+                                    BulletinFactory.of(SoundGramStyleSettingsFragment.this)
+                                            .createErrorBulletin("Не удалось открыть библиотеку")
+                                            .show();
+                                }
+                            });
                         }
                     });
                 } else {
-                    soundgram.music.PublicLibraryManager.unsavePhantomTrack(currentAccount);
+                    PublicLibraryManager.unsavePhantomTrack(currentAccount);
                     pubSwitch.setChecked(false);
+                    BulletinFactory.of(SoundGramStyleSettingsFragment.this)
+                            .createSimpleBulletin(R.raw.contact_check, "Библиотека закрыта")
+                            .show();
                 }
             } else {
                 pubSwitch.setChecked(false);
