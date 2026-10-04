@@ -1051,6 +1051,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     private volatile int progressTimerGeneration;
     private boolean downloadingCurrentMessage;
     private boolean playMusicAgain;
+    private boolean isCrossfadingToNext = false;
     private PlaylistGlobalSearchParams playlistGlobalSearchParams;
     private AudioInfo audioInfo;
     private final DispatchQueue audioInfoQueue = new DispatchQueue("audioInfoQueue");
@@ -1675,6 +1676,18 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                                         if (now - lastPlaybackStatsTickMs >= 1000) {
                                             lastPlaybackStatsTickMs = now;
                                             soundgram.music.SoundGramStatsManager.recordPlaybackSecond(currentPlayingMessageObject.currentAccount);
+                                        }
+
+                                        int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
+                                        if (cfMs > 0 && duration > cfMs * 2 && !isCrossfadingToNext && audioPlayer != null && audioPlayer.isPlaying() && seekToProgressPending == 0) {
+                                            long remaining = duration - progress;
+                                            if (remaining > 0 && remaining <= cfMs) {
+                                                if (hasNextMusicMessage()) {
+                                                    isCrossfadingToNext = true;
+                                                    soundgram.music.SoundGramStatsManager.recordTrackCompleted(currentPlayingMessageObject.currentAccount);
+                                                    playNextMessageWithoutOrder(true);
+                                                }
+                                            }
                                         }
                                     }
                                     NotificationCenter.getInstance(currentPlayingMessageObject.currentAccount).postNotificationName(NotificationCenter.messagePlayingProgressDidChanged, currentPlayingMessageObject.getId(), value);
@@ -2505,7 +2518,11 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 audioVolumeAnimator = null;
             }
 
-            if (LaunchActivity.isResumed && !CastSync.isActive() && audioPlayer.isPlaying() && playingMessageObject != null && !playingMessageObject.isVoice()) {
+            int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
+            boolean isMusicTrack = playingMessageObject != null && playingMessageObject.isMusic();
+            boolean canFade = (LaunchActivity.isResumed || (cfMs > 0 && isMusicTrack))
+                    && !CastSync.isActive() && audioPlayer.isPlaying() && playingMessageObject != null && !playingMessageObject.isVoice();
+            if (canFade) {
                 VideoPlayer playerFinal = audioPlayer;
                 AtomicBoolean released = new AtomicBoolean(false);
                 Runnable releaseRunnable = () -> {
@@ -2517,6 +2534,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         }
                     }
                 };
+                int fadeOutDuration = 300;
+                if (cfMs > 0 && isMusicTrack) {
+                    fadeOutDuration = isCrossfadingToNext ? cfMs : Math.min(cfMs, 1000);
+                }
                 ValueAnimator valueAnimator = ValueAnimator.ofFloat(audioVolume, 0);
                 valueAnimator.addUpdateListener(valueAnimator1 -> {
                     float volume;
@@ -2533,9 +2554,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         releaseRunnable.run();
                     }
                 });
-                valueAnimator.setDuration(300);
+                valueAnimator.setDuration(fadeOutDuration);
                 valueAnimator.start();
-                AndroidUtilities.runOnUIThread(releaseRunnable, 350);
+                AndroidUtilities.runOnUIThread(releaseRunnable, fadeOutDuration + 100);
             } else {
                 try {
                     audioPlayer.releasePlayer(true);
@@ -2545,6 +2566,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             }
             audioVolume = 1.0f;
             audioPlayer = null;
+            isCrossfadingToNext = false;
             Theme.unrefAudioVisualizeDrawable(playingMessageObject);
         } else if (videoPlayer != null) {
             currentAspectRatioFrameLayout = null;
@@ -3097,6 +3119,19 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         playMessage(currentPlayList.get(currentPlaylistNum));
     }
     
+    private boolean hasNextMusicMessage() {
+        ArrayList<MessageObject> currentPlayList = SharedConfig.shuffleMusic ? shuffledPlaylist : playlist;
+        if (currentPlayList == null || currentPlayList.isEmpty()) {
+            return false;
+        }
+        if (SharedConfig.repeatMode != 0 || forceLoopCurrentPlaylist) {
+            return true;
+        }
+        int dir = SharedConfig.playOrderReversed ? 1 : -1;
+        int nextNum = currentPlaylistNum + dir;
+        return nextNum >= 0 && nextNum < currentPlayList.size();
+    }
+
     private boolean traversePlaylist(ArrayList<MessageObject> playlist, int direction) {
         boolean last = false;
         final int wasCurrentPlaylistNum = currentPlaylistNum;
@@ -3813,6 +3848,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             }
         }
         cleanupPlayer(notify, false);
+        isCrossfadingToNext = false;
         shouldSavePositionForCurrentAudio = null;
         lastSaveTime = 0;
         lastPlaybackStatsTickMs = SystemClock.elapsedRealtime();
@@ -4175,6 +4211,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (audioPlayer.player != null && reporter != null) {
                     audioPlayer.player.addListener(reporter.getPlayerListener(audioPlayer.player));
                 }
+                int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
+                boolean isMusicTrack = messageObject.isMusic();
+                boolean shouldFadeIn = !messageObject.isVoice() && (LaunchActivity.isResumed || (cfMs > 0 && isMusicTrack));
                 if (!messageObject.isVoice()) {
                     if (audioVolumeAnimator != null) {
                         audioVolumeAnimator.removeAllListeners();
@@ -4182,7 +4221,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         audioVolumeAnimator.cancel();
                         audioVolumeAnimator = null;
                     }
-                    if (LaunchActivity.isResumed) {
+                    if (shouldFadeIn) {
                         audioVolume = 0f;
                         setPlayerVolume();
                     } else {
@@ -4195,7 +4234,11 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 }
                 audioPlayer.setStreamType(useFrontSpeaker ? AudioManager.STREAM_VOICE_CALL : AudioManager.STREAM_MUSIC);
                 audioPlayer.play();
-                if (!messageObject.isVoice() && LaunchActivity.isResumed) {
+                if (shouldFadeIn) {
+                    int fadeInDuration = 250;
+                    if (cfMs > 0 && isMusicTrack) {
+                        fadeInDuration = cfMs;
+                    }
                     audioVolumeAnimator = ValueAnimator.ofFloat(0f, 1f);
                     audioVolumeAnimator.addUpdateListener(audioVolumeUpdateListener);
                     audioVolumeAnimator.addListener(new AnimatorListenerAdapter() {
@@ -4205,7 +4248,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                             setPlayerVolume();
                         }
                     });
-                    audioVolumeAnimator.setDuration(250);
+                    audioVolumeAnimator.setDuration(fadeInDuration);
                     audioVolumeAnimator.start();
                 }
 

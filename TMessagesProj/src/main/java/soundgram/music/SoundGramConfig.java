@@ -31,6 +31,23 @@ public class SoundGramConfig {
     public static String activeZeroChatKey = null;
     public static HashMap<String, String> zeroChatKeys = new HashMap<>();
     public static HashMap<Long, String> customUserBadges = new HashMap<>();
+    public static int crossfadeDurationSec = 0; // 0 = disabled, 1..12 seconds
+
+    public static int getCrossfadeDurationMs() {
+        return crossfadeDurationSec * 1000;
+    }
+
+    public static void setCrossfadeDurationSec(int sec) {
+        crossfadeDurationSec = Math.max(0, Math.min(12, sec));
+        try {
+            ApplicationLoader.applicationContext.getSharedPreferences(KEY, Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("crossfade_duration_sec", crossfadeDurationSec)
+                    .apply();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
 
     public static boolean hasBadge(long id) {
         if (id == 0) return false;
@@ -117,6 +134,7 @@ public class SoundGramConfig {
         chatVideoPath = prefs.getString("video_path", "");
         chatListWallDimming = prefs.getFloat("chatlist_dimming", 0.0f);
         stealthMode = prefs.getBoolean("stealth_mode", true);
+        crossfadeDurationSec = prefs.getInt("crossfade_duration_sec", 0);
 
 
         zeroChatGloballyEnabled = prefs.getBoolean("zc_enabled", false);
@@ -157,6 +175,7 @@ public class SoundGramConfig {
         editor.putString("video_path", chatVideoPath);
         editor.putFloat("chatlist_dimming", chatListWallDimming);
         editor.putBoolean("stealth_mode", stealthMode);
+        editor.putInt("crossfade_duration_sec", crossfadeDurationSec);
         editor.putBoolean("zc_enabled", zeroChatGloballyEnabled);
         try {
             editor.putString("zc_keys", new JSONObject(zeroChatKeys).toString());
