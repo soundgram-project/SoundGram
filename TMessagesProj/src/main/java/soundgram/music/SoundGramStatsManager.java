@@ -150,12 +150,16 @@ public class SoundGramStatsManager {
             int remoteTracks = -1;
 
             if (!TextUtils.isEmpty(currentAbout)) {
-                Pattern pattern = Pattern.compile("\\[SG_STATS:(\\d+):(\\d+)\\]");
+                Pattern pattern = Pattern.compile("\\[SG_STATS:(\\d+):(\\d+)(?::(\\d+))?\\]");
                 Matcher matcher = pattern.matcher(currentAbout);
                 if (matcher.find()) {
                     try {
                         remoteSeconds = Long.parseLong(matcher.group(1));
-                        remoteTracks = Integer.parseInt(matcher.group(2));
+                        if (matcher.group(3) != null) {
+                            remoteTracks = Integer.parseInt(matcher.group(3));
+                        } else {
+                            remoteTracks = Integer.parseInt(matcher.group(2));
+                        }
                     } catch (Exception ignored) {}
                 }
             }
@@ -170,7 +174,7 @@ public class SoundGramStatsManager {
                         .apply();
             }
 
-            String newAbout = formatStatsDescription(finalSeconds, finalTracks);
+            String newAbout = formatStatsDescription(currentAccount, finalSeconds, finalTracks);
             if (!newAbout.equals(currentAbout)) {
                 long hash = ChannelMusicFragment.getChannelHashFromFile(currentAccount);
                 TLRPC.Chat c = MessagesController.getInstance(currentAccount).getChat(channelId);
@@ -206,7 +210,15 @@ public class SoundGramStatsManager {
         }
     }
 
+    public static long getTotalSeconds(int account) {
+        return getStatsPrefs(account).getLong("total_seconds", 0L);
+    }
+
     public static String formatStatsDescription(long totalSeconds, int totalTracks) {
+        return formatStatsDescription(org.telegram.messenger.UserConfig.selectedAccount, totalSeconds, totalTracks);
+    }
+
+    public static String formatStatsDescription(int currentAccount, long totalSeconds, int listenedTracks) {
         long days = totalSeconds / 86400;
         long hours = (totalSeconds % 86400) / 3600;
         long minutes = (totalSeconds % 3600) / 60;
@@ -218,10 +230,13 @@ public class SoundGramStatsManager {
         if (minutes > 0 || hours > 0 || days > 0) timeFormatted.append(minutes).append("мин ");
         timeFormatted.append(seconds).append("сек");
 
+        int libraryTracks = ChannelMusicFragment.getLibraryTrackCount(currentAccount);
+
         return "📊 Статистика SoundGram:\n" +
-               "🎵 Прослушано треков: " + totalTracks + "\n" +
+               "🎵 Треков в библиотеке: " + libraryTracks + "\n" +
+               "🎧 Прослушано треков: " + listenedTracks + "\n" +
                "⏱ Время прослушивания: " + timeFormatted.toString() + "\n" +
-               "[SG_STATS:" + totalSeconds + ":" + totalTracks + "]";
+               "[SG_STATS:" + totalSeconds + ":" + libraryTracks + ":" + listenedTracks + "]";
     }
 
     public static void startPeriodicSync(int currentAccount, long channelId) {

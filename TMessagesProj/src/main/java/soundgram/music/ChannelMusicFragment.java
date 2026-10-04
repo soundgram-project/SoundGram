@@ -137,16 +137,23 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     // iBlur3Capture is set in createView after the list views are created
     private org.telegram.ui.Components.blur3.capture.IBlur3Capture iBlur3Capture;
 
+    private boolean isStandalone = false;
+
     public ChannelMusicFragment() {
-        this(0, false, 0);
+        this(0, false, 0, false);
     }
 
     public ChannelMusicFragment(long foreignChannelId, boolean isForeign) {
-        this(foreignChannelId, isForeign, 0);
+        this(foreignChannelId, isForeign, 0, true);
     }
 
     public ChannelMusicFragment(long foreignChannelId, boolean isForeign, long foreignUserId) {
+        this(foreignChannelId, isForeign, foreignUserId, true);
+    }
+
+    public ChannelMusicFragment(long foreignChannelId, boolean isForeign, long foreignUserId, boolean isStandalone) {
         super();
+        this.isStandalone = isStandalone;
         long myChannelId = getChannelIdFromFile(currentAccount);
         long myUserId = UserConfig.getInstance(currentAccount).getClientUserId();
         if ((foreignChannelId != 0 && foreignChannelId == myChannelId) || (foreignUserId != 0 && foreignUserId == myUserId)) {
@@ -235,6 +242,56 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             accountAudioMessages.put(account, list);
         }
         return list;
+    }
+
+    public static int getLibraryTrackCount(int account) {
+        ArrayList<MessageObject> list = accountAudioMessages.get(account);
+        if (list != null && !list.isEmpty()) {
+            return list.size();
+        }
+        int cachedCount = MessagesController.getMainSettings(account).getInt("sg_library_track_count", -1);
+        if (cachedCount >= 0) {
+            return cachedCount;
+        }
+        try {
+            File dir = getUserStorageDir(account);
+            if (dir != null) {
+                File file = new File(dir, "music_cache_v3.dat");
+                if (file.exists() && file.length() > 4) {
+                    byte[] fileData = new byte[(int) file.length()];
+                    try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                        fis.read(fileData);
+                    }
+                    SerializedData data = new SerializedData(fileData);
+                    int count = data.readInt32(false);
+                    long selfUserId = getValidUserId(account);
+                    int trackCount = 0;
+                    for (int i = 0; i < count; i++) {
+                        int constructor = data.readInt32(false);
+                        TLRPC.Message message = TLRPC.Message.TLdeserialize(data, constructor, false);
+                        if (message == null) continue;
+                        message.readAttachPath(data, selfUserId);
+                        if (message.message != null) {
+                            if (message.message.startsWith("SG_STREAM|||")) {
+                                trackCount++;
+                            } else if (message.message.startsWith("SG_ALBUM|||") || message.message.startsWith("SG_STATS|||") || PlaylistSyncManager.isPlaylistMessage(message.message)) {
+                                // non-track item
+                            } else {
+                                MessageObject obj = new MessageObject(account, message, false, false);
+                                if (obj.isMusic()) trackCount++;
+                            }
+                        } else {
+                            MessageObject obj = new MessageObject(account, message, false, false);
+                            if (obj.isMusic()) trackCount++;
+                        }
+                    }
+                    data.cleanup();
+                    MessagesController.getMainSettings(account).edit().putInt("sg_library_track_count", trackCount).apply();
+                    return trackCount;
+                }
+            }
+        } catch (Exception ignored) {}
+        return 0;
     }
 
     public static synchronized ArrayList<MessageObject> getSavedAlbumMessages(int account) {
@@ -1271,7 +1328,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── MINI PLAYER ───────────────────────────────────────────────────────
         MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
-        boolean isInTabs = !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1);
+        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1);
         int bottomTabsOffset = isInTabs ? 88 : 0;
         content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, bottomTabsOffset + 8));
         SoundGramStyleManager.applyGlass(
@@ -1511,6 +1568,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             if (p.length >= 5) audioMessages.add(0, createWebMessageObject(currentAccount, p[1], p[2], p[3], parseDuration(p[4]), msg.getId(), p.length >= 7 ? p[6] : ""));
                         } else if (msg.isMusic()) {
                             audioMessages.add(0, msg);
+                        }
+                        if (!isForeignLibrary) {
+                            MessagesController.getMainSettings(currentAccount).edit().putInt("sg_library_track_count", audioMessages.size()).apply();
                         }
                     }
                 }
@@ -2460,6 +2520,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             AndroidUtilities.runOnUIThread(() -> {
                 audioMessages.clear();
                 audioMessages.addAll(cachedTracks);
+                if (!isForeignLibrary) {
+                    MessagesController.getMainSettings(currentAccount).edit().putInt("sg_library_track_count", cachedTracks.size()).apply();
+                }
                 savedAlbumMessages.clear();
                 savedAlbumMessages.addAll(cachedAlbums);
                 playlistMessagesList.clear();
@@ -2608,6 +2671,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         AndroidUtilities.runOnUIThread(() -> {
             audioMessages.clear();
             audioMessages.addAll(loadedTracks);
+            if (!isForeignLibrary) {
+                MessagesController.getMainSettings(currentAccount).edit().putInt("sg_library_track_count", loadedTracks.size()).apply();
+            }
             savedAlbumMessages.clear();
             savedAlbumMessages.addAll(loadedAlbums);
             playlistMessagesList.clear();
@@ -2974,7 +3040,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         standardHeaderLayout.setGravity(Gravity.CENTER_VERTICAL);
         standardHeaderLayout.setPadding(AndroidUtilities.dp(4), 0, AndroidUtilities.dp(4), 0);
 
-        boolean needBackBtn = isForeignLibrary || (parentLayout != null && parentLayout.getFragmentStack().size() > 1);
+        boolean needBackBtn = isStandalone || isForeignLibrary || (parentLayout != null && parentLayout.getFragmentStack().size() > 1);
         ImageView backBtn = null;
         if (needBackBtn) {
             backBtn = new ImageView(context);
@@ -3330,6 +3396,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         audioMessages.remove(msg);
+        if (!isForeignLibrary) {
+            MessagesController.getMainSettings(currentAccount).edit().putInt("sg_library_track_count", audioMessages.size()).apply();
+        }
         if (isSearching) searchResultMessages.remove(msg);
         safeNotifyAdapter(adapter, listView);
         safeToast(getParentActivity(), getString(R.string.dl), Toast.LENGTH_SHORT);

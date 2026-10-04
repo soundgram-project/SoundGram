@@ -238,7 +238,7 @@ public class PublicLibraryManager {
      */
     public static ChannelMusicStats parseStatsFromDescription(String about) {
         if (TextUtils.isEmpty(about)) return null;
-        Pattern pattern = Pattern.compile("\\[SG_STATS:(\\d+):(\\d+)\\]");
+        Pattern pattern = Pattern.compile("\\[SG_STATS:(\\d+):(\\d+)(?::(\\d+))?\\]");
         Matcher matcher = pattern.matcher(about);
         if (matcher.find()) {
             try {

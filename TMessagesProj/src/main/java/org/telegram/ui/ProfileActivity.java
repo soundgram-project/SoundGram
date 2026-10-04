@@ -680,6 +680,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private TLRPC.Chat libraryChannel;
     private String libraryChannelUsername;
     private boolean hasLibraryStats;
+    private int libraryChannelMediaCount = -1;
     private int notificationsDividerRow;
     private int notificationsRow;
     private int bizHoursRow;
@@ -2365,6 +2366,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         getNotificationCenter().addObserver(this, NotificationCenter.channelRecommendationsLoaded);
         getNotificationCenter().addObserver(this, NotificationCenter.starUserGiftsLoaded);
         getNotificationCenter().addObserver(this, NotificationCenter.profileMusicUpdated);
+        getNotificationCenter().addObserver(this, NotificationCenter.mediaCountDidLoad);
         getNotificationCenter().addObserver(this, NotificationCenter.updatedChatRanks);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
         updateRowsIds();
@@ -2523,6 +2525,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         getNotificationCenter().removeObserver(this, NotificationCenter.channelRecommendationsLoaded);
         getNotificationCenter().removeObserver(this, NotificationCenter.starUserGiftsLoaded);
         getNotificationCenter().removeObserver(this, NotificationCenter.profileMusicUpdated);
+        getNotificationCenter().removeObserver(this, NotificationCenter.mediaCountDidLoad);
         getNotificationCenter().removeObserver(this, NotificationCenter.updatedChatRanks);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
         if (avatarsViewPager != null) {
@@ -9878,8 +9881,17 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, final Object... args) {
-
-        if (id == NotificationCenter.uploadStoryEnd || id == NotificationCenter.chatWasBoostedByUser) {
+        if (id == NotificationCenter.mediaCountDidLoad) {
+            long did = (Long) args[0];
+            int type = (Integer) args[4];
+            if (libraryChannel != null && did == -libraryChannel.id && type == org.telegram.messenger.MediaDataController.MEDIA_MUSIC) {
+                int count = (Integer) args[2];
+                if (count >= 0 && libraryChannelMediaCount != count) {
+                    libraryChannelMediaCount = count;
+                    requestProfileRowsUpdate(false, false);
+                }
+            }
+        } else if (id == NotificationCenter.uploadStoryEnd || id == NotificationCenter.chatWasBoostedByUser) {
             checkCanSendStoryForPosting();
         } else if (id == NotificationCenter.updateInterfaces) {
             int mask = (Integer) args[0];
@@ -12095,6 +12107,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         if (!isFinishing() && TextUtils.equals(libraryChannelUsername, u)) {
                             if (!resolved.chats.isEmpty()) {
                                 libraryChannel = resolved.chats.get(0);
+                                if (!myProfile) {
+                                    getMediaDataController().getMediaCount(-libraryChannel.id, 0, org.telegram.messenger.MediaDataController.MEDIA_MUSIC, classGuid, true);
+                                }
                                 requestProfileRowsUpdate(false, false);
                                 TLRPC.ChatFull chatFull = getMessagesController().getChatFull(libraryChannel.id);
                                 if (chatFull != null) {
@@ -12114,6 +12129,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         libraryChannel = chat;
+        if (!myProfile) {
+            getMediaDataController().getMediaCount(-libraryChannel.id, 0, org.telegram.messenger.MediaDataController.MEDIA_MUSIC, classGuid, true);
+        }
         requestProfileRowsUpdate(false, false);
         TLRPC.ChatFull chatFull = getMessagesController().getChatFull(chat.id);
         if (chatFull != null) {
@@ -15367,9 +15385,22 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
                         String topText = isCustomTitle ? libraryChannel.title : defaultLibraryName;
 
+                        long myChannelId = soundgram.music.ChannelMusicFragment.getChannelIdFromFile(currentAccount);
+                        long myUserId = getUserConfig().getClientUserId();
+                        long targetUserId = userId != 0 ? userId : (dialogId > 0 ? dialogId : 0);
+                        boolean isMyLibrary = myProfile || (targetUserId != 0 && targetUserId == myUserId) || (libraryChannel != null && libraryChannel.id == myChannelId);
+
+                        long count = 0;
+                        if (isMyLibrary) {
+                            count = soundgram.music.ChannelMusicFragment.getLibraryTrackCount(currentAccount);
+                        } else if (stats != null && stats.trackCount > 0) {
+                            count = stats.trackCount;
+                        } else if (libraryChannelMediaCount > 0) {
+                            count = libraryChannelMediaCount;
+                        }
+
                         String trackString = null;
-                        if (stats != null && stats.trackCount > 0) {
-                            long count = stats.trackCount;
+                        if (count > 0) {
                             java.util.Locale currentLocale = LocaleController.getInstance().getCurrentLocale();
                             String lang = currentLocale != null ? currentLocale.getLanguage() : "ru";
                             boolean isRu = lang != null && (lang.startsWith("ru") || lang.startsWith("uk") || lang.startsWith("be"));
@@ -15390,6 +15421,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             }
                         }
 
+                        long totalSeconds = (stats != null && stats.totalSeconds > 0) ? stats.totalSeconds : (isMyLibrary ? soundgram.music.SoundGramStatsManager.getTotalSeconds(currentAccount) : 0);
+
                         String subText;
                         if (isCustomTitle) {
                             if (trackString != null) {
@@ -15401,9 +15434,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             if (trackString != null) {
                                 if (!TextUtils.isEmpty(handle)) {
                                     subText = trackString + " • " + handle;
-                                } else if (stats != null && stats.totalSeconds >= 60) {
-                                    long hours = stats.totalSeconds / 3600;
-                                    long mins = (stats.totalSeconds % 3600) / 60;
+                                } else if (totalSeconds >= 60) {
+                                    long hours = totalSeconds / 3600;
+                                    long mins = (totalSeconds % 3600) / 60;
                                     if (hours > 0) {
                                         subText = trackString + " • " + hours + " " + LocaleController.getString(R.string.hour) + (mins > 0 ? " " + mins + " " + LocaleController.getString(R.string.min) : "");
                                     } else {
