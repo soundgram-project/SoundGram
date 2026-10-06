@@ -12049,6 +12049,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (chat != null) {
                     libraryChannel = chat;
                     libraryChannelUsername = ChatObject.getPublicUsername(chat);
+                    getMediaDataController().getMediaCount(-libraryChannel.id, 0, org.telegram.messenger.MediaDataController.MEDIA_MUSIC, classGuid, true);
                     requestProfileRowsUpdate(false, false);
                     TLRPC.ChatFull chatFull = getMessagesController().getChatFull(chat.id);
                     if (chatFull != null) {
@@ -12107,9 +12108,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         if (!isFinishing() && TextUtils.equals(libraryChannelUsername, u)) {
                             if (!resolved.chats.isEmpty()) {
                                 libraryChannel = resolved.chats.get(0);
-                                if (!myProfile) {
-                                    getMediaDataController().getMediaCount(-libraryChannel.id, 0, org.telegram.messenger.MediaDataController.MEDIA_MUSIC, classGuid, true);
-                                }
+                                getMediaDataController().getMediaCount(-libraryChannel.id, 0, org.telegram.messenger.MediaDataController.MEDIA_MUSIC, classGuid, true);
                                 requestProfileRowsUpdate(false, false);
                                 TLRPC.ChatFull chatFull = getMessagesController().getChatFull(libraryChannel.id);
                                 if (chatFull != null) {
@@ -12129,9 +12128,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
 
         libraryChannel = chat;
-        if (!myProfile) {
-            getMediaDataController().getMediaCount(-libraryChannel.id, 0, org.telegram.messenger.MediaDataController.MEDIA_MUSIC, classGuid, true);
-        }
+        getMediaDataController().getMediaCount(-libraryChannel.id, 0, org.telegram.messenger.MediaDataController.MEDIA_MUSIC, classGuid, true);
         requestProfileRowsUpdate(false, false);
         TLRPC.ChatFull chatFull = getMessagesController().getChatFull(chat.id);
         if (chatFull != null) {
@@ -15391,12 +15388,21 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         boolean isMyLibrary = myProfile || (targetUserId != 0 && targetUserId == myUserId) || (libraryChannel != null && libraryChannel.id == myChannelId);
 
                         long count = 0;
-                        if (isMyLibrary) {
-                            count = soundgram.music.ChannelMusicFragment.getLibraryTrackCount(currentAccount);
+                        if (libraryChannelMediaCount > 0) {
+                            count = libraryChannelMediaCount;
+                        } else if (isMyLibrary) {
+                            int libCount = soundgram.music.ChannelMusicFragment.getLibraryTrackCount(currentAccount);
+                            if (libCount > 0) {
+                                count = libCount;
+                            } else if (stats != null && stats.trackCount > 0) {
+                                count = stats.trackCount;
+                            } else if (libraryChannelMediaCount == 0) {
+                                count = 0;
+                            }
                         } else if (stats != null && stats.trackCount > 0) {
                             count = stats.trackCount;
-                        } else if (libraryChannelMediaCount > 0) {
-                            count = libraryChannelMediaCount;
+                        } else if (libraryChannelMediaCount == 0) {
+                            count = 0;
                         }
 
                         String trackString = null;

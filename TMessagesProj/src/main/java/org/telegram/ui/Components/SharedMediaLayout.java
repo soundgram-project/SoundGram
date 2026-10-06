@@ -3744,6 +3744,8 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             topPanelLayout.setBlurredBackground(topPanelLayoutBackground);
 
             fragmentContextViewWrapper = new FrameLayout(context);
+            fragmentContextViewWrapper.setClipChildren(false);
+            fragmentContextViewWrapper.setClipToPadding(false);
             topPanelLayout.addView(fragmentContextViewWrapper);
             topPanelLayout.setViewVisible(fragmentContextViewWrapper, true, false);
             topPanelLayout.setOnAnimatedHeightChangedListener(() -> {

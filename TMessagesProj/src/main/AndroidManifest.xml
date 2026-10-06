@@ -560,6 +560,12 @@
             android:foregroundServiceType="dataSync"
         />
         <service
+            android:name="soundgram.music.MusicImportService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+        />
+        <service
             android:name=".LocationSharingService"
             android:enabled="true"
             android:exported="true"

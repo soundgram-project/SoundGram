@@ -218,13 +218,14 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
                 } else if (id == 1) {
                     prefs().edit().clear().apply();
                     notifyStyleChanged();
+                    android.widget.Toast.makeText(context, "Настройки сброшены", android.widget.Toast.LENGTH_SHORT).show();
                     presentFragment(new SoundGramStyleSettingsFragment(), true);
                 }
             }
         });
 
         org.telegram.ui.ActionBar.ActionBarMenu menu = actionBar.createMenu();
-        menu.addItem(1, getString(R.string.sg_eq_reset).toUpperCase());
+        menu.addItem(1, getString(R.string.sg_eq_reset));
 
         SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context) {
             @Override protected void onDraw(Canvas c) {
@@ -277,12 +278,13 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         private static final int TYPE_HEADER = 0;
         private static final int TYPE_ITEM   = 1;
         private final Context ctx;
+        public boolean isDetailsExpanded = false;
         SettingsAdapter(Context c) { ctx = c; }
 
         @Override public boolean isEnabled(RecyclerView.ViewHolder h) {
             return h.getItemViewType() == TYPE_ITEM;
         }
-        @Override public int getItemCount() { return 1 + ITEMS.length; }
+        @Override public int getItemCount() { return 1 + (isDetailsExpanded ? ITEMS.length : 0); }
         @Override public int getItemViewType(int p) { return p == 0 ? TYPE_HEADER : TYPE_ITEM; }
 
         @Override
@@ -541,15 +543,16 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         sizeTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         sizeRow.addView(sizeTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
+        int initialSize = prefs().getInt(KEY_WAVE_SPHERE_SIZE, 100);
         TextView sizeSub = new TextView(ctx);
-        sizeSub.setText(getString(R.string.sg_sphere_size_subtitle));
+        sizeSub.setText(String.format(getString(R.string.sg_sphere_size_subtitle), initialSize));
         sizeSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         sizeSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         sizeRow.addView(sizeSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 10));
 
         SeekBar sizeSeek = new SeekBar(ctx);
         sizeSeek.setMax(100); // 0 to 100 => 70 to 170 (0.7x to 1.7x)
-        sizeSeek.setProgress(prefs().getInt(KEY_WAVE_SPHERE_SIZE, 100) - 70);
+        sizeSeek.setProgress(initialSize - 70);
         sizeSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
         sizeSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
         sizeSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -557,7 +560,9 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             @Override public void onStopTrackingTouch(SeekBar s) {}
             @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
                 if (fromUser) {
-                    prefs().edit().putInt(KEY_WAVE_SPHERE_SIZE, 70 + progress).apply();
+                    int val = 70 + progress;
+                    prefs().edit().putInt(KEY_WAVE_SPHERE_SIZE, val).apply();
+                    sizeSub.setText(String.format(getString(R.string.sg_sphere_size_subtitle), val));
                 }
             }
         });
@@ -671,8 +676,115 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         root.addView(importCard, LayoutHelper.createLinear(
                 LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        root.addView(makeLabel(ctx, getString(R.string.sg_style_section_glass)),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        // ── Master Surface Transparency + Live Mini Player Preview ─────────────
+        root.addView(makeLabel(ctx, "ПРОЗРАЧНОСТЬ ПОВЕРХНОСТЕЙ"),
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+
+        FrameLayout masterCard = new FrameLayout(ctx);
+        GradientDrawable masterCardBg = new GradientDrawable();
+        masterCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        masterCardBg.setCornerRadius(AndroidUtilities.dp(20));
+        masterCard.setBackground(masterCardBg);
+        if (Build.VERSION.SDK_INT >= 21) masterCard.setElevation(AndroidUtilities.dp(2));
+
+        LinearLayout masterCol = new LinearLayout(ctx);
+        masterCol.setOrientation(LinearLayout.VERTICAL);
+        masterCol.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
+                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        // Live preview mini-player
+        FrameLayout previewMini = new FrameLayout(ctx);
+        previewMini.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(8),
+                AndroidUtilities.dp(12), AndroidUtilities.dp(8));
+        int initialAlpha = prefs().getInt(KEY_ALPHA_MINI, 220);
+        previewMini.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
+                androidx.core.graphics.ColorUtils.setAlphaComponent(SoundGramDesignTokens.COLOR_SURFACE_1, initialAlpha),
+                SoundGramDesignTokens.COLOR_LINE, 1, 18, 18, 18, 18));
+
+        LinearLayout miniRow = new LinearLayout(ctx);
+        miniRow.setOrientation(LinearLayout.HORIZONTAL);
+        miniRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        View miniCover = new View(ctx);
+        miniCover.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
+                SoundGramDesignTokens.COLOR_SURFACE_3, SoundGramDesignTokens.COLOR_LINE, 1, 4, 4, 14, 4));
+        miniRow.addView(miniCover, LayoutHelper.createLinear(44, 44, 0, 0, 12, 0));
+
+        LinearLayout miniTextCol = new LinearLayout(ctx);
+        miniTextCol.setOrientation(LinearLayout.VERTICAL);
+        TextView miniTitle = new TextView(ctx);
+        miniTitle.setText("моя волна");
+        miniTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        miniTitle.setTypeface(AndroidUtilities.bold());
+        miniTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+        miniTextCol.addView(miniTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        TextView miniSub = new TextView(ctx);
+        miniSub.setText("92.4 мгц · интерактивное превью");
+        miniSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+        miniSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+        miniSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        miniTextCol.addView(miniSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+        miniRow.addView(miniTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+        View miniPlay = new View(ctx);
+        miniPlay.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
+                SoundGramDesignTokens.COLOR_ACCENT, SoundGramDesignTokens.COLOR_ACCENT, 0, 18, 18, 18, 18));
+        miniRow.addView(miniPlay, LayoutHelper.createLinear(36, 36, 0, 0, 0, 0));
+
+        previewMini.addView(miniRow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        masterCol.addView(previewMini, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
+
+        TextView masterLabel = new TextView(ctx);
+        masterLabel.setText("Общая прозрачность: " + (int) ((1f - initialAlpha / 255f) * 100f) + "%");
+        masterLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        masterLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+        masterLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        masterCol.addView(masterLabel, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
+
+        SeekBar masterSeek = new SeekBar(ctx);
+        masterSeek.setMax(255);
+        masterSeek.setProgress(255 - initialAlpha);
+        masterSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_ACCENT));
+        masterSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_ACCENT));
+        masterSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                if (fromUser) {
+                    int alpha = 255 - progress;
+                    masterLabel.setText("Общая прозрачность: " + (int) ((progress / 255f) * 100f) + "%");
+                    previewMini.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
+                            androidx.core.graphics.ColorUtils.setAlphaComponent(SoundGramDesignTokens.COLOR_SURFACE_1, alpha),
+                            SoundGramDesignTokens.COLOR_LINE, 1, 18, 18, 18, 18));
+                    prefs().edit()
+                            .putInt(KEY_ALPHA_TRACKS, alpha)
+                            .putInt(KEY_ALPHA_ALBUMS, alpha)
+                            .putInt(KEY_ALPHA_WAVE, alpha)
+                            .putInt(KEY_ALPHA_PLAYLISTS, alpha)
+                            .putInt(KEY_ALPHA_PLAYER, alpha)
+                            .putInt(KEY_ALPHA_MINI, alpha)
+                            .putInt(KEY_ALPHA_ARTIST, alpha)
+                            .putInt(KEY_ALPHA_EQ, alpha)
+                            .apply();
+                    notifyStyleChanged();
+                }
+            }
+        });
+        masterCol.addView(masterSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        masterCard.addView(masterCol);
+        root.addView(masterCard, LayoutHelper.createLinear(
+                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+
+        CollapsibleSectionHeaderView detailsHeader = new CollapsibleSectionHeaderView(ctx, "настроить каждый элемент отдельно", true);
+        detailsHeader.setOnToggleListener(collapsed -> {
+            if (settingsAdapter != null) {
+                settingsAdapter.isDetailsExpanded = !collapsed;
+                settingsAdapter.notifyDataSetChanged();
+            }
+        });
+        root.addView(detailsHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+
         return new HeaderHolder(root, tracksHolder[0], timeHolder[0]);
     }
 
@@ -751,7 +863,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         container.addView(titleTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
 
         TextView hintTv = new TextView(activityCtx);
-        hintTv.setText("Вставьте ссылку на плейлист, альбом или трек (Spotify, Яндекс Музыка, VK) или список треков текстом (Исполнитель - Трек):");
+        hintTv.setText("Вставьте ссылку на плейлист, библиотеку, альбом или трек (YouTube, YouTube Music, VK, Яндекс Музыка, Spotify, Telegram-канал) или список треков текстом (Исполнитель - Трек):");
         hintTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         hintTv.setTextColor(grayColor);
         hintTv.setLineSpacing(AndroidUtilities.dp(2), 1.0f);
@@ -762,7 +874,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         inputLayout.setOrientation(LinearLayout.VERTICAL);
 
         EditText inputEt = new EditText(activityCtx);
-        inputEt.setHint("https://open.spotify.com/playlist/...\nили:\nMiyagi - Minor\nImagine Dragons - Believer");
+        inputEt.setHint("https://music.youtube.com/playlist?list=...\nhttps://open.spotify.com/playlist/...\nhttps://vk.com/audios12345678\nhttps://t.me/music_channel\nили:\nMiyagi - Minor\nImagine Dragons - Believer");
         inputEt.setHintTextColor(Theme.getColor(Theme.key_chat_messagePanelHint));
         inputEt.setTextColor(textColor);
         inputEt.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -862,18 +974,9 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
         builder.setCustomView(container);
         BottomSheet sheet = builder.create();
-
-        final boolean[] isDone = new boolean[]{false};
+        sheet.setFocusable(true);
 
         actionBtn.setOnClickListener(v -> {
-            if (isDone[0]) {
-                sheet.dismiss();
-                if (settingsAdapter != null) {
-                    settingsAdapter.notifyItemChanged(0);
-                }
-                return;
-            }
-
             String text = inputEt.getText().toString().trim();
             if (TextUtils.isEmpty(text)) {
                 BulletinFactory.of(SoundGramStyleSettingsFragment.this)
@@ -883,60 +986,18 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             }
 
             AndroidUtilities.hideKeyboard(inputEt);
-            inputLayout.setVisibility(View.GONE);
-            progressLayout.setVisibility(View.VISIBLE);
-            actionBtn.setEnabled(false);
-            actionBtn.setAlpha(0.5f);
+            sheet.dismiss();
 
-            soundgram.music.MusicImporter.startImport(currentAccount, text, new soundgram.music.MusicImporter.ImportListener() {
-                @Override
-                public void onParsingStarted() {
-                    statusTv.setText("Парсинг метаданных треков...");
-                    progressBar.setIndeterminate(true);
-                }
+            soundgram.music.MusicImporter.startImport(currentAccount, text, null);
 
-                @Override
-                public void onParsedTracks(List<soundgram.music.MusicImporter.TrackInfo> tracks) {
-                    progressBar.setIndeterminate(false);
-                    progressBar.setProgress(0);
-                    statusTv.setText("Найдено треков: " + tracks.size() + ". Поиск на Hitmos...");
-                }
-
-                @Override
-                public void onTrackProgress(int current, int total, String trackName, boolean success) {
-                    progressBar.setProgress(current * 100 / total);
-                    statusTv.setText("Импорт: " + current + " из " + total);
-                    trackDetailTv.setText((success ? "✓ " : "✗ ") + trackName);
-                }
-
-                @Override
-                public void onFinished(int totalFound, int totalProcessed) {
-                    isDone[0] = true;
-                    progressBar.setProgress(100);
-                    statusTv.setText("Импорт завершён! Добавлено: " + totalFound + " из " + totalProcessed);
-                    trackDetailTv.setText("Треки сохранены в вашу библиотеку");
-                    actionBtn.setText("Готово");
-                    actionBtn.setEnabled(true);
-                    actionBtn.setAlpha(1.0f);
-                    if (settingsAdapter != null) {
-                        settingsAdapter.notifyItemChanged(0);
-                    }
-                }
-
-                @Override
-                public void onError(String error) {
-                    inputLayout.setVisibility(View.VISIBLE);
-                    progressLayout.setVisibility(View.GONE);
-                    actionBtn.setEnabled(true);
-                    actionBtn.setAlpha(1.0f);
-                    BulletinFactory.of(SoundGramStyleSettingsFragment.this)
-                            .createErrorBulletin(error)
-                            .show();
-                }
-            });
+            BulletinFactory.of(SoundGramStyleSettingsFragment.this)
+                    .createSimpleBulletin(R.raw.ic_save_to_music, "Импорт музыки запущен", "Прогресс отображается на вкладке музыки")
+                    .show();
         });
 
         showDialog(sheet);
+        inputEt.requestFocus();
+        inputEt.postDelayed(() -> AndroidUtilities.showKeyboard(inputEt), 200);
     }
 
     // ══════════════════════════════════════════════════════════════════════════

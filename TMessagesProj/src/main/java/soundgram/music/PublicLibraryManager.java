@@ -857,10 +857,10 @@ public class PublicLibraryManager {
             ArrayList<String> newTrackLines = new ArrayList<>();
             int channelTrackIdx = 0;
             for (MessageObject msg : playlistMessages) {
-                if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
-                    newTrackLines.add(msg.messageOwner.message);
-                } else if (channelTrackIdx < orderedNewIds.length && orderedNewIds[channelTrackIdx] > 0) {
+                if (channelTrackIdx < orderedNewIds.length && orderedNewIds[channelTrackIdx] > 0) {
                     newTrackLines.add(String.valueOf(orderedNewIds[channelTrackIdx++]));
+                } else if (msg != null && msg.getId() > 0) {
+                    newTrackLines.add(String.valueOf(msg.getId()));
                 }
             }
 

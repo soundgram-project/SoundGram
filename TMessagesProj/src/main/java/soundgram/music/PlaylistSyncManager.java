@@ -200,8 +200,26 @@ public class PlaylistSyncManager {
         StringBuilder sb = new StringBuilder();
         sb.append(data.title).append("\n");
         sb.append("icon=").append(data.iconId).append("\n");
+        boolean modified = false;
+        ArrayList<String> sanitizedTrackLines = new ArrayList<>();
         for (String track : data.trackLines) {
-            sb.append(track).append("\n");
+            String trimmed = track != null ? track.trim() : "";
+            if (isInteger(trimmed) && Integer.parseInt(trimmed) > 0) {
+                sb.append(trimmed).append("\n");
+                sanitizedTrackLines.add(trimmed);
+            } else if (trimmed.startsWith("SG_STREAM|||")) {
+                int resolvedId = resolveTrackIdFromChannel(currentAccount, trimmed);
+                if (resolvedId > 0) {
+                    sb.append(resolvedId).append("\n");
+                    sanitizedTrackLines.add(String.valueOf(resolvedId));
+                    modified = true;
+                }
+            }
+        }
+        if (modified || sanitizedTrackLines.size() != data.trackLines.size()) {
+            data.trackLines.clear();
+            data.trackLines.addAll(sanitizedTrackLines);
+            writePlaylistFile(playlistFile, data);
         }
 
         String text = sb.toString().trim();
@@ -214,14 +232,29 @@ public class PlaylistSyncManager {
         }
 
         if (coverFile.exists()) {
-            SendMessagesHelper.prepareSendingPhoto(
-                    AccountInstance.getInstance(currentAccount),
-                    coverFile.getAbsolutePath(),
-                    null, null,
-                    -channelId,
-                    null, null, null, null, null, null, null, 0, null, null,
-                    true, 0, 0, false, text, null, 0, 0
-            );
+            if (text.length() <= 1000) {
+                SendMessagesHelper.prepareSendingPhoto(
+                        AccountInstance.getInstance(currentAccount),
+                        coverFile.getAbsolutePath(),
+                        null, null,
+                        -channelId,
+                        null, null, null, null, null, null, null, 0, null, null,
+                        true, 0, 0, false, text, null, 0, 0
+                );
+            } else {
+                String caption = data.title + "\nicon=" + data.iconId;
+                SendMessagesHelper.prepareSendingPhoto(
+                        AccountInstance.getInstance(currentAccount),
+                        coverFile.getAbsolutePath(),
+                        null, null,
+                        -channelId,
+                        null, null, null, null, null, null, null, 0, null, null,
+                        true, 0, 0, false, caption, null, 0, 0
+                );
+                SendMessagesHelper.getInstance(currentAccount).sendMessage(
+                        SendMessagesHelper.SendMessageParams.of(text, -channelId, null, null, null, true, null, null, null, true, 0, 0, null, false)
+                );
+            }
         } else {
             SendMessagesHelper.getInstance(currentAccount).sendMessage(
                     SendMessagesHelper.SendMessageParams.of(text, -channelId, null, null, null, true, null, null, null, true, 0, 0, null, false)
@@ -230,6 +263,26 @@ public class PlaylistSyncManager {
 
         data.pendingSync = false;
         writePlaylistFile(playlistFile, data);
+    }
+
+    public static int resolveTrackIdFromChannel(int account, String streamLine) {
+        if (TextUtils.isEmpty(streamLine)) return 0;
+        String[] parts = streamLine.split("\\|\\|\\|");
+        String title = parts.length > 1 ? parts[1].toLowerCase().trim() : "";
+        String artist = parts.length > 2 ? parts[2].toLowerCase().trim() : "";
+        ArrayList<org.telegram.messenger.MessageObject> audioMsgs = ChannelMusicFragment.getAudioMessages(account);
+        for (org.telegram.messenger.MessageObject mo : audioMsgs) {
+            if (mo.getId() > 0) {
+                String moTitle = mo.getMusicTitle() != null ? mo.getMusicTitle().toLowerCase().trim() : "";
+                String moArtist = mo.getMusicAuthor() != null ? mo.getMusicAuthor().toLowerCase().trim() : "";
+                if (!title.isEmpty() && moTitle.equals(title)) {
+                    if (artist.isEmpty() || moArtist.equals(artist) || moArtist.contains(artist) || artist.contains(moArtist)) {
+                        return mo.getId();
+                    }
+                }
+            }
+        }
+        return 0;
     }
 
     /**

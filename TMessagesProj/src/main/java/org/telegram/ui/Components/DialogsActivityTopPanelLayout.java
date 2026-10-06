@@ -219,6 +219,15 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
 
                     callDrawnView = view;
                 }
+            } else if (callFragmentContextView.isPlayerExpanded() || callFragmentContextView.getExpandProgress() > 0) {
+                for (int a = 0, N = getEntriesCount(); a < N; a++) {
+                    final ListAnimator.Entry<AnimatedLinearLayout.Holder> entry = getEntry(a);
+                    final View view = entry.item.view;
+                    if (isCallView(view)) {
+                        callDrawnView = view;
+                        break;
+                    }
+                }
             }
         }
 
