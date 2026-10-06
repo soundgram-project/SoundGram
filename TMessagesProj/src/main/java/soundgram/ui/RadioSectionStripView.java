@@ -27,8 +27,8 @@ public class RadioSectionStripView extends FrameLayout {
         void onTabSelected(int index);
     }
 
-    private final TextView[] tabViews = new TextView[3];
-    private final String[] tabTitles = {"Моя волна", "Библиотека", "Альбомы"};
+    private final TextView[] tabViews = new TextView[2];
+    private final String[] tabTitles = {"Моя волна", "Библиотека"};
 
     private int selectedTab = 1; // Default: Библиотека
     private float arrowPositionX = -1f;
@@ -54,9 +54,9 @@ public class RadioSectionStripView extends FrameLayout {
         LinearLayout tabsRow = new LinearLayout(context);
         tabsRow.setOrientation(LinearLayout.HORIZONTAL);
         tabsRow.setGravity(Gravity.CENTER_VERTICAL);
-        tabsRow.setWeightSum(3f);
+        tabsRow.setWeightSum(2f);
 
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             final int index = i;
             TextView tv = new TextView(context);
             tv.setText(tabTitles[i]);
@@ -84,7 +84,7 @@ public class RadioSectionStripView extends FrameLayout {
     }
 
     public void setSelectedTab(int index, boolean animate) {
-        if (index < 0 || index >= 3) return;
+        if (index < 0 || index >= 2) return;
         selectedTab = index;
         updateTabStyles();
 
@@ -118,24 +118,24 @@ public class RadioSectionStripView extends FrameLayout {
     }
 
     public void setPageOffset(int position, float offset) {
-        if (position < 0 || position > 2) return;
-        if (position == 2) {
-            float x = getTabCenterX(2);
+        if (position < 0 || position > 1) return;
+        if (position == 1) {
+            float x = getTabCenterX(1);
             if (x > 0) {
                 arrowPositionX = x;
-                if (selectedTab != 2) {
-                    selectedTab = 2;
+                if (selectedTab != 1) {
+                    selectedTab = 1;
                     updateTabStyles();
                 }
                 invalidate();
             }
             return;
         }
-        float x1 = getTabCenterX(position);
-        float x2 = getTabCenterX(position + 1);
+        float x1 = getTabCenterX(0);
+        float x2 = getTabCenterX(1);
         if (x1 > 0 && x2 > 0) {
             arrowPositionX = x1 + (x2 - x1) * offset;
-            int newSelected = offset >= 0.5f ? position + 1 : position;
+            int newSelected = offset >= 0.5f ? 1 : 0;
             if (newSelected != selectedTab) {
                 selectedTab = newSelected;
                 updateTabStyles();
@@ -145,13 +145,13 @@ public class RadioSectionStripView extends FrameLayout {
     }
 
     private float getTabCenterX(int index) {
-        if (index < 0 || index >= 3 || tabViews[index] == null) return -1f;
+        if (index < 0 || index >= 2 || tabViews[index] == null) return -1f;
         TextView tv = tabViews[index];
         return tv.getLeft() + tv.getWidth() / 2f;
     }
 
     private void updateTabStyles() {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             if (tabViews[i] == null) continue;
             boolean active = (i == selectedTab);
             tabViews[i].setTextColor(active ? SoundGramDesignTokens.COLOR_TEXT : SoundGramDesignTokens.COLOR_TEXT_MUTED);

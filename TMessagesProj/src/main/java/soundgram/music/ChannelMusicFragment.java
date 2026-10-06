@@ -1166,13 +1166,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             return androidx.core.view.WindowInsetsCompat.CONSUMED;
         });
 
-        // ── Инициализация WaveGLSurfaceView на ВЕСЬ ЭКРАН ──
-        waveWidget = new WaveGLSurfaceView(context);
-        waveWidget.setVisibility(View.GONE);
-        // Immediately pause the GL renderer — it starts automatically on GLSurfaceView resume;
-        // we will resume it only when the wave tab is actually visible to save GPU/battery.
-        waveWidget.onPause();
-        content.addView(waveWidget, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        // WaveGLSurfaceView убран по запросу пользователя (шарик сзади)
+        waveWidget = null;
 
         fragmentView = content;
 
@@ -1331,7 +1326,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         adapter = new MusicAdapter(context, null);
         listView.setAdapter(adapter);
 
-        listView.addItemDecoration(new TrackItemDecoration(6, 12, false));
+        listView.addItemDecoration(new TrackItemDecoration(6, 12, true));
         listView.setClipToPadding(false);
 
         listView.addOnScrollListener(new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
@@ -1352,84 +1347,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         swipeRefreshLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        libraryContainer.addView(libraryListHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        libraryContainer.addView(swipeRefreshLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 0, 1.0f));
+        libraryContainer.addView(swipeRefreshLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
 
-        // ── PAGE 2: АЛЬБОМЫ ───────────────────────────────────────────────────
-        LinearLayout albumsTabContainer = new LinearLayout(context);
-        albumsTabContainer.setOrientation(LinearLayout.VERTICAL);
-
-        LinearLayout albumsHeader = new LinearLayout(context);
-        albumsHeader.setOrientation(LinearLayout.HORIZONTAL);
-        albumsHeader.setGravity(Gravity.CENTER_VERTICAL);
-        albumsHeader.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(12), AndroidUtilities.dp(18), AndroidUtilities.dp(8));
-
-        TextView albumsTitle = new TextView(context);
-        albumsTitle.setText("Альбомы");
-        albumsTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 30);
-        albumsTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        albumsTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        albumsHeader.addView(albumsTitle, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
-
-        albumsHeaderCount = new TextView(context);
-        albumsHeaderCount.setText(String.valueOf(savedAlbumMessages != null ? savedAlbumMessages.size() : 0));
-        albumsHeaderCount.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        albumsHeaderCount.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        albumsHeaderCount.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        albumsHeaderCount.setGravity(Gravity.RIGHT);
-        albumsHeader.addView(albumsHeaderCount, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
-        albumsTabContainer.addView(albumsHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-        FrameLayout albumsContentFrame = new FrameLayout(context);
-
-        savedAlbumsListView = new RecyclerListView(context);
-        savedAlbumsListView.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(context, 2));
-        savedAlbumsAdapter = new SavedAlbumsAdapter(context);
-        savedAlbumsListView.setAdapter(savedAlbumsAdapter);
-        savedAlbumsListView.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(4), AndroidUtilities.dp(14), AndroidUtilities.dp(80));
-        savedAlbumsListView.setClipToPadding(false);
-        savedAlbumsListView.addItemDecoration(new androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
-            @Override
-            public void getItemOffsets(android.graphics.Rect outRect, View view, androidx.recyclerview.widget.RecyclerView parent, androidx.recyclerview.widget.RecyclerView.State state) {
-                int pos = parent.getChildAdapterPosition(view);
-                int column = pos % 2;
-                if (column == 0) {
-                    outRect.left = 0;
-                    outRect.right = AndroidUtilities.dp(7);
-                    outRect.top = AndroidUtilities.dp(8);
-                } else {
-                    outRect.left = AndroidUtilities.dp(7);
-                    outRect.right = 0;
-                    // Смещение второй колонки вниз на 28 px
-                    outRect.top = AndroidUtilities.dp(8 + 28);
-                }
-                outRect.bottom = AndroidUtilities.dp(16);
-            }
-        });
-        albumsContentFrame.addView(savedAlbumsListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-
+        // ── PAGE 2: АЛЬБОМЫ (секция перенесена на главный экран библиотеки) ──
         emptyAlbumsView = new TextView(context);
-        emptyAlbumsView.setText("нет сохранённых альбомов");
-        emptyAlbumsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-        emptyAlbumsView.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        emptyAlbumsView.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        emptyAlbumsView.setGravity(Gravity.CENTER);
-        emptyAlbumsView.setVisibility((savedAlbumMessages == null || savedAlbumMessages.isEmpty()) ? View.VISIBLE : View.GONE);
-        albumsContentFrame.addView(emptyAlbumsView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+        savedAlbumsListView = new RecyclerListView(context);
+        savedAlbumsAdapter = new SavedAlbumsAdapter(context);
 
-        albumsTabContainer.addView(albumsContentFrame, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 0, 1.0f));
-
-        // ── PAGER ADAPTER (фиксированные 3 страницы: Волна, Библиотека, Альбомы) ──
+        // ── PAGER ADAPTER (2 страницы: Волна, Библиотека) ──
         final FrameLayout finalWaveContainer = waveContainer;
         final LinearLayout finalLibraryContainer = libraryContainer;
-        final View finalAlbumsContainer = albumsTabContainer;
         viewPager.setAdapter(new androidx.viewpager.widget.PagerAdapter() {
-            @Override public int getCount() { return 3; }
+            @Override public int getCount() { return 2; }
             @Override public boolean isViewFromObject(View view, Object object) { return view == object; }
             @Override public Object instantiateItem(ViewGroup container, int position) {
-                View view = position == 0 ? finalWaveContainer : (position == 1 ? finalLibraryContainer : finalAlbumsContainer);
+                View view = position == 0 ? finalWaveContainer : finalLibraryContainer;
                 if (view.getParent() != container) {
                     if (view.getParent() instanceof ViewGroup) {
                         ((ViewGroup) view.getParent()).removeView(view);
@@ -1548,7 +1481,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             // При запуске из библиотеки (listView.setOnItemClickListener):
             AudioPlayerAlert.currentSource = AudioPlayerAlert.SOURCE_LIBRARY;
             AudioPlayerAlert.currentSourceLabel = "";
-            if (adapter.getItemViewType(position) == 2) return;
+            if (adapter.getItemViewType(position) == MusicAdapter.TYPE_PHANTOM || adapter.getItemViewType(position) == MusicAdapter.TYPE_HEADER) return;
             if (isSearching) {
                 if (position < webResultTracks.size()) {
                     MusicWebSearcher.WebTrack clickedTrack = webResultTracks.get(position);
@@ -1606,8 +1539,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
                 }
             } else {
-                if (position >= 0 && position < audioMessages.size()) {
-                    playContext(audioMessages.get(position), audioMessages, getTargetChannelId());
+                int trackIdx = position;
+                if (adapter.hasHeader()) {
+                    trackIdx = position - 1;
+                }
+                if (trackIdx >= 0 && trackIdx < audioMessages.size()) {
+                    playContext(audioMessages.get(trackIdx), audioMessages, getTargetChannelId());
                 }
             }
         });
@@ -2909,23 +2846,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             AndroidUtilities.runOnUIThread(() -> {
                 audioMessages.clear();
                 audioMessages.addAll(cachedTracks);
-                if (audioMessages.isEmpty()) {
-                    String[][] samples = {
-                            {"Аф", "Автостопом по фазе сна", "161"},
-                            {"Destination", "VOJ, TRVNSPORTER", "144"},
-                            {"Serenity", "WhyLonely", "324"},
-                            {"Голоса", "Кишлак", "128"},
-                            {"Скучно", "Кишлак", "162"},
-                            {"Wasted (Nightcore Remix)", "Juice WRLD, Lil Uzi Vert", "258"},
-                            {"Till the end (Hardstyle)", "без исполнителя", "306"},
-                            {"I Really Want to Stay at Your H...", "Cyberpunk: Edgerunners", "248"}
-                    };
-                    for (int i = 0; i < samples.length; i++) {
-                        audioMessages.add(createWebMessageObject(
-                                currentAccount, samples[i][0], samples[i][1], "sample://" + i,
-                                Integer.parseInt(samples[i][2]), 1000 + i, ""));
-                    }
-                }
+
                 if (!isForeignLibrary) {
                     MessagesController.getMainSettings(currentAccount).edit().putInt("sg_library_track_count", cachedTracks.size()).apply();
                 }
@@ -3839,8 +3760,665 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         safeToast(getParentActivity(), getString(R.string.dl), Toast.LENGTH_SHORT);
     }
 
+    private TextView librarySubTitle;
+    private soundgram.ui.CollapsibleSectionHeaderView libraryPlaylistsHeader;
+    private soundgram.ui.CollapsibleSectionHeaderView libraryAlbumsHeader;
+    private LinearLayout playlistsExpandedView;
+    private LinearLayout collapsedRibbon;
+    private LinearLayout albumsRow;
+    private FrameLayout albumStackFrame;
+    private TextView albCollLabel;
+    private TextView emptyAlbumsSectionText;
+
+    private static class LibPlaylistModel {
+        String title;
+        int trackCount;
+        MessageObject coverMsg;
+        MessageObject playlistMsg;
+        String streamCoverUrl;
+        File file;
+        PlaylistSyncManager.PlaylistData foreignData;
+        boolean isForeign;
+    }
+
+    private List<LibPlaylistModel> getRealPlaylists() {
+        List<LibPlaylistModel> list = new ArrayList<>();
+        if (isForeignLibrary) {
+            if (foreignPlaylists != null) {
+                for (PlaylistSyncManager.PlaylistData pData : foreignPlaylists) {
+                    if (pData == null || pData.isDeleted) continue;
+                    LibPlaylistModel m = new LibPlaylistModel();
+                    m.title = !TextUtils.isEmpty(pData.title) ? pData.title : "Playlist";
+                    m.trackCount = pData.trackLines != null ? pData.trackLines.size() : 0;
+                    m.foreignData = pData;
+                    m.playlistMsg = pData.playlistMsg;
+                    m.isForeign = true;
+                    if (pData.trackLines != null && audioMessages != null) {
+                        for (String line : pData.trackLines) {
+                            if (m.coverMsg != null) break;
+                            if (!line.startsWith("SG_STREAM|||")) {
+                                try {
+                                    int id = Integer.parseInt(line);
+                                    for (MessageObject msg : audioMessages) {
+                                        if (msg.getId() == id && hasValidIcon(msg)) {
+                                            m.coverMsg = msg;
+                                            break;
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                            } else {
+                                String[] parts = line.split("\\|\\|\\|");
+                                if (parts.length > 6 && !TextUtils.isEmpty(parts[6])) {
+                                    m.streamCoverUrl = parts[6];
+                                }
+                            }
+                        }
+                    }
+                    list.add(m);
+                }
+            }
+            return list;
+        }
+
+        if (playlistFiles != null) {
+            for (File pFile : playlistFiles) {
+                if (pFile == null || !pFile.exists()) continue;
+                PlaylistSyncManager.PlaylistData pData = PlaylistSyncManager.readPlaylistFile(pFile);
+                if (pData.isDeleted) continue;
+                LibPlaylistModel m = new LibPlaylistModel();
+                m.file = pFile;
+                m.title = !TextUtils.isEmpty(pData.title) ? pData.title : pFile.getName().replace(".txt", "");
+                m.trackCount = pData.trackLines != null ? pData.trackLines.size() : 0;
+                m.isForeign = false;
+                if (pData.trackLines != null && audioMessages != null) {
+                    for (String line : pData.trackLines) {
+                        if (m.coverMsg != null) break;
+                        if (!line.startsWith("SG_STREAM|||")) {
+                            try {
+                                int id = Integer.parseInt(line);
+                                for (MessageObject msg : audioMessages) {
+                                    if (msg.getId() == id && hasValidIcon(msg)) {
+                                        m.coverMsg = msg;
+                                        break;
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+                        } else {
+                            String[] parts = line.split("\\|\\|\\|");
+                            if (parts.length > 6 && !TextUtils.isEmpty(parts[6])) {
+                                m.streamCoverUrl = parts[6];
+                            }
+                        }
+                    }
+                }
+                list.add(m);
+            }
+        }
+        return list;
+    }
+
+    private void openPlaylistDetail(LibPlaylistModel m) {
+        if (m == null) return;
+        if (m.isForeign) {
+            presentFragment(new PlaylistDetailFragment(m.foreignData, getTargetChannelId(), true));
+        } else if (m.file != null) {
+            presentFragment(new PlaylistDetailFragment(m.file, getTargetChannelId(), () -> {
+                refreshPlaylistFiles();
+                refreshLibrarySections();
+            }));
+        } else {
+            presentFragment(new PlaylistDetailFragment(m.title, getTargetChannelId()));
+        }
+    }
+
+    public void updateLibraryHeaderCounts() {
+        if (librarySubTitle == null) return;
+        List<LibPlaylistModel> pl = getRealPlaylists();
+        int plCount = pl.size();
+        int albCount = savedAlbumMessages != null ? savedAlbumMessages.size() : 0;
+        int trkCount = audioMessages != null ? audioMessages.size() : 0;
+        librarySubTitle.setText(String.format("%d плейлистов · %d альбомов · %d треков", plCount, albCount, trkCount));
+        if (libraryPlaylistsHeader != null) {
+            libraryPlaylistsHeader.setTitle("плейлисты · " + plCount);
+        }
+        if (libraryAlbumsHeader != null) {
+            libraryAlbumsHeader.setTitle("альбомы · " + albCount);
+        }
+    }
+
+    public void refreshLibrarySections() {
+        Context context = getContext();
+        if (context == null) context = ApplicationLoader.applicationContext;
+        updateLibraryHeaderCounts();
+        populatePlaylistsExpanded(context);
+        populatePlaylistsCollapsed(context);
+        populateAlbumsSection(context);
+    }
+
+    private void populatePlaylistsCollapsed(Context context) {
+        if (collapsedRibbon == null) return;
+        collapsedRibbon.removeAllViews();
+        List<LibPlaylistModel> list = getRealPlaylists();
+        if (list.isEmpty()) {
+            TextView empty = new TextView(context);
+            empty.setText("нет плейлистов");
+            empty.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+            empty.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+            empty.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            empty.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(4), AndroidUtilities.dp(8), AndroidUtilities.dp(4));
+            collapsedRibbon.addView(empty);
+            return;
+        }
+
+        for (LibPlaylistModel m : list) {
+            LinearLayout item = new LinearLayout(context);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER_HORIZONTAL);
+
+            BackupImageView box = new BackupImageView(context);
+            box.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(20));
+            setLibPlaylistCover(box, m, 8);
+            item.addView(box, LayoutHelper.createLinear(68, 68));
+
+            TextView label = new TextView(context);
+            label.setText(m.title);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+            label.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+            label.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            label.setSingleLine(true);
+            label.setEllipsize(TextUtils.TruncateAt.END);
+            label.setGravity(Gravity.CENTER_HORIZONTAL);
+            item.addView(label, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+
+            item.setOnClickListener(v -> {
+                applySpringClick(v);
+                openPlaylistDetail(m);
+            });
+
+            collapsedRibbon.addView(item, LayoutHelper.createLinear(68, LayoutHelper.WRAP_CONTENT, 0, 0, 10, 0));
+        }
+    }
+
+    private void setLibPlaylistCover(BackupImageView box, LibPlaylistModel m, int radius) {
+        if (box == null || m == null) return;
+        if (!TextUtils.isEmpty(m.streamCoverUrl)) {
+            box.setRoundRadius(AndroidUtilities.dp(radius));
+            box.setImage(m.streamCoverUrl, "100_100", null);
+        } else {
+            String fname = m.file != null ? m.file.getName().replace(".txt", "") : m.title;
+            File coverFile = new File(getPlaylistsDir(), fname + "_cover.jpg");
+            if (!coverFile.exists() && m.title != null) {
+                coverFile = new File(getPlaylistsDir(), m.title + "_cover.jpg");
+            }
+            if (coverFile.exists()) {
+                android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(coverFile.getAbsolutePath());
+                if (bmp != null) {
+                    box.setRoundRadius(AndroidUtilities.dp(radius));
+                    box.setImageBitmap(bmp);
+                    return;
+                }
+            }
+            setPlaylistCover(box, m.title, m.coverMsg, m.playlistMsg, radius);
+        }
+    }
+
+    private void populatePlaylistsExpanded(Context context) {
+        if (playlistsExpandedView == null) return;
+        playlistsExpandedView.removeAllViews();
+        List<LibPlaylistModel> list = getRealPlaylists();
+        if (list.isEmpty()) {
+            LinearLayout emptyCard = new LinearLayout(context);
+            emptyCard.setOrientation(LinearLayout.VERTICAL);
+            emptyCard.setGravity(Gravity.CENTER);
+            emptyCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(20), AndroidUtilities.dp(16), AndroidUtilities.dp(20));
+            emptyCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF222222, 16, 16, 16, 16));
+
+            TextView emptyTitle = new TextView(context);
+            emptyTitle.setText("+ Создать первый плейлист");
+            emptyTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+            emptyTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            emptyTitle.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+            emptyCard.addView(emptyTitle);
+
+            TextView emptySub = new TextView(context);
+            emptySub.setText("соберите свою коллекцию треков");
+            emptySub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+            emptySub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+            emptySub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            emptyCard.addView(emptySub, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+
+            emptyCard.setOnClickListener(v -> {
+                applySpringClick(v);
+                showCreatePlaylistDialog();
+            });
+            playlistsExpandedView.addView(emptyCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
+            return;
+        }
+
+        int index = 0;
+        int total = list.size();
+        while (index < total) {
+            // Slot A: Large hero card (1 playlist)
+            if (index < total) {
+                final LibPlaylistModel m = list.get(index++);
+                LinearLayout heroCard = new LinearLayout(context);
+                heroCard.setOrientation(LinearLayout.HORIZONTAL);
+                heroCard.setGravity(Gravity.CENTER_VERTICAL);
+                heroCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+                heroCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF282828, 4, 4, 4, 56));
+
+                BackupImageView cover = new BackupImageView(context);
+                cover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(40));
+                setLibPlaylistCover(cover, m, 16);
+                heroCard.addView(cover, LayoutHelper.createLinear(92, 92));
+
+                LinearLayout textCol = new LinearLayout(context);
+                textCol.setOrientation(LinearLayout.VERTICAL);
+                textCol.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
+
+                TextView title = new TextView(context);
+                title.setText(m.title);
+                title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+                title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                title.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                title.setSingleLine(true);
+                title.setEllipsize(TextUtils.TruncateAt.END);
+                textCol.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+                TextView sub = new TextView(context);
+                sub.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(m.trackCount));
+                sub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+                sub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                sub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                textCol.addView(sub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+
+                heroCard.addView(textCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                heroCard.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    openPlaylistDetail(m);
+                });
+                playlistsExpandedView.addView(heroCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 124, 0, 0, 0, 8));
+            }
+
+            // Slot B: Row of tall card (left) + 2 small cards stacked (right)
+            if (index < total) {
+                LinearLayout rowTall = new LinearLayout(context);
+                rowTall.setOrientation(LinearLayout.HORIZONTAL);
+
+                final LibPlaylistModel tallM = list.get(index++);
+                LinearLayout tallCard = new LinearLayout(context);
+                tallCard.setOrientation(LinearLayout.VERTICAL);
+                tallCard.setGravity(Gravity.BOTTOM);
+                tallCard.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14));
+                tallCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF23322C, 56, 4, 4, 4));
+
+                BackupImageView tallCover = new BackupImageView(context);
+                tallCover.setRoundRadius(AndroidUtilities.dp(28), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
+                setLibPlaylistCover(tallCover, tallM, 12);
+                tallCard.addView(tallCover, LayoutHelper.createLinear(54, 54, 0, 0, 0, 8));
+
+                TextView tallTitle = new TextView(context);
+                tallTitle.setText(tallM.title);
+                tallTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                tallTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                tallTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                tallTitle.setSingleLine(true);
+                tallTitle.setEllipsize(TextUtils.TruncateAt.END);
+                tallCard.addView(tallTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+                TextView tallSub = new TextView(context);
+                tallSub.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(tallM.trackCount));
+                tallSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                tallSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                tallSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                tallCard.addView(tallSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+
+                tallCard.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    openPlaylistDetail(tallM);
+                });
+                rowTall.addView(tallCard, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f, 0, 0, index < total ? 8 : 0, 0));
+
+                if (index < total) {
+                    LinearLayout colSmall = new LinearLayout(context);
+                    colSmall.setOrientation(LinearLayout.VERTICAL);
+
+                    final LibPlaylistModel sm1 = list.get(index++);
+                    LinearLayout cardSm1 = new LinearLayout(context);
+                    cardSm1.setOrientation(LinearLayout.HORIZONTAL);
+                    cardSm1.setGravity(Gravity.CENTER_VERTICAL);
+                    cardSm1.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
+                    cardSm1.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF2A2533, 4, 4, 4, 4));
+
+                    BackupImageView sm1Cover = new BackupImageView(context);
+                    sm1Cover.setRoundRadius(AndroidUtilities.dp(4));
+                    setLibPlaylistCover(sm1Cover, sm1, 4);
+                    cardSm1.addView(sm1Cover, LayoutHelper.createLinear(44, 44));
+
+                    LinearLayout sm1Text = new LinearLayout(context);
+                    sm1Text.setOrientation(LinearLayout.VERTICAL);
+                    sm1Text.setPadding(AndroidUtilities.dp(10), 0, 0, 0);
+                    TextView t1 = new TextView(context);
+                    t1.setText(sm1.title);
+                    t1.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                    t1.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                    t1.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                    t1.setSingleLine(true);
+                    t1.setEllipsize(TextUtils.TruncateAt.END);
+                    sm1Text.addView(t1);
+                    TextView s1 = new TextView(context);
+                    s1.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(sm1.trackCount));
+                    s1.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                    s1.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                    s1.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                    sm1Text.addView(s1);
+                    cardSm1.addView(sm1Text, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                    cardSm1.setOnClickListener(v -> {
+                        applySpringClick(v);
+                        openPlaylistDetail(sm1);
+                    });
+                    colSmall.addView(cardSm1, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 62));
+
+                    if (index < total) {
+                        final LibPlaylistModel sm2 = list.get(index++);
+                        LinearLayout cardSm2 = new LinearLayout(context);
+                        cardSm2.setOrientation(LinearLayout.HORIZONTAL);
+                        cardSm2.setGravity(Gravity.CENTER_VERTICAL);
+                        cardSm2.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
+                        cardSm2.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF332D29, 4, 4, 4, 4));
+
+                        BackupImageView sm2Cover = new BackupImageView(context);
+                        sm2Cover.setRoundRadius(AndroidUtilities.dp(4));
+                        setLibPlaylistCover(sm2Cover, sm2, 4);
+                        cardSm2.addView(sm2Cover, LayoutHelper.createLinear(44, 44));
+
+                        LinearLayout sm2Text = new LinearLayout(context);
+                        sm2Text.setOrientation(LinearLayout.VERTICAL);
+                        sm2Text.setPadding(AndroidUtilities.dp(10), 0, 0, 0);
+                        TextView t2 = new TextView(context);
+                        t2.setText(sm2.title);
+                        t2.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                        t2.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                        t2.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                        t2.setSingleLine(true);
+                        t2.setEllipsize(TextUtils.TruncateAt.END);
+                        sm2Text.addView(t2);
+                        TextView s2 = new TextView(context);
+                        s2.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(sm2.trackCount));
+                        s2.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                        s2.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                        s2.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                        sm2Text.addView(s2);
+                        cardSm2.addView(sm2Text, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                        cardSm2.setOnClickListener(v -> {
+                            applySpringClick(v);
+                            openPlaylistDetail(sm2);
+                        });
+                        colSmall.addView(cardSm2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 62, 0, 8, 0, 0));
+                    }
+
+                    rowTall.addView(colSmall, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f));
+                }
+                playlistsExpandedView.addView(rowTall, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 132, 0, 0, 0, 8));
+            }
+
+            // Slot C: Wide accent card (1 playlist)
+            if (index < total) {
+                final LibPlaylistModel accM = list.get(index++);
+                LinearLayout accCard = new LinearLayout(context);
+                accCard.setOrientation(LinearLayout.HORIZONTAL);
+                accCard.setGravity(Gravity.CENTER_VERTICAL);
+                accCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(10));
+                accCard.setBackground(SoundGramDesignTokens.makeAccentChatCardDrawable());
+
+                BackupImageView accCover = new BackupImageView(context);
+                accCover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(20), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
+                setLibPlaylistCover(accCover, accM, 8);
+                accCard.addView(accCover, LayoutHelper.createLinear(46, 46));
+
+                LinearLayout accText = new LinearLayout(context);
+                accText.setOrientation(LinearLayout.VERTICAL);
+                accText.setPadding(AndroidUtilities.dp(14), 0, 0, 0);
+
+                TextView tAcc = new TextView(context);
+                tAcc.setText(accM.title);
+                tAcc.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+                tAcc.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                tAcc.setTextColor(SoundGramDesignTokens.COLOR_ON_ACCENT);
+                tAcc.setSingleLine(true);
+                tAcc.setEllipsize(TextUtils.TruncateAt.END);
+                accText.addView(tAcc);
+
+                TextView sAcc = new TextView(context);
+                sAcc.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(accM.trackCount));
+                sAcc.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                sAcc.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                sAcc.setTextColor(0xFF22300B);
+                accText.addView(sAcc, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+
+                accCard.addView(accText, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                accCard.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    openPlaylistDetail(accM);
+                });
+                playlistsExpandedView.addView(accCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 64, 0, 0, 0, 8));
+            }
+
+            // Slot D: Row of two cards (up to 2 playlists)
+            if (index < total) {
+                LinearLayout rowTwo = new LinearLayout(context);
+                rowTwo.setOrientation(LinearLayout.HORIZONTAL);
+
+                final LibPlaylistModel d1 = list.get(index++);
+                LinearLayout cardD1 = new LinearLayout(context);
+                cardD1.setOrientation(LinearLayout.HORIZONTAL);
+                cardD1.setGravity(Gravity.CENTER_VERTICAL);
+                cardD1.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
+                cardD1.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF253038, 4, 4, 4, 4));
+
+                BackupImageView d1Cover = new BackupImageView(context);
+                d1Cover.setRoundRadius(AndroidUtilities.dp(4));
+                setLibPlaylistCover(d1Cover, d1, 4);
+                cardD1.addView(d1Cover, LayoutHelper.createLinear(44, 44));
+
+                LinearLayout d1Text = new LinearLayout(context);
+                d1Text.setOrientation(LinearLayout.VERTICAL);
+                d1Text.setPadding(AndroidUtilities.dp(10), 0, 0, 0);
+                TextView td1 = new TextView(context);
+                td1.setText(d1.title);
+                td1.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                td1.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                td1.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                td1.setSingleLine(true);
+                td1.setEllipsize(TextUtils.TruncateAt.END);
+                d1Text.addView(td1);
+                TextView sd1 = new TextView(context);
+                sd1.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(d1.trackCount));
+                sd1.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                sd1.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                sd1.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                d1Text.addView(sd1);
+                cardD1.addView(d1Text, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                cardD1.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    openPlaylistDetail(d1);
+                });
+                rowTwo.addView(cardD1, LayoutHelper.createLinear(0, 62, 1.0f, 0, 0, index < total ? 8 : 0, 0));
+
+                if (index < total) {
+                    final LibPlaylistModel d2 = list.get(index++);
+                    LinearLayout cardD2 = new LinearLayout(context);
+                    cardD2.setOrientation(LinearLayout.HORIZONTAL);
+                    cardD2.setGravity(Gravity.CENTER_VERTICAL);
+                    cardD2.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
+                    cardD2.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF382A2C, 4, 4, 4, 4));
+
+                    BackupImageView d2Cover = new BackupImageView(context);
+                    d2Cover.setRoundRadius(AndroidUtilities.dp(4));
+                    setLibPlaylistCover(d2Cover, d2, 4);
+                    cardD2.addView(d2Cover, LayoutHelper.createLinear(44, 44));
+
+                    LinearLayout d2Text = new LinearLayout(context);
+                    d2Text.setOrientation(LinearLayout.VERTICAL);
+                    d2Text.setPadding(AndroidUtilities.dp(10), 0, 0, 0);
+                    TextView td2 = new TextView(context);
+                    td2.setText(d2.title);
+                    td2.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                    td2.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                    td2.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                    td2.setSingleLine(true);
+                    td2.setEllipsize(TextUtils.TruncateAt.END);
+                    d2Text.addView(td2);
+                    TextView sd2 = new TextView(context);
+                    sd2.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(d2.trackCount));
+                    sd2.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                    sd2.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                    sd2.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                    d2Text.addView(sd2);
+                    cardD2.addView(d2Text, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                    cardD2.setOnClickListener(v -> {
+                        applySpringClick(v);
+                        openPlaylistDetail(d2);
+                    });
+                    rowTwo.addView(cardD2, LayoutHelper.createLinear(0, 62, 1.0f));
+                }
+                playlistsExpandedView.addView(rowTwo, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 62, 0, 0, 0, 8));
+            }
+
+            // Slot E: Wide card (1 playlist)
+            if (index < total) {
+                final LibPlaylistModel eM = list.get(index++);
+                LinearLayout eCard = new LinearLayout(context);
+                eCard.setOrientation(LinearLayout.HORIZONTAL);
+                eCard.setGravity(Gravity.CENTER_VERTICAL);
+                eCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(10));
+                eCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF262626, 4, 4, 56, 4));
+
+                BackupImageView eCover = new BackupImageView(context);
+                eCover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(28), AndroidUtilities.dp(4));
+                setLibPlaylistCover(eCover, eM, 8);
+                eCard.addView(eCover, LayoutHelper.createLinear(46, 46));
+
+                LinearLayout eText = new LinearLayout(context);
+                eText.setOrientation(LinearLayout.VERTICAL);
+                eText.setPadding(AndroidUtilities.dp(14), 0, 0, 0);
+
+                TextView tE = new TextView(context);
+                tE.setText(eM.title);
+                tE.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                tE.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                tE.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                tE.setSingleLine(true);
+                tE.setEllipsize(TextUtils.TruncateAt.END);
+                eText.addView(tE);
+
+                TextView sE = new TextView(context);
+                sE.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(eM.trackCount));
+                sE.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                sE.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                sE.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                eText.addView(sE, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+
+                eCard.addView(eText, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+                eCard.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    openPlaylistDetail(eM);
+                });
+                playlistsExpandedView.addView(eCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 64, 0, 0, 0, 8));
+            }
+        }
+    }
+
+    private void populateAlbumsSection(Context context) {
+        if (albumsRow == null || albumStackFrame == null || albCollLabel == null) return;
+        albumsRow.removeAllViews();
+        albumStackFrame.removeAllViews();
+
+        if (savedAlbumMessages == null || savedAlbumMessages.isEmpty()) {
+            if (emptyAlbumsSectionText != null) emptyAlbumsSectionText.setVisibility(View.VISIBLE);
+            albCollLabel.setText("нет сохранённых альбомов");
+            return;
+        }
+
+        if (emptyAlbumsSectionText != null) emptyAlbumsSectionText.setVisibility(View.GONE);
+
+        StringBuilder sb = new StringBuilder();
+        int maxColl = Math.min(3, savedAlbumMessages.size());
+        for (int a = 0; a < savedAlbumMessages.size(); a++) {
+            MessageObject msgObj = savedAlbumMessages.get(a);
+            if (msgObj == null || msgObj.messageOwner == null || msgObj.messageOwner.message == null) continue;
+            String[] parts = msgObj.messageOwner.message.split("\\|\\|\\|");
+            String title = parts.length > 1 ? parts[1] : "Unknown";
+            String url = parts.length > 2 ? parts[2] : "";
+            String coverUrl = parts.length > 3 ? parts[3] : "";
+            String artist = parts.length > 4 ? parts[4] : "";
+
+            LinearLayout albCol = new LinearLayout(context);
+            albCol.setOrientation(LinearLayout.VERTICAL);
+
+            BackupImageView albCover = new BackupImageView(context);
+            albCover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(40));
+            if (!TextUtils.isEmpty(coverUrl)) {
+                albCover.setImage(coverUrl, "200_200", null);
+            } else {
+                albCover.setImageDrawable(createAlbumPlaceholderDrawable(a));
+            }
+            albCol.addView(albCover, LayoutHelper.createLinear(128, 128));
+
+            TextView albTitle = new TextView(context);
+            albTitle.setText(title);
+            albTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+            albTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            albTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+            albTitle.setSingleLine(true);
+            albTitle.setEllipsize(TextUtils.TruncateAt.END);
+            albCol.addView(albTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 0));
+
+            TextView albArtist = new TextView(context);
+            albArtist.setText(artist);
+            albArtist.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+            albArtist.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+            albArtist.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            albArtist.setSingleLine(true);
+            albArtist.setEllipsize(TextUtils.TruncateAt.END);
+            albCol.addView(albArtist, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+
+            int topMargin = (a % 2 == 1) ? AndroidUtilities.dp(20) : 0;
+            albCol.setOnClickListener(v -> {
+                applySpringClick(v);
+                presentFragment(new AlbumProfileFragment(title, artist, url, coverUrl));
+            });
+
+            albumsRow.addView(albCol, LayoutHelper.createLinear(128, LayoutHelper.WRAP_CONTENT, 0, topMargin, 12, 0));
+
+            if (a < maxColl) {
+                BackupImageView s = new BackupImageView(context);
+                s.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(14));
+                if (!TextUtils.isEmpty(coverUrl)) {
+                    s.setImage(coverUrl, "100_100", null);
+                } else {
+                    s.setImageDrawable(createAlbumPlaceholderDrawable(a));
+                }
+                albumStackFrame.addView(s, LayoutHelper.createFrame(44, 44, Gravity.LEFT | Gravity.CENTER_VERTICAL, a * 30, 0, 0, 0));
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(title);
+            }
+        }
+
+        if (savedAlbumMessages.size() > maxColl) {
+            sb.append(" и ещё ").append(savedAlbumMessages.size() - maxColl);
+        }
+        albCollLabel.setText(sb.toString());
+    }
+
     private void createHorizontalPlaylists(Context context, LinearLayout container) {
-        // Заголовок экрана «Библиотека»
         LinearLayout titleBlock = new LinearLayout(context);
         titleBlock.setOrientation(LinearLayout.VERTICAL);
         titleBlock.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(14), AndroidUtilities.dp(18), AndroidUtilities.dp(6));
@@ -3852,367 +4430,83 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         mainTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
         titleBlock.addView(mainTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        TextView subTitle = new TextView(context);
-        subTitle.setText("8 плейлистов · 3 альбома · 13 935 треков");
-        subTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        subTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        subTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        subTitle.setLetterSpacing(0.02f);
-        titleBlock.addView(subTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+        librarySubTitle = new TextView(context);
+        librarySubTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        librarySubTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+        librarySubTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        librarySubTitle.setLetterSpacing(0.02f);
+        titleBlock.addView(librarySubTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
 
         container.addView(titleBlock, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // ── БЛОК «плейлисты · 8» (Сворачиваемый) ──────────────────────────────────
-        final CollapsibleSectionHeaderView playlistsHeader = new CollapsibleSectionHeaderView(context, "плейлисты · 8", false);
-        container.addView(playlistsHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 18, 6, 18, 8));
+        // ── БЛОК «плейлисты» (Сворачиваемый) ──────────────────────────────────
+        libraryPlaylistsHeader = new soundgram.ui.CollapsibleSectionHeaderView(context, "плейлисты", false);
+        libraryPlaylistsHeader.setActionButton("+ создать", () -> showCreatePlaylistDialog());
+        container.addView(libraryPlaylistsHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 18, 6, 18, 8));
 
         FrameLayout playlistsContentFrame = new FrameLayout(context);
 
         // 1) Развёрнутая сетка плейлистов
-        final LinearLayout playlistsExpandedView = new LinearLayout(context);
+        playlistsExpandedView = new LinearLayout(context);
         playlistsExpandedView.setOrientation(LinearLayout.VERTICAL);
         playlistsExpandedView.setPadding(AndroidUtilities.dp(18), 0, AndroidUtilities.dp(18), AndroidUtilities.dp(4));
-
-        // Карточка 1: «Music trip» 2×2 (радиус 4 4 4 56)
-        LinearLayout musicTripCard = new LinearLayout(context);
-        musicTripCard.setOrientation(LinearLayout.VERTICAL);
-        musicTripCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
-        musicTripCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF282828, 4, 4, 4, 56));
-        musicTripCard.setGravity(Gravity.BOTTOM);
-        TextView mtTitle = new TextView(context);
-        mtTitle.setText("Music trip");
-        mtTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26);
-        mtTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        mtTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        musicTripCard.addView(mtTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        TextView mtSub = new TextView(context);
-        mtSub.setText("56 треков · 2 ч 19 мин");
-        mtSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        mtSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        mtSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        musicTripCard.addView(mtSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
-        musicTripCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Music trip", getTargetChannelId()));
-        });
-        playlistsExpandedView.addView(musicTripCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 130, 0, 0, 0, 8));
-
-        // Карточка 2: Ряд «Who.....l» (1×2 tall, радиус 56 4 4 4) + две малые («Ночной драйв», «Фокус»)
-        LinearLayout rowTallAndTwo = new LinearLayout(context);
-        rowTallAndTwo.setOrientation(LinearLayout.HORIZONTAL);
-
-        LinearLayout whoCard = new LinearLayout(context);
-        whoCard.setOrientation(LinearLayout.VERTICAL);
-        whoCard.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14));
-        whoCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF23322C, 56, 4, 4, 4));
-        whoCard.setGravity(Gravity.BOTTOM);
-        TextView whoTitle = new TextView(context);
-        whoTitle.setText("Who.....l");
-        whoTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
-        whoTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        whoTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        whoCard.addView(whoTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        TextView whoSub = new TextView(context);
-        whoSub.setText("11 треков");
-        whoSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        whoSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        whoSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        whoCard.addView(whoSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-        whoCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Who.....l", getTargetChannelId()));
-        });
-        rowTallAndTwo.addView(whoCard, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f, 0, 0, 8, 0));
-
-        LinearLayout colTwoSmall = new LinearLayout(context);
-        colTwoSmall.setOrientation(LinearLayout.VERTICAL);
-
-        LinearLayout nightDriveCard = new LinearLayout(context);
-        nightDriveCard.setOrientation(LinearLayout.VERTICAL);
-        nightDriveCard.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(10), AndroidUtilities.dp(12), AndroidUtilities.dp(10));
-        nightDriveCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF2A2533, 4, 4, 4, 4));
-        nightDriveCard.setGravity(Gravity.CENTER_VERTICAL);
-        TextView ndTitle = new TextView(context);
-        ndTitle.setText("Ночной драйв");
-        ndTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        ndTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        ndTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        nightDriveCard.addView(ndTitle);
-        TextView ndSub = new TextView(context);
-        ndSub.setText("24");
-        ndSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        ndSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        ndSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        nightDriveCard.addView(ndSub);
-        nightDriveCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Ночной драйв", getTargetChannelId()));
-        });
-        colTwoSmall.addView(nightDriveCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 62));
-
-        LinearLayout focusCard = new LinearLayout(context);
-        focusCard.setOrientation(LinearLayout.VERTICAL);
-        focusCard.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(10), AndroidUtilities.dp(12), AndroidUtilities.dp(10));
-        focusCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF332D29, 4, 4, 4, 4));
-        focusCard.setGravity(Gravity.CENTER_VERTICAL);
-        TextView fcTitle = new TextView(context);
-        fcTitle.setText("Фокус");
-        fcTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        fcTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        fcTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        focusCard.addView(fcTitle);
-        TextView fcSub = new TextView(context);
-        fcSub.setText("38");
-        fcSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        fcSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        fcSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        focusCard.addView(fcSub);
-        focusCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Фокус", getTargetChannelId()));
-        });
-        colTwoSmall.addView(focusCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 62, 0, 8, 0, 0));
-
-        rowTallAndTwo.addView(colTwoSmall, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1.0f));
-        playlistsExpandedView.addView(rowTallAndTwo, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 132, 0, 0, 0, 8));
-
-        // Карточка 3: Акцентная широкая «Из чатов» (радиус 4 40 4 4, фон #C8F169, текст #111)
-        LinearLayout fromChatsCard = new LinearLayout(context);
-        fromChatsCard.setOrientation(LinearLayout.HORIZONTAL);
-        fromChatsCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
-        fromChatsCard.setBackground(SoundGramDesignTokens.makeAccentChatCardDrawable());
-        fromChatsCard.setGravity(Gravity.CENTER_VERTICAL);
-
-        LinearLayout chatTextCol = new LinearLayout(context);
-        chatTextCol.setOrientation(LinearLayout.VERTICAL);
-        TextView chTitle = new TextView(context);
-        chTitle.setText("Из чатов");
-        chTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
-        chTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        chTitle.setTextColor(SoundGramDesignTokens.COLOR_ON_ACCENT);
-        chatTextCol.addView(chTitle);
-        TextView chSub = new TextView(context);
-        chSub.setText("собирается сам · 47 новых");
-        chSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        chSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        chSub.setTextColor(0xFF22300B);
-        chatTextCol.addView(chSub, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-        fromChatsCard.addView(chatTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
-
-        fromChatsCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Из чатов", getTargetChannelId()));
-        });
-        playlistsExpandedView.addView(fromChatsCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 64, 0, 0, 0, 8));
-
-        // Карточка 4: Ряд из двух малых («Дорога домой» и «Тренировка»)
-        LinearLayout rowTwoSmall = new LinearLayout(context);
-        rowTwoSmall.setOrientation(LinearLayout.HORIZONTAL);
-
-        LinearLayout roadCard = new LinearLayout(context);
-        roadCard.setOrientation(LinearLayout.VERTICAL);
-        roadCard.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(10), AndroidUtilities.dp(12), AndroidUtilities.dp(10));
-        roadCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF253038, 4, 4, 4, 4));
-        roadCard.setGravity(Gravity.CENTER_VERTICAL);
-        TextView roadTitle = new TextView(context);
-        roadTitle.setText("Дорога домой");
-        roadTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        roadTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        roadTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        roadCard.addView(roadTitle);
-        TextView roadSub = new TextView(context);
-        roadSub.setText("19");
-        roadSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        roadSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        roadSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        roadCard.addView(roadSub);
-        roadCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Дорога домой", getTargetChannelId()));
-        });
-        rowTwoSmall.addView(roadCard, LayoutHelper.createLinear(0, 62, 1.0f, 0, 0, 8, 0));
-
-        LinearLayout workoutCard = new LinearLayout(context);
-        workoutCard.setOrientation(LinearLayout.VERTICAL);
-        workoutCard.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(10), AndroidUtilities.dp(12), AndroidUtilities.dp(10));
-        workoutCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF382A2C, 4, 4, 4, 4));
-        workoutCard.setGravity(Gravity.CENTER_VERTICAL);
-        TextView woTitle = new TextView(context);
-        woTitle.setText("Тренировка");
-        woTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        woTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        woTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        workoutCard.addView(woTitle);
-        TextView woSub = new TextView(context);
-        woSub.setText("31");
-        woSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        woSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        woSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        workoutCard.addView(woSub);
-        workoutCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Тренировка", getTargetChannelId()));
-        });
-        rowTwoSmall.addView(workoutCard, LayoutHelper.createLinear(0, 62, 1.0f));
-        playlistsExpandedView.addView(rowTwoSmall, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 62, 0, 0, 0, 8));
-
-        // Карточка 5: Широкая в конце «Старое, но моё» (радиус 4 4 56 4)
-        LinearLayout oldCard = new LinearLayout(context);
-        oldCard.setOrientation(LinearLayout.VERTICAL);
-        oldCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
-        oldCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF262626, 4, 4, 56, 4));
-        oldCard.setGravity(Gravity.CENTER_VERTICAL);
-        TextView oldTitle = new TextView(context);
-        oldTitle.setText("Старое, но моё");
-        oldTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        oldTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        oldTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        oldCard.addView(oldTitle);
-        TextView oldSub = new TextView(context);
-        oldSub.setText("112 треков · давно не слушали");
-        oldSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        oldSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        oldSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        oldCard.addView(oldSub, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-        oldCard.setOnClickListener(v -> {
-            applySpringClick(v);
-            presentFragment(new PlaylistDetailFragment("Старое, но моё", getTargetChannelId()));
-        });
-        playlistsExpandedView.addView(oldCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 64));
-
         playlistsContentFrame.addView(playlistsExpandedView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // 2) Свёрнутая горизонтальная лента из 8 плиток 68×68 с подписью моно
+        // 2) Свёрнутая горизонтальная лента плейлистов
         final HorizontalScrollView playlistsCollapsedView = new HorizontalScrollView(context);
         playlistsCollapsedView.setHorizontalScrollBarEnabled(false);
         playlistsCollapsedView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         playlistsCollapsedView.setVisibility(View.GONE);
 
-        LinearLayout collapsedRibbon = new LinearLayout(context);
+        collapsedRibbon = new LinearLayout(context);
         collapsedRibbon.setOrientation(LinearLayout.HORIZONTAL);
         collapsedRibbon.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(4), AndroidUtilities.dp(18), AndroidUtilities.dp(8));
-
-        String[][] tileInfo = {
-                {"Music trip", "Music tri...", "0xFF282828", "4", "4", "4", "24"},
-                {"Who.....l", "Who.....l", "0xFF23322C", "24", "4", "4", "4"},
-                {"Ночной драйв", "Ночной др...", "0xFF2A2533", "4", "4", "4", "4"},
-                {"Фокус", "Фокус", "0xFF332D29", "4", "4", "4", "4"},
-                {"Из чатов", "Из чатов", "0xFFC8F169", "4", "20", "4", "4"},
-                {"Дорога домой", "Дорога до...", "0xFF253038", "4", "4", "4", "4"},
-                {"Тренировка", "Тренировка", "0xFF382A2C", "4", "4", "4", "4"},
-                {"Старое, но моё", "Старое, но...", "0xFF262626", "4", "4", "24", "4"}
-        };
-
-        for (final String[] t : tileInfo) {
-            LinearLayout item = new LinearLayout(context);
-            item.setOrientation(LinearLayout.VERTICAL);
-            item.setGravity(Gravity.CENTER_HORIZONTAL);
-
-            View box = new View(context);
-            int color = (int) Long.parseLong(t[2].substring(2), 16);
-            float tl = Float.parseFloat(t[3]), tr = Float.parseFloat(t[4]), br = Float.parseFloat(t[5]), bl = Float.parseFloat(t[6]);
-            box.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(color, tl, tr, br, bl));
-            item.addView(box, LayoutHelper.createLinear(68, 68));
-
-            TextView label = new TextView(context);
-            label.setText(t[1]);
-            label.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-            label.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-            label.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-            label.setSingleLine(true);
-            label.setEllipsize(TextUtils.TruncateAt.END);
-            label.setGravity(Gravity.CENTER_HORIZONTAL);
-            item.addView(label, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
-
-            item.setOnClickListener(v -> {
-                applySpringClick(v);
-                presentFragment(new PlaylistDetailFragment(t[0], getTargetChannelId()));
-            });
-
-            collapsedRibbon.addView(item, LayoutHelper.createLinear(68, LayoutHelper.WRAP_CONTENT, 0, 0, 10, 0));
-        }
-
         playlistsCollapsedView.addView(collapsedRibbon, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
         playlistsContentFrame.addView(playlistsCollapsedView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         container.addView(playlistsContentFrame, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // ── БЛОК «альбомы · 3» (Сворачиваемый) ────────────────────────────────────
-        final CollapsibleSectionHeaderView albumsHeader = new CollapsibleSectionHeaderView(context, "альбомы · 3", false);
-        container.addView(albumsHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 18, 10, 18, 8));
+        // ── БЛОК «альбомы» (Сворачиваемый) ────────────────────────────────────
+        libraryAlbumsHeader = new soundgram.ui.CollapsibleSectionHeaderView(context, "альбомы", false);
+        container.addView(libraryAlbumsHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 18, 10, 18, 8));
 
         FrameLayout albumsSectionContent = new FrameLayout(context);
 
-        // 1) Развёрнутый горизонтальный ряд обложек 128×128 (средняя смещена вниз на 20 px)
+        // 1) Развёрнутый горизонтальный ряд обложек
         final HorizontalScrollView albumsExpandedView = new HorizontalScrollView(context);
         albumsExpandedView.setHorizontalScrollBarEnabled(false);
         albumsExpandedView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
-        LinearLayout albumsRow = new LinearLayout(context);
+        albumsRow = new LinearLayout(context);
         albumsRow.setOrientation(LinearLayout.HORIZONTAL);
         albumsRow.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(4), AndroidUtilities.dp(18), AndroidUtilities.dp(8));
-
-        String[][] albumData = {
-                {"Опианариум", "автостопом по фазе сна", "0xFF3A3A3A", "0"},
-                {"Движение", "автостопом по фазе сна", "0xFF2A3A4A", "20"},
-                {"Ночь", "автостопом по фазе сна", "0xFF3A4A2A", "0"}
-        };
-
-        for (String[] alb : albumData) {
-            LinearLayout albCol = new LinearLayout(context);
-            albCol.setOrientation(LinearLayout.VERTICAL);
-
-            View albCover = new View(context);
-            int albColor = (int) Long.parseLong(alb[2].substring(2), 16);
-            albCover.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(albColor, 4, 4, 4, 40));
-            albCol.addView(albCover, LayoutHelper.createLinear(128, 128));
-
-            TextView albTitle = new TextView(context);
-            albTitle.setText(alb[0]);
-            albTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-            albTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            albTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-            albCol.addView(albTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 0));
-
-            TextView albArtist = new TextView(context);
-            albArtist.setText(alb[1]);
-            albArtist.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-            albArtist.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-            albArtist.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-            albArtist.setSingleLine(true);
-            albCol.addView(albArtist, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-
-            int topMargin = Integer.parseInt(alb[3]);
-            albumsRow.addView(albCol, LayoutHelper.createLinear(128, LayoutHelper.WRAP_CONTENT, 0, topMargin, 12, 0));
-        }
-
         albumsExpandedView.addView(albumsRow, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-        albumsSectionContent.addView(albumsExpandedView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // 2) Свёрнутая стопка из трёх обложек 44 px с перекрытием −14 px и текстом
+        emptyAlbumsSectionText = new TextView(context);
+        emptyAlbumsSectionText.setText("нет сохранённых альбомов");
+        emptyAlbumsSectionText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        emptyAlbumsSectionText.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+        emptyAlbumsSectionText.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        emptyAlbumsSectionText.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(12), AndroidUtilities.dp(18), AndroidUtilities.dp(12));
+        emptyAlbumsSectionText.setVisibility(View.GONE);
+
+        LinearLayout albumsExpandedWrapper = new LinearLayout(context);
+        albumsExpandedWrapper.setOrientation(LinearLayout.VERTICAL);
+        albumsExpandedWrapper.addView(albumsExpandedView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        albumsExpandedWrapper.addView(emptyAlbumsSectionText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        albumsSectionContent.addView(albumsExpandedWrapper, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        // 2) Свёрнутая стопка обложек
         final LinearLayout albumsCollapsedView = new LinearLayout(context);
         albumsCollapsedView.setOrientation(LinearLayout.HORIZONTAL);
         albumsCollapsedView.setGravity(Gravity.CENTER_VERTICAL);
         albumsCollapsedView.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(6), AndroidUtilities.dp(18), AndroidUtilities.dp(8));
         albumsCollapsedView.setVisibility(View.GONE);
 
-        FrameLayout stackFrame = new FrameLayout(context);
-        View s1 = new View(context);
-        s1.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF3A3A3A, 4, 4, 4, 14));
-        stackFrame.addView(s1, LayoutHelper.createFrame(44, 44, Gravity.LEFT | Gravity.CENTER_VERTICAL, 0, 0, 0, 0));
+        albumStackFrame = new FrameLayout(context);
+        albumsCollapsedView.addView(albumStackFrame, LayoutHelper.createLinear(104, 44));
 
-        View s2 = new View(context);
-        s2.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF2A3A4A, 4, 4, 4, 14));
-        stackFrame.addView(s2, LayoutHelper.createFrame(44, 44, Gravity.LEFT | Gravity.CENTER_VERTICAL, 30, 0, 0, 0));
-
-        View s3 = new View(context);
-        s3.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(0xFF3A4A2A, 4, 4, 4, 14));
-        stackFrame.addView(s3, LayoutHelper.createFrame(44, 44, Gravity.LEFT | Gravity.CENTER_VERTICAL, 60, 0, 0, 0));
-
-        albumsCollapsedView.addView(stackFrame, LayoutHelper.createLinear(104, 44));
-
-        TextView albCollLabel = new TextView(context);
-        albCollLabel.setText("Опианариум, Движение и\nещё 1");
+        albCollLabel = new TextView(context);
         albCollLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         albCollLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         albCollLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_2);
@@ -4221,56 +4515,17 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         albumsSectionContent.addView(albumsCollapsedView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         container.addView(albumsSectionContent, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // ── СТРОКА «треки · 13 935» / «показано N» ────────────────────────────────
-        LinearLayout tracksHeaderRow = new LinearLayout(context);
-        tracksHeaderRow.setOrientation(LinearLayout.HORIZONTAL);
-        tracksHeaderRow.setGravity(Gravity.CENTER_VERTICAL);
-        tracksHeaderRow.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(12), AndroidUtilities.dp(18), AndroidUtilities.dp(8));
-
-        TextView tracksLabel = new TextView(context);
-        tracksLabel.setText("треки · 13 935");
-        tracksLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        tracksLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        tracksLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        tracksLabel.setLetterSpacing(0.02f);
-        tracksHeaderRow.addView(tracksLabel, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
-
-        final TextView tracksShownCount = new TextView(context);
-        tracksShownCount.setText("показано 3");
-        tracksShownCount.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        tracksShownCount.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        tracksShownCount.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        tracksShownCount.setLetterSpacing(0.02f);
-        tracksHeaderRow.addView(tracksShownCount, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
-        container.addView(tracksHeaderRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-        // Динамическое обновление счётчика «показано N»
-        final Runnable updateCounts = () -> {
-            boolean plC = playlistsHeader.isCollapsed();
-            boolean alC = albumsHeader.isCollapsed();
-            int count = 3;
-            if (plC && alC) {
-                count = 9;
-            } else if (plC) {
-                count = 7;
-            } else if (alC) {
-                count = 5;
-            }
-            tracksShownCount.setText("показано " + count);
-        };
-
-        playlistsHeader.setOnToggleListener(isCollapsed -> {
+        libraryPlaylistsHeader.setOnToggleListener(isCollapsed -> {
             playlistsExpandedView.setVisibility(isCollapsed ? View.GONE : View.VISIBLE);
             playlistsCollapsedView.setVisibility(isCollapsed ? View.VISIBLE : View.GONE);
-            updateCounts.run();
         });
 
-        albumsHeader.setOnToggleListener(isCollapsed -> {
-            albumsExpandedView.setVisibility(isCollapsed ? View.GONE : View.VISIBLE);
-            albumsCollapsedView.setVisibility(isCollapsed ? View.GONE : View.VISIBLE);
-            updateCounts.run();
+        libraryAlbumsHeader.setOnToggleListener(isCollapsed -> {
+            albumsExpandedWrapper.setVisibility(isCollapsed ? View.GONE : View.VISIBLE);
+            albumsCollapsedView.setVisibility(isCollapsed ? View.VISIBLE : View.GONE);
         });
+
+        refreshLibrarySections();
 
         // Служебные элементы для совместимости со старыми вызовами
         playlistsListView = new RecyclerListView(context);
@@ -4313,6 +4568,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 PlaylistSyncManager.writePlaylistFile(file, data);
                 PlaylistSyncManager.syncPlaylistToChannel(currentAccount, getTargetChannelId(), file);
                 refreshPlaylistFiles();
+                refreshLibrarySections();
             }
         });
         builder.setNegativeButton(getString(R.string.cancel), null);
@@ -4774,6 +5030,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         private File playlistFile;
         private long channelId;
         private ArrayList<MessageObject> playlistMessages = new ArrayList<>();
+        private ArrayList<MessageObject> originalOrderMessages = new ArrayList<>();
+        private int activeSortMode = 0;
         private RecyclerListView listView;
         private PlaylistMusicAdapter adapter;
         private PlaylistUpdateListener listener;
@@ -4781,6 +5039,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         private String currentPlaylistName;
         private final int PICK_IMAGE_REQUEST = 101;
         private boolean hasPendingEdits = false;
+        private EditText titleEditView;
+        private TextView editBtnView;
 
         private boolean isForeign = false;
         private PlaylistSyncManager.PlaylistData foreignData;
@@ -4860,6 +5120,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
                     hasPendingEdits = true;
                     if (listener != null) listener.onPlaylistUpdated();
+                    refreshLibrarySections();
                     safeNotifyAdapter(adapter, listView);
                 } catch (Exception e) {}
             }
@@ -4881,6 +5142,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             ActionBarMenu menu = actionBar.createMenu();
             TextView editBtn = new TextView(context);
+            editBtnView = editBtn;
             editBtn.setText(isEditingMode ? "готово" : "изменить");
             editBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
             editBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
@@ -4894,14 +5156,24 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             editBtn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(6), AndroidUtilities.dp(14), AndroidUtilities.dp(6));
             editBtn.setOnClickListener(v -> {
                 applySpringClick(v);
-                isEditingMode = !isEditingMode;
-                editBtn.setText(isEditingMode ? "готово" : "изменить");
                 if (isEditingMode) {
-                    hasPendingEdits = true;
-                } else {
+                    if (titleEditView != null) {
+                        String newName = titleEditView.getText().toString().trim();
+                        if (!android.text.TextUtils.isEmpty(newName) && !newName.equals(currentPlaylistName)) {
+                            renamePlaylist(newName);
+                        }
+                    }
+                    isEditingMode = false;
+                    editBtn.setText("изменить");
                     savePlaylistOrder();
+                    safeNotifyAdapter(adapter, listView);
+                    refreshLibrarySections();
+                } else {
+                    isEditingMode = true;
+                    editBtn.setText("готово");
+                    hasPendingEdits = true;
+                    safeNotifyAdapter(adapter, listView);
                 }
-                safeNotifyAdapter(adapter, listView);
             });
             menu.addView(editBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
 
@@ -4960,6 +5232,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     if (fromPos < 0 || toPos < 0 || fromPos >= playlistMessages.size() || toPos >= playlistMessages.size()) return false;
 
                     java.util.Collections.swap(playlistMessages, fromPos, toPos);
+                    originalOrderMessages.clear();
+                    originalOrderMessages.addAll(playlistMessages);
+                    activeSortMode = 0;
                     adapter.notifyItemMoved(viewHolder.getAdapterPosition(), target.getAdapterPosition());
                     hasPendingEdits = true;
                     return true;
@@ -4980,10 +5255,71 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             return fragmentView;
         }
 
+        private void renamePlaylist(String newName) {
+            if (android.text.TextUtils.isEmpty(newName) || newName.equals(currentPlaylistName)) return;
+            if (playlistFile != null && playlistFile.exists()) {
+                File dir = playlistFile.getParentFile();
+                File newFile = new File(dir, newName + ".txt");
+                File oldCover = new File(dir, currentPlaylistName + "_cover.jpg");
+                File newCover = new File(dir, newName + "_cover.jpg");
+
+                if (oldCover.exists()) {
+                    oldCover.renameTo(newCover);
+                }
+
+                PlaylistSyncManager.PlaylistData data = PlaylistSyncManager.readPlaylistFile(playlistFile);
+                data.title = newName;
+
+                if (playlistFile.renameTo(newFile)) {
+                    playlistFile = newFile;
+                }
+                PlaylistSyncManager.writePlaylistFile(playlistFile, data);
+
+                for (int i = 0; i < playlistFiles.size(); i++) {
+                    if (playlistFiles.get(i).getName().equals(currentPlaylistName + ".txt")) {
+                        playlistFiles.set(i, playlistFile);
+                        break;
+                    }
+                }
+            } else if (isForeign && foreignData != null) {
+                foreignData.title = newName;
+            }
+            currentPlaylistName = newName;
+            playlistUniqueId = -(long) Math.abs(currentPlaylistName.hashCode());
+            hasPendingEdits = true;
+            if (listener != null) listener.onPlaylistUpdated();
+            refreshLibrarySections();
+        }
+
+        private void applyActiveSort() {
+            if (activeSortMode == 0) {
+                playlistMessages.clear();
+                playlistMessages.addAll(originalOrderMessages);
+            } else if (activeSortMode == 1) {
+                java.util.Collections.sort(playlistMessages, (a, b) -> {
+                    int dateA = (a != null && a.messageOwner != null) ? a.messageOwner.date : (a != null ? a.getId() : 0);
+                    int dateB = (b != null && b.messageOwner != null) ? b.messageOwner.date : (b != null ? b.getId() : 0);
+                    return Integer.compare(dateB, dateA);
+                });
+            } else if (activeSortMode == 2) {
+                java.util.Collections.sort(playlistMessages, (a, b) -> {
+                    String titleA = a != null && a.getMusicTitle() != null ? a.getMusicTitle() : "";
+                    String titleB = b != null && b.getMusicTitle() != null ? b.getMusicTitle() : "";
+                    int cmp = titleA.compareToIgnoreCase(titleB);
+                    if (cmp != 0) return cmp;
+                    String authA = a != null && a.getMusicAuthor() != null ? a.getMusicAuthor() : "";
+                    String authB = b != null && b.getMusicAuthor() != null ? b.getMusicAuthor() : "";
+                    return authA.compareToIgnoreCase(authB);
+                });
+            }
+        }
+
         @Override
         public void didReceivedNotification(int id, int account, Object... args) {
             if (id == NotificationCenter.messagePlayingDidStart || id == NotificationCenter.messagePlayingPlayStateChanged || id == NotificationCenter.messagePlayingDidReset) {
                 safeNotifyAdapter(adapter, listView);
+            } else if (id == NotificationCenter.didReceiveNewMessages) {
+                loadPlaylistData();
             }
         }
 
@@ -5016,15 +5352,30 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             if (seenKeys.contains(dedupeKey)) continue;
                             seenKeys.add(dedupeKey);
 
-                            for (MessageObject msg : audioMessages) {
-                                if (msg.getId() == id) {
-                                    playlistMessages.add(msg);
+                            MessageObject found = null;
+                            for (MessageObject msg : ChannelMusicFragment.getAudioMessages(currentAccount)) {
+                                if (msg != null && msg.getId() == id) {
+                                    found = msg;
                                     break;
                                 }
+                            }
+                            if (found == null && audioMessages != null) {
+                                for (MessageObject msg : audioMessages) {
+                                    if (msg != null && msg.getId() == id) {
+                                        found = msg;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (found != null) {
+                                playlistMessages.add(found);
                             }
                         } catch (Exception ignored) {}
                     }
                 }
+                originalOrderMessages.clear();
+                originalOrderMessages.addAll(playlistMessages);
+                applyActiveSort();
                 safeNotifyAdapter(adapter, listView);
                 if (listener != null) listener.onPlaylistUpdated();
                 return;
@@ -5058,37 +5409,31 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                             if (seenKeys.contains(dedupeKey)) continue;
                             seenKeys.add(dedupeKey);
 
+                            MessageObject found = null;
                             for (MessageObject msg : ChannelMusicFragment.getAudioMessages(currentAccount)) {
-                                if (msg.getId() == id) {
-                                    playlistMessages.add(msg);
+                                if (msg != null && msg.getId() == id) {
+                                    found = msg;
                                     break;
                                 }
+                            }
+                            if (found == null && audioMessages != null) {
+                                for (MessageObject msg : audioMessages) {
+                                    if (msg != null && msg.getId() == id) {
+                                        found = msg;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (found != null) {
+                                playlistMessages.add(found);
                             }
                         } catch (Exception ignored) {}
                     }
                 }
             }
-            if (playlistMessages.isEmpty()) {
-                if (audioMessages != null && !audioMessages.isEmpty()) {
-                    playlistMessages.addAll(audioMessages);
-                } else {
-                    String[][] samples = {
-                            {"Голоса", "Кишлак", "128"},
-                            {"Скучно", "Кишлак", "162"},
-                            {"Destination", "VOJ, TRVNSPORTER", "144"},
-                            {"Serenity", "WhyLonely", "324"},
-                            {"Wasted (Nightcore Remix)", "Juice WRLD, Lil Uzi Vert", "258"},
-                            {"Аф", "Автостопом по фазе сна", "161"},
-                            {"Till the end (Hardstyle)", "без исполнителя", "306"},
-                            {"I Really Want to Stay at Your H...", "Cyberpunk: Edgerunners", "248"}
-                    };
-                    for (int i = 0; i < samples.length; i++) {
-                        playlistMessages.add(createWebMessageObject(
-                                currentAccount, samples[i][0], samples[i][1], "sample://" + i,
-                                Integer.parseInt(samples[i][2]), 1000 + i, ""));
-                    }
-                }
-            }
+            originalOrderMessages.clear();
+            originalOrderMessages.addAll(playlistMessages);
+            applyActiveSort();
             safeNotifyAdapter(adapter, listView);
             if (listener != null) listener.onPlaylistUpdated();
         }
@@ -5294,6 +5639,32 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     BackupImageView centerCover = new BackupImageView(mContext);
                     centerCover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(56));
                     artWrapper.addView(centerCover, LayoutHelper.createFrame(140, 140));
+
+                    FrameLayout editBadgeContainer = new FrameLayout(mContext);
+                    TextView changeCoverBadge = new TextView(mContext);
+                    changeCoverBadge.setText("изменить");
+                    changeCoverBadge.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+                    changeCoverBadge.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                    changeCoverBadge.setTextColor(0xFFFFFFFF);
+                    changeCoverBadge.setGravity(Gravity.CENTER);
+                    GradientDrawable badgeBg = new GradientDrawable();
+                    badgeBg.setColor(0xB3000000);
+                    badgeBg.setCornerRadius(AndroidUtilities.dp(8));
+                    changeCoverBadge.setBackground(badgeBg);
+                    changeCoverBadge.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(4), AndroidUtilities.dp(10), AndroidUtilities.dp(4));
+                    editBadgeContainer.addView(changeCoverBadge, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+                    editBadgeContainer.setVisibility(isEditingMode ? View.VISIBLE : View.GONE);
+                    artWrapper.addView(editBadgeContainer, LayoutHelper.createFrame(140, 140));
+
+                    artWrapper.setOnClickListener(v -> {
+                        if (isEditingMode) {
+                            try {
+                                Intent intent = new Intent(Intent.ACTION_PICK);
+                                intent.setType("image/*");
+                                startActivityForResult(intent, PICK_IMAGE_REQUEST);
+                            } catch (Exception e) {}
+                        }
+                    });
                     topRow.addView(artWrapper, LayoutHelper.createLinear(140, 140));
 
                     LinearLayout metaCol = new LinearLayout(mContext);
@@ -5301,7 +5672,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     metaCol.setPadding(AndroidUtilities.dp(16), 0, 0, 0);
 
                     TextView categoryTv = new TextView(mContext);
-                    categoryTv.setText("плейлист · общий");
+                    categoryTv.setText("плейлист");
                     categoryTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
                     categoryTv.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
                     categoryTv.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
@@ -5313,7 +5684,20 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     titleTv.setTypeface(AndroidUtilities.getTypeface("fonts/roundedmplus1c_bold.ttf") != null ? AndroidUtilities.getTypeface("fonts/roundedmplus1c_bold.ttf") : AndroidUtilities.bold());
                     titleTv.setSingleLine(true);
                     titleTv.setEllipsize(TextUtils.TruncateAt.END);
+                    titleTv.setVisibility(isEditingMode ? View.GONE : View.VISIBLE);
                     metaCol.addView(titleTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
+
+                    EditText titleEdit = new EditText(mContext);
+                    titleEdit.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+                    titleEdit.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                    titleEdit.setTypeface(AndroidUtilities.getTypeface("fonts/roundedmplus1c_bold.ttf") != null ? AndroidUtilities.getTypeface("fonts/roundedmplus1c_bold.ttf") : AndroidUtilities.bold());
+                    titleEdit.setSingleLine(true);
+                    titleEdit.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+                    titleEdit.setBackground(null);
+                    titleEdit.setPadding(0, 0, 0, 0);
+                    titleEdit.setVisibility(isEditingMode ? View.VISIBLE : View.GONE);
+                    metaCol.addView(titleEdit, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
+                    titleEditView = titleEdit;
 
                     TextView metaTv = new TextView(mContext);
                     metaTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
@@ -5408,63 +5792,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                                     @Override public void onError() {
                                         Toast.makeText(mContext, getString(R.string.sg_wave_error), Toast.LENGTH_SHORT).show();
                                     }
-                                });
+                                    });
                     });
                     btnsRow.addView(waveButton, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 52));
                     headerRoot.addView(btnsRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
-
-                    // Sources header row: «состав по источникам» (left) + avatars & «пригласить» (right)
-                    LinearLayout srcRow = new LinearLayout(mContext);
-                    srcRow.setOrientation(LinearLayout.HORIZONTAL);
-                    srcRow.setGravity(Gravity.CENTER_VERTICAL);
-
-                    TextView srcTitle = new TextView(mContext);
-                    srcTitle.setText("состав по источникам");
-                    srcTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-                    srcTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-                    srcTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-                    srcRow.addView(srcTitle, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
-
-                    // Avatar stack (A, M, K)
-                    LinearLayout avatarStack = new LinearLayout(mContext);
-                    avatarStack.setOrientation(LinearLayout.HORIZONTAL);
-                    String[] avLetters = {"A", "M", "K"};
-                    int[] avColors = {SoundGramDesignTokens.COLOR_ACCENT, 0xFF8A8A8A, 0xFF4A4A4A};
-                    int[] avTxt = {0xFF111111, 0xFFFFFFFF, 0xFFFFFFFF};
-                    for (int a = 0; a < 3; a++) {
-                        TextView av = new TextView(mContext);
-                        av.setText(avLetters[a]);
-                        av.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
-                        av.setTypeface(AndroidUtilities.bold());
-                        av.setTextColor(avTxt[a]);
-                        av.setGravity(Gravity.CENTER);
-                        GradientDrawable avBg = new GradientDrawable();
-                        avBg.setShape(GradientDrawable.OVAL);
-                        avBg.setColor(avColors[a]);
-                        av.setBackground(avBg);
-                        avatarStack.addView(av, LayoutHelper.createLinear(20, 20, 0, 0, a < 2 ? -4 : 8, 0));
-                    }
-                    srcRow.addView(avatarStack, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
-                    TextView inviteBtn = new TextView(mContext);
-                    inviteBtn.setText("пригласить");
-                    inviteBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-                    inviteBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-                    inviteBtn.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-                    inviteBtn.setGravity(Gravity.CENTER);
-                    inviteBtn.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(4), AndroidUtilities.dp(10), AndroidUtilities.dp(4));
-                    GradientDrawable invBg = new GradientDrawable();
-                    invBg.setColor(SoundGramDesignTokens.COLOR_SURFACE_1);
-                    invBg.setStroke(AndroidUtilities.dp(1), SoundGramDesignTokens.COLOR_LINE_STRONG);
-                    invBg.setCornerRadius(AndroidUtilities.dp(999));
-                    inviteBtn.setBackground(invBg);
-                    srcRow.addView(inviteBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
-                    headerRoot.addView(srcRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
-
-                    // Composition bar (8dp height)
-                    soundgram.ui.PlaylistCompositionBarView compBar = new soundgram.ui.PlaylistCompositionBarView(mContext);
-                    headerRoot.addView(compBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
 
                     // Thin divider
                     View div = new View(mContext);
@@ -5476,20 +5807,23 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     chipsRow.setOrientation(LinearLayout.HORIZONTAL);
                     chipsRow.setGravity(Gravity.CENTER_VERTICAL);
 
+                    TextView[] chips = new TextView[3];
                     String[] chipNames = {"мой порядок", "недавние", "а—я"};
                     for (int c = 0; c < 3; c++) {
+                        final int mode = c;
                         TextView chip = new TextView(mContext);
+                        chips[c] = chip;
                         chip.setText(chipNames[c]);
                         chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
                         chip.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
                         chip.setGravity(Gravity.CENTER);
                         chip.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(6), AndroidUtilities.dp(12), AndroidUtilities.dp(6));
-                        GradientDrawable cBg = new GradientDrawable();
-                        cBg.setColor(c == 0 ? SoundGramDesignTokens.COLOR_SURFACE_1 : Color.TRANSPARENT);
-                        cBg.setStroke(AndroidUtilities.dp(1), c == 0 ? SoundGramDesignTokens.COLOR_LINE_STRONG : SoundGramDesignTokens.COLOR_LINE);
-                        cBg.setCornerRadius(AndroidUtilities.dp(8));
-                        chip.setBackground(cBg);
-                        chip.setTextColor(c == 0 ? SoundGramDesignTokens.COLOR_TEXT : SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                        chip.setOnClickListener(v -> {
+                            applySpringClick(chip);
+                            activeSortMode = mode;
+                            applyActiveSort();
+                            safeNotifyAdapter(PlaylistMusicAdapter.this, listView);
+                        });
                         chipsRow.addView(chip, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 8, 0));
                     }
                     headerRoot.addView(chipsRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
@@ -5503,7 +5837,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     editHint.setTag("edit_hint");
                     headerRoot.addView(editHint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
 
-                    headerRoot.setTag(new Object[]{centerCover, titleTv, metaTv, compBar, editHint});
+                    headerRoot.setTag(new Object[]{centerCover, titleTv, titleEdit, metaTv, editBadgeContainer, editHint, chips});
 
                     return new RecyclerListView.Holder(headerRoot);
                 }
@@ -5519,36 +5853,45 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 if (holder.getItemViewType() == 0) {
                     LinearLayout headerRoot = (LinearLayout) holder.itemView;
                     Object[] views = (Object[]) headerRoot.getTag();
-                    if (views != null && views.length >= 5) {
+                    if (views != null && views.length >= 7) {
                         BackupImageView centerCover = (BackupImageView) views[0];
                         TextView titleTv = (TextView) views[1];
-                        TextView metaTv = (TextView) views[2];
-                        soundgram.ui.PlaylistCompositionBarView compBar = (soundgram.ui.PlaylistCompositionBarView) views[3];
-                        TextView editHint = (TextView) views[4];
+                        EditText titleEdit = (EditText) views[2];
+                        TextView metaTv = (TextView) views[3];
+                        View editBadgeContainer = (View) views[4];
+                        TextView editHint = (TextView) views[5];
+                        TextView[] chips = (TextView[]) views[6];
 
-                        titleTv.setText(currentPlaylistName);
-                        editHint.setVisibility(isEditingMode ? View.VISIBLE : View.GONE);
+                        if (isEditingMode) {
+                            titleTv.setVisibility(View.GONE);
+                            titleEdit.setVisibility(View.VISIBLE);
+                            titleEdit.setText(currentPlaylistName);
+                            if (titleEdit.getText() != null) {
+                                titleEdit.setSelection(titleEdit.getText().length());
+                            }
+                            editBadgeContainer.setVisibility(View.VISIBLE);
+                            editHint.setVisibility(View.VISIBLE);
+                        } else {
+                            titleTv.setVisibility(View.VISIBLE);
+                            titleEdit.setVisibility(View.GONE);
+                            titleTv.setText(currentPlaylistName);
+                            editBadgeContainer.setVisibility(View.GONE);
+                            editHint.setVisibility(View.GONE);
+                        }
 
                         int totalSecs = 0;
                         for (MessageObject m : playlistMessages) totalSecs += m.getDuration();
                         metaTv.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(playlistMessages.size())
                                 + " · " + soundgram.ui.SoundGramDesignTokens.formatDuration(totalSecs));
 
-                        int libC = 0, chatsC = 0, chC = 0;
-                        for (MessageObject m : playlistMessages) {
-                            if (m.getDialogId() == getTargetChannelId()) {
-                                libC++;
-                            } else if (m.getDialogId() < 0) {
-                                chC++;
-                            } else {
-                                chatsC++;
-                            }
-                        }
-                        if (libC == 0 && chatsC == 0 && chC == 0) {
-                            libC = 32; chatsC = 14; chC = 10;
-                        }
-                        if (compBar != null) {
-                            compBar.setCounts(libC, chatsC, chC);
+                        for (int c = 0; c < 3; c++) {
+                            boolean active = (c == activeSortMode);
+                            GradientDrawable cBg = new GradientDrawable();
+                            cBg.setColor(active ? SoundGramDesignTokens.COLOR_SURFACE_1 : Color.TRANSPARENT);
+                            cBg.setStroke(AndroidUtilities.dp(1), active ? SoundGramDesignTokens.COLOR_LINE_STRONG : SoundGramDesignTokens.COLOR_LINE);
+                            cBg.setCornerRadius(AndroidUtilities.dp(8));
+                            chips[c].setBackground(cBg);
+                            chips[c].setTextColor(active ? SoundGramDesignTokens.COLOR_TEXT : SoundGramDesignTokens.COLOR_TEXT_MUTED);
                         }
 
                         MessageObject coverMsg = null;
@@ -5966,33 +6309,57 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private class MusicAdapter extends RecyclerListView.SelectionAdapter {
         private Context mContext;
         private ArrayList<MessageObject> customList;
-        private static final int TYPE_WEB_TRACK = 0;
-        private static final int TYPE_LOCAL_TRACK = 1;
+        public static final int TYPE_WEB_TRACK = 0;
+        public static final int TYPE_LOCAL_TRACK = 1;
+        public static final int TYPE_PHANTOM = 2;
+        public static final int TYPE_HEADER = 3;
 
         public MusicAdapter(Context context, ArrayList<MessageObject> list) {
             mContext = context;
             this.customList = list;
         }
 
+        public boolean hasHeader() {
+            return customList == null && !isSearching;
+        }
+
         @Override public boolean isEnabled(RecyclerView.ViewHolder holder) {
-            return holder.getItemViewType() != 2;
+            return holder.getItemViewType() != TYPE_PHANTOM && holder.getItemViewType() != TYPE_HEADER;
         }
 
         @Override public int getItemCount() {
+            int headerOffset = hasHeader() ? 1 : 0;
             int baseSize = customList != null ? customList.size() : (isSearching ? webResultTracks.size() + searchResultMessages.size() : audioMessages.size());
-            return baseSize + 1;
+            return headerOffset + baseSize + 1;
         }
 
         @Override public int getItemViewType(int position) {
+            if (hasHeader()) {
+                if (position == 0) return TYPE_HEADER;
+                position--;
+            }
             int normalSize = customList != null ? customList.size() : (isSearching ? webResultTracks.size() + searchResultMessages.size() : audioMessages.size());
-            if (position == normalSize) return 2;
+            if (position == normalSize) return TYPE_PHANTOM;
 
             if (customList != null) return TYPE_LOCAL_TRACK;
             return (isSearching && position < webResultTracks.size()) ? TYPE_WEB_TRACK : TYPE_LOCAL_TRACK;
         }
 
         @Override public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            if (viewType == 2) {
+            if (viewType == TYPE_HEADER) {
+                FrameLayout headerWrapper = new FrameLayout(mContext);
+                headerWrapper.setLayoutParams(new RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+                if (libraryListHeader != null) {
+                    if (libraryListHeader.getParent() instanceof ViewGroup) {
+                        ((ViewGroup) libraryListHeader.getParent()).removeView(libraryListHeader);
+                    }
+                    headerWrapper.addView(libraryListHeader, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+                }
+                return new RecyclerListView.Holder(headerWrapper);
+            }
+            if (viewType == TYPE_PHANTOM) {
                 View phantom = new View(mContext);
                 phantom.setLayoutParams(new RecyclerView.LayoutParams(LayoutHelper.MATCH_PARENT, AndroidUtilities.dp(70)));
                 return new RecyclerListView.Holder(phantom);
@@ -6001,12 +6368,30 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         @Override public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-            if (getItemViewType(position) == 2) return;
+            int viewType = getItemViewType(position);
+            if (viewType == TYPE_HEADER) {
+                if (holder.itemView instanceof FrameLayout) {
+                    FrameLayout hh = (FrameLayout) holder.itemView;
+                    if (libraryListHeader != null && libraryListHeader.getParent() != hh) {
+                        if (libraryListHeader.getParent() instanceof ViewGroup) {
+                            ((ViewGroup) libraryListHeader.getParent()).removeView(libraryListHeader);
+                        }
+                        hh.removeAllViews();
+                        hh.addView(libraryListHeader, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+                    }
+                }
+                return;
+            }
+            if (viewType == TYPE_PHANTOM) return;
+
+            if (hasHeader()) {
+                position--;
+            }
 
             SpotifyTrackCell myCell = (SpotifyTrackCell) holder.itemView;
 
-            if (getItemViewType(position) == TYPE_WEB_TRACK) {
-                myCell.optionsButton.setVisibility(View.VISIBLE); // Теперь кнопка видна
+            if (viewType == TYPE_WEB_TRACK) {
+                myCell.optionsButton.setVisibility(View.VISIBLE);
                 MusicWebSearcher.WebTrack track = webResultTracks.get(position);
                 int durSec = parseDuration(track.duration);
                 MessageObject fakeObj = createWebMessageObject(currentAccount, track.title, track.artist, track.downloadUrl, durSec, -(long)track.downloadUrl.hashCode(), track.coverUrl);
@@ -6019,12 +6404,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 myCell.optionsButton.setVisibility(View.VISIBLE);
                 int idx = (isSearching && customList == null) ? position - webResultTracks.size() : position;
                 ArrayList<MessageObject> list = customList != null ? customList : (isSearching ? searchResultMessages : audioMessages);
-                MessageObject msg = list.get(idx);
-                myCell.setMessageObject(msg);
+                if (idx >= 0 && idx < list.size()) {
+                    MessageObject msg = list.get(idx);
+                    myCell.setMessageObject(msg);
 
-                myCell.optionsButton.setOnClickListener(v -> {
-                    showTrackOptionsBottomSheet(ChannelMusicFragment.this, msg, false, () -> deleteTrackFromChannel(msg));
-                });
+                    myCell.optionsButton.setOnClickListener(v -> {
+                        showTrackOptionsBottomSheet(ChannelMusicFragment.this, msg, false, () -> deleteTrackFromChannel(msg));
+                    });
+                }
             }
         }
     }

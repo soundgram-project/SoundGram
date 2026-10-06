@@ -66,6 +66,32 @@ public class CollapsibleSectionHeaderView extends LinearLayout {
         });
     }
 
+    private TextView actionButton;
+
+    public void setActionButton(String text, Runnable onAction) {
+        if (actionButton == null) {
+            actionButton = new TextView(getContext());
+            actionButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+            actionButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+            actionButton.setTextColor(SoundGramDesignTokens.COLOR_ON_ACCENT);
+            actionButton.setGravity(Gravity.CENTER);
+            actionButton.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(3), AndroidUtilities.dp(8), AndroidUtilities.dp(3));
+            android.graphics.drawable.GradientDrawable actBg = new android.graphics.drawable.GradientDrawable();
+            actBg.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+            actBg.setCornerRadius(AndroidUtilities.dp(6));
+            actionButton.setBackground(actBg);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            lp.rightMargin = AndroidUtilities.dp(10);
+            addView(actionButton, 1, lp);
+        }
+        actionButton.setText(text);
+        actionButton.setOnClickListener(v -> {
+            if (onAction != null) {
+                onAction.run();
+            }
+        });
+    }
+
     public void setTitle(String text) {
         titleTextView.setText(text);
     }

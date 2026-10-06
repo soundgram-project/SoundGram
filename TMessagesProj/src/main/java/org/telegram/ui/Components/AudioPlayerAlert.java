@@ -1348,10 +1348,24 @@ public class AudioPlayerAlert extends BottomSheet
                         18, topBarTopMargin, 18, 0));
 
         // ── Обложка ───────────────────────────────────────────────────────────
-        // Обложка — пропорция 1 : 0.92, радиус 4 4 4 56 (BL=56dp)
         int screenWidthDp = (int) (AndroidUtilities.displaySize.x / AndroidUtilities.density);
-        int coverWidthDp = Math.min(screenWidthDp - 36, 360);
+        int screenHeightDp = (int) (AndroidUtilities.displaySize.y / AndroidUtilities.density);
+
+        // Отступы снизу (строго по дизайн-системе SoundGram)
+        int baseBottom = (navBarPad > 0 ? (int) (navBarPad / AndroidUtilities.density) : 0) + 10;
+        int nextTrackBarMargin = baseBottom;
+        int mediaButtonsBottomMargin = nextTrackBarMargin + 42 + 10;
+        int seekBottomMargin = mediaButtonsBottomMargin + 76 + 10;
+        int textBottomMargin = seekBottomMargin + 48 + 10;
+
+        int totalControlsTop = textBottomMargin + 64;
+        int topBarHeightArea = topBarTopMargin + 44 + 8;
+        int availableForCover = Math.max(160, screenHeightDp - topBarHeightArea - totalControlsTop);
+        int coverWidthDp = Math.min(screenWidthDp - 36, (int) (availableForCover / 0.92f));
+        coverWidthDp = Math.min(coverWidthDp, 340);
         int coverHeightDp = (int) (coverWidthDp * 0.92f);
+        int coverTopMargin = topBarHeightArea + Math.max(4, (availableForCover - coverHeightDp) / 2);
+
         FrameLayout coverFrame = new FrameLayout(context);
         coverFrame.addView(coverContainer, LayoutHelper.createFrame(coverWidthDp, coverHeightDp, Gravity.CENTER));
 
@@ -1424,17 +1438,10 @@ public class AudioPlayerAlert extends BottomSheet
         lyricsChip.setOnClickListener(v -> toggleLyrics());
         coverFrame.addView(lyricsChip, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 32, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 10, 10));
 
-        // coverFrame — под topBar
+        // coverFrame — под topBar с центрированием в доступном пространстве
         playerUiContainer.addView(coverFrame, LayoutHelper.createFrame(
                 coverWidthDp, coverHeightDp,
-                Gravity.TOP | Gravity.CENTER_HORIZONTAL, 18, topBarTopMargin + 44 + 8, 18, 0));
-
-        // Отступы снизу (строго по дизайн-системе SoundGram)
-        int baseBottom = (navBarPad > 0 ? (int) (navBarPad / AndroidUtilities.density) : 0) + 16;
-        int nextTrackBarMargin = baseBottom;
-        int mediaButtonsBottomMargin = nextTrackBarMargin + 42 + 16;
-        int seekBottomMargin = mediaButtonsBottomMargin + 80 + 16;
-        int textBottomMargin = seekBottomMargin + 52 + 14;
+                Gravity.TOP | Gravity.CENTER_HORIZONTAL, 18, coverTopMargin, 18, 0));
 
         // --- СОЗДАНИЕ КОНТЕЙНЕРА С ТЕКСТАМИ ---
         lyricsContainer = new FrameLayout(context);
@@ -1479,7 +1486,7 @@ public class AudioPlayerAlert extends BottomSheet
             protected TextView createTextView() {
                 final TextView textView = new MarqueeTextView(context);
                 textView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 48);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 32);
                 // Unbounded/Geologica для заголовка трека
                 android.graphics.Typeface titleFace = AndroidUtilities.getTypeface("fonts/roundedmplus1c_bold.ttf");
                 if (titleFace == null) titleFace = AndroidUtilities.bold();
@@ -2410,7 +2417,7 @@ public class AudioPlayerAlert extends BottomSheet
                 }
             }
         };
-        int bottomMargin = -300; // Растягиваем фон плеера вниз за границу экрана
+        int bottomMargin = 0;
         containerView.addView(playerLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT,
                 LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, 0, 0, 0, bottomMargin));
         actionBarShadow.setVisibility(View.GONE); // скрываем — список треков убран
