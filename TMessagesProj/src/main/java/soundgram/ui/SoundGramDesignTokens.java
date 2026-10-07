@@ -18,6 +18,7 @@ public class SoundGramDesignTokens {
     public static final int COLOR_LINE_STRONG  = 0xFF3A3A3A; // Рамки чипов, дальние строки
     public static final int COLOR_TEXT         = 0xFFEEEEEE; // Основной текст
     public static final int COLOR_TEXT_2       = 0xFFBDBDBD; // Вторичный
+    public static final int COLOR_TEXT_SECONDARY = COLOR_TEXT_2;
     public static final int COLOR_TEXT_MUTED   = 0xFF8A8A8A; // Моно-подписи
     public static final int COLOR_TEXT_DIM     = 0xFF5C5C5C; // Неактивные строки
     public static final int COLOR_ACCENT       = 0xFFC8F169; // Единственный акцент

@@ -57,6 +57,8 @@ public class SoundGramEQAlert extends BottomSheet {
     private TextView virtValText;
     private SeekBar speedSeekBar;
     private TextView speedValText;
+    private SeekBar pitchSeekBar;
+    private TextView pitchValText;
     private TextView chipSlowed;
     private TextView chipNightcore;
 
@@ -148,13 +150,27 @@ public class SoundGramEQAlert extends BottomSheet {
         contentCol.addView(eqCurveView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 185, 0, 0, 0, 16));
 
         // 4. Presets section
+        LinearLayout presetsHeaderRow = new LinearLayout(context);
+        presetsHeaderRow.setOrientation(LinearLayout.HORIZONTAL);
+        presetsHeaderRow.setGravity(Gravity.CENTER_VERTICAL);
+
         TextView presetsHeader = new TextView(context);
         presetsHeader.setText("пресеты");
         presetsHeader.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         presetsHeader.setTypeface(getMonoTypeface());
         presetsHeader.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
         presetsHeader.setLetterSpacing(0.02f);
-        contentCol.addView(presetsHeader, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+        presetsHeaderRow.addView(presetsHeader, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+        TextView savePresetBtn = new TextView(context);
+        savePresetBtn.setText("+ сохранить");
+        savePresetBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        savePresetBtn.setTypeface(getMonoTypeface());
+        savePresetBtn.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+        savePresetBtn.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(4), AndroidUtilities.dp(8), AndroidUtilities.dp(4));
+        savePresetBtn.setOnClickListener(v -> showSavePresetDialog());
+        presetsHeaderRow.addView(savePresetBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        contentCol.addView(presetsHeaderRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
 
         HorizontalScrollView presetsScroll = new HorizontalScrollView(context);
         presetsScroll.setHorizontalScrollBarEnabled(false);
@@ -287,6 +303,60 @@ public class SoundGramEQAlert extends BottomSheet {
         });
         contentCol.addView(speedSeekBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
 
+        // Pitch slider: «тон» (left) · «1,00×» (right accent)
+        LinearLayout pitchHeaderRow = new LinearLayout(context);
+        pitchHeaderRow.setOrientation(LinearLayout.HORIZONTAL);
+        pitchHeaderRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView pitchLabel = new TextView(context);
+        pitchLabel.setText("тон");
+        pitchLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        pitchLabel.setTypeface(getMonoTypeface());
+        pitchLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        pitchLabel.setLetterSpacing(0.02f);
+        pitchHeaderRow.addView(pitchLabel, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
+
+        pitchValText = new TextView(context);
+        float currentPitch = SoundGramAudioFX.getCurrentPitch();
+        pitchValText.setText(formatSpeed(currentPitch));
+        pitchValText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        pitchValText.setTypeface(getMonoTypeface());
+        pitchValText.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+        pitchHeaderRow.addView(pitchValText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        contentCol.addView(pitchHeaderRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
+
+        pitchSeekBar = new SeekBar(context);
+        pitchSeekBar.setMax(100); // 0.50x to 1.50x
+        int initialPitchProgress = (int) Math.max(0, Math.min(100, (currentPitch - 0.5f) * 100f));
+        pitchSeekBar.setProgress(initialPitchProgress);
+        pitchSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_LINE_STRONG));
+        pitchSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_LINE));
+        if (Build.VERSION.SDK_INT >= 21) {
+            pitchSeekBar.setBackground(null);
+            android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
+            thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            thumb.setColor(SoundGramDesignTokens.COLOR_TEXT_DIM);
+            thumb.setSize(AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+            pitchSeekBar.setThumb(thumb);
+            pitchSeekBar.setThumbOffset(AndroidUtilities.dp(8));
+        }
+        pitchSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int p, boolean fromUser) {
+                if (fromUser) {
+                    float ptc = 0.50f + (p / 100f);
+                    SoundGramAudioFX.setCurrentPitch(ptc);
+                    pitchValText.setText(formatSpeed(ptc));
+                    try {
+                        MediaController.getInstance().applyMusicPlaybackParams(SoundGramAudioFX.getCurrentSpeed(), ptc);
+                    } catch (Exception ignored) {}
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+        contentCol.addView(pitchSeekBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
+
         // 7. Quick rule chips: «slowed + reverb» · «nightcore»
         LinearLayout chipsRow = new LinearLayout(context);
         chipsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -345,6 +415,10 @@ public class SoundGramEQAlert extends BottomSheet {
         speedValText.setText(formatSpeed(spd));
         speedSeekBar.setProgress((int) Math.max(0, Math.min(100, (spd - 0.5f) * 100f)));
 
+        float ptc = SoundGramAudioFX.getCurrentPitch();
+        if (pitchValText != null) pitchValText.setText(formatSpeed(ptc));
+        if (pitchSeekBar != null) pitchSeekBar.setProgress((int) Math.max(0, Math.min(100, (ptc - 0.5f) * 100f)));
+
         bassKnob.setProgress(SoundGramAudioFX.getBassLevel() / 1000f);
         bassValText.setText(Math.round(bassKnob.getProgress() * 100) + "%");
 
@@ -399,6 +473,7 @@ public class SoundGramEQAlert extends BottomSheet {
         ArrayList<SoundGramAudioFX.CustomPreset> custom = SoundGramAudioFX.getCustomPresets();
         for (int i = 0; i < custom.size(); i++) {
             final int customIdx = 100 + i;
+            final int customListIdx = i;
             final SoundGramAudioFX.CustomPreset cp = custom.get(i);
             float[] curve = new float[5];
             for (int k = 0; k < 5 && k < cp.levels.length; k++) {
@@ -407,11 +482,57 @@ public class SoundGramEQAlert extends BottomSheet {
             PresetCardView card = new PresetCardView(ctx, cp.name, curve, customIdx == activePresetIndex);
             card.setOnClickListener(v -> {
                 activePresetIndex = customIdx;
+                SoundGramAudioFX.applyCustomPreset(cp, customListIdx);
                 applyPresetCurve(curve);
                 refreshPresetsActiveState(customIdx);
+                updateUIFromState();
+            });
+            card.setOnLongClickListener(v -> {
+                showDeleteCustomPresetDialog(customListIdx, cp.name);
+                return true;
             });
             presetsContainer.addView(card, LayoutHelper.createLinear(76, 58, 0, 0, 8, 0));
         }
+    }
+
+    private void showSavePresetDialog() {
+        Context context = getContext();
+        if (context == null) return;
+        org.telegram.ui.ActionBar.AlertDialog.Builder builder = new org.telegram.ui.ActionBar.AlertDialog.Builder(context);
+        builder.setTitle("Сохранить пресет");
+        final android.widget.EditText editText = new android.widget.EditText(context);
+        editText.setHint("Название пресета");
+        editText.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+        editText.setHintTextColor(SoundGramDesignTokens.COLOR_TEXT_DIM);
+        editText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        editText.setSingleLine(true);
+        FrameLayout frameLayout = new FrameLayout(context);
+        frameLayout.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(8), AndroidUtilities.dp(24), 0);
+        frameLayout.addView(editText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        builder.setView(frameLayout);
+        builder.setPositiveButton("Сохранить", (dialog, which) -> {
+            String name = editText.getText().toString().trim();
+            if (!name.isEmpty()) {
+                SoundGramAudioFX.saveCustomPreset(name);
+                buildPresetsList();
+            }
+        });
+        builder.setNegativeButton("Отмена", null);
+        builder.show();
+    }
+
+    private void showDeleteCustomPresetDialog(int index, String name) {
+        Context context = getContext();
+        if (context == null) return;
+        org.telegram.ui.ActionBar.AlertDialog.Builder builder = new org.telegram.ui.ActionBar.AlertDialog.Builder(context);
+        builder.setTitle("Удалить пресет");
+        builder.setMessage("Удалить пресет «" + name + "»?");
+        builder.setPositiveButton("Удалить", (dialog, which) -> {
+            SoundGramAudioFX.deleteCustomPreset(index);
+            buildPresetsList();
+        });
+        builder.setNegativeButton("Отмена", null);
+        builder.show();
     }
 
     private void refreshPresetsActiveState(int selectedIndex) {

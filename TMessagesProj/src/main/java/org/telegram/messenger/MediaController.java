@@ -3132,6 +3132,43 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         return nextNum >= 0 && nextNum < currentPlayList.size();
     }
 
+    public MessageObject getNextMessage() {
+        ArrayList<MessageObject> currentPlayList = SharedConfig.shuffleMusic ? shuffledPlaylist : playlist;
+        if (currentPlayList == null || currentPlayList.isEmpty()) {
+            return null;
+        }
+        int index = currentPlaylistNum;
+        if (index < 0 || index >= currentPlayList.size()) {
+            if (playingMessageObject != null) {
+                for (int i = 0; i < currentPlayList.size(); i++) {
+                    MessageObject mo = currentPlayList.get(i);
+                    if (mo == playingMessageObject || (mo != null && mo.getId() != 0 && mo.getId() == playingMessageObject.getId())) {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if (index < 0 || index >= currentPlayList.size()) {
+            return null;
+        }
+        if (SharedConfig.repeatMode == 2) {
+            return currentPlayList.get(index);
+        }
+        int dir = SharedConfig.playOrderReversed ? 1 : -1;
+        int nextIndex = index + dir;
+        if (nextIndex >= 0 && nextIndex < currentPlayList.size()) {
+            return currentPlayList.get(nextIndex);
+        }
+        if (SharedConfig.repeatMode == 1 || forceLoopCurrentPlaylist) {
+            int looped = (dir > 0) ? 0 : currentPlayList.size() - 1;
+            if (looped >= 0 && looped < currentPlayList.size()) {
+                return currentPlayList.get(looped);
+            }
+        }
+        return null;
+    }
+
     private boolean traversePlaylist(ArrayList<MessageObject> playlist, int direction) {
         boolean last = false;
         final int wasCurrentPlaylistNum = currentPlaylistNum;

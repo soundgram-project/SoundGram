@@ -371,6 +371,21 @@ public class TgWsProxyService extends Service {
         }
     }
 
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        Log.w(TAG, "Foreground service timed out (fgsType=" + fgsType + "), stopping foreground service cleanly");
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(Service.STOP_FOREGROUND_REMOVE);
+            } else {
+                stopForeground(true);
+            }
+            stopSelf();
+        } catch (Throwable t) {
+            Log.e(TAG, "Error in onTimeout", t);
+        }
+    }
+
     private void tryAutoStart() {
         SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
         if (!prefs.getBoolean("enabled", false) || isRunning) return;
@@ -439,7 +454,7 @@ public class TgWsProxyService extends Service {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     startForeground(NOTIFICATION_ID, notification,
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForeground(NOTIFICATION_ID, notification);
                 }

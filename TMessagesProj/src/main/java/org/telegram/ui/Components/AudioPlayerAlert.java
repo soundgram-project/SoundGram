@@ -13,10 +13,12 @@ import static org.telegram.messenger.LocaleController.formatString;
 import static org.telegram.messenger.LocaleController.getString;
 import static soundgram.music.ChannelMusicFragment.setAudioCover;
 
+import soundgram.music.PublicLibraryManager;
 import soundgram.music.SmartRadioEngine;
 import soundgram.ui.SoundGramStyleManager;
 import soundgram.ui.SoundGramStyleSettingsFragment;
 import android.Manifest;
+import android.graphics.Path;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
@@ -211,6 +213,7 @@ public class AudioPlayerAlert extends BottomSheet
     private ImageView favButton; // кнопка-закладка (добавить в библиотеку)
     private ItemTouchHelper itemTouchHelper;
     private CoverContainer coverContainer;
+    private TextView lyricsChip;
     private ClippingTextViewSwitcher titleTextView;
     private RLottieImageView prevButton;
     private RLottieImageView queueButton;
@@ -411,146 +414,82 @@ public class AudioPlayerAlert extends BottomSheet
         dismiss();
     }
 
-    /** Кастомный попап меню ··· — появляется ВНИЗ под кнопкой */
-    private void showOptionsPopupBelow(View anchor) {
-        if (getContext() == null || anchor == null) return;
-
+    /** Меню опций ··· через ItemOptions */
+    private void showPlayerMoreOptions(View anchor) {
         MessageObject mo = MediaController.getInstance().getPlayingMessageObject();
         if (mo == null) return;
 
-        boolean inLib = findInLibrary(mo) != null;
-        boolean noforwards = mo.messageOwner != null && mo.messageOwner.noforwards;
+        ItemOptions o = ItemOptions.makeOptions(container, resourcesProvider, anchor, true);
+
+        // 1. Добавить в профиль / Открепить от профиля
+        long clientUserId = UserConfig.getInstance(currentAccount).getClientUserId();
+        TLRPC.UserFull userFull = MessagesController.getInstance(currentAccount).getUserFull(clientUserId);
+        final TLRPC.Document document = mo.getDocument();
+        final long documentId = document != null ? document.id : 0;
+        final boolean isSaved = (documentId != 0 && userFull != null && userFull.saved_music != null && userFull.saved_music.id == documentId);
+
+        if (isSaved) {
+            o.add(R.drawable.msg_delete, "Открепить от профиля", () -> {
+                o.dismiss();
+                if (document != null) {
+                    PublicLibraryManager.saveDocumentToProfile(currentAccount, document, false, success -> {
+                        if (success && containerView != null) {
+                            BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                    .createSimpleBulletin(R.raw.saved_messages, "Удалено из профиля")
+                                    .show();
+                        }
+                    });
+                }
+            });
+        } else {
+            o.add(R.drawable.left_status_profile, "Добавить в профиль", () -> {
+                o.dismiss();
+                if (document != null) {
+                    PublicLibraryManager.saveDocumentToProfile(currentAccount, document, true, success -> {
+                        if (success && containerView != null) {
+                            BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                    .createSimpleBulletin(R.raw.saved_messages, getString(R.string.AudioSaveToMyProfileSaved))
+                                    .show();
+                        }
+                    });
+                }
+            });
+        }
+
+        // 2. Источник трека: если TG сообщение -> показать имя чата/канала и перейти (openSourceChat); если стриминг -> показать "Стриминг" с no-op
         boolean isSGStream = mo.messageOwner != null
                 && mo.messageOwner.message != null
                 && mo.messageOwner.message.startsWith("SG_STREAM|||");
 
-        boolean isDark = Theme.isCurrentThemeDark();
-        int popupBgColor = isDark ? 0xF2202023 : getThemedColor(Theme.key_actionBarDefaultSubmenuBackground);
-        if (popupBgColor == 0) {
-            popupBgColor = isDark ? 0xF2202023 : 0xFFFFFFFF;
-        }
-        int strokeColor = isDark ? 0x28FFFFFF : 0x1A000000;
-
-        LinearLayout container = new LinearLayout(getContext());
-        container.setOrientation(LinearLayout.VERTICAL);
-        {
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(popupBgColor);
-            bg.setCornerRadius(AndroidUtilities.dp(16));
-            bg.setStroke(AndroidUtilities.dp(1), strokeColor);
-            container.setBackground(bg);
-        }
-        container.setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(6));
-
-        android.widget.PopupWindow[] popupRef = { null };
-
-        // 1. Поделиться
-        if (!noforwards || isSGStream) {
-            container.addView(buildPopupRow(
-                    getString(R.string.sg_menu_share), R.drawable.msg_shareout, false, () -> {
-                        if (popupRef[0] != null) popupRef[0].dismiss();
-                        onSubItemClick(1);
-                    }));
-        }
-
-        // 2. Источник трека: Канал или Чат (только для обычных Telegram треков, НЕ для SG_STREAM)
-        if (!isSGStream && mo.getId() > 0) {
+        if (isSGStream) {
+            o.add(R.drawable.live_stream, "Стриминг", o::dismiss);
+        } else if (mo.getId() > 0) {
             long did = mo.getDialogId();
             TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-did);
             TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(did);
-
             boolean isChannel = chat != null && ChatObject.isChannel(chat) && !chat.megagroup;
             int iconRes = isChannel ? R.drawable.msg_channel : (chat != null ? R.drawable.msg_groups : R.drawable.msg_openprofile);
             String titleText;
-            if (chat != null && !android.text.TextUtils.isEmpty(chat.title)) {
+            if (chat != null && !TextUtils.isEmpty(chat.title)) {
                 titleText = (isChannel ? "Канал: " : "Чат: ") + chat.title;
             } else if (user != null) {
                 titleText = "Чат: " + ContactsController.formatName(user.first_name, user.last_name);
             } else {
                 titleText = isChannel ? "Канал" : "Чат";
             }
-
-            if (container.getChildCount() > 0) {
-                container.addView(buildPopupDivider());
-            }
-            final String sourceTitleFinal = titleText;
-            container.addView(buildPopupRow(
-                    sourceTitleFinal, iconRes, false, () -> {
-                        if (popupRef[0] != null) popupRef[0].dismiss();
-                        openSourceChat(mo);
-                    }));
+            o.add(iconRes, titleText, () -> {
+                o.dismiss();
+                openSourceChat(mo);
+            });
         }
 
-        // 3. Профиль: добавить или удалить
-        {
-            boolean moInProfile = false;
-            if (mo.getDocument() != null) {
-                moInProfile = MessagesController.getInstance(currentAccount)
-                        .getSavedMusicIds().ids.contains(mo.getDocument().id);
-            }
-            if (container.getChildCount() > 0) {
-                container.addView(buildPopupDivider());
-            }
-            if (moInProfile) {
-                container.addView(buildPopupRow(
-                        getString(R.string.AudioSaveToMyProfileUnsaved),
-                        R.drawable.msg_delete, false, () -> {
-                            if (popupRef[0] != null) popupRef[0].dismiss();
-                            onSubItemClick(206);
-                        }));
-            } else {
-                container.addView(buildPopupRow(
-                        getString(R.string.sg_menu_add_to_profile),
-                        R.drawable.msg_openprofile, false, () -> {
-                            if (popupRef[0] != null) popupRef[0].dismiss();
-                            onSubItemClick(205);
-                        }));
-            }
-        }
+        // 3. Поделиться -> сразу Telegram ShareAlert
+        o.add(R.drawable.msg_shareout, getString(R.string.ShareFile), () -> {
+            o.dismiss();
+            onSubItemClick(1);
+        });
 
-        // 4. Добавить в плейлист — только если трек в библиотеке
-        if (inLib) {
-            if (container.getChildCount() > 0) {
-                container.addView(buildPopupDivider());
-            }
-            container.addView(buildPopupRow(
-                    getString(R.string.sg_menu_add_to_playlist), R.drawable.msg_add, false, () -> {
-                        if (popupRef[0] != null) popupRef[0].dismiss();
-                        onSubItemClick(100);
-                    }));
-        }
-
-        int popupWidth = AndroidUtilities.dp(220);
-        container.measure(
-                View.MeasureSpec.makeMeasureSpec(popupWidth, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-        int popupH = container.getMeasuredHeight();
-
-        android.widget.PopupWindow popup = new android.widget.PopupWindow(
-                container, popupWidth, popupH, true);
-        popup.setOutsideTouchable(true);
-        popup.setElevation(AndroidUtilities.dp(8));
-        popupRef[0] = popup;
-
-        // Координаты кнопки → показываем НИЖЕ неё, выровнено по правому краю
-        int[] loc = new int[2];
-        anchor.getLocationInWindow(loc);
-        int xOff = loc[0] + anchor.getWidth() - popupWidth;
-        int yOff = loc[1] + anchor.getHeight() + AndroidUtilities.dp(4);
-
-        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, xOff, yOff);
-
-        // Плавное появление: alpha + scale сверху (pivot сверху-справа)
-        container.setAlpha(0f);
-        container.setScaleY(0.85f);
-        container.setPivotX(popupWidth);
-        container.setPivotY(0f); // pivot сверху, т.к. раскрывается вниз
-        container.animate()
-                .alpha(1f)
-                .scaleY(1f)
-                .setDuration(180)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
-                .start();
+        o.show();
     }
 
     private LinearLayout buildPopupRow(String title, int iconRes, boolean isLast, Runnable onClick) {
@@ -1313,32 +1252,20 @@ public class AudioPlayerAlert extends BottomSheet
                 LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
                         Gravity.CENTER, 48, 0, 96, 0));
 
-        // Кнопка "в чат" (СПРАВА)
-        TextView inChatBtn = new TextView(context);
-        inChatBtn.setText("в чат");
-        inChatBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        android.graphics.Typeface monoFace2 = AndroidUtilities.getTypeface("fonts/rmono.ttf");
-        if (monoFace2 == null) monoFace2 = android.graphics.Typeface.MONOSPACE;
-        inChatBtn.setTypeface(monoFace2);
-        inChatBtn.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-        inChatBtn.setGravity(Gravity.CENTER);
-        inChatBtn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(8), AndroidUtilities.dp(14), AndroidUtilities.dp(8));
-        GradientDrawable inChatBg = new GradientDrawable();
-        inChatBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
-        inChatBg.setCornerRadius(AndroidUtilities.dp(14));
-        inChatBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
-        inChatBtn.setBackground(inChatBg);
-        inChatBtn.setOnClickListener(v -> {
-            MessageObject mo = MediaController.getInstance().getPlayingMessageObject();
-            if (mo != null && parentActivity != null) {
-                android.content.Intent shareIntent = new android.content.Intent(android.content.Intent.ACTION_SEND);
-                shareIntent.setType("text/plain");
-                shareIntent.putExtra(android.content.Intent.EXTRA_TEXT, mo.getMusicTitle() + " – " + mo.getMusicAuthor());
-                parentActivity.startActivity(android.content.Intent.createChooser(shareIntent, null));
-            }
-        });
-        playerTopBar.addView(inChatBtn,
-                LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 44, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 0, 0));
+        // Кнопка опций ··· (СПРАВА)
+        ImageView moreBtn = new ImageView(context);
+        moreBtn.setImageResource(R.drawable.ic_ab_other);
+        moreBtn.setScaleType(ImageView.ScaleType.CENTER);
+        moreBtn.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT, PorterDuff.Mode.SRC_IN);
+        moreBtn.setContentDescription("Опции");
+        GradientDrawable moreBtnBg = new GradientDrawable();
+        moreBtnBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+        moreBtnBg.setCornerRadius(AndroidUtilities.dp(14));
+        moreBtnBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+        moreBtn.setBackground(moreBtnBg);
+        moreBtn.setOnClickListener(v -> showPlayerMoreOptions(v));
+        playerTopBar.addView(moreBtn,
+                LayoutHelper.createFrame(44, 44, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 0, 0));
 
         // topBar — в самом верху плеера, минимальный отступ под статус-бар
         int topBarTopMargin = statusBarPad > 0 ? (int) (statusBarPad / AndroidUtilities.density) + 4 : 8;
@@ -1382,50 +1309,18 @@ public class AudioPlayerAlert extends BottomSheet
         borderView.setVisibility(View.VISIBLE);
         coverFrame.addView(borderView, LayoutHelper.createFrame(coverWidthDp, coverHeightDp, Gravity.CENTER));
 
-        // Бейдж "2 слушают" — TOP LEFT обложки
-        LinearLayout listenersBadge = new LinearLayout(context);
-        listenersBadge.setOrientation(LinearLayout.HORIZONTAL);
-        listenersBadge.setGravity(Gravity.CENTER_VERTICAL);
-        listenersBadge.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(5), AndroidUtilities.dp(10), AndroidUtilities.dp(5));
-        GradientDrawable badgeBg = new GradientDrawable();
-        badgeBg.setColor(0xCC111111);
-        badgeBg.setCornerRadius(AndroidUtilities.dp(999));
-        listenersBadge.setBackground(badgeBg);
-        // Avatar placeholder A
-        TextView avatarA = new TextView(context);
-        avatarA.setText("A");
-        avatarA.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 9);
-        avatarA.setTextColor(0xFF111111);
-        avatarA.setGravity(Gravity.CENTER);
-        GradientDrawable avaBg1 = new GradientDrawable();
-        avaBg1.setShape(GradientDrawable.OVAL);
-        avaBg1.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_ACCENT);
-        avatarA.setBackground(avaBg1);
-        listenersBadge.addView(avatarA, LayoutHelper.createLinear(18, 18, 0, 0, 0, 0));
-        // Avatar placeholder M
-        TextView avatarM = new TextView(context);
-        avatarM.setText("M");
-        avatarM.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 9);
-        avatarM.setTextColor(0xFFEEEEEE);
-        avatarM.setGravity(Gravity.CENTER);
-        GradientDrawable avaBg2 = new GradientDrawable();
-        avaBg2.setShape(GradientDrawable.OVAL);
-        avaBg2.setColor(0xFF3A3A3A);
-        avatarM.setBackground(avaBg2);
-        listenersBadge.addView(avatarM, LayoutHelper.createLinear(18, 18, -4, 0, 4, 0));
-        // "2 слушают" label
-        TextView listenersLabel = new TextView(context);
-        listenersLabel.setText("2 слушают");
-        listenersLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        android.graphics.Typeface monoFaceBadge = AndroidUtilities.getTypeface("fonts/rmono.ttf");
-        if (monoFaceBadge == null) monoFaceBadge = android.graphics.Typeface.MONOSPACE;
-        listenersLabel.setTypeface(monoFaceBadge);
-        listenersLabel.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-        listenersBadge.addView(listenersLabel, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-        coverFrame.addView(listenersBadge, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, 10, 10, 0, 0));
+        // --- СОЗДАНИЕ КОНТЕЙНЕРА С ТЕКСТАМИ (ровно на месте обложки) ---
+        lyricsContainer = new FrameLayout(context);
+        lyricsContainer.setVisibility(View.GONE);
+        lyricsContainer.setAlpha(0f);
 
-        // "текст" чип — BOTTOM RIGHT обложки, акцентный
-        TextView lyricsChip = new TextView(context);
+        lyricsView = new LyricsView(context);
+        lyricsContainer.addView(lyricsView,
+                LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        coverFrame.addView(lyricsContainer, LayoutHelper.createFrame(coverWidthDp, coverHeightDp, Gravity.CENTER));
+
+        // "текст" / "обложка" чип — BOTTOM RIGHT обложки, акцентный
+        lyricsChip = new TextView(context);
         lyricsChip.setText("≡  текст");
         lyricsChip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         android.graphics.Typeface monoFaceChip = AndroidUtilities.getTypeface("fonts/rmono.ttf");
@@ -1442,33 +1337,6 @@ public class AudioPlayerAlert extends BottomSheet
         playerUiContainer.addView(coverFrame, LayoutHelper.createFrame(
                 coverWidthDp, coverHeightDp,
                 Gravity.TOP | Gravity.CENTER_HORIZONTAL, 18, coverTopMargin, 18, 0));
-
-        // --- СОЗДАНИЕ КОНТЕЙНЕРА С ТЕКСТАМИ ---
-        lyricsContainer = new FrameLayout(context);
-        lyricsContainer.setVisibility(View.GONE);
-        lyricsContainer.setAlpha(0f);
-
-        lyricsView = new LyricsView(context);
-        lyricsContainer.addView(lyricsView,
-                LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-
-        TextView coverReturnChip = new TextView(context);
-        coverReturnChip.setText("обложка");
-        coverReturnChip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        coverReturnChip.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        coverReturnChip.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-        coverReturnChip.setGravity(Gravity.CENTER);
-        coverReturnChip.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(4), AndroidUtilities.dp(12), AndroidUtilities.dp(4));
-        coverReturnChip.setBackground(soundgram.ui.SoundGramDesignTokens.makePillDrawable(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_2, 999));
-        coverReturnChip.setOnClickListener(v -> toggleLyrics());
-        lyricsContainer.addView(coverReturnChip, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 28, Gravity.TOP | Gravity.RIGHT, 0, 10, 10, 0));
-        // lyricsContainer — поверх плеера, от topBar до кнопок управления
-        // Отступ сверху: под топбаром; отступ снизу: строго над заголовком и кнопками действий,
-        // чтобы не перекрывать кнопки управления, заголовок, автора, закладку и меню опций.
-        int lyricsTopMargin = topBarTopMargin + 44 + 4;
-        int lyricsBottomMargin = textBottomMargin + 64;
-        playerLayout.addView(lyricsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT,
-                LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 36, lyricsTopMargin, 36, lyricsBottomMargin));
 
         // ── Название + автор + кнопка лирики ─────────────────────────────────
         // Используем горизонтальный LinearLayout: [текст (weight=1)] [кнопка лирики
@@ -4672,21 +4540,7 @@ public class AudioPlayerAlert extends BottomSheet
             }
 
             if (nextTrackTitleView != null) {
-                List<MessageObject> mcPlaylist = MediaController.getInstance().getPlaylist();
-                MessageObject nextTrack = null;
-                if (mcPlaylist != null && !mcPlaylist.isEmpty() && messageObject != null) {
-                    int currentIndex = -1;
-                    for (int i = 0; i < mcPlaylist.size(); i++) {
-                        MessageObject mo = mcPlaylist.get(i);
-                        if (mo == messageObject || (mo.getId() > 0 && mo.getId() == messageObject.getId())) {
-                            currentIndex = i;
-                            break;
-                        }
-                    }
-                    if (currentIndex >= 0 && currentIndex + 1 < mcPlaylist.size()) {
-                        nextTrack = mcPlaylist.get(currentIndex + 1);
-                    }
-                }
+                MessageObject nextTrack = MediaController.getInstance().getNextMessage();
                 if (nextTrack != null) {
                     String nTitle = nextTrack.getMusicTitle();
                     String nAuthor = nextTrack.getMusicAuthor();
@@ -5888,6 +5742,34 @@ public class AudioPlayerAlert extends BottomSheet
             return getImageView().getImageReceiver();
         }
 
+        private final Path clipPath = new Path();
+        private final RectF clipRect = new RectF();
+        private final float[] radii = new float[8];
+
+        @Override
+        protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+            super.onSizeChanged(w, h, oldw, oldh);
+            clipPath.reset();
+            clipRect.set(0, 0, w, h);
+            float rTL = dp(4);
+            float rTR = dp(4);
+            float rBR = dp(4);
+            float rBL = dp(56);
+            radii[0] = rTL; radii[1] = rTL;
+            radii[2] = rTR; radii[3] = rTR;
+            radii[4] = rBR; radii[5] = rBR;
+            radii[6] = rBL; radii[7] = rBL;
+            clipPath.addRoundRect(clipRect, radii, Path.Direction.CW);
+        }
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            int save = canvas.save();
+            canvas.clipPath(clipPath);
+            super.dispatchDraw(canvas);
+            canvas.restoreToCount(save);
+        }
+
         protected abstract void onImageUpdated(ImageReceiver imageReceiver);
     }
 
@@ -6152,6 +6034,11 @@ public class AudioPlayerAlert extends BottomSheet
             lyricsAnimator.cancel();
         isLyricsVisible = !isLyricsVisible;
 
+        if (lyricsChip != null) {
+            lyricsChip.setText(isLyricsVisible ? "■  обложка" : "≡  текст");
+            lyricsChip.bringToFront();
+        }
+
         if (isLyricsVisible) {
             lyricsContainer.setVisibility(View.VISIBLE);
             MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
@@ -6185,12 +6072,13 @@ public class AudioPlayerAlert extends BottomSheet
                         borderView.setAlpha(1f);
                     }
                 } else {
-                    // Полностью прячем, чтобы не перекрывало клики (как ты просил, никаких иконок
-                    // под текстом)
                     if (coverContainer != null)
                         coverContainer.setVisibility(View.INVISIBLE);
                     if (borderView != null)
                         borderView.setVisibility(View.INVISIBLE);
+                }
+                if (lyricsChip != null) {
+                    lyricsChip.bringToFront();
                 }
             }
         });
@@ -6703,28 +6591,7 @@ public class AudioPlayerAlert extends BottomSheet
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
-                    if (isClick && !lyricsLines.isEmpty() && !isFetchingLyrics) {
-                        int dynamicActiveY = Math.min(ACTIVE_Y, Math.max(AndroidUtilities.dp(120), getHeight() / 2));
-                        float clickTargetY = (event.getY() - (dynamicActiveY + scrollOffset)) + getCumulativePos(activeIndex);
-                        int closestIdx = activeIndex;
-                        float minDiff = Float.MAX_VALUE;
-                        int total = lyricsLines.size();
-                        for (int i = 0; i < total; i++) {
-                            float diff = Math.abs(getCumulativePos(i) - clickTargetY);
-                            if (diff < minDiff) {
-                                minDiff = diff;
-                                closestIdx = i;
-                            }
-                        }
-                        if (closestIdx >= 0 && closestIdx < lyricsLines.size()) {
-                            MessageObject playing = MediaController.getInstance().getPlayingMessageObject();
-                            long targetMs = lyricsLines.get(closestIdx).timeMs;
-                            if (playing != null && targetMs > 0) {
-                                MediaController.getInstance().seekToProgressMs(playing, targetMs);
-                                setActiveIndex(closestIdx, true);
-                            }
-                        }
-                    }
+                    isClick = false;
                     return true;
             }
             return super.onTouchEvent(event);
