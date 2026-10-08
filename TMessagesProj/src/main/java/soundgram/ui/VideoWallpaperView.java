@@ -78,6 +78,14 @@ public class VideoWallpaperView extends FrameLayout implements TextureView.Surfa
                 videoHeight = height;
                 updateTextureMatrix();
             });
+            mediaPlayer.setOnCompletionListener(mp -> {
+                try {
+                    mp.seekTo(0);
+                    mp.start();
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+            });
             mediaPlayer.setOnPreparedListener(mp -> {
                 isPrepared = true;
                 if (!isPaused) {
@@ -99,6 +107,26 @@ public class VideoWallpaperView extends FrameLayout implements TextureView.Surfa
         }
     }
 
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (surface == null && textureView != null && textureView.isAvailable()) {
+            SurfaceTexture st = textureView.getSurfaceTexture();
+            if (st != null) {
+                surface = new Surface(st);
+            }
+        }
+        if (surface != null && !TextUtils.isEmpty(currentVideoPath) && mediaPlayer == null) {
+            playVideo();
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        pause();
+    }
+
     public void pause() {
         isPaused = true;
         if (mediaPlayer != null && isPrepared) {
@@ -114,6 +142,12 @@ public class VideoWallpaperView extends FrameLayout implements TextureView.Surfa
 
     public void resume() {
         isPaused = false;
+        if (surface == null && textureView != null && textureView.isAvailable()) {
+            SurfaceTexture st = textureView.getSurfaceTexture();
+            if (st != null) {
+                surface = new Surface(st);
+            }
+        }
         if (mediaPlayer != null && isPrepared) {
             try {
                 if (!mediaPlayer.isPlaying()) {

@@ -34,21 +34,21 @@ public class CollapsibleSectionHeaderView extends LinearLayout {
         setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(8), AndroidUtilities.dp(14), AndroidUtilities.dp(8));
 
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xFF1B1B1B);
+        bg.setColor(SoundGramDesignTokens.getSurface1Color());
         bg.setCornerRadius(AndroidUtilities.dp(12));
-        bg.setStroke(AndroidUtilities.dp(1), 0xFF2E2E2E);
+        bg.setStroke(AndroidUtilities.dp(0.75f), SoundGramDesignTokens.getLineColor());
         setBackground(bg);
 
         titleTextView = new TextView(context);
         titleTextView.setText(titleText);
         titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        titleTextView.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        titleTextView.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         titleTextView.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf"));
         titleTextView.setLetterSpacing(0.02f);
 
         toggleTextView = new TextView(context);
         toggleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        toggleTextView.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+        toggleTextView.setTextColor(SoundGramDesignTokens.getAccentColor());
         toggleTextView.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf"));
         toggleTextView.setLetterSpacing(0.02f);
 
@@ -73,11 +73,11 @@ public class CollapsibleSectionHeaderView extends LinearLayout {
             actionButton = new TextView(getContext());
             actionButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
             actionButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-            actionButton.setTextColor(SoundGramDesignTokens.COLOR_ON_ACCENT);
+            actionButton.setTextColor(SoundGramDesignTokens.getOnAccentColor());
             actionButton.setGravity(Gravity.CENTER);
             actionButton.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(3), AndroidUtilities.dp(8), AndroidUtilities.dp(3));
             android.graphics.drawable.GradientDrawable actBg = new android.graphics.drawable.GradientDrawable();
-            actBg.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+            actBg.setColor(SoundGramDesignTokens.getAccentColor());
             actBg.setCornerRadius(AndroidUtilities.dp(6));
             actionButton.setBackground(actBg);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);

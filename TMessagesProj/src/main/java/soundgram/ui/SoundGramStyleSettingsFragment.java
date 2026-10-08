@@ -1467,7 +1467,7 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             doneBtn.setGravity(Gravity.CENTER);
             doneBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
             doneBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            doneBtn.setTextColor(0xFFFFFFFF);
+            doneBtn.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
             int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
             GradientDrawable doneBg = new GradientDrawable();
             doneBg.setColor(accent);

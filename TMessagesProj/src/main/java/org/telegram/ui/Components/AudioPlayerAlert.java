@@ -493,10 +493,9 @@ public class AudioPlayerAlert extends BottomSheet
     }
 
     private LinearLayout buildPopupRow(String title, int iconRes, boolean isLast, Runnable onClick) {
-        boolean isDark = Theme.isCurrentThemeDark();
-        int textColor = isDark ? 0xFFFFFFFF : getThemedColor(Theme.key_actionBarDefaultSubmenuItem);
-        int iconColor = isDark ? 0xFFFFFFFF : getThemedColor(Theme.key_actionBarDefaultSubmenuItemIcon);
-        int selectorColor = isDark ? 0x18FFFFFF : getThemedColor(Theme.key_listSelector);
+        int textColor = getThemedColor(Theme.key_dialogTextBlack);
+        int iconColor = getThemedColor(Theme.key_dialogIcon);
+        int selectorColor = getThemedColor(Theme.key_listSelector);
 
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -578,8 +577,9 @@ public class AudioPlayerAlert extends BottomSheet
         card.setOrientation(LinearLayout.VERTICAL);
         {
             GradientDrawable cardBg = new GradientDrawable();
-            cardBg.setColor(0xFF1C1C1F);
+            cardBg.setColor(getThemedColor(Theme.key_dialogBackground));
             cardBg.setCornerRadius(AndroidUtilities.dp(14));
+            cardBg.setStroke(AndroidUtilities.dp(0.75f), getThemedColor(Theme.key_divider));
             card.setBackground(cardBg);
         }
         card.setClipToOutline(true);
@@ -650,14 +650,14 @@ public class AudioPlayerAlert extends BottomSheet
         FrameLayout row = new FrameLayout(ctx);
         row.setMinimumHeight(AndroidUtilities.dp(58));
         if (Build.VERSION.SDK_INT >= 21) {
-            row.setBackground(Theme.createSelectorDrawable(0x18FFFFFF, 0));
+            row.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), 0));
         }
         row.setOnClickListener(v -> onClick.run());
 
         TextView tv = new TextView(ctx);
         tv.setText(title);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
-        tv.setTextColor(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000);
+        tv.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
         tv.setGravity(Gravity.CENTER_VERTICAL);
         row.addView(tv, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.CENTER_VERTICAL, 20, 0, 20, 0));
@@ -671,7 +671,7 @@ public class AudioPlayerAlert extends BottomSheet
                 LinearLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(0.5f));
         lp.setMargins(AndroidUtilities.dp(20), 0, AndroidUtilities.dp(20), 0);
         v.setLayoutParams(lp);
-        v.setBackgroundColor(0x30FFFFFF);
+        v.setBackgroundColor(getThemedColor(Theme.key_divider));
         return v;
     }
 
@@ -702,13 +702,9 @@ public class AudioPlayerAlert extends BottomSheet
         if (getContext() == null || modeMenuButton == null)
             return;
 
-        boolean isDark = Theme.isCurrentThemeDark();
-        int popupBgColor = isDark ? 0xF2202023 : getThemedColor(Theme.key_actionBarDefaultSubmenuBackground);
-        if (popupBgColor == 0) {
-            popupBgColor = isDark ? 0xF2202023 : 0xFFFFFFFF;
-        }
-        int strokeColor = isDark ? 0x28FFFFFF : 0x1A000000;
-        int selectorColor = isDark ? 0x18FFFFFF : getThemedColor(Theme.key_listSelector);
+        int popupBgColor = getThemedColor(Theme.key_dialogBackground);
+        int strokeColor = getThemedColor(Theme.key_divider);
+        int selectorColor = getThemedColor(Theme.key_listSelector);
 
         // Собираем контейнер попапа
         LinearLayout container = new LinearLayout(getContext());
@@ -743,7 +739,7 @@ public class AudioPlayerAlert extends BottomSheet
         for (int i = 0; i < modeIds.length; i++) {
             final int id = modeIds[i];
             boolean active = isModeActive(id);
-            int color = active ? getThemedColor(Theme.key_player_buttonActive) : (isDark ? 0xFFFFFFFF : getThemedColor(Theme.key_actionBarDefaultSubmenuItem));
+            int color = active ? getThemedColor(Theme.key_player_buttonActive) : getThemedColor(Theme.key_dialogTextBlack);
 
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -882,7 +878,14 @@ public class AudioPlayerAlert extends BottomSheet
             currentAccount = UserConfig.selectedAccount;
         }
 
-        parentActivity = (LaunchActivity) context;
+        android.app.Activity act = AndroidUtilities.findActivity(context);
+        if (act instanceof LaunchActivity) {
+            parentActivity = (LaunchActivity) act;
+        } else if (context instanceof LaunchActivity) {
+            parentActivity = (LaunchActivity) context;
+        } else {
+            parentActivity = LaunchActivity.instance;
+        }
 
         TAG = DownloadController.getInstance(currentAccount).generateObserverTag();
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
@@ -1226,12 +1229,12 @@ public class AudioPlayerAlert extends BottomSheet
         topOptionsBtn = new ImageView(context);
         topOptionsBtn.setImageResource(R.drawable.ic_ab_back);
         topOptionsBtn.setRotation(270f); // Стрелочка вниз
-        topOptionsBtn.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT, PorterDuff.Mode.SRC_IN);
+        topOptionsBtn.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
         topOptionsBtn.setScaleType(ImageView.ScaleType.CENTER);
         GradientDrawable topBackBg = new GradientDrawable();
-        topBackBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+        topBackBg.setColor(getThemedColor(Theme.key_windowBackgroundGray));
         topBackBg.setCornerRadius(AndroidUtilities.dp(14));
-        topBackBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+        topBackBg.setStroke(AndroidUtilities.dp(1), getThemedColor(Theme.key_divider));
         topOptionsBtn.setBackground(topBackBg);
         topOptionsBtn.setOnClickListener(v -> dismiss());
         playerTopBar.addView(topOptionsBtn,
@@ -1244,7 +1247,7 @@ public class AudioPlayerAlert extends BottomSheet
         android.graphics.Typeface monoFace = AndroidUtilities.getTypeface("fonts/rmono.ttf");
         if (monoFace == null) monoFace = android.graphics.Typeface.MONOSPACE;
         sourceChipTextView.setTypeface(monoFace);
-        sourceChipTextView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        sourceChipTextView.setTextColor(getThemedColor(Theme.key_player_actionBarSubtitle));
         sourceChipTextView.setSingleLine(true);
         sourceChipTextView.setEllipsize(TextUtils.TruncateAt.END);
         sourceChipTextView.setGravity(Gravity.CENTER);
@@ -1256,12 +1259,12 @@ public class AudioPlayerAlert extends BottomSheet
         ImageView moreBtn = new ImageView(context);
         moreBtn.setImageResource(R.drawable.ic_ab_other);
         moreBtn.setScaleType(ImageView.ScaleType.CENTER);
-        moreBtn.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT, PorterDuff.Mode.SRC_IN);
+        moreBtn.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
         moreBtn.setContentDescription("Опции");
         GradientDrawable moreBtnBg = new GradientDrawable();
-        moreBtnBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+        moreBtnBg.setColor(getThemedColor(Theme.key_windowBackgroundGray));
         moreBtnBg.setCornerRadius(AndroidUtilities.dp(14));
-        moreBtnBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+        moreBtnBg.setStroke(AndroidUtilities.dp(1), getThemedColor(Theme.key_divider));
         moreBtn.setBackground(moreBtnBg);
         moreBtn.setOnClickListener(v -> showPlayerMoreOptions(v));
         playerTopBar.addView(moreBtn,
@@ -1304,7 +1307,7 @@ public class AudioPlayerAlert extends BottomSheet
                 AndroidUtilities.dp(4), AndroidUtilities.dp(4),
                 AndroidUtilities.dp(56), AndroidUtilities.dp(56)
         });
-        borderBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE);
+        borderBg.setStroke(AndroidUtilities.dp(1), getThemedColor(Theme.key_divider));
         borderView.setBackground(borderBg);
         borderView.setVisibility(View.VISIBLE);
         coverFrame.addView(borderView, LayoutHelper.createFrame(coverWidthDp, coverHeightDp, Gravity.CENTER));
@@ -1326,10 +1329,10 @@ public class AudioPlayerAlert extends BottomSheet
         android.graphics.Typeface monoFaceChip = AndroidUtilities.getTypeface("fonts/rmono.ttf");
         if (monoFaceChip == null) monoFaceChip = android.graphics.Typeface.MONOSPACE;
         lyricsChip.setTypeface(monoFaceChip);
-        lyricsChip.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_ON_ACCENT);
+        lyricsChip.setTextColor(getThemedColor(Theme.key_featuredStickers_buttonText));
         lyricsChip.setGravity(Gravity.CENTER);
         lyricsChip.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(6), AndroidUtilities.dp(14), AndroidUtilities.dp(6));
-        lyricsChip.setBackground(soundgram.ui.SoundGramDesignTokens.makePillDrawable(soundgram.ui.SoundGramDesignTokens.COLOR_ACCENT, 999));
+        lyricsChip.setBackground(soundgram.ui.SoundGramDesignTokens.makePillDrawable(getThemedColor(Theme.key_featuredStickers_addButton), 999));
         lyricsChip.setOnClickListener(v -> toggleLyrics());
         coverFrame.addView(lyricsChip, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 32, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 10, 10));
 
@@ -1353,7 +1356,7 @@ public class AudioPlayerAlert extends BottomSheet
             @Override
             protected TextView createTextView() {
                 final TextView textView = new MarqueeTextView(context);
-                textView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
+                textView.setTextColor(getThemedColor(Theme.key_player_actionBarTitle));
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 32);
                 // Unbounded/Geologica для заголовка трека
                 android.graphics.Typeface titleFace = AndroidUtilities.getTypeface("fonts/roundedmplus1c_bold.ttf");
@@ -1383,7 +1386,7 @@ public class AudioPlayerAlert extends BottomSheet
             @Override
             protected TextView createTextView() {
                 final TextView textView = new MarqueeTextView(context);
-                textView.setTextColor(0xFFBDBDBD); // #BDBDBD per design spec
+                textView.setTextColor(getThemedColor(Theme.key_player_actionBarSubtitle));
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
                 textView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
                 textView.setMarqueeRepeatLimit(-1);
@@ -1467,12 +1470,12 @@ public class AudioPlayerAlert extends BottomSheet
             boolean favInLib = findInLibrary(messageObject) != null;
             favButton.setImageResource(favInLib ? R.drawable.msg_delete : R.drawable.msg_download);
         }
-        favButton.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT, PorterDuff.Mode.SRC_IN);
+        favButton.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
         favButton.setScaleType(ImageView.ScaleType.CENTER);
         GradientDrawable favBg = new GradientDrawable();
-        favBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+        favBg.setColor(getThemedColor(Theme.key_windowBackgroundGray));
         favBg.setCornerRadius(AndroidUtilities.dp(14));
-        favBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+        favBg.setStroke(AndroidUtilities.dp(1), getThemedColor(Theme.key_divider));
         favButton.setBackground(favBg);
         favButton.setOnClickListener(v -> {
             soundgram.music.SoundGramTTS.speak(v, favButton.getContentDescription());
@@ -1490,7 +1493,7 @@ public class AudioPlayerAlert extends BottomSheet
                 LayoutHelper.createLinear(48, 48, Gravity.CENTER_VERTICAL, 0, 0, 0, 0));
 
         // Options Button (hidden from main UI per design spec)
-        buttons[6] = optionsButton = new ActionBarMenuItem(context, null, 0, Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, false, resourcesProvider);
+        buttons[6] = optionsButton = new ActionBarMenuItem(context, null, 0, getThemedColor(Theme.key_player_button), false, resourcesProvider);
         optionsButton.setVisibility(View.GONE);
 
         // Название + автор + кнопка скачать — якорим СНИЗУ, прямо над seekFrame
@@ -1545,12 +1548,12 @@ public class AudioPlayerAlert extends BottomSheet
         timeTextView.setTextSize(11);
         timeTextView.setText("0:00");
         timeTextView.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        timeTextView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        timeTextView.setTextColor(getThemedColor(Theme.key_player_time));
 
         durationTextView = new TextView(context);
         durationTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         durationTextView.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        durationTextView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        durationTextView.setTextColor(getThemedColor(Theme.key_player_time));
         durationTextView.setGravity(Gravity.RIGHT);
         int accentColor = Theme.getColor(Theme.key_featuredStickers_addButton);
         int bgColor = Theme.getColor(Theme.key_dialogBackground);
@@ -1620,8 +1623,8 @@ public class AudioPlayerAlert extends BottomSheet
         playButton.setScaleType(ImageView.ScaleType.CENTER);
         playButton.setImageDrawable(playPauseDrawable = new PlayPauseDrawable(36));
         playPauseDrawable.setPause(!MediaController.getInstance().isMessagePaused(), false);
-        playButton.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_ON_ACCENT, PorterDuff.Mode.SRC_IN);
-        playButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(26), soundgram.ui.SoundGramDesignTokens.COLOR_ACCENT, soundgram.ui.SoundGramDesignTokens.COLOR_ACCENT_HOVER));
+        playButton.setColorFilter(getThemedColor(Theme.key_featuredStickers_buttonText), PorterDuff.Mode.SRC_IN);
+        playButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(26), getThemedColor(Theme.key_featuredStickers_addButton), Theme.blendOver(getThemedColor(Theme.key_featuredStickers_addButton), 0x25000000)));
         playButton.setOnClickListener(v -> {
             if (MediaController.getInstance().isDownloadingCurrentMessage())
                 return;
@@ -1762,11 +1765,11 @@ public class AudioPlayerAlert extends BottomSheet
         };
         prevButton.setScaleType(ImageView.ScaleType.CENTER);
         prevButton.setAnimation(R.raw.player_prev, 24, 24);
-        // Иконки белые на прозрачном фоне (spec: назад без фона, 32 px)
-        prevButton.setLayerColor("Triangle 3.**", 0xFFEEEEEE);
-        prevButton.setLayerColor("Triangle 4.**", 0xFFEEEEEE);
-        prevButton.setLayerColor("Rectangle 4.**", 0xFFEEEEEE);
-        prevButton.setBackground(Theme.createSelectorDrawable(0x22FFFFFF, 1, dp(16)));
+        int playerBtnColor = getThemedColor(Theme.key_player_button);
+        prevButton.setLayerColor("Triangle 3.**", playerBtnColor);
+        prevButton.setLayerColor("Triangle 4.**", playerBtnColor);
+        prevButton.setLayerColor("Rectangle 4.**", playerBtnColor);
+        prevButton.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1, dp(16)));
         prevButton.setContentDescription(LocaleController.getString(R.string.AccDescrPrevious));
         prevButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         mediaButtonsContainer.addView(prevButton, LayoutHelper.createFrame(44, 44, Gravity.CENTER, -78, 0, 0, 0));
@@ -1774,8 +1777,8 @@ public class AudioPlayerAlert extends BottomSheet
         buttons[1] = queueButton = new RLottieImageView(context);
         queueButton.setScaleType(ImageView.ScaleType.CENTER);
         queueButton.setImageResource(R.drawable.menu_intro);
-        queueButton.setColorFilter(new PorterDuffColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN));
-        queueButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), Theme.isCurrentThemeDark() ? 0x25FFFFFF : 0x25000000, Theme.isCurrentThemeDark() ? 0x35FFFFFF : 0x35000000));
+        queueButton.setColorFilter(new PorterDuffColorFilter(playerBtnColor, PorterDuff.Mode.SRC_IN));
+        queueButton.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1, dp(12)));
         queueButton.setContentDescription(LocaleController.getString(R.string.AccDescrOpenMenu2));
         queueButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         queueButton.setOnClickListener(v -> {
@@ -1869,12 +1872,11 @@ public class AudioPlayerAlert extends BottomSheet
         };
         nextButton.setScaleType(ImageView.ScaleType.CENTER);
         nextButton.setAnimation(R.raw.player_prev, 24, 24);
-        // Иконки белые на прозрачном фоне (spec: вперёд без фона, 32 px)
-        nextButton.setLayerColor("Triangle 3.**", 0xFFEEEEEE);
-        nextButton.setLayerColor("Triangle 4.**", 0xFFEEEEEE);
-        nextButton.setLayerColor("Rectangle 4.**", 0xFFEEEEEE);
+        nextButton.setLayerColor("Triangle 3.**", playerBtnColor);
+        nextButton.setLayerColor("Triangle 4.**", playerBtnColor);
+        nextButton.setLayerColor("Rectangle 4.**", playerBtnColor);
         nextButton.setRotation(180f);
-        nextButton.setBackground(Theme.createSelectorDrawable(0x22FFFFFF, 1, dp(16)));
+        nextButton.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 1, dp(16)));
         nextButton.setContentDescription(LocaleController.getString(R.string.AccDescrNext));
         nextButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         mediaButtonsContainer.addView(nextButton, LayoutHelper.createFrame(44, 44, Gravity.CENTER, 78, 0, 0, 0));
@@ -1885,11 +1887,11 @@ public class AudioPlayerAlert extends BottomSheet
         repeatButton.setShowSubmenuByMove(false);
         repeatButton.setAdditionalYOffset(-dp(166 + 48));
         repeatButton.setIcon(R.drawable.player_new_repeatall);
-        repeatButton.setIconColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
+        repeatButton.setIconColor(getThemedColor(Theme.key_player_button));
         GradientDrawable repeatBg = new GradientDrawable();
-        repeatBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+        repeatBg.setColor(getThemedColor(Theme.key_windowBackgroundGray));
         repeatBg.setCornerRadius(AndroidUtilities.dp(14));
-        repeatBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+        repeatBg.setStroke(AndroidUtilities.dp(1), getThemedColor(Theme.key_divider));
         repeatButton.setBackground(repeatBg);
         repeatButton.setOnClickListener(v -> {
             updateSubMenu();
@@ -1944,12 +1946,12 @@ public class AudioPlayerAlert extends BottomSheet
         // EQ/Sound button — крайняя правая кнопка в ряду управления (по макету)
         eqBtn = new ImageView(context);
         eqBtn.setImageResource(R.drawable.msg_customize);
-        eqBtn.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT, PorterDuff.Mode.SRC_IN);
+        eqBtn.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
         eqBtn.setScaleType(ImageView.ScaleType.CENTER);
         GradientDrawable eqBg = new GradientDrawable();
-        eqBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+        eqBg.setColor(getThemedColor(Theme.key_windowBackgroundGray));
         eqBg.setCornerRadius(AndroidUtilities.dp(14));
-        eqBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+        eqBg.setStroke(AndroidUtilities.dp(1), getThemedColor(Theme.key_divider));
         eqBtn.setBackground(eqBg);
         eqBtn.setContentDescription(LocaleController.getString(R.string.SoundGramEqualizer));
         eqBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
@@ -1967,8 +1969,9 @@ public class AudioPlayerAlert extends BottomSheet
         // ── "дальше" bar — фон #1B1B1B, радиус 14 ──
         FrameLayout nextTrackBar = new FrameLayout(context);
         GradientDrawable nextTrackBg = new GradientDrawable();
-        nextTrackBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+        nextTrackBg.setColor(getThemedColor(Theme.key_windowBackgroundGray));
         nextTrackBg.setCornerRadius(AndroidUtilities.dp(14));
+        nextTrackBg.setStroke(AndroidUtilities.dp(1), getThemedColor(Theme.key_divider));
         nextTrackBar.setBackground(nextTrackBg);
         nextTrackBar.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
 
@@ -1983,7 +1986,7 @@ public class AudioPlayerAlert extends BottomSheet
         nextLabelView.setText("дальше");
         nextLabelView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         nextLabelView.setTypeface(monoNextBar);
-        nextLabelView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        nextLabelView.setTextColor(getThemedColor(Theme.key_player_actionBarSubtitle));
         nextTrackContent.addView(nextLabelView,
                 LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 8, 0));
 
@@ -1991,7 +1994,7 @@ public class AudioPlayerAlert extends BottomSheet
         nextTrackTitleView.setText("—");
         nextTrackTitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         nextTrackTitleView.setTypeface(AndroidUtilities.bold());
-        nextTrackTitleView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
+        nextTrackTitleView.setTextColor(getThemedColor(Theme.key_player_actionBarTitle));
         nextTrackTitleView.setSingleLine(true);
         nextTrackTitleView.setEllipsize(TextUtils.TruncateAt.END);
         nextTrackContent.addView(nextTrackTitleView,
@@ -2001,7 +2004,7 @@ public class AudioPlayerAlert extends BottomSheet
         nextTrackDurationView.setText("");
         nextTrackDurationView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         nextTrackDurationView.setTypeface(monoNextBar);
-        nextTrackDurationView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        nextTrackDurationView.setTextColor(getThemedColor(Theme.key_player_actionBarSubtitle));
         nextTrackContent.addView(nextTrackDurationView,
                 LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
 
@@ -2281,7 +2284,7 @@ public class AudioPlayerAlert extends BottomSheet
                     canvas.drawColor(
                             ((android.graphics.drawable.ColorDrawable) playerLayout.getBackground()).getColor());
                 } else {
-                    canvas.drawColor(0xFF111111);
+                    canvas.drawColor(getThemedColor(Theme.key_dialogBackground));
                 }
             }
         };
@@ -2449,7 +2452,7 @@ public class AudioPlayerAlert extends BottomSheet
                 iconRes = R.drawable.player_new_repeatall;
             modeMenuButton.setIcon(iconRes);
             boolean isActive = mode != 0 || SharedConfig.shuffleMusic || SharedConfig.playOrderReversed;
-            modeMenuButton.setIconColor(isActive ? getThemedColor(Theme.key_player_buttonActive) : (Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000));
+            modeMenuButton.setIconColor(isActive ? getThemedColor(Theme.key_player_buttonActive) : getThemedColor(Theme.key_player_button));
         }
     }
 
@@ -2516,8 +2519,12 @@ public class AudioPlayerAlert extends BottomSheet
         final int subtitleColor = getThemedColor(Theme.key_player_actionBarSubtitle);
         final int timeColor = getThemedColor(Theme.key_player_time);
         final int accentColor = getThemedColor(Theme.key_featuredStickers_addButton);
+        final int onAccentColor = getThemedColor(Theme.key_featuredStickers_buttonText);
         final int progressBg = getThemedColor(Theme.key_player_progressBackground);
         final int progressColor = getThemedColor(Theme.key_player_progress);
+        final int iconColor = getThemedColor(Theme.key_player_button);
+        final int dividerColor = getThemedColor(Theme.key_divider);
+        final int surfaceColor = getThemedColor(Theme.key_windowBackgroundGray);
 
         if (seekBarView != null) {
             seekBarView.setWavy(true);
@@ -2529,38 +2536,64 @@ public class AudioPlayerAlert extends BottomSheet
         if (durationTextView != null) {
             durationTextView.setTextColor(timeColor);
         }
+        if (titleTextView != null) {
+            titleTextView.setTextColor(titleColor);
+        }
+        if (authorTextView != null) {
+            authorTextView.setTextColor(timeColor);
+        }
+        if (borderView != null) {
+            borderView.setVisibility(View.VISIBLE);
+            GradientDrawable borderBg = new GradientDrawable();
+            borderBg.setColor(Color.TRANSPARENT);
+            borderBg.setCornerRadii(new float[]{
+                    AndroidUtilities.dp(4), AndroidUtilities.dp(4),
+                    AndroidUtilities.dp(4), AndroidUtilities.dp(4),
+                    AndroidUtilities.dp(4), AndroidUtilities.dp(4),
+                    AndroidUtilities.dp(56), AndroidUtilities.dp(56)
+            });
+            borderBg.setStroke(AndroidUtilities.dp(1), dividerColor);
+            borderView.setBackground(borderBg);
+        }
         if (playButton != null) {
-            int iconColor = AndroidUtilities.computePerceivedBrightness(accentColor) > 0.72f ? 0xFF000000 : 0xFFFFFFFF;
-            playButton.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_ON_ACCENT, PorterDuff.Mode.SRC_IN);
+            playButton.setColorFilter(onAccentColor, PorterDuff.Mode.SRC_IN);
             playButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(26), accentColor, Theme.blendOver(accentColor, 0x25000000)));
         }
         if (prevButton != null) {
-            prevButton.setLayerColor("Triangle 3.**", soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-            prevButton.setLayerColor("Triangle 4.**", soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-            prevButton.setLayerColor("Rectangle 4.**", soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-            prevButton.setBackground(Theme.createSelectorDrawable(0x22FFFFFF, 1, dp(16)));
+            prevButton.setLayerColor("Triangle 3.**", iconColor);
+            prevButton.setLayerColor("Triangle 4.**", iconColor);
+            prevButton.setLayerColor("Rectangle 4.**", iconColor);
+            prevButton.setBackground(Theme.createSelectorDrawable(androidx.core.graphics.ColorUtils.setAlphaComponent(iconColor, 34), 1, dp(16)));
         }
         if (nextButton != null) {
-            nextButton.setLayerColor("Triangle 3.**", soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-            nextButton.setLayerColor("Triangle 4.**", soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-            nextButton.setLayerColor("Rectangle 4.**", soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
-            nextButton.setBackground(Theme.createSelectorDrawable(0x22FFFFFF, 1, dp(16)));
+            nextButton.setLayerColor("Triangle 3.**", iconColor);
+            nextButton.setLayerColor("Triangle 4.**", iconColor);
+            nextButton.setLayerColor("Rectangle 4.**", iconColor);
+            nextButton.setBackground(Theme.createSelectorDrawable(androidx.core.graphics.ColorUtils.setAlphaComponent(iconColor, 34), 1, dp(16)));
         }
         if (repeatButton != null) {
-            repeatButton.setIconColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT);
+            repeatButton.setIconColor(iconColor);
             GradientDrawable repeatBg = new GradientDrawable();
-            repeatBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+            repeatBg.setColor(surfaceColor);
             repeatBg.setCornerRadius(AndroidUtilities.dp(14));
-            repeatBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+            repeatBg.setStroke(AndroidUtilities.dp(1), dividerColor);
             repeatButton.setBackground(repeatBg);
         }
         if (eqBtn != null) {
-            eqBtn.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT, PorterDuff.Mode.SRC_IN);
+            eqBtn.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
             GradientDrawable eqBg = new GradientDrawable();
-            eqBg.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_SURFACE_1);
+            eqBg.setColor(surfaceColor);
             eqBg.setCornerRadius(AndroidUtilities.dp(14));
-            eqBg.setStroke(AndroidUtilities.dp(1), soundgram.ui.SoundGramDesignTokens.COLOR_LINE_STRONG);
+            eqBg.setStroke(AndroidUtilities.dp(1), dividerColor);
             eqBtn.setBackground(eqBg);
+        }
+        if (favButton != null) {
+            favButton.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+            GradientDrawable favBg = new GradientDrawable();
+            favBg.setColor(surfaceColor);
+            favBg.setCornerRadius(AndroidUtilities.dp(14));
+            favBg.setStroke(AndroidUtilities.dp(1), dividerColor);
+            favButton.setBackground(favBg);
         }
         if (lyricsBtnBottom != null) {
             int btnBg = androidx.core.graphics.ColorUtils.setAlphaComponent(titleColor, 35);
@@ -2569,10 +2602,15 @@ public class AudioPlayerAlert extends BottomSheet
             lyricsBtnBottom.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(12), btnBg, btnPressedBg));
         }
         if (topOptionsBtn != null) {
-            topOptionsBtn.setColorFilter(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT, PorterDuff.Mode.SRC_IN);
+            topOptionsBtn.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+            GradientDrawable topBackBg = new GradientDrawable();
+            topBackBg.setColor(surfaceColor);
+            topBackBg.setCornerRadius(AndroidUtilities.dp(14));
+            topBackBg.setStroke(AndroidUtilities.dp(1), dividerColor);
+            topOptionsBtn.setBackground(topBackBg);
         }
         if (sourceChipTextView != null) {
-            sourceChipTextView.setTextColor(soundgram.ui.SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            sourceChipTextView.setTextColor(timeColor);
         }
         updatePlayerBackground();
     }
@@ -2585,7 +2623,7 @@ public class AudioPlayerAlert extends BottomSheet
                 AndroidUtilities.dp(28), AndroidUtilities.dp(28),
                 0, 0, 0, 0
         });
-        base.setColor(soundgram.ui.SoundGramDesignTokens.COLOR_BG);
+        base.setColor(getThemedColor(Theme.key_dialogBackground));
         playerLayout.setBackground(base);
     }
 
@@ -2921,7 +2959,7 @@ public class AudioPlayerAlert extends BottomSheet
                             }
                             if (favButton != null) {
                                 favButton.setImageResource(R.drawable.msg_delete);
-                                favButton.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN);
+                                favButton.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
                             }
                             Toast.makeText(getContext(), getString(R.string.sg_saved_to_library), Toast.LENGTH_SHORT).show();
                         } else {
@@ -2944,7 +2982,7 @@ public class AudioPlayerAlert extends BottomSheet
         // НЕ закрываем плеер; обновляем иконку закладки и видимость пунктов меню
         if (favButton != null) {
             favButton.setImageResource(R.drawable.msg_delete);
-            favButton.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN);
+            favButton.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
         }
         if (topOptionsButton != null) {
             topOptionsButton.setSubItemShown(5, false);
@@ -3196,7 +3234,7 @@ public class AudioPlayerAlert extends BottomSheet
         // Обновляем иконку закладки
         if (favButton != null) {
             favButton.setImageResource(R.drawable.msg_download);
-            favButton.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFE0E0E0 : 0xFF000000, PorterDuff.Mode.SRC_IN);
+            favButton.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
         }
 
         Toast.makeText(getContext(), getString(R.string.dl), Toast.LENGTH_SHORT).show();
@@ -3729,7 +3767,7 @@ public class AudioPlayerAlert extends BottomSheet
             // Индикатор воспроизведения (поверх обложки)
             playingIndicator = new ImageView(context);
             playingIndicator.setScaleType(ImageView.ScaleType.CENTER);
-            playingIndicator.setColorFilter(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000, PorterDuff.Mode.SRC_IN);
+            playingIndicator.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
             GradientDrawable indicatorBg = new GradientDrawable();
             indicatorBg.setColor(0xCC000000);
             indicatorBg.setCornerRadius(AndroidUtilities.dp(8));
@@ -4209,7 +4247,7 @@ public class AudioPlayerAlert extends BottomSheet
         }
         modeMenuButton.setIcon(iconRes);
         boolean isActive = mode != 0 || SharedConfig.shuffleMusic || SharedConfig.playOrderReversed;
-        modeMenuButton.setIconColor(isActive ? getThemedColor(Theme.key_player_buttonActive) : (Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000));
+        modeMenuButton.setIconColor(isActive ? getThemedColor(Theme.key_player_buttonActive) : getThemedColor(Theme.key_player_button));
     }
 
     public void updateRepeatButton() {
@@ -5807,6 +5845,14 @@ public class AudioPlayerAlert extends BottomSheet
             erasePaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
         }
 
+        public void setTextColor(int color) {
+            for (int i = 0; i < textViews.length; i++) {
+                if (textViews[i] != null) {
+                    textViews[i].setTextColor(color);
+                }
+            }
+        }
+
         @Override
         protected void onSizeChanged(int w, int h, int oldw, int oldh) {
             super.onSizeChanged(w, h, oldw, oldh);
@@ -6528,7 +6574,7 @@ public class AudioPlayerAlert extends BottomSheet
             super(context);
             textPaint.setTextSize(BASE_TEXT_SIZE);
             textPaint.setTypeface(AndroidUtilities.bold());
-            textPaint.setColor(Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000);
+            textPaint.setColor(getThemedColor(Theme.key_dialogTextBlack));
 
             springAnim = new androidx.dynamicanimation.animation.SpringAnimation(scrollHolder)
                     .setSpring(new androidx.dynamicanimation.animation.SpringForce(0f)
@@ -6661,7 +6707,7 @@ public class AudioPlayerAlert extends BottomSheet
             int dynamicActiveY = Math.min(ACTIVE_Y, Math.max(AndroidUtilities.dp(120), getHeight() / 2));
             float activePos = getCumulativePos(activeIndex);
             float visualActivePos = activePos - scrollOffset;
-            int baseColor = Theme.isCurrentThemeDark() ? 0xFFFFFFFF : 0xFF000000;
+            int baseColor = getThemedColor(Theme.key_dialogTextBlack);
             float standardRowHeight = AndroidUtilities.dp(64);
 
             for (int i = 0; i < lyricsLines.size(); i++) {

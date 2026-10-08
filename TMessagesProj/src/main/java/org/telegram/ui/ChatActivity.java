@@ -4996,6 +4996,10 @@ public class ChatActivity extends BaseFragment implements
         }
         removingFromParent = false;
         fragmentView = contentView = new ChatActivityFragmentView(context, parentLayout);
+        if (soundgram.ui.SoundGramWallpaperHelper.hasChatVideoWallpaper()) {
+            contentView.setSkipBackgroundDrawing(true);
+            soundgram.ui.SoundGramWallpaperHelper.applyChatVideoWallpaper(contentView);
+        }
         invalidateBlurredSourcesView = new OnPostDrawView(context, true, this::invalidateMergedVisibleBlurredPositionsAndSourcesImpl);
         contentView.addView(invalidateBlurredSourcesView);
 
@@ -31130,6 +31134,13 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onResume() {
         super.onResume();
+        if (contentView != null) {
+            if (soundgram.ui.SoundGramWallpaperHelper.hasChatVideoWallpaper()) {
+                contentView.setSkipBackgroundDrawing(true);
+                soundgram.ui.SoundGramWallpaperHelper.applyChatVideoWallpaper(contentView);
+                soundgram.ui.SoundGramWallpaperHelper.onResume(contentView);
+            }
+        }
         final boolean deferResumeUi = wasPaused && !isFullyVisible;
         LaunchActivity.invalidateNimarkoSecureFlag();
         // NimarkoGram (CG-port): refresh back-arrow unread badge on resume — picks up
@@ -31416,6 +31427,9 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onPause() {
         super.onPause();
+        if (contentView != null) {
+            soundgram.ui.SoundGramWallpaperHelper.onPause(contentView);
+        }
         if (fragmentContextView != null) {
             fragmentContextView.collapsePlayer(false);
         }

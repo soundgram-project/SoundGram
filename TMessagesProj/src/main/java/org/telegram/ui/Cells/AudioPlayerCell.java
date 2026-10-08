@@ -358,7 +358,7 @@ public class AudioPlayerCell extends FrameLayout implements DownloadController.F
 
     private int getIconForCurrentState() {
         if (buttonState == 1) {
-            return MediaActionDrawable.ICON_PAUSE;
+            return MediaActionDrawable.ICON_NONE;
         } else if (buttonState == 2) {
             return MediaActionDrawable.ICON_DOWNLOAD;
         } else if (buttonState == 4) {

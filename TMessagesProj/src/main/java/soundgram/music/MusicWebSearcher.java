@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 public class MusicWebSearcher {
 
+    private static final ExecutorService SEARCH_EXECUTOR = Executors.newFixedThreadPool(8);
     // ── Кэш результатов поиска (TTL 10 минут, до 200 записей) ─────────────────
     private static final java.util.concurrent.ConcurrentHashMap<String, ArrayList<WebTrack>> searchResultCache
             = new java.util.concurrent.ConcurrentHashMap<>();
@@ -266,6 +267,12 @@ public class MusicWebSearcher {
             ArrayList<WebTrack> list = getCachedSearch(cacheKey);
             if (list == null) {
                 String html = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                if (html == null || html.length() < 500) {
+                    try {
+                        String altHtml = fetchHtml("https://hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                        if (altHtml != null && altHtml.length() > 500) html = altHtml;
+                    } catch (Exception ignored) {}
+                }
                 list = new ArrayList<>();
                 parseHtmlToResults(html, list, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                 putCachedSearch(cacheKey, list);
@@ -359,69 +366,83 @@ public class MusicWebSearcher {
                     String tracksResp = fetchHtml("https://api.deezer.com/album/" + albumId + "/tracks");
                     JSONArray tracksArr = new JSONObject(tracksResp).getJSONArray("data");
 
-                    ArrayList<WebTrack> finalCompiledTracks = new ArrayList<>();
-
+                    ArrayList<WebTrack> initialTracks = new ArrayList<>();
                     for (int i = 0; i < tracksArr.length(); i++) {
                         String trackTitle = tracksArr.getJSONObject(i).getString("title");
-                        String trackClean = trackTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
                         int exactDuration = tracksArr.getJSONObject(i).getInt("duration");
-
-                        String trackSearchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8");
-                        String trackHtml = fetchHtml(trackSearchUrl);
-
-                        ArrayList<WebTrack> searchTracks = new ArrayList<>();
-                        parseHtmlToResults(trackHtml, searchTracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
-
-                        WebTrack bestMatch = null;
-                        for (WebTrack wt : searchTracks) {
-                            int hitmoDur = soundgram.music.ChannelMusicFragment.parseDuration(wt.duration);
-                            // ИСПРАВЛЕНИЕ: Жесткая проверка по строкам, чтобы не путать ремиксы и чужие треки
-                            boolean titleMatch = wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase());
-                            boolean artistMatch = wt.artist.toLowerCase().contains(artistName.toLowerCase()) || artistName.toLowerCase().contains(wt.artist.toLowerCase());
-                            boolean durMatch = Math.abs(hitmoDur - exactDuration) <= 15;
-
-                            // Приоритет 1: название + артист + длительность (строгий)
-                            if (titleMatch && artistMatch && durMatch) {
-                                bestMatch = wt;
-                                break;
-                            }
-                            // Приоритет 2: название + длительность (без проверки артиста)
-                            if (bestMatch == null && titleMatch && durMatch) {
-                                bestMatch = wt;
-                            }
-                        }
-                        // Приоритет 3: только совпадение по названию (без длительности и артиста)
-                        if (bestMatch == null) {
-                            for (WebTrack wt : searchTracks) {
-                                boolean titleMatch = wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase());
-                                if (titleMatch) { bestMatch = wt; break; }
-                            }
-                        }
-                        // Приоритет 4: обычный первый результат поиска
-                        if (bestMatch == null && !searchTracks.isEmpty()) {
-                            bestMatch = searchTracks.get(0);
-                        }
-
-                        if (bestMatch != null) {
-                            bestMatch.title = trackTitle;
-                            bestMatch.artist = artistName;
-                            if (bestMatch.coverUrl == null || bestMatch.coverUrl.isEmpty()) {
-                                bestMatch.coverUrl = coverUrl;
-                            }
-                        } else {
-                            String durStr = String.format(Locale.US, "%d:%02d", exactDuration / 60, exactDuration % 60);
-                            bestMatch = new WebTrack(trackTitle, artistName, "", durStr, coverUrl);
-                        }
-
-                        final WebTrack finalTrack = bestMatch;
-                        finalCompiledTracks.add(finalTrack);
-
-                        AndroidUtilities.runOnUIThread(() -> callback.onTrackLoaded(finalTrack));
-
-                        Thread.sleep(100);
+                        String durStr = String.format(Locale.US, "%d:%02d", exactDuration / 60, exactDuration % 60);
+                        initialTracks.add(new WebTrack(trackTitle, artistName, "", durStr, coverUrl));
                     }
-                    if(finalCompiledTracks.isEmpty()) AndroidUtilities.runOnUIThread(callback::onFailed);
-                    else AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(), finalCompiledTracks));
+
+                    if (initialTracks.isEmpty()) {
+                        AndroidUtilities.runOnUIThread(callback::onFailed);
+                        return;
+                    }
+
+                    // Emit tracklist instantly to UI so album displays in milliseconds
+                    AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(), initialTracks));
+
+                    // Asynchronously resolve direct stream URLs in background
+                    SEARCH_EXECUTOR.execute(() -> {
+                        for (int i = 0; i < tracksArr.length(); i++) {
+                            try {
+                                String trackTitle = tracksArr.getJSONObject(i).getString("title");
+                                String trackClean = trackTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                                int exactDuration = tracksArr.getJSONObject(i).getInt("duration");
+
+                                String trackSearchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8");
+                                String trackHtml = fetchHtml(trackSearchUrl);
+                                if (trackHtml == null || trackHtml.length() < 500) {
+                                    try {
+                                        String altHtml = fetchHtml("https://hitmos.fm/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8"));
+                                        if (altHtml != null && altHtml.length() > 500) trackHtml = altHtml;
+                                    } catch (Exception ignored) {}
+                                }
+
+                                ArrayList<WebTrack> searchTracks = new ArrayList<>();
+                                parseHtmlToResults(trackHtml, searchTracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+
+                                WebTrack bestMatch = null;
+                                for (WebTrack wt : searchTracks) {
+                                    int hitmoDur = soundgram.music.ChannelMusicFragment.parseDuration(wt.duration);
+                                    boolean titleMatch = wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase());
+                                    boolean artistMatch = wt.artist.toLowerCase().contains(artistName.toLowerCase()) || artistName.toLowerCase().contains(wt.artist.toLowerCase());
+                                    boolean durMatch = Math.abs(hitmoDur - exactDuration) <= 15;
+
+                                    if (titleMatch && artistMatch && durMatch) {
+                                        bestMatch = wt;
+                                        break;
+                                    }
+                                    if (bestMatch == null && titleMatch && durMatch) {
+                                        bestMatch = wt;
+                                    }
+                                }
+                                if (bestMatch == null) {
+                                    for (WebTrack wt : searchTracks) {
+                                        if (wt.title.toLowerCase().contains(trackClean.toLowerCase()) || trackClean.toLowerCase().contains(wt.title.toLowerCase())) {
+                                            bestMatch = wt;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (bestMatch == null && !searchTracks.isEmpty()) {
+                                    bestMatch = searchTracks.get(0);
+                                }
+
+                                if (bestMatch != null) {
+                                    bestMatch.title = trackTitle;
+                                    bestMatch.artist = artistName;
+                                    if (bestMatch.coverUrl == null || bestMatch.coverUrl.isEmpty()) {
+                                        bestMatch.coverUrl = coverUrl;
+                                    }
+                                    final WebTrack resolvedTrack = bestMatch;
+                                    AndroidUtilities.runOnUIThread(() -> callback.onTrackLoaded(resolvedTrack));
+                                }
+                            } catch (Throwable t) {
+                                FileLog.e(t);
+                            }
+                        }
+                    });
                 } else {
                     AndroidUtilities.runOnUIThread(callback::onFailed);
                 }
@@ -534,114 +555,154 @@ public class MusicWebSearcher {
                     return;
                 }
 
-                // 1. Поиск на Hitmos
+                // Parallel search across Hitmos and Deezer (tracks, artists, albums)
                 ArrayList<WebTrack> hitmosTracks = new ArrayList<>();
-                String searchUrl;
-                if (page == 1) {
-                    searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
-                } else {
-                    searchUrl = "https://rus.hitmos.fm/search/page/" + page + "/?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
-                }
-
-                String hitmoHtml = fetchHtml(searchUrl);
-                if (hitmoHtml == null || hitmoHtml.isEmpty()) {
-                    searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&page=" + page;
-                    hitmoHtml = fetchHtml(searchUrl);
-                }
-
-                parseHtmlToResults(hitmoHtml, hitmosTracks, new ArrayList<>(), new ArrayList<>(), seenIds);
-
-                // 2. Поиск на Deezer (треки, артисты, альбомы)
                 ArrayList<WebTrack> deezerTracks = new ArrayList<>();
-                try {
-                    String dTrackSearch = "https://api.deezer.com/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&limit=40";
-                    String dResp = fetchHtml(dTrackSearch);
-                    if (dResp != null && !dResp.isEmpty()) {
-                        JSONObject dJson = new JSONObject(dResp);
-                        if (dJson.has("data")) {
-                            JSONArray data = dJson.getJSONArray("data");
-                            for (int i = 0; i < data.length(); i++) {
-                                JSONObject obj = data.getJSONObject(i);
-                                String title = obj.optString("title", "");
-                                String artist = obj.has("artist") ? obj.getJSONObject("artist").optString("name", "") : "";
-                                String cover = obj.has("album") ? obj.getJSONObject("album").optString("cover_xl", "") : "";
-                                int duration = obj.optInt("duration", 0);
-                                String durStr = String.format(Locale.US, "%d:%02d", duration / 60, duration % 60);
+                CountDownLatch latch = new CountDownLatch(page == 1 ? 4 : 2);
 
-                                if (!title.isEmpty()) {
-                                    deezerTracks.add(new WebTrack(title, artist, "", durStr, cover));
+                // 1. Поиск на Hitmos
+                SEARCH_EXECUTOR.execute(() -> {
+                    try {
+                        String searchUrl;
+                        if (page == 1) {
+                            searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                        } else {
+                            searchUrl = "https://rus.hitmos.fm/search/page/" + page + "/?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                        }
+
+                        String hitmoHtml = fetchHtml(searchUrl);
+                        if (hitmoHtml == null || hitmoHtml.length() < 500) {
+                            String altUrl = searchUrl.replace("rus.hitmos.fm", "hitmos.fm");
+                            try {
+                                String altHtml = fetchHtml(altUrl);
+                                if (altHtml != null && altHtml.length() > 500) {
+                                    hitmoHtml = altHtml;
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                        if (hitmoHtml == null || hitmoHtml.isEmpty()) {
+                            searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&page=" + page;
+                            hitmoHtml = fetchHtml(searchUrl);
+                        }
+
+                        parseHtmlToResults(hitmoHtml, hitmosTracks, artists, albums, seenIds);
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+
+                // 2. Поиск на Deezer (треки для обогащения метаданных/обложек)
+                SEARCH_EXECUTOR.execute(() -> {
+                    try {
+                        String dTrackSearch = "https://api.deezer.com/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&limit=40";
+                        String dResp = fetchHtml(dTrackSearch);
+                        if (dResp != null && !dResp.isEmpty()) {
+                            JSONObject dJson = new JSONObject(dResp);
+                            if (dJson.has("data")) {
+                                JSONArray data = dJson.getJSONArray("data");
+                                for (int i = 0; i < data.length(); i++) {
+                                    JSONObject obj = data.getJSONObject(i);
+                                    String title = obj.optString("title", "");
+                                    String artist = obj.has("artist") ? obj.getJSONObject("artist").optString("name", "") : "";
+                                    String cover = obj.has("album") ? obj.getJSONObject("album").optString("cover_xl", "") : "";
+                                    int duration = obj.optInt("duration", 0);
+                                    String durStr = String.format(Locale.US, "%d:%02d", duration / 60, duration % 60);
+
+                                    if (!title.isEmpty()) {
+                                        synchronized (deezerTracks) {
+                                            deezerTracks.add(new WebTrack(title, artist, "", durStr, cover));
+                                        }
+                                    }
                                 }
                             }
                         }
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    } finally {
+                        latch.countDown();
                     }
-                } catch (Exception e) { FileLog.e(e); }
+                });
 
                 if (page == 1) {
-                    String artistSearch = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
-                    String aResp = fetchHtml(artistSearch);
-                    if (aResp != null && !aResp.isEmpty()) {
-                        JSONObject aJson = new JSONObject(aResp);
-                        if (aJson.has("data")) {
-                            JSONArray data = aJson.getJSONArray("data");
-                            for (int i = 0; i < data.length() && artists.size() < 10; i++) {
-                                JSONObject obj = data.getJSONObject(i);
-                                artists.add(new WebArtist(obj.getString("name"), "DEEZER_ARTIST:" + obj.getLong("id"), obj.getString("picture_xl")));
+                    // 3. Поиск на Deezer (артисты)
+                    SEARCH_EXECUTOR.execute(() -> {
+                        try {
+                            String artistSearch = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                            String aResp = fetchHtml(artistSearch);
+                            if (aResp != null && !aResp.isEmpty()) {
+                                JSONObject aJson = new JSONObject(aResp);
+                                if (aJson.has("data")) {
+                                    JSONArray data = aJson.getJSONArray("data");
+                                    for (int i = 0; i < data.length() && artists.size() < 10; i++) {
+                                        JSONObject obj = data.getJSONObject(i);
+                                        synchronized (artists) {
+                                            artists.add(new WebArtist(obj.getString("name"), "DEEZER_ARTIST:" + obj.getLong("id"), obj.getString("picture_xl")));
+                                        }
+                                    }
+                                }
                             }
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        } finally {
+                            latch.countDown();
                         }
-                    }
+                    });
 
-                    String albumSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
-                    String alResp = fetchHtml(albumSearch);
-                    if (alResp != null && !alResp.isEmpty()) {
-                        JSONObject alJson = new JSONObject(alResp);
-                        if (alJson.has("data")) {
-                            JSONArray data = alJson.getJSONArray("data");
-                            for (int i = 0; i < data.length() && albums.size() < 10; i++) {
-                                JSONObject obj = data.getJSONObject(i);
-                                albums.add(new WebAlbum(obj.getString("title"), obj.getJSONObject("artist").getString("name"), "SEARCH_ALBUM:" + obj.getString("title") + "::::" + obj.getJSONObject("artist").getString("name"), obj.getString("cover_xl")));
+                    // 4. Поиск на Deezer (альбомы)
+                    SEARCH_EXECUTOR.execute(() -> {
+                        try {
+                            String albumSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                            String alResp = fetchHtml(albumSearch);
+                            if (alResp != null && !alResp.isEmpty()) {
+                                JSONObject alJson = new JSONObject(alResp);
+                                if (alJson.has("data")) {
+                                    JSONArray data = alJson.getJSONArray("data");
+                                    for (int i = 0; i < data.length() && albums.size() < 10; i++) {
+                                        JSONObject obj = data.getJSONObject(i);
+                                        synchronized (albums) {
+                                            albums.add(new WebAlbum(obj.getString("title"), obj.getJSONObject("artist").getString("name"), "SEARCH_ALBUM:" + obj.getString("title") + "::::" + obj.getJSONObject("artist").getString("name"), obj.getString("cover_xl")));
+                                        }
+                                    }
+                                }
                             }
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        } finally {
+                            latch.countDown();
                         }
-                    }
+                    });
                 }
 
-                // 3. Объединение и дедупликация результатов от обоих сервисов
+                try {
+                    latch.await(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ignored) {}
+
+                // 3. Объединение результатов: Hitmos треки с прямым стримингом первичны
                 HashSet<String> addedKeys = new HashSet<>();
 
                 for (WebTrack ht : hitmosTracks) {
+                    if (ht.downloadUrl == null || ht.downloadUrl.isEmpty()) continue;
                     String key = (ht.title + "|||" + ht.artist).toLowerCase();
-                    addedKeys.add(key);
-                    tracks.add(ht);
+                    if (!addedKeys.contains(key)) {
+                        addedKeys.add(key);
+                        tracks.add(ht);
+                    }
                 }
 
+                // Обогащаем обложки треков Hitmos из Deezer
                 for (WebTrack dt : deezerTracks) {
-                    String key = (dt.title + "|||" + dt.artist).toLowerCase();
-                    WebTrack existingHitmos = null;
-                    if (addedKeys.contains(key)) {
-                        for (WebTrack existing : tracks) {
-                            if ((existing.title + "|||" + existing.artist).equalsIgnoreCase(key)) {
-                                existingHitmos = existing;
-                                break;
+                    String cleanDtTitle = dt.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
+                    for (WebTrack existing : tracks) {
+                        String cleanExTitle = existing.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
+                        if ((cleanExTitle.equals(cleanDtTitle) || cleanExTitle.contains(cleanDtTitle) || cleanDtTitle.contains(cleanExTitle))
+                                && (isArtistMatch(existing.artist, dt.artist) || existing.artist.equalsIgnoreCase(dt.artist))) {
+                            if ((existing.coverUrl == null || existing.coverUrl.isEmpty()) && !dt.coverUrl.isEmpty()) {
+                                existing.coverUrl = dt.coverUrl;
                             }
+                            break;
                         }
-                    } else {
-                        // Поиск совпадений с Hitmos по чистому названию и артисту
-                        String cleanDtTitle = dt.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
-                        for (WebTrack existing : tracks) {
-                            String cleanExTitle = existing.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
-                            if (cleanDtTitle.equals(cleanExTitle) && (isArtistMatch(existing.artist, dt.artist) || existing.artist.equalsIgnoreCase(dt.artist))) {
-                                existingHitmos = existing;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (existingHitmos != null) {
-                        if ((existingHitmos.coverUrl == null || existingHitmos.coverUrl.isEmpty()) && !dt.coverUrl.isEmpty()) {
-                            existingHitmos.coverUrl = dt.coverUrl;
-                        }
-                    } else {
-                        addedKeys.add(key);
-                        tracks.add(dt);
                     }
                 }
 
@@ -1416,7 +1477,8 @@ public class MusicWebSearcher {
                     "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
             conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
             conn.setRequestProperty("Accept-Encoding", "identity");
-            String hostReferer = url.getProtocol() + "://" + url.getHost() + "/";
+            String hostReferer = (url.getHost() != null && url.getHost().contains("hitmo"))
+                    ? "https://rus.hitmos.fm/" : (url.getProtocol() + "://" + url.getHost() + "/");
             conn.setRequestProperty("Referer", hostReferer);
             conn.setConnectTimeout(20000);
             conn.setReadTimeout(60000);
@@ -1498,7 +1560,8 @@ public class MusicWebSearcher {
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
             conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
             conn.setRequestProperty("Accept-Encoding", "identity");
-            String hostReferer = url.getProtocol() + "://" + url.getHost() + "/";
+            String hostReferer = (url.getHost() != null && url.getHost().contains("hitmo"))
+                    ? "https://rus.hitmos.fm/" : (url.getProtocol() + "://" + url.getHost() + "/");
             conn.setRequestProperty("Referer", hostReferer);
             conn.setConnectTimeout(20000);
             conn.setReadTimeout(60000);
@@ -1560,82 +1623,119 @@ public class MusicWebSearcher {
         // 1. Next.js JSON формат (rus.hitmos.fm)
         if (html.contains("artist") && (html.contains("download") || html.contains("play"))) {
             try {
-                String[] jsonBlocks = html.split("\\\\\"artist\\\\\":");
-                for (int i = 1; i < jsonBlocks.length; i++) {
-                    String b = jsonBlocks[i];
-                    Matcher artistM = Pattern.compile("^\\\\\"(.*?)\\\\\",\\\\\"title\\\\\":\\\\\"(.*?)\\\\\"").matcher(b);
-                    Matcher playM = Pattern.compile("\\\\\"(?:play|download)\\\\\":\\\\\"(https?://[^\"]+?\\.mp3)\\\\\"", Pattern.CASE_INSENSITIVE).matcher(b);
-                    Matcher durM = Pattern.compile("\\\\\"duration\\\\\":(\\d+)").matcher(b);
+                // Universal Next.js track regex: matches "title":"...", "artist":"...", "duration":..., "play":"https://plc1.hitmos.fm/...mp3"
+                // Поддерживает как title -> artist, так и artist -> title, а также любое количество эскейп-бэкслешей [\\\\]*
+                Pattern pTrack1 = Pattern.compile("title[\\\\]*\"\\s*:\\s*[\\\\]*\"([^\"]+?)[\\\\]*\"\\s*,\\s*[\\\\]*\"artist[\\\\]*\"\\s*:\\s*[\\\\]*\"([^\"]+?)[\\\\]*\"\\s*,\\s*[\\\\]*\"duration[\\\\]*\"\\s*:\\s*(\\d+).*?[\\\\]*\"play[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://[^\"]+?\\.mp3[^\"]*?)[\\\\]*\"");
+                Pattern pTrack2 = Pattern.compile("artist[\\\\]*\"\\s*:\\s*[\\\\]*\"([^\"]+?)[\\\\]*\"\\s*,\\s*[\\\\]*\"title[\\\\]*\"\\s*:\\s*[\\\\]*\"([^\"]+?)[\\\\]*\"\\s*,\\s*[\\\\]*\"duration[\\\\]*\"\\s*:\\s*(\\d+).*?[\\\\]*\"play[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://[^\"]+?\\.mp3[^\"]*?)[\\\\]*\"");
+                Pattern pDl = Pattern.compile("[\\\\]*\"download[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://[^\"]+?\\.mp3[^\"]*?)[\\\\]*\"");
+                Pattern pImg = Pattern.compile("[\\\\]*\"image(?:Url)?[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://[^\"]+?\\.(?:jpg|png|webp)[^\"]*?)[\\\\]*\"");
 
-                    if (artistM.find() && playM.find()) {
-                        String artist = artistM.group(1).replace("\\\"", "\"").trim();
-                        String title = artistM.group(2).replace("\\\"", "\"").trim();
-                        String downloadUrl = playM.group(1).replace("\\/", "/");
+                Matcher tm = pTrack1.matcher(html);
+                boolean foundAny = false;
+                while (tm.find()) {
+                    foundAny = true;
+                    String title = tm.group(1).replace("\\\"", "\"").replace("\\/", "/").trim();
+                    String artist = tm.group(2).replace("\\\"", "\"").replace("\\/", "/").trim();
+                    int durSec = 0;
+                    try { durSec = Integer.parseInt(tm.group(3)); } catch (Exception ignored) {}
+                    String durStr = String.format(Locale.US, "%d:%02d", durSec / 60, durSec % 60);
+                    String playUrl = tm.group(4).replace("\\/", "/").trim();
 
-                        if (downloadUrl == null || downloadUrl.isEmpty()) continue;
-                        if (seen.contains("TR_" + downloadUrl)) continue;
-                        seen.add("TR_" + downloadUrl);
+                    if (playUrl.isEmpty()) continue;
+                    synchronized (seen) {
+                        if (seen.contains("TR_" + playUrl)) continue;
+                        seen.add("TR_" + playUrl);
+                    }
 
-                        int durSec = 0;
-                        if (durM.find()) {
-                            try { durSec = Integer.parseInt(durM.group(1)); } catch (Exception ignored) {}
-                        }
-                        String durStr = String.format("%d:%02d", durSec / 60, durSec % 60);
+                    int snipStart = tm.start();
+                    int snipEnd = Math.min(html.length(), snipStart + 500);
+                    String snippet = html.substring(snipStart, snipEnd);
 
-                        String coverUrl = "";
-                        Matcher coverM = Pattern.compile("\\\\\"imageUrl\\\\\":\\\\\"(.*?)\\\\\"", Pattern.CASE_INSENSITIVE).matcher(b);
-                        while (coverM.find()) {
-                            String foundCover = coverM.group(1).replace("\\/", "/");
-                            if (coverUrl.isEmpty()) {
-                                coverUrl = foundCover;
-                            }
-                            if (foundCover.contains("/album/") || foundCover.contains("/song/") || foundCover.contains("/track/")) {
-                                coverUrl = foundCover;
-                                break;
-                            }
-                        }
+                    Matcher dlm = pDl.matcher(snippet);
+                    String downloadUrl = dlm.find() ? dlm.group(1).replace("\\/", "/").trim() : playUrl;
 
+                    Matcher imgm = pImg.matcher(snippet);
+                    String coverUrl = imgm.find() ? imgm.group(1).replace("\\/", "/").trim() : "";
+
+                    synchronized (tracks) {
                         tracks.add(new WebTrack(title, artist, downloadUrl, durStr, coverUrl));
                     }
                 }
 
-                if (tracks.isEmpty()) {
-                    String[] normalBlocks = html.split("\"artist\":");
-                    for (int i = 1; i < normalBlocks.length; i++) {
-                        String b = normalBlocks[i];
-                        Matcher artistM = Pattern.compile("^\"([^\"]+)\",\"title\":\"([^\"]+)\"").matcher(b);
-                        Matcher playM = Pattern.compile("\"(?:play|download)\":\"(https?://[^\"]+?\\.mp3)\"", Pattern.CASE_INSENSITIVE).matcher(b);
-                        Matcher durM = Pattern.compile("\"duration\":(\\d+)").matcher(b);
+                if (!foundAny) {
+                    Matcher tm2 = pTrack2.matcher(html);
+                    while (tm2.find()) {
+                        String artist = tm2.group(1).replace("\\\"", "\"").replace("\\/", "/").trim();
+                        String title = tm2.group(2).replace("\\\"", "\"").replace("\\/", "/").trim();
+                        int durSec = 0;
+                        try { durSec = Integer.parseInt(tm2.group(3)); } catch (Exception ignored) {}
+                        String durStr = String.format(Locale.US, "%d:%02d", durSec / 60, durSec % 60);
+                        String playUrl = tm2.group(4).replace("\\/", "/").trim();
 
-                        if (artistM.find() && playM.find()) {
-                            String artist = artistM.group(1).trim();
-                            String title = artistM.group(2).trim();
-                            String downloadUrl = playM.group(1).replace("\\/", "/");
+                        if (playUrl.isEmpty()) continue;
+                        synchronized (seen) {
+                            if (seen.contains("TR_" + playUrl)) continue;
+                            seen.add("TR_" + playUrl);
+                        }
 
-                            if (downloadUrl == null || downloadUrl.isEmpty()) continue;
-                            if (seen.contains("TR_" + downloadUrl)) continue;
-                            seen.add("TR_" + downloadUrl);
+                        int snipStart = tm2.start();
+                        int snipEnd = Math.min(html.length(), snipStart + 500);
+                        String snippet = html.substring(snipStart, snipEnd);
 
-                            int durSec = 0;
-                            if (durM.find()) {
-                                try { durSec = Integer.parseInt(durM.group(1)); } catch (Exception ignored) {}
-                            }
-                            String durStr = String.format("%d:%02d", durSec / 60, durSec % 60);
+                        Matcher dlm = pDl.matcher(snippet);
+                        String downloadUrl = dlm.find() ? dlm.group(1).replace("\\/", "/").trim() : playUrl;
 
-                            String coverUrl = "";
-                            Matcher coverM = Pattern.compile("\"imageUrl\":\"([^\"]+)\"", Pattern.CASE_INSENSITIVE).matcher(b);
-                            while (coverM.find()) {
-                                String foundCover = coverM.group(1).replace("\\/", "/");
-                                if (coverUrl.isEmpty()) {
-                                    coverUrl = foundCover;
-                                }
-                                if (foundCover.contains("/album/") || foundCover.contains("/song/") || foundCover.contains("/track/")) {
-                                    coverUrl = foundCover;
-                                    break;
-                                }
-                            }
+                        Matcher imgm = pImg.matcher(snippet);
+                        String coverUrl = imgm.find() ? imgm.group(1).replace("\\/", "/").trim() : "";
 
+                        synchronized (tracks) {
                             tracks.add(new WebTrack(title, artist, downloadUrl, durStr, coverUrl));
+                        }
+                    }
+                }
+
+                // Next.js artists
+                Pattern artP = Pattern.compile("[\\\\]*\"href[\\\\]*\"\\s*:\\s*[\\\\]*\"(/artist/\\d+)[\\\\]*\"\\s*,\\s*[\\\\]*\"title[\\\\]*\"\\s*:\\s*[\\\\]*\"([^\"]+?)[\\\\]*\"");
+                Matcher mArtNext = artP.matcher(html);
+                while (mArtNext.find()) {
+                    String url = "https://rus.hitmos.fm" + mArtNext.group(1);
+                    String name = mArtNext.group(2).replace("\\\"", "\"").trim();
+                    boolean alreadySeen;
+                    synchronized (seen) {
+                        alreadySeen = seen.contains("ART_" + url);
+                        if (!alreadySeen) seen.add("ART_" + url);
+                    }
+                    if (!name.isEmpty() && !alreadySeen) {
+                        int snipStart = mArtNext.start();
+                        int snipEnd = Math.min(html.length(), snipStart + 400);
+                        String snip = html.substring(snipStart, snipEnd);
+                        Matcher mImg = Pattern.compile("[\\\\]*\"src[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://static\\.hitmos\\.fm/[^\"]+?)[\\\\]*\"").matcher(snip);
+                        String img = mImg.find() ? mImg.group(1).replace("\\/", "/") : "";
+                        synchronized (artists) {
+                            artists.add(new WebArtist(name, url, img));
+                        }
+                    }
+                }
+
+                // Next.js albums
+                Pattern albP = Pattern.compile("[\\\\]*\"href[\\\\]*\"\\s*:\\s*[\\\\]*\"(/album/\\d+)[\\\\]*\"\\s*,\\s*[\\\\]*\"title[\\\\]*\"\\s*:\\s*[\\\\]*\"([^\"]+?)[\\\\]*\"");
+                Matcher mAlbNext = albP.matcher(html);
+                while (mAlbNext.find()) {
+                    String url = "https://rus.hitmos.fm" + mAlbNext.group(1);
+                    String title = mAlbNext.group(2).replace("\\\"", "\"").trim();
+                    boolean alreadySeen;
+                    synchronized (seen) {
+                        alreadySeen = seen.contains("ALB_" + url);
+                        if (!alreadySeen) seen.add("ALB_" + url);
+                    }
+                    if (!title.isEmpty() && !title.toLowerCase().contains("скачать") && !alreadySeen) {
+                        int snipStart = mAlbNext.start();
+                        int snipEnd = Math.min(html.length(), snipStart + 400);
+                        String snip = html.substring(snipStart, snipEnd);
+                        Matcher mImg = Pattern.compile("[\\\\]*\"src[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://static\\.hitmos\\.fm/[^\"]+?)[\\\\]*\"").matcher(snip);
+                        String img = mImg.find() ? mImg.group(1).replace("\\/", "/") : "";
+                        synchronized (albums) {
+                            albums.add(new WebAlbum(title, "Hitmos", url, img));
                         }
                     }
                 }
@@ -1644,7 +1744,7 @@ public class MusicWebSearcher {
             }
         }
 
-        // 2. Стандартный HTML формат (hitmos.me)
+        // 2. Стандартный HTML формат (hitmos.me и зеркала)
         String delimiter = html.contains("class=\"track__info\"") ? "class=\"track__info\"" : "class=\"track-item\"";
         String[] blocks = html.split(delimiter);
         for (int i = 1; i < blocks.length; i++) {
@@ -1654,8 +1754,10 @@ public class MusicWebSearcher {
             if (downloadUrl == null) continue;
 
             if (!downloadUrl.startsWith("http")) downloadUrl = "https://rus.hitmos.fm" + downloadUrl;
-            if (seen.contains("TR_" + downloadUrl)) continue;
-            seen.add("TR_" + downloadUrl);
+            synchronized (seen) {
+                if (seen.contains("TR_" + downloadUrl)) continue;
+                seen.add("TR_" + downloadUrl);
+            }
 
             String title = extract(block, "class=\"track__title\"[^>]*>\\s*(.*?)\\s*</");
             if (title == null) title = extract(block, "class=\"track-title\"[^>]*>\\s*(.*?)\\s*</");
@@ -1665,13 +1767,15 @@ public class MusicWebSearcher {
             if (duration == null) duration = extract(block, "class=\"track-time\"[^>]*>\\s*(.*?)\\s*</");
             String cover = extractImageSafe(block);
 
-            tracks.add(new WebTrack(
-                    title != null ? title.replaceAll("<[^>]*>", "").trim() : "Unknown",
-                    artist != null ? artist.replaceAll("<[^>]*>", "").trim() : "Unknown",
-                    downloadUrl,
-                    duration != null ? duration : "0:00",
-                    cover
-            ));
+            synchronized (tracks) {
+                tracks.add(new WebTrack(
+                        title != null ? title.replaceAll("<[^>]*>", "").trim() : "Unknown",
+                        artist != null ? artist.replaceAll("<[^>]*>", "").trim() : "Unknown",
+                        downloadUrl,
+                        duration != null ? duration : "0:00",
+                        cover
+                ));
+            }
         }
 
         Matcher mArt = Pattern.compile("<a[^>]+href=[\"']([^\"']*/artist/[^\"']+)[\"'][^>]*>(.*?)</a>", Pattern.DOTALL).matcher(html);
@@ -1681,9 +1785,15 @@ public class MusicWebSearcher {
             String innerHtml = mArt.group(2);
             String name = innerHtml.replaceAll("<[^>]*>", "").trim();
 
-            if (!android.text.TextUtils.isEmpty(name) && !seen.contains("ART_" + url)) {
-                seen.add("ART_" + url);
-                artists.add(new WebArtist(name, url, extractImageSafe(innerHtml)));
+            boolean alreadySeen;
+            synchronized (seen) {
+                alreadySeen = seen.contains("ART_" + url);
+                if (!alreadySeen && !android.text.TextUtils.isEmpty(name)) seen.add("ART_" + url);
+            }
+            if (!android.text.TextUtils.isEmpty(name) && !alreadySeen) {
+                synchronized (artists) {
+                    artists.add(new WebArtist(name, url, extractImageSafe(innerHtml)));
+                }
             }
         }
 
@@ -1694,9 +1804,15 @@ public class MusicWebSearcher {
             String innerHtml = mAlb.group(2);
             String title = innerHtml.replaceAll("<[^>]*>", "").trim();
 
-            if (!android.text.TextUtils.isEmpty(title) && !title.toLowerCase().contains("скачать") && !seen.contains("ALB_" + url)) {
-                seen.add("ALB_" + url);
-                albums.add(new WebAlbum(title, "Unknown", url, extractImageSafe(innerHtml)));
+            boolean alreadySeen;
+            synchronized (seen) {
+                alreadySeen = seen.contains("ALB_" + url);
+                if (!alreadySeen && !android.text.TextUtils.isEmpty(title) && !title.toLowerCase().contains("скачать")) seen.add("ALB_" + url);
+            }
+            if (!android.text.TextUtils.isEmpty(title) && !title.toLowerCase().contains("скачать") && !alreadySeen) {
+                synchronized (albums) {
+                    albums.add(new WebAlbum(title, "Unknown", url, extractImageSafe(innerHtml)));
+                }
             }
         }
     }
@@ -2049,6 +2165,62 @@ public class MusicWebSearcher {
                 }
                 AndroidUtilities.runOnUIThread(() -> callback.run(null));
             } catch (Exception e) { AndroidUtilities.runOnUIThread(() -> callback.run(null)); }
+        }).start();
+    }
+
+    public static void fetchRelatedArtistsFromDeezer(String artistName, org.telegram.messenger.Utilities.Callback<ArrayList<String>> callback) {
+        new Thread(() -> {
+            try {
+                String searchUrl = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(artistName, "UTF-8");
+                HttpURLConnection conn = MusicNetworkHelper.openConnection(searchUrl);
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+
+                if (conn.getResponseCode() == 200) {
+                    InputStream is = conn.getInputStream();
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    byte[] b = new byte[8192];
+                    int len;
+                    while ((len = is.read(b)) != -1) bos.write(b, 0, len);
+                    String json = bos.toString("UTF-8");
+
+                    org.json.JSONObject jsonObject = new org.json.JSONObject(json);
+                    org.json.JSONArray data = jsonObject.optJSONArray("data");
+                    if (data != null && data.length() > 0) {
+                        long artistId = data.getJSONObject(0).optLong("id", 0);
+                        if (artistId != 0) {
+                            String relUrl = "https://api.deezer.com/artist/" + artistId + "/related";
+                            HttpURLConnection relConn = MusicNetworkHelper.openConnection(relUrl);
+                            relConn.setRequestMethod("GET");
+                            relConn.setConnectTimeout(5000);
+                            if (relConn.getResponseCode() == 200) {
+                                InputStream relIs = relConn.getInputStream();
+                                ByteArrayOutputStream relBos = new ByteArrayOutputStream();
+                                while ((len = relIs.read(b)) != -1) relBos.write(b, 0, len);
+                                String relJson = relBos.toString("UTF-8");
+                                org.json.JSONObject relObj = new org.json.JSONObject(relJson);
+                                org.json.JSONArray relData = relObj.optJSONArray("data");
+                                if (relData != null && relData.length() > 0) {
+                                    ArrayList<String> relatedList = new ArrayList<>();
+                                    for (int i = 0; i < Math.min(relData.length(), 10); i++) {
+                                        String rName = relData.getJSONObject(i).optString("name", "");
+                                        if (!rName.isEmpty() && !rName.equalsIgnoreCase(artistName)) {
+                                            relatedList.add(rName);
+                                        }
+                                    }
+                                    if (!relatedList.isEmpty()) {
+                                        AndroidUtilities.runOnUIThread(() -> callback.run(relatedList));
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                AndroidUtilities.runOnUIThread(() -> callback.run(null));
+            } catch (Exception e) {
+                AndroidUtilities.runOnUIThread(() -> callback.run(null));
+            }
         }).start();
     }
     /**

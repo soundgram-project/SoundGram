@@ -111,17 +111,17 @@ public class SoundGramWallpaperHelper {
         }
     }
 
-    public static void onResume(ViewGroup container) {
-        if (container == null) return;
-        View view = container.findViewWithTag(TAG_WALLPAPER_VIEW);
+    public static void onResume(View container) {
+        if (!(container instanceof ViewGroup)) return;
+        View view = ((ViewGroup) container).findViewWithTag(TAG_WALLPAPER_VIEW);
         if (view instanceof VideoWallpaperView) {
             ((VideoWallpaperView) view).resume();
         }
     }
 
-    public static void onPause(ViewGroup container) {
-        if (container == null) return;
-        View view = container.findViewWithTag(TAG_WALLPAPER_VIEW);
+    public static void onPause(View container) {
+        if (!(container instanceof ViewGroup)) return;
+        View view = ((ViewGroup) container).findViewWithTag(TAG_WALLPAPER_VIEW);
         if (view instanceof VideoWallpaperView) {
             ((VideoWallpaperView) view).pause();
         }

@@ -354,4 +354,35 @@
     <string name="A11yHideComposerEditorButtonsDesc">Hides Article Editor and AI Assistant buttons that appear next to send</string>
     <string name="A11yDisableAllAnimations">Disable all animations &amp; visual effects</string>
     <string name="A11yDisableAllAnimationsDesc">Ultra-lightweight mode: turns off transitions, particles, and visual effects</string>
+
+    <!-- SoundGram Redesign UI & Accessibility -->
+    <string name="sg_search_all">All</string>
+    <string name="sg_search_tracks">Tracks</string>
+    <string name="sg_search_artists">Artists</string>
+    <string name="sg_search_albums">Albums</string>
+    <string name="sg_search_chats">From chats</string>
+    <string name="sg_search_hint">Track, artist, lyrics…</string>
+    <string name="sg_pause">Pause</string>
+    <string name="sg_shuffle">Shuffle</string>
+    <string name="sg_my_wave">My Wave</string>
+    <string name="sg_in_library">In library</string>
+    <string name="sg_on_air">On Air</string>
+    <string name="sg_live_broadcasting">Broadcasting</string>
+    <string name="sg_tracks_from_album">%1$d tracks from this album</string>
+    <string name="sg_releases">releases</string>
+    <string name="sg_similar_artists">similar artists</string>
+    <string name="sg_empty_search">Nothing found</string>
+    <string name="sg_search_in_chats_btn">Search in chats and channels</string>
+    <string name="sg_in_your_playlists">in your playlists</string>
+    <string name="sg_more_from_artist">more from artist</string>
+    <string name="sg_in_playlist">in playlist %1$s</string>
+    <string name="sg_remove_from_library">Remove from library</string>
+    <string name="sg_action_shuffle">Shuffle</string>
+    <string name="sg_tracks">tracks</string>
+    <string name="sg_artist">Artist</string>
+    <string name="sg_album">album</string>
+    <string name="sg_mood_calm">calm</string>
+    <string name="sg_mood_steady">steady</string>
+    <string name="sg_mood_energetic">energetic</string>
+    <string name="sg_mood_max">to the max</string>
 </resources>

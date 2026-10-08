@@ -3205,8 +3205,13 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     @Override
                     public void didSelectWallpaper(File file, android.graphics.Bitmap bitmap, boolean gallery) {
                         if (file != null) {
-                            soundgram.music.SoundGramConfig.chatListWallPath = file.getAbsolutePath();
-                            soundgram.music.SoundGramConfig.chatListWallVideoPath = "";
+                            if (chatListWallpaperUpdater != null && chatListWallpaperUpdater.getCurrentWallpaperIsVideo() && chatListWallpaperUpdater.getCurrentWallpaperVideoPath() != null) {
+                                soundgram.music.SoundGramConfig.chatListWallVideoPath = chatListWallpaperUpdater.getCurrentWallpaperVideoPath();
+                                soundgram.music.SoundGramConfig.chatListWallPath = file.getAbsolutePath();
+                            } else {
+                                soundgram.music.SoundGramConfig.chatListWallPath = file.getAbsolutePath();
+                                soundgram.music.SoundGramConfig.chatListWallVideoPath = "";
+                            }
                         }
                         applyAndRestart();
                     }

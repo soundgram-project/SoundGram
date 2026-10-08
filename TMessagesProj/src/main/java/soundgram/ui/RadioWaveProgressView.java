@@ -40,13 +40,13 @@ public class RadioWaveProgressView extends View {
     }
 
     private void init() {
-        accentPaint.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+        accentPaint.setColor(SoundGramDesignTokens.getAccentColor());
         accentPaint.setStyle(Paint.Style.FILL);
 
-        currentBarPaint.setColor(0xFFFFFFFF);
+        currentBarPaint.setColor(SoundGramDesignTokens.getTextColor());
         currentBarPaint.setStyle(Paint.Style.FILL);
 
-        unplayedPaint.setColor(SoundGramDesignTokens.COLOR_LINE_STRONG);
+        unplayedPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
         unplayedPaint.setStyle(Paint.Style.FILL);
 
         // Generate smooth default musical wave pattern
@@ -137,6 +137,10 @@ public class RadioWaveProgressView extends View {
         int w = getWidth();
         int h = getHeight();
         if (w <= 0 || h <= 0) return;
+
+        accentPaint.setColor(SoundGramDesignTokens.getAccentColor());
+        currentBarPaint.setColor(SoundGramDesignTokens.getTextColor());
+        unplayedPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
 
         float gap = AndroidUtilities.dp(3);
         float totalGaps = gap * (BARS_COUNT - 1);

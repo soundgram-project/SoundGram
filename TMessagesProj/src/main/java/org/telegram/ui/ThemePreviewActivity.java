@@ -2580,6 +2580,20 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
                     } else {
                         done = AndroidUtilities.copyFile(fromFile, toFile);
                     }
+                    if (wallpaper.videoPath != null) {
+                        try {
+                            File videoSrc = new File(wallpaper.videoPath);
+                            File videoDst = new File(ApplicationLoader.getFilesDirFixed(), "chat_wallpaper.mp4");
+                            AndroidUtilities.copyFile(videoSrc, videoDst);
+                            soundgram.music.SoundGramConfig.chatVideoPath = videoDst.getAbsolutePath();
+                            soundgram.music.SoundGramConfig.save();
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        }
+                    } else {
+                        soundgram.music.SoundGramConfig.chatVideoPath = "";
+                        soundgram.music.SoundGramConfig.save();
+                    }
                 } catch (Exception e) {
                     done = false;
                     FileLog.e(e);

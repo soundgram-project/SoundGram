@@ -1,15 +1,23 @@
 package soundgram.ui;
 
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import androidx.core.graphics.ColorUtils;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.ui.ActionBar.Theme;
 
 /**
  * SoundGram design tokens and aesthetic primitives.
- * Analog radio metaphor: pure dark background (#111111), sole lime accent (#C8F169),
- * asymmetric corner radiuses, clean typography, no glassmorphism or emojis.
+ * Dynamic Telegram theme inheritance with glowing diffusing surfaces and asymmetric shapes.
+ * No borders, soft glowing radiance, clean typography.
  */
 public class SoundGramDesignTokens {
-    // ── Color Tokens ───────────────────────────────────────────────────────────
+    // ── Static Fallback Colors ──────────────────────────────────────────────────
     public static final int COLOR_BG           = 0xFF111111; // Фон экранов
     public static final int COLOR_SURFACE_1    = 0xFF1B1B1B; // Поля ввода, карточки
     public static final int COLOR_SURFACE_2    = 0xFF1E1E1E; // Мини-плеер
@@ -25,17 +33,50 @@ public class SoundGramDesignTokens {
     public static final int COLOR_ACCENT_HOVER = 0xFFD8F58A; // Акцент при нажатии
     public static final int COLOR_ON_ACCENT    = 0xFF111111; // Текст на акценте
 
-    // ── Asymmetric Corner Radii (dp) ───────────────────────────────────────────
-    // Обложка в плеере: 4 4 4 56
-    // Главная карточка плейлиста: 4 4 4 56
-    // Высокая карточка: 56 4 4 4
-    // Малая карточка: 4 4 24 4
-    // Обложка в списке: 4 4 4 14
-    // Кнопка Play: 22
-    // Мини-плеер: 18
-    // Поля ввода: 12
-    // Чипы: 999
-    // Корпус экрана: 28
+    // ── Dynamic Telegram Theme Inherited Colors ───────────────────────────────
+    public static int getBgColor() {
+        return Theme.hasThemeKey(Theme.key_windowBackgroundWhite) ? Theme.getColor(Theme.key_windowBackgroundWhite) : COLOR_BG;
+    }
+
+    public static int getSurface1Color() {
+        return Theme.hasThemeKey(Theme.key_windowBackgroundGray) ? Theme.getColor(Theme.key_windowBackgroundGray) : COLOR_SURFACE_1;
+    }
+
+    public static int getSurface2Color() {
+        return Theme.hasThemeKey(Theme.key_chat_inBubble) ? Theme.getColor(Theme.key_chat_inBubble) : COLOR_SURFACE_2;
+    }
+
+    public static int getSurface3Color() {
+        return Theme.hasThemeKey(Theme.key_graySection) ? Theme.getColor(Theme.key_graySection) : COLOR_SURFACE_3;
+    }
+
+    public static int getLineColor() {
+        return Theme.hasThemeKey(Theme.key_divider) ? Theme.getColor(Theme.key_divider) : COLOR_LINE;
+    }
+
+    public static int getTextColor() {
+        return Theme.hasThemeKey(Theme.key_windowBackgroundWhiteBlackText) ? Theme.getColor(Theme.key_windowBackgroundWhiteBlackText) : COLOR_TEXT;
+    }
+
+    public static int getText2Color() {
+        return Theme.hasThemeKey(Theme.key_windowBackgroundWhiteGrayText) ? Theme.getColor(Theme.key_windowBackgroundWhiteGrayText) : COLOR_TEXT_2;
+    }
+
+    public static int getTextMutedColor() {
+        return Theme.hasThemeKey(Theme.key_windowBackgroundWhiteGrayText) ? Theme.getColor(Theme.key_windowBackgroundWhiteGrayText) : COLOR_TEXT_MUTED;
+    }
+
+    public static int getAccentColor() {
+        return Theme.hasThemeKey(Theme.key_featuredStickers_addButton) ? Theme.getColor(Theme.key_featuredStickers_addButton) : COLOR_ACCENT;
+    }
+
+    public static int getOnAccentColor() {
+        return Theme.hasThemeKey(Theme.key_featuredStickers_buttonText) ? Theme.getColor(Theme.key_featuredStickers_buttonText) : COLOR_ON_ACCENT;
+    }
+
+    public static int getLineStrongColor() {
+        return Theme.hasThemeKey(Theme.key_divider) ? Theme.getColor(Theme.key_divider) : COLOR_LINE_STRONG;
+    }
 
     public static GradientDrawable makeAsymmetricDrawable(int color, float tl, float tr, float br, float bl) {
         GradientDrawable gd = new GradientDrawable();
@@ -65,20 +106,20 @@ public class SoundGramDesignTokens {
     }
 
     public static GradientDrawable makeCardDrawable() {
-        return makeAsymmetricDrawable(COLOR_SURFACE_1, 4, 4, 4, 24);
+        return makeAsymmetricDrawable(getSurface1Color(), getLineColor(), 0.75f, 4, 4, 4, 24);
     }
 
     public static GradientDrawable makeMainPlaylistCardDrawable() {
-        return makeAsymmetricDrawable(COLOR_SURFACE_1, 4, 4, 4, 56);
+        return makeAsymmetricDrawable(getSurface1Color(), getLineColor(), 0.75f, 4, 4, 4, 56);
     }
 
     public static GradientDrawable makeTallCardDrawable() {
-        return makeAsymmetricDrawable(COLOR_SURFACE_1, 56, 4, 4, 4);
+        return makeAsymmetricDrawable(getSurface1Color(), getLineColor(), 0.75f, 56, 4, 4, 4);
     }
 
     public static GradientDrawable makeAccentChatCardDrawable() {
         GradientDrawable gd = new GradientDrawable();
-        gd.setColor(COLOR_ACCENT);
+        gd.setColor(getAccentColor());
         gd.setCornerRadii(new float[]{
                 AndroidUtilities.dp(4), AndroidUtilities.dp(4),
                 AndroidUtilities.dp(40), AndroidUtilities.dp(40),
@@ -88,13 +129,13 @@ public class SoundGramDesignTokens {
         return gd;
     }
 
-    public static GradientDrawable makeChipDrawable(boolean active) {
+    public static Drawable makeChipDrawable(boolean active) {
         GradientDrawable gd = new GradientDrawable();
         if (active) {
-            gd.setColor(COLOR_ACCENT);
+            gd.setColor(getAccentColor());
         } else {
-            gd.setColor(COLOR_SURFACE_1);
-            gd.setStroke(AndroidUtilities.dp(0.75f), COLOR_LINE_STRONG);
+            gd.setColor(getSurface1Color());
+            gd.setStroke(AndroidUtilities.dp(0.75f), getLineStrongColor());
         }
         gd.setCornerRadius(AndroidUtilities.dp(999));
         return gd;
@@ -102,14 +143,15 @@ public class SoundGramDesignTokens {
 
     public static GradientDrawable makeMiniPlayerDrawable() {
         GradientDrawable gd = new GradientDrawable();
-        gd.setColor(COLOR_SURFACE_2);
+        gd.setColor(getSurface2Color());
         gd.setCornerRadius(AndroidUtilities.dp(18));
+        gd.setStroke(AndroidUtilities.dp(0.75f), getLineColor());
         return gd;
     }
 
     public static GradientDrawable makePlayButtonDrawable() {
         GradientDrawable gd = new GradientDrawable();
-        gd.setColor(COLOR_ACCENT);
+        gd.setColor(getAccentColor());
         gd.setCornerRadius(AndroidUtilities.dp(22));
         return gd;
     }

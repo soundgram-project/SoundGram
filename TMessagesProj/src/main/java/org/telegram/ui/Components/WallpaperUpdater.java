@@ -227,6 +227,14 @@ public class WallpaperUpdater {
         currentPicturePath = value;
     }
 
+    public boolean getCurrentWallpaperIsVideo() {
+        return currentWallpaperIsVideo;
+    }
+
+    public String getCurrentWallpaperVideoPath() {
+        return currentWallpaperVideoPath;
+    }
+
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == 10) {

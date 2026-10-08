@@ -359,4 +359,35 @@
     <string name="A11yHideComposerEditorButtonsDesc">Скрывает кнопки расширенного редактора и ИИ рядом с кнопкой отправки</string>
     <string name="A11yDisableAllAnimations">Отключить все анимации и спецэффекты</string>
     <string name="A11yDisableAllAnimationsDesc">Облегчённый режим для слабовидящих: выключает анимации переходов и частицы</string>
+
+    <!-- SoundGram Redesign UI & Accessibility -->
+    <string name="sg_search_all">всё</string>
+    <string name="sg_search_tracks">треки</string>
+    <string name="sg_search_artists">исполнители</string>
+    <string name="sg_search_albums">альбомы</string>
+    <string name="sg_search_chats">из чатов</string>
+    <string name="sg_search_hint">Трек, исполнитель, строка из песни…</string>
+    <string name="sg_pause">Пауза</string>
+    <string name="sg_shuffle">Перемешать</string>
+    <string name="sg_my_wave">Моя волна</string>
+    <string name="sg_in_library">В библиотеке</string>
+    <string name="sg_on_air">В эфир</string>
+    <string name="sg_live_broadcasting">В эфире</string>
+    <string name="sg_tracks_from_album">%1$d треков из этого альбома</string>
+    <string name="sg_releases">релизы</string>
+    <string name="sg_similar_artists">похожие исполнители</string>
+    <string name="sg_empty_search">Ничего не нашлось</string>
+    <string name="sg_search_in_chats_btn">Искать в чатах и каналах</string>
+    <string name="sg_in_your_playlists">в ваших плейлистах</string>
+    <string name="sg_more_from_artist">ещё от исполнителя</string>
+    <string name="sg_in_playlist">в плейлисте %1$s</string>
+    <string name="sg_remove_from_library">Удалить из библиотеки</string>
+    <string name="sg_action_shuffle">Перемешать</string>
+    <string name="sg_tracks">треки</string>
+    <string name="sg_artist">Исполнитель</string>
+    <string name="sg_album">альбом</string>
+    <string name="sg_mood_calm">спокойно</string>
+    <string name="sg_mood_steady">ровно</string>
+    <string name="sg_mood_energetic">бодро</string>
+    <string name="sg_mood_max">на максимум</string>
 </resources>

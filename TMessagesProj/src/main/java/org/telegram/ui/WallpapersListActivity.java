@@ -398,6 +398,7 @@ public class WallpapersListActivity extends BaseFragment implements Notification
         public int thumbResId;
         public File path;
         public File originalPath;
+        public String videoPath;
 
         public FileWallpaper(String s, File f, File of) {
             slug = s;
@@ -481,7 +482,11 @@ public class WallpapersListActivity extends BaseFragment implements Notification
         updater = new WallpaperUpdater(getParentActivity(), this, new WallpaperUpdater.WallpaperUpdaterDelegate() {
             @Override
             public void didSelectWallpaper(File file, Bitmap bitmap, boolean gallery) {
-                ThemePreviewActivity themePreviewActivity = new ThemePreviewActivity(new FileWallpaper("", file, file), bitmap);
+                FileWallpaper fileWallpaper = new FileWallpaper("", file, file);
+                if (updater.getCurrentWallpaperIsVideo() && updater.getCurrentWallpaperVideoPath() != null) {
+                    fileWallpaper.videoPath = updater.getCurrentWallpaperVideoPath();
+                }
+                ThemePreviewActivity themePreviewActivity = new ThemePreviewActivity(fileWallpaper, bitmap);
                 themePreviewActivity.setDialogId(dialogId);
                 if (dialogId != 0) {
                     themePreviewActivity.setDelegate(wallPaper -> WallpapersListActivity.this.removeSelfFromStack());

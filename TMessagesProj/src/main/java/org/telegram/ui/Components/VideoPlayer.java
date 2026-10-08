@@ -235,7 +235,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             FileLog.e("VideoPlayer VPN SSL init: " + e);
         }
     }
-    private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent) {
+    private static DataSource.Factory createVpnAwareDataSourceFactory(String userAgent, Uri uri) {
         ensureVpnSsl();
         soundgram.music.MusicNetworkHelper.init();
         // ИСПРАВЛЕНИЕ: СТРОГО ЕДИНЫЙ USER-AGENT как в MusicWebSearcher для обхода защиты Cloudflare/Hitmos
@@ -250,10 +250,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 .setAllowCrossProtocolRedirects(true);
 
         java.util.Map<String, String> headers = new java.util.HashMap<>();
-        // Referer должен совпадать с ожиданием зеркальных серверов
-        // rus.hitmos.fm — основной домен
-        headers.put("Referer", "https://rus.hitmos.fm/");
-        headers.put("Origin", "https://rus.hitmos.fm");
+        // Referer только для hitmos хостов, чтобы не ломать CDN стриминг Deezer / других сервисов 403 ошибкой
+        if (uri != null && uri.getHost() != null && uri.getHost().contains("hitmo")) {
+            headers.put("Referer", "https://rus.hitmos.fm/");
+        }
         headers.put("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
         headers.put("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8");
         headers.put("Connection", "keep-alive");
@@ -470,7 +470,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         boolean isHttp = uri != null && (uri.getScheme() != null) &&
                 (uri.getScheme().startsWith("http"));
         DataSource.Factory factory = isHttp
-                ? createVpnAwareDataSourceFactory("Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/47.0 (Chrome)")
+                ? createVpnAwareDataSourceFactory("Mozilla/5.0 (X11; Linux x86_64; rv:10.0) Gecko/20150101 Firefox/47.0 (Chrome)", uri)
                 : mediaDataSourceFactory;
         if (videoByteOffset != 0) {
             return new ProgressiveMediaSource.Factory(

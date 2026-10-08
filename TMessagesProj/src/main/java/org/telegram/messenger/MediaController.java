@@ -2520,7 +2520,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
             int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
             boolean isMusicTrack = playingMessageObject != null && playingMessageObject.isMusic();
-            boolean canFade = (LaunchActivity.isResumed || (cfMs > 0 && isMusicTrack))
+            boolean isForeground = LaunchActivity.isResumed && ApplicationLoader.isScreenOn;
+            boolean canFade = isForeground
                     && !CastSync.isActive() && audioPlayer.isPlaying() && playingMessageObject != null && !playingMessageObject.isVoice();
             if (canFade) {
                 VideoPlayer playerFinal = audioPlayer;
@@ -4250,7 +4251,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 }
                 int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
                 boolean isMusicTrack = messageObject.isMusic();
-                boolean shouldFadeIn = !messageObject.isVoice() && (LaunchActivity.isResumed || (cfMs > 0 && isMusicTrack));
+                boolean isForeground = LaunchActivity.isResumed && ApplicationLoader.isScreenOn;
+                boolean shouldFadeIn = !messageObject.isVoice() && isForeground && (cfMs > 0 && isMusicTrack || LaunchActivity.isResumed);
                 if (!messageObject.isVoice()) {
                     if (audioVolumeAnimator != null) {
                         audioVolumeAnimator.removeAllListeners();
