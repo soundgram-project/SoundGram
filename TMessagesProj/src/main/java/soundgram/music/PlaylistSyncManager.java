@@ -213,6 +213,9 @@ public class PlaylistSyncManager {
                     sb.append(resolvedId).append("\n");
                     sanitizedTrackLines.add(String.valueOf(resolvedId));
                     modified = true;
+                } else {
+                    sb.append(trimmed).append("\n");
+                    sanitizedTrackLines.add(trimmed);
                 }
             }
         }
@@ -440,6 +443,25 @@ public class PlaylistSyncManager {
                     }
                 }
             } else {
+                // Check if any existing local file already has this msgId (e.g. it was renamed)
+                boolean alreadyTrackedByAnotherFile = false;
+                if (localFiles != null && channelData.msgId > 0) {
+                    for (File f : localFiles) {
+                        if (f != null && f.exists() && !f.getName().equals(localFile.getName())) {
+                            PlaylistData existing = readPlaylistFile(f);
+                            if (!existing.isDeleted && existing.msgId == channelData.msgId) {
+                                alreadyTrackedByAnotherFile = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (alreadyTrackedByAnotherFile) {
+                    // This was a renamed playlist: delete the stale duplicate message from the channel
+                    duplicateMsgIdsToDelete.add(channelData.msgId);
+                    continue;
+                }
+
                 // LOCAL FILE MISSING — RESTORE FROM CHANNEL
                 PlaylistData restoredData = new PlaylistData();
                 restoredData.title = channelData.title;

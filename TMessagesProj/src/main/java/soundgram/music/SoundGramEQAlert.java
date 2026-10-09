@@ -25,6 +25,7 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.BottomSheet;
+import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 
 import soundgram.ui.SoundGramDesignTokens;
@@ -72,12 +73,12 @@ public class SoundGramEQAlert extends BottomSheet {
         try { sessionId = MediaController.getInstance().getAudioSessionId(); } catch (Exception ignored) {}
         SoundGramAudioFX.initFX(sessionId, false);
 
-        // Root background: #111111 with top corners 28dp
+        // Root background: dynamic theme with top corners 28dp
         setApplyTopPadding(false);
         setApplyBottomPadding(false);
 
         FrameLayout rootSheet = new FrameLayout(context);
-        rootSheet.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(SoundGramDesignTokens.COLOR_BG, 28, 28, 0, 0));
+        rootSheet.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(SoundGramDesignTokens.getBgColor(), 28, 28, 0, 0));
 
         ScrollView scrollView = new ScrollView(context);
         scrollView.setVerticalScrollBarEnabled(false);
@@ -89,7 +90,7 @@ public class SoundGramEQAlert extends BottomSheet {
 
         // 0. Drag handle
         View handleView = new View(context);
-        handleView.setBackground(SoundGramDesignTokens.makePillDrawable(SoundGramDesignTokens.COLOR_LINE_STRONG, 2));
+        handleView.setBackground(SoundGramDesignTokens.makePillDrawable(SoundGramDesignTokens.getLineStrongColor(), 2));
         contentCol.addView(handleView, LayoutHelper.createLinear(36, 4, Gravity.CENTER_HORIZONTAL, 0, 2, 0, 16));
 
         // 1. Top row: «звук» (left) · чип «включён» / «выключен» (right)
@@ -101,7 +102,7 @@ public class SoundGramEQAlert extends BottomSheet {
         titleView.setText("звук");
         titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         titleView.setTypeface(getMonoTypeface());
-        titleView.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        titleView.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         titleView.setLetterSpacing(0.02f);
         topHeaderRow.addView(titleView, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
 
@@ -128,14 +129,14 @@ public class SoundGramEQAlert extends BottomSheet {
         bigGainText.setText("+5,0");
         bigGainText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 44);
         bigGainText.setTypeface(AndroidUtilities.bold());
-        bigGainText.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+        bigGainText.setTextColor(SoundGramDesignTokens.getTextColor());
         gainRow.addView(bigGainText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 10, 0));
 
         freqDetailText = new TextView(context);
         freqDetailText.setText("910 гц · дб");
         freqDetailText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         freqDetailText.setTypeface(getMonoTypeface());
-        freqDetailText.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        freqDetailText.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         freqDetailText.setLetterSpacing(0.02f);
         gainRow.addView(freqDetailText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
         contentCol.addView(gainRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
@@ -158,7 +159,7 @@ public class SoundGramEQAlert extends BottomSheet {
         presetsHeader.setText("пресеты");
         presetsHeader.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         presetsHeader.setTypeface(getMonoTypeface());
-        presetsHeader.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        presetsHeader.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         presetsHeader.setLetterSpacing(0.02f);
         presetsHeaderRow.addView(presetsHeader, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
 
@@ -166,7 +167,7 @@ public class SoundGramEQAlert extends BottomSheet {
         savePresetBtn.setText("+ сохранить");
         savePresetBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         savePresetBtn.setTypeface(getMonoTypeface());
-        savePresetBtn.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+        savePresetBtn.setTextColor(SoundGramDesignTokens.getAccentColor());
         savePresetBtn.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(4), AndroidUtilities.dp(8), AndroidUtilities.dp(4));
         savePresetBtn.setOnClickListener(v -> showSavePresetDialog());
         presetsHeaderRow.addView(savePresetBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
@@ -197,14 +198,14 @@ public class SoundGramEQAlert extends BottomSheet {
         bassLabel.setText("бас");
         bassLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         bassLabel.setTypeface(getMonoTypeface());
-        bassLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        bassLabel.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         bassCol.addView(bassLabel, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 2));
 
         bassValText = new TextView(context);
         bassValText.setText(Math.round(bassKnob.getProgress() * 100) + "%");
         bassValText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         bassValText.setTypeface(AndroidUtilities.bold());
-        bassValText.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+        bassValText.setTextColor(SoundGramDesignTokens.getTextColor());
         bassCol.addView(bassValText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
 
         bassKnob.setOnKnobChangeListener((p, fromUser) -> {
@@ -227,14 +228,14 @@ public class SoundGramEQAlert extends BottomSheet {
         virtLabel.setText("3D-звук");
         virtLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         virtLabel.setTypeface(getMonoTypeface());
-        virtLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        virtLabel.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         virtCol.addView(virtLabel, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 2));
 
         virtValText = new TextView(context);
         virtValText.setText(Math.round(virtKnob.getProgress() * 100) + "%");
         virtValText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         virtValText.setTypeface(AndroidUtilities.bold());
-        virtValText.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+        virtValText.setTextColor(SoundGramDesignTokens.getTextColor());
         virtCol.addView(virtValText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
 
         virtKnob.setOnKnobChangeListener((p, fromUser) -> {
@@ -257,7 +258,7 @@ public class SoundGramEQAlert extends BottomSheet {
         speedLabel.setText("скорость");
         speedLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         speedLabel.setTypeface(getMonoTypeface());
-        speedLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        speedLabel.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         speedLabel.setLetterSpacing(0.02f);
         speedHeaderRow.addView(speedLabel, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
 
@@ -266,7 +267,7 @@ public class SoundGramEQAlert extends BottomSheet {
         speedValText.setText(formatSpeed(currentSpeed));
         speedValText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         speedValText.setTypeface(getMonoTypeface());
-        speedValText.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+        speedValText.setTextColor(SoundGramDesignTokens.getAccentColor());
         speedHeaderRow.addView(speedValText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
         contentCol.addView(speedHeaderRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
 
@@ -275,13 +276,13 @@ public class SoundGramEQAlert extends BottomSheet {
         speedSeekBar.setMax(100); // 0.50x to 1.50x
         int initialProgress = (int) Math.max(0, Math.min(100, (currentSpeed - 0.5f) * 100f));
         speedSeekBar.setProgress(initialProgress);
-        speedSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_LINE_STRONG));
-        speedSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_LINE));
+        speedSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineStrongColor()));
+        speedSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineColor()));
         if (Build.VERSION.SDK_INT >= 21) {
             speedSeekBar.setBackground(null);
             android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
             thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            thumb.setColor(SoundGramDesignTokens.COLOR_TEXT_DIM);
+            thumb.setColor(SoundGramDesignTokens.getTextDimColor());
             thumb.setSize(AndroidUtilities.dp(16), AndroidUtilities.dp(16));
             speedSeekBar.setThumb(thumb);
             speedSeekBar.setThumbOffset(AndroidUtilities.dp(8));
@@ -312,7 +313,7 @@ public class SoundGramEQAlert extends BottomSheet {
         pitchLabel.setText("тон");
         pitchLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         pitchLabel.setTypeface(getMonoTypeface());
-        pitchLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        pitchLabel.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         pitchLabel.setLetterSpacing(0.02f);
         pitchHeaderRow.addView(pitchLabel, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
 
@@ -321,7 +322,7 @@ public class SoundGramEQAlert extends BottomSheet {
         pitchValText.setText(formatSpeed(currentPitch));
         pitchValText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         pitchValText.setTypeface(getMonoTypeface());
-        pitchValText.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+        pitchValText.setTextColor(SoundGramDesignTokens.getAccentColor());
         pitchHeaderRow.addView(pitchValText, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
         contentCol.addView(pitchHeaderRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
 
@@ -329,13 +330,13 @@ public class SoundGramEQAlert extends BottomSheet {
         pitchSeekBar.setMax(100); // 0.50x to 1.50x
         int initialPitchProgress = (int) Math.max(0, Math.min(100, (currentPitch - 0.5f) * 100f));
         pitchSeekBar.setProgress(initialPitchProgress);
-        pitchSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_LINE_STRONG));
-        pitchSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_LINE));
+        pitchSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineStrongColor()));
+        pitchSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineColor()));
         if (Build.VERSION.SDK_INT >= 21) {
             pitchSeekBar.setBackground(null);
             android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
             thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            thumb.setColor(SoundGramDesignTokens.COLOR_TEXT_DIM);
+            thumb.setColor(SoundGramDesignTokens.getTextDimColor());
             thumb.setSize(AndroidUtilities.dp(16), AndroidUtilities.dp(16));
             pitchSeekBar.setThumb(thumb);
             pitchSeekBar.setThumbOffset(AndroidUtilities.dp(8));
@@ -388,20 +389,20 @@ public class SoundGramEQAlert extends BottomSheet {
         chip.setText(title);
         chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         chip.setTypeface(getMonoTypeface());
-        chip.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+        chip.setTextColor(SoundGramDesignTokens.getTextColor());
         chip.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(10));
-        chip.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(SoundGramDesignTokens.COLOR_SURFACE_1,
-                SoundGramDesignTokens.COLOR_LINE_STRONG, 1f, 12, 12, 12, 12));
+        chip.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(SoundGramDesignTokens.getSurface1Color(),
+                SoundGramDesignTokens.getLineStrongColor(), 1f, 12, 12, 12, 12));
         chip.setOnClickListener(v -> onClick.run());
         return chip;
     }
 
     private void updateStatusChipStyle(boolean enabled) {
         statusChip.setText(enabled ? "включён" : "выключен");
-        statusChip.setTextColor(enabled ? SoundGramDesignTokens.COLOR_TEXT : SoundGramDesignTokens.COLOR_TEXT_DIM);
+        statusChip.setTextColor(enabled ? SoundGramDesignTokens.getTextColor() : SoundGramDesignTokens.getTextDimColor());
         statusChip.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
-                enabled ? SoundGramDesignTokens.COLOR_SURFACE_1 : SoundGramDesignTokens.COLOR_BG,
-                SoundGramDesignTokens.COLOR_LINE_STRONG, 1f, 999, 999, 999, 999));
+                enabled ? SoundGramDesignTokens.getSurface1Color() : SoundGramDesignTokens.getBgColor(),
+                SoundGramDesignTokens.getLineStrongColor(), 1f, 999, 999, 999, 999));
     }
 
     private void updateUIFromState() {
@@ -502,8 +503,8 @@ public class SoundGramEQAlert extends BottomSheet {
         builder.setTitle("Сохранить пресет");
         final android.widget.EditText editText = new android.widget.EditText(context);
         editText.setHint("Название пресета");
-        editText.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        editText.setHintTextColor(SoundGramDesignTokens.COLOR_TEXT_DIM);
+        editText.setTextColor(SoundGramDesignTokens.getTextColor());
+        editText.setHintTextColor(SoundGramDesignTokens.getTextDimColor());
         editText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         editText.setSingleLine(true);
         FrameLayout frameLayout = new FrameLayout(context);
@@ -587,7 +588,7 @@ public class SoundGramEQAlert extends BottomSheet {
             android.graphics.Typeface tf = AndroidUtilities.getTypeface("fonts/rmono.ttf");
             textPaint.setTypeface(tf != null ? tf : android.graphics.Typeface.MONOSPACE);
 
-            underlinePaint.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+            underlinePaint.setColor(SoundGramDesignTokens.getAccentColor());
             underlinePaint.setStrokeWidth(AndroidUtilities.dp(2));
             underlinePaint.setStrokeCap(Paint.Cap.ROUND);
         }
@@ -607,15 +608,15 @@ public class SoundGramEQAlert extends BottomSheet {
             // Background & Border
             rect.set(1, 1, w - 1, h - 3);
             Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            bgPaint.setColor(SoundGramDesignTokens.COLOR_SURFACE_1);
+            bgPaint.setColor(SoundGramDesignTokens.getSurface1Color());
             bgPaint.setStyle(Paint.Style.FILL);
             canvas.drawRoundRect(rect, AndroidUtilities.dp(10), AndroidUtilities.dp(10), bgPaint);
 
-            borderPaint.setColor(isActive ? SoundGramDesignTokens.COLOR_LINE_STRONG : SoundGramDesignTokens.COLOR_LINE);
+            borderPaint.setColor(isActive ? SoundGramDesignTokens.getLineStrongColor() : SoundGramDesignTokens.getLineColor());
             canvas.drawRoundRect(rect, AndroidUtilities.dp(10), AndroidUtilities.dp(10), borderPaint);
 
             // Mini curve preview in top half
-            curvePaint.setColor(isActive ? SoundGramDesignTokens.COLOR_ACCENT : SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            curvePaint.setColor(isActive ? SoundGramDesignTokens.getAccentColor() : SoundGramDesignTokens.getTextMutedColor());
             path.reset();
             float padX = AndroidUtilities.dp(14);
             float usableW = w - padX * 2;
@@ -634,11 +635,12 @@ public class SoundGramEQAlert extends BottomSheet {
             canvas.drawPath(path, curvePaint);
 
             // Text label
-            textPaint.setColor(isActive ? SoundGramDesignTokens.COLOR_ACCENT : SoundGramDesignTokens.COLOR_TEXT_2);
+            textPaint.setColor(isActive ? SoundGramDesignTokens.getAccentColor() : SoundGramDesignTokens.getText2Color());
             canvas.drawText(name, w / 2f, h - AndroidUtilities.dp(12), textPaint);
 
             // Active underline indicator
             if (isActive) {
+                underlinePaint.setColor(SoundGramDesignTokens.getAccentColor());
                 canvas.drawLine(w * 0.25f, h - 1, w * 0.75f, h - 1, underlinePaint);
             }
         }
@@ -667,16 +669,16 @@ public class SoundGramEQAlert extends BottomSheet {
         private void init() {
             arcTrackPaint.setStyle(Paint.Style.STROKE);
             arcTrackPaint.setStrokeWidth(AndroidUtilities.dp(5));
-            arcTrackPaint.setColor(SoundGramDesignTokens.COLOR_LINE_STRONG);
+            arcTrackPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
             arcTrackPaint.setStrokeCap(Paint.Cap.ROUND);
 
             arcProgressPaint.setStyle(Paint.Style.STROKE);
             arcProgressPaint.setStrokeWidth(AndroidUtilities.dp(5));
-            arcProgressPaint.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+            arcProgressPaint.setColor(SoundGramDesignTokens.getAccentColor());
             arcProgressPaint.setStrokeCap(Paint.Cap.ROUND);
 
             centerDiscPaint.setStyle(Paint.Style.FILL);
-            centerDiscPaint.setColor(0xFFEDEDED); // Off-white clean disc per Photo 1
+            centerDiscPaint.setColor(SoundGramDesignTokens.getSurface1Color());
         }
 
         public void setProgress(float p) {
@@ -725,6 +727,10 @@ public class SoundGramEQAlert extends BottomSheet {
             int w = getWidth();
             int h = getHeight();
             if (w <= 0 || h <= 0) return;
+
+            arcTrackPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
+            arcProgressPaint.setColor(SoundGramDesignTokens.getAccentColor());
+            centerDiscPaint.setColor(SoundGramDesignTokens.getSurface1Color());
 
             float cx = w / 2f;
             float cy = h / 2f;
@@ -776,35 +782,35 @@ public class SoundGramEQAlert extends BottomSheet {
         private void init() {
             curvePaint.setStyle(Paint.Style.STROKE);
             curvePaint.setStrokeWidth(AndroidUtilities.dp(3f));
-            curvePaint.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+            curvePaint.setColor(SoundGramDesignTokens.getAccentColor());
             curvePaint.setStrokeCap(Paint.Cap.ROUND);
 
             fillPaint.setStyle(Paint.Style.FILL);
-            fillPaint.setColor(0x24C8F169); // 14% accent fill under curve to 0 dB line
+            fillPaint.setColor(Theme.multAlpha(SoundGramDesignTokens.getAccentColor(), 0.14f));
 
             gridPaint.setStyle(Paint.Style.STROKE);
             gridPaint.setStrokeWidth(AndroidUtilities.dp(0.75f));
-            gridPaint.setColor(SoundGramDesignTokens.COLOR_LINE);
+            gridPaint.setColor(SoundGramDesignTokens.getLineColor());
 
             dashGridPaint.setStyle(Paint.Style.STROKE);
             dashGridPaint.setStrokeWidth(AndroidUtilities.dp(0.75f));
-            dashGridPaint.setColor(SoundGramDesignTokens.COLOR_LINE_STRONG);
+            dashGridPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
             dashGridPaint.setPathEffect(new DashPathEffect(new float[]{AndroidUtilities.dp(4), AndroidUtilities.dp(4)}, 0));
 
             textPaint.setTextSize(AndroidUtilities.dp(11));
-            textPaint.setColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            textPaint.setColor(SoundGramDesignTokens.getTextMutedColor());
             android.graphics.Typeface tf = AndroidUtilities.getTypeface("fonts/rmono.ttf");
             textPaint.setTypeface(tf != null ? tf : android.graphics.Typeface.MONOSPACE);
 
             pointFillPaint.setStyle(Paint.Style.FILL);
-            pointFillPaint.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+            pointFillPaint.setColor(SoundGramDesignTokens.getAccentColor());
 
             pointRingPaint.setStyle(Paint.Style.STROKE);
             pointRingPaint.setStrokeWidth(AndroidUtilities.dp(3f));
-            pointRingPaint.setColor(SoundGramDesignTokens.COLOR_ACCENT);
+            pointRingPaint.setColor(SoundGramDesignTokens.getAccentColor());
 
             pointHolePaint.setStyle(Paint.Style.FILL);
-            pointHolePaint.setColor(SoundGramDesignTokens.COLOR_BG);
+            pointHolePaint.setColor(SoundGramDesignTokens.getBgColor());
 
             // Sync with current hardware EQ if available
             short[] hwLevels = SoundGramAudioFX.getCurrentBandLevels();
@@ -906,6 +912,15 @@ public class SoundGramEQAlert extends BottomSheet {
             int w = getWidth();
             int h = getHeight();
             if (w <= 0 || h <= 0) return;
+
+            curvePaint.setColor(SoundGramDesignTokens.getAccentColor());
+            fillPaint.setColor(Theme.multAlpha(SoundGramDesignTokens.getAccentColor(), 0.14f));
+            gridPaint.setColor(SoundGramDesignTokens.getLineColor());
+            dashGridPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
+            textPaint.setColor(SoundGramDesignTokens.getTextMutedColor());
+            pointFillPaint.setColor(SoundGramDesignTokens.getAccentColor());
+            pointRingPaint.setColor(SoundGramDesignTokens.getAccentColor());
+            pointHolePaint.setColor(SoundGramDesignTokens.getBgColor());
 
             float padLeft = AndroidUtilities.dp(36);
             float padRight = AndroidUtilities.dp(18);

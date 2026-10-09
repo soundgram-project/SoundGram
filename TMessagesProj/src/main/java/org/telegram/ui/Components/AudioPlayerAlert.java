@@ -3496,13 +3496,18 @@ public class AudioPlayerAlert extends BottomSheet
 
             row.setOnClickListener(v -> {
                 soundgram.music.PlaylistSyncManager.PlaylistData pData = soundgram.music.PlaylistSyncManager.readPlaylistFile(pFile);
-                if (msg != null && msg.getId() > 0) {
-                    String trackLine = String.valueOf(msg.getId());
-                    if (!pData.trackLines.contains(trackLine)) {
-                        pData.trackLines.add(0, trackLine);
+                if (msg != null) {
+                    String trackLine = null;
+                    if (msg.messageOwner != null && msg.messageOwner.message != null && msg.messageOwner.message.startsWith("SG_STREAM|||")) {
+                        trackLine = msg.messageOwner.message;
+                    } else if (msg.getId() > 0) {
+                        trackLine = String.valueOf(msg.getId());
                     }
-                    soundgram.music.PlaylistSyncManager.writePlaylistFile(pFile, pData);
-                    soundgram.music.PlaylistSyncManager.syncPlaylistToChannel(currentAccount, getMusicChannelIdOrZero(), pFile);
+                    if (!TextUtils.isEmpty(trackLine) && !pData.trackLines.contains(trackLine)) {
+                        pData.trackLines.add(0, trackLine);
+                        soundgram.music.PlaylistSyncManager.writePlaylistFile(pFile, pData);
+                        soundgram.music.PlaylistSyncManager.syncPlaylistToChannel(currentAccount, getMusicChannelIdOrZero(), pFile);
+                    }
                 }
                 Toast.makeText(getContext(), String.format(getString(R.string.sg_added_to_playlist), pName),
                         Toast.LENGTH_SHORT).show();
@@ -5463,6 +5468,40 @@ public class AudioPlayerAlert extends BottomSheet
                 && parentActivity.checkSelfPermission(
                         Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             parentActivity.requestPermissions(new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE }, 4);
+            return;
+        }
+        if (messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.message != null && messageObject.messageOwner.message.startsWith("SG_STREAM|||")) {
+            String[] parts = messageObject.messageOwner.message.split("\\|\\|\\|");
+            String title = parts.length > 1 ? parts[1] : "Unknown";
+            String artist = parts.length > 2 ? parts[2] : "Unknown";
+            String streamUrl = parts.length > 3 ? parts[3] : "";
+            File local = soundgram.music.ChannelMusicFragment.getLocalTrackFile(artist, title);
+            if (local.exists() && local.length() > 1024) {
+                MediaController.saveFile(local.getAbsolutePath(), parentActivity, 3, artist + " - " + title + ".mp3", "audio/mpeg",
+                        uri -> BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                .createDownloadBulletin(BulletinFactory.FileType.AUDIO).show());
+            } else {
+                Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString("sg_downloading_in_background", R.string.sg_downloading_in_background), Toast.LENGTH_SHORT).show();
+                new Thread(() -> {
+                    boolean ok = soundgram.music.MusicWebSearcher.downloadTrackToExactFileSync(streamUrl, local);
+                    if (!ok) {
+                        soundgram.music.MusicWebSearcher.WebTrack freshTrack = soundgram.music.MusicWebSearcher.resolveHitmosSync(title, artist);
+                        if (freshTrack != null && !TextUtils.isEmpty(freshTrack.downloadUrl)) {
+                            ok = soundgram.music.MusicWebSearcher.downloadTrackToExactFileSync(freshTrack.downloadUrl, local);
+                        }
+                    }
+                    boolean finalOk = ok && local.exists() && local.length() > 1024;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (finalOk) {
+                            MediaController.saveFile(local.getAbsolutePath(), parentActivity, 3, artist + " - " + title + ".mp3", "audio/mpeg",
+                                    uri -> BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                            .createDownloadBulletin(BulletinFactory.FileType.AUDIO).show());
+                        } else {
+                            Toast.makeText(ApplicationLoader.applicationContext, LocaleController.getString("sg_download_error", R.string.sg_download_error), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }).start();
+            }
             return;
         }
         String fileName = FileLoader.getDocumentFileName(messageObject.getDocument());

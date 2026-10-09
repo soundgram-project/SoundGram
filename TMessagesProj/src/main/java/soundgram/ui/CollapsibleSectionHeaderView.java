@@ -75,10 +75,13 @@ public class CollapsibleSectionHeaderView extends LinearLayout {
             actionButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
             actionButton.setTextColor(SoundGramDesignTokens.getOnAccentColor());
             actionButton.setGravity(Gravity.CENTER);
-            actionButton.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(3), AndroidUtilities.dp(8), AndroidUtilities.dp(3));
+            actionButton.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(6), AndroidUtilities.dp(12), AndroidUtilities.dp(6));
+            actionButton.setMinimumHeight(AndroidUtilities.dp(32));
+            actionButton.setClickable(true);
+            actionButton.setFocusable(true);
             android.graphics.drawable.GradientDrawable actBg = new android.graphics.drawable.GradientDrawable();
             actBg.setColor(SoundGramDesignTokens.getAccentColor());
-            actBg.setCornerRadius(AndroidUtilities.dp(6));
+            actBg.setCornerRadius(AndroidUtilities.dp(8));
             actionButton.setBackground(actBg);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
             lp.rightMargin = AndroidUtilities.dp(10);

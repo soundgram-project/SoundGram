@@ -676,7 +676,7 @@ public class MusicWebSearcher {
                 }
 
                 try {
-                    latch.await(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    latch.await(4500, java.util.concurrent.TimeUnit.MILLISECONDS);
                 } catch (InterruptedException ignored) {}
 
                 // 3. Объединение результатов: Hitmos треки с прямым стримингом первичны
@@ -1334,6 +1334,7 @@ public class MusicWebSearcher {
             conn.setRequestProperty("Accept",
                     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
             conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+            conn.setRequestProperty("Accept-Encoding", "gzip, deflate");
             conn.setRequestProperty("Connection", "keep-alive");
             conn.setRequestProperty("Upgrade-Insecure-Requests", "1");
             conn.setRequestProperty("Cache-Control", "no-cache");
@@ -1734,8 +1735,15 @@ public class MusicWebSearcher {
                         String snip = html.substring(snipStart, snipEnd);
                         Matcher mImg = Pattern.compile("[\\\\]*\"src[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://static\\.hitmos\\.fm/[^\"]+?)[\\\\]*\"").matcher(snip);
                         String img = mImg.find() ? mImg.group(1).replace("\\/", "/") : "";
+                        String cardArtist = extract(snip, "class=[\"']card__subtitle[\"'][^>]*>\\s*(.*?)\\s*</");
+                        String albArtist = (cardArtist != null && !cardArtist.isEmpty()) ? cardArtist.replaceAll("<[^>]*>", "").trim() : "";
+                        if (albArtist.isEmpty() && title.contains(" - ")) {
+                            String[] p = title.split(" - ", 2);
+                            albArtist = p[0].trim();
+                            title = p[1].trim();
+                        }
                         synchronized (albums) {
-                            albums.add(new WebAlbum(title, "Hitmos", url, img));
+                            albums.add(new WebAlbum(title, !albArtist.isEmpty() ? albArtist : "", url, img));
                         }
                     }
                 }
@@ -1802,7 +1810,19 @@ public class MusicWebSearcher {
             String url = mAlb.group(1);
             if (!url.startsWith("http")) url = "https://rus.hitmos.fm" + url;
             String innerHtml = mAlb.group(2);
-            String title = innerHtml.replaceAll("<[^>]*>", "").trim();
+            String cardTitle = extract(innerHtml, "class=[\"']card__title[\"'][^>]*>\\s*(.*?)\\s*</");
+            String title = (cardTitle != null && !cardTitle.isEmpty())
+                    ? cardTitle.replaceAll("<[^>]*>", "").trim()
+                    : innerHtml.replaceAll("<[^>]*>", "").trim();
+
+            String cardArtist = extract(innerHtml, "class=[\"']card__subtitle[\"'][^>]*>\\s*(.*?)\\s*</");
+            String artist = (cardArtist != null && !cardArtist.isEmpty())
+                    ? cardArtist.replaceAll("<[^>]*>", "").trim() : "";
+            if (artist.isEmpty() && title.contains(" - ")) {
+                String[] p = title.split(" - ", 2);
+                artist = p[0].trim();
+                title = p[1].trim();
+            }
 
             boolean alreadySeen;
             synchronized (seen) {
@@ -1811,7 +1831,7 @@ public class MusicWebSearcher {
             }
             if (!android.text.TextUtils.isEmpty(title) && !title.toLowerCase().contains("скачать") && !alreadySeen) {
                 synchronized (albums) {
-                    albums.add(new WebAlbum(title, "Unknown", url, extractImageSafe(innerHtml)));
+                    albums.add(new WebAlbum(title, !artist.isEmpty() ? artist : "", url, extractImageSafe(innerHtml)));
                 }
             }
         }

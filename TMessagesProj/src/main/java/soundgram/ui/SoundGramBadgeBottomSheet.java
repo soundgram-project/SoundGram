@@ -157,7 +157,7 @@ public class SoundGramBadgeBottomSheet extends BottomSheet {
         TextView label = new TextView(ctx);
         label.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         label.setTypeface(AndroidUtilities.bold());
-        label.setTextColor(isDark ? 0x99FFFFFF : 0x99000000);
+        label.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         label.setText(text.toUpperCase());
         label.setLetterSpacing(0.08f);
         parent.addView(label, LayoutHelper.createLinear(

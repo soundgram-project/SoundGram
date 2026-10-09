@@ -154,7 +154,7 @@ public class RadioSectionStripView extends FrameLayout {
         for (int i = 0; i < 2; i++) {
             if (tabViews[i] == null) continue;
             boolean active = (i == selectedTab);
-            tabViews[i].setTextColor(active ? SoundGramDesignTokens.COLOR_TEXT : SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            tabViews[i].setTextColor(active ? SoundGramDesignTokens.getTextColor() : SoundGramDesignTokens.getTextMutedColor());
             tabViews[i].setAlpha(active ? 1.0f : 0.75f);
         }
     }
@@ -175,6 +175,8 @@ public class RadioSectionStripView extends FrameLayout {
         int h = getHeight();
         if (w <= 0 || h <= 0) return;
 
+        arrowPaint.setColor(SoundGramDesignTokens.getAccentColor());
+
         // Dial scale baseline Y (at the bottom)
         float lineY = h - AndroidUtilities.dp(14);
         float paddingX = AndroidUtilities.dp(18);
@@ -186,7 +188,7 @@ public class RadioSectionStripView extends FrameLayout {
             float x = paddingX + i * step;
             boolean isMajor = (i % 10 == 0);
             float tickHeight = isMajor ? AndroidUtilities.dp(7) : AndroidUtilities.dp(3.5f);
-            tickPaint.setColor(isMajor ? SoundGramDesignTokens.COLOR_LINE_STRONG : SoundGramDesignTokens.COLOR_LINE);
+            tickPaint.setColor(isMajor ? SoundGramDesignTokens.getLineStrongColor() : SoundGramDesignTokens.getLineColor());
             canvas.drawLine(x, lineY, x, lineY + tickHeight, tickPaint);
         }
 
