@@ -514,6 +514,10 @@ public class SoundGramAudioFX {
     }
 
     public static int getCurrentEqPreset() { return currentEqPreset; }
+    public static void setCurrentEqPreset(int preset) {
+        currentEqPreset = preset;
+        getPrefs().edit().putInt("eq_preset", preset).apply();
+    }
     public static void applyEqPreset(int presetIndex) {
         if (presetIndex < 0 || presetIndex >= EQ_PRESET_LEVELS.length) return;
         short[] levels = EQ_PRESET_LEVELS[presetIndex];

@@ -276,13 +276,13 @@ public class SoundGramEQAlert extends BottomSheet {
         speedSeekBar.setMax(100); // 0.50x to 1.50x
         int initialProgress = (int) Math.max(0, Math.min(100, (currentSpeed - 0.5f) * 100f));
         speedSeekBar.setProgress(initialProgress);
-        speedSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineStrongColor()));
-        speedSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineColor()));
+        speedSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getAccentColor()));
+        speedSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getSurface3Color()));
         if (Build.VERSION.SDK_INT >= 21) {
             speedSeekBar.setBackground(null);
             android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
             thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            thumb.setColor(SoundGramDesignTokens.getTextDimColor());
+            thumb.setColor(SoundGramDesignTokens.getAccentColor());
             thumb.setSize(AndroidUtilities.dp(16), AndroidUtilities.dp(16));
             speedSeekBar.setThumb(thumb);
             speedSeekBar.setThumbOffset(AndroidUtilities.dp(8));
@@ -330,13 +330,13 @@ public class SoundGramEQAlert extends BottomSheet {
         pitchSeekBar.setMax(100); // 0.50x to 1.50x
         int initialPitchProgress = (int) Math.max(0, Math.min(100, (currentPitch - 0.5f) * 100f));
         pitchSeekBar.setProgress(initialPitchProgress);
-        pitchSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineStrongColor()));
-        pitchSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getLineColor()));
+        pitchSeekBar.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getAccentColor()));
+        pitchSeekBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.getSurface3Color()));
         if (Build.VERSION.SDK_INT >= 21) {
             pitchSeekBar.setBackground(null);
             android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
             thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            thumb.setColor(SoundGramDesignTokens.getTextDimColor());
+            thumb.setColor(SoundGramDesignTokens.getAccentColor());
             thumb.setSize(AndroidUtilities.dp(16), AndroidUtilities.dp(16));
             pitchSeekBar.setThumb(thumb);
             pitchSeekBar.setThumbOffset(AndroidUtilities.dp(8));
@@ -449,7 +449,7 @@ public class SoundGramEQAlert extends BottomSheet {
             {6.0f, 4.0f, 1.0f, 0f, -2.0f}    // Бас
     };
 
-    private int activePresetIndex = 2; // Default: Pop (matches Photo 1!)
+    private int activePresetIndex = SoundGramAudioFX.getCurrentEqPreset();
 
     private void buildPresetsList() {
         if (presetsContainer == null) return;
@@ -462,9 +462,10 @@ public class SoundGramEQAlert extends BottomSheet {
             final float[] curve = presetCurves[i];
 
             PresetCardView card = new PresetCardView(ctx, name, curve, idx == activePresetIndex);
+            card.setTag(idx);
             card.setOnClickListener(v -> {
-                activePresetIndex = idx;
-                applyPresetCurve(curve);
+                SoundGramAudioFX.applyEqPreset(idx);
+                applyPresetCurve(curve, false);
                 refreshPresetsActiveState(idx);
             });
             presetsContainer.addView(card, LayoutHelper.createLinear(76, 58, 0, 0, 8, 0));
@@ -481,10 +482,10 @@ public class SoundGramEQAlert extends BottomSheet {
                 curve[k] = cp.levels[k] / 100f;
             }
             PresetCardView card = new PresetCardView(ctx, cp.name, curve, customIdx == activePresetIndex);
+            card.setTag(customIdx);
             card.setOnClickListener(v -> {
-                activePresetIndex = customIdx;
                 SoundGramAudioFX.applyCustomPreset(cp, customListIdx);
-                applyPresetCurve(curve);
+                applyPresetCurve(curve, false);
                 refreshPresetsActiveState(customIdx);
                 updateUIFromState();
             });
@@ -538,19 +539,22 @@ public class SoundGramEQAlert extends BottomSheet {
 
     private void refreshPresetsActiveState(int selectedIndex) {
         activePresetIndex = selectedIndex;
+        SoundGramAudioFX.setCurrentEqPreset(selectedIndex);
         if (presetsContainer == null) return;
         int childCount = presetsContainer.getChildCount();
         for (int i = 0; i < childCount; i++) {
             View child = presetsContainer.getChildAt(i);
             if (child instanceof PresetCardView) {
-                ((PresetCardView) child).setActive(i == selectedIndex);
+                Object tag = child.getTag();
+                boolean active = (tag instanceof Integer) && ((Integer) tag == selectedIndex);
+                ((PresetCardView) child).setActive(active);
             }
         }
     }
 
-    private void applyPresetCurve(float[] curve) {
+    private void applyPresetCurve(float[] curve, boolean updateFx) {
         if (eqCurveView != null) {
-            eqCurveView.setBands(curve);
+            eqCurveView.setBands(curve, updateFx);
             float db = eqCurveView.getCurrentGainDb();
             bigGainText.setText(formatDb(db));
             freqDetailText.setText(eqCurveView.getCurrentFreqText() + " · дб");
@@ -612,7 +616,8 @@ public class SoundGramEQAlert extends BottomSheet {
             bgPaint.setStyle(Paint.Style.FILL);
             canvas.drawRoundRect(rect, AndroidUtilities.dp(10), AndroidUtilities.dp(10), bgPaint);
 
-            borderPaint.setColor(isActive ? SoundGramDesignTokens.getLineStrongColor() : SoundGramDesignTokens.getLineColor());
+            borderPaint.setColor(isActive ? SoundGramDesignTokens.getAccentColor() : SoundGramDesignTokens.getLineStrongColor());
+            borderPaint.setStrokeWidth(AndroidUtilities.dp(isActive ? 1.5f : 1f));
             canvas.drawRoundRect(rect, AndroidUtilities.dp(10), AndroidUtilities.dp(10), borderPaint);
 
             // Mini curve preview in top half
@@ -669,7 +674,7 @@ public class SoundGramEQAlert extends BottomSheet {
         private void init() {
             arcTrackPaint.setStyle(Paint.Style.STROKE);
             arcTrackPaint.setStrokeWidth(AndroidUtilities.dp(5));
-            arcTrackPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
+            arcTrackPaint.setColor(SoundGramDesignTokens.getSurface3Color());
             arcTrackPaint.setStrokeCap(Paint.Cap.ROUND);
 
             arcProgressPaint.setStyle(Paint.Style.STROKE);
@@ -678,7 +683,7 @@ public class SoundGramEQAlert extends BottomSheet {
             arcProgressPaint.setStrokeCap(Paint.Cap.ROUND);
 
             centerDiscPaint.setStyle(Paint.Style.FILL);
-            centerDiscPaint.setColor(SoundGramDesignTokens.getSurface1Color());
+            centerDiscPaint.setColor(SoundGramDesignTokens.getSurface2Color());
         }
 
         public void setProgress(float p) {
@@ -826,10 +831,16 @@ public class SoundGramEQAlert extends BottomSheet {
         }
 
         public void setBands(float[] dbs) {
+            setBands(dbs, true);
+        }
+
+        public void setBands(float[] dbs, boolean updateFx) {
             if (dbs == null) return;
             for (int i = 0; i < 5 && i < dbs.length; i++) {
                 bandDbs[i] = Math.max(-15f, Math.min(15f, dbs[i]));
-                SoundGramAudioFX.setBandLevel((short) i, (short) Math.round(bandDbs[i] * 100f));
+                if (updateFx) {
+                    SoundGramAudioFX.setBandLevel((short) i, (short) Math.round(bandDbs[i] * 100f));
+                }
             }
             invalidate();
         }

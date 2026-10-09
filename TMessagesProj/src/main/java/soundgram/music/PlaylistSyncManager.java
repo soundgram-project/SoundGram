@@ -300,6 +300,7 @@ public class PlaylistSyncManager {
             writePlaylistFile(playlistFile, data);
 
             String playlistName = playlistFile.getName().replace(".txt", "");
+            markPlaylistTombstoned(currentAccount, playlistName);
             File coverFile = new File(getPlaylistsDir(currentAccount), playlistName + "_cover.jpg");
             if (coverFile.exists()) {
                 coverFile.delete();
@@ -425,6 +426,11 @@ public class PlaylistSyncManager {
             File localFile = new File(dir, safeFileName + ".txt");
             processedLocalNames.add(localFile.getName());
 
+            if (isPlaylistTombstoned(currentAccount, channelData.title)) {
+                duplicateMsgIdsToDelete.add(channelData.msgId);
+                continue;
+            }
+
             File localCover = new File(dir, safeFileName + "_cover.jpg");
             if (!localCover.exists() && channelMsg != null && channelMsg.messageOwner.media instanceof TLRPC.TL_messageMediaPhoto) {
                 restoreCoverFromMessage(currentAccount, channelMsg, localCover);
@@ -525,4 +531,45 @@ public class PlaylistSyncManager {
             FileLog.e("PlaylistSyncManager: restoreCoverFromMessage error", e);
         }
     }
+
+    public static void markPlaylistTombstoned(int currentAccount, String title) {
+        if (TextUtils.isEmpty(title)) return;
+        try {
+            android.content.SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_playlists_" + currentAccount, android.content.Context.MODE_PRIVATE);
+            java.util.Set<String> set = new HashSet<>(prefs.getStringSet("tombstones", new HashSet<String>()));
+            set.add(title.trim().toLowerCase());
+            prefs.edit().putStringSet("tombstones", set).apply();
+            FileLog.d("PlaylistSyncManager: marked tombstoned " + title);
+        } catch (Exception e) {
+            FileLog.e("PlaylistSyncManager: markPlaylistTombstoned error", e);
+        }
+    }
+
+    public static boolean isPlaylistTombstoned(int currentAccount, String title) {
+        if (TextUtils.isEmpty(title)) return false;
+        try {
+            android.content.SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_playlists_" + currentAccount, android.content.Context.MODE_PRIVATE);
+            java.util.Set<String> set = prefs.getStringSet("tombstones", null);
+            return set != null && set.contains(title.trim().toLowerCase());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static void removePlaylistTombstone(int currentAccount, String title) {
+        if (TextUtils.isEmpty(title)) return;
+        try {
+            android.content.SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("soundgram_playlists_" + currentAccount, android.content.Context.MODE_PRIVATE);
+            java.util.Set<String> oldSet = prefs.getStringSet("tombstones", null);
+            if (oldSet != null && oldSet.contains(title.trim().toLowerCase())) {
+                java.util.Set<String> set = new HashSet<>(oldSet);
+                set.remove(title.trim().toLowerCase());
+                prefs.edit().putStringSet("tombstones", set).apply();
+                FileLog.d("PlaylistSyncManager: removed tombstone " + title);
+            }
+        } catch (Exception e) {
+            FileLog.e("PlaylistSyncManager: removePlaylistTombstone error", e);
+        }
+    }
 }
+

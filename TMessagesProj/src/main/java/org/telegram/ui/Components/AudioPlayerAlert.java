@@ -247,6 +247,7 @@ public class AudioPlayerAlert extends BottomSheet
     private ImageView eqBtn;
     private ImageView lyricsBtnBottom;
     private ImageView topOptionsBtn;
+    private ImageView moreBtn;
     private TextView nextTrackTitleView;
     private TextView nextTrackDurationView;
     private FrameLayout blurredView;
@@ -1240,23 +1241,15 @@ public class AudioPlayerAlert extends BottomSheet
         playerTopBar.addView(topOptionsBtn,
                 LayoutHelper.createFrame(44, 44, Gravity.CENTER_VERTICAL | Gravity.LEFT, 0, 0, 0, 0));
 
-        // Текст источника по центру — моно 11px "опианариум · 1 из 9"
+        // Текст источника скрыт по запросу пользователя
         sourceChipTextView = new TextView(context);
-        sourceChipTextView.setText(getSourceDisplayName());
-        sourceChipTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        android.graphics.Typeface monoFace = AndroidUtilities.getTypeface("fonts/rmono.ttf");
-        if (monoFace == null) monoFace = android.graphics.Typeface.MONOSPACE;
-        sourceChipTextView.setTypeface(monoFace);
-        sourceChipTextView.setTextColor(getThemedColor(Theme.key_player_actionBarSubtitle));
-        sourceChipTextView.setSingleLine(true);
-        sourceChipTextView.setEllipsize(TextUtils.TruncateAt.END);
-        sourceChipTextView.setGravity(Gravity.CENTER);
+        sourceChipTextView.setVisibility(View.GONE);
         playerTopBar.addView(sourceChipTextView,
                 LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
                         Gravity.CENTER, 48, 0, 96, 0));
 
         // Кнопка опций ··· (СПРАВА)
-        ImageView moreBtn = new ImageView(context);
+        moreBtn = new ImageView(context);
         moreBtn.setImageResource(R.drawable.ic_ab_other);
         moreBtn.setScaleType(ImageView.ScaleType.CENTER);
         moreBtn.setColorFilter(getThemedColor(Theme.key_player_button), PorterDuff.Mode.SRC_IN);
@@ -2519,12 +2512,35 @@ public class AudioPlayerAlert extends BottomSheet
         final int subtitleColor = getThemedColor(Theme.key_player_actionBarSubtitle);
         final int timeColor = getThemedColor(Theme.key_player_time);
         final int accentColor = getThemedColor(Theme.key_featuredStickers_addButton);
+        final int playerBg = getThemedColor(Theme.key_dialogBackground);
         final int onAccentColor = getThemedColor(Theme.key_featuredStickers_buttonText);
-        final int progressBg = getThemedColor(Theme.key_player_progressBackground);
-        final int progressColor = getThemedColor(Theme.key_player_progress);
+
+        int surfaceColor = getThemedColor(Theme.key_windowBackgroundGray);
+        if (surfaceColor == 0 || soundgram.ui.SoundGramDesignTokens.isTooClose(surfaceColor, playerBg)) {
+            surfaceColor = getThemedColor(Theme.key_chat_inBubble);
+        }
+        if (surfaceColor == 0 || soundgram.ui.SoundGramDesignTokens.isTooClose(surfaceColor, playerBg)) {
+            surfaceColor = getThemedColor(Theme.key_actionBarDefaultSubmenuBackground);
+        }
+        surfaceColor = soundgram.ui.SoundGramDesignTokens.ensureContrast(surfaceColor, playerBg, 0.08f);
+
+        int dividerColor = getThemedColor(Theme.key_divider);
+        if (dividerColor == 0 || soundgram.ui.SoundGramDesignTokens.isTooClose(dividerColor, playerBg)) {
+            dividerColor = soundgram.ui.SoundGramDesignTokens.ensureContrast(playerBg, playerBg, 0.12f);
+        }
+
+        int progressBg = getThemedColor(Theme.key_player_progressBackground);
+        if (progressBg == 0 || soundgram.ui.SoundGramDesignTokens.isTooClose(progressBg, playerBg)) {
+            progressBg = surfaceColor;
+        }
+        progressBg = soundgram.ui.SoundGramDesignTokens.ensureContrast(progressBg, playerBg, 0.10f);
+
+        int progressColor = getThemedColor(Theme.key_player_progress);
+        if (progressColor == 0 || soundgram.ui.SoundGramDesignTokens.isTooClose(progressColor, playerBg)) {
+            progressColor = accentColor != 0 ? accentColor : soundgram.ui.SoundGramDesignTokens.getAccentColor();
+        }
+
         final int iconColor = getThemedColor(Theme.key_player_button);
-        final int dividerColor = getThemedColor(Theme.key_divider);
-        final int surfaceColor = getThemedColor(Theme.key_windowBackgroundGray);
 
         if (seekBarView != null) {
             seekBarView.setWavy(true);
@@ -2609,8 +2625,16 @@ public class AudioPlayerAlert extends BottomSheet
             topBackBg.setStroke(AndroidUtilities.dp(1), dividerColor);
             topOptionsBtn.setBackground(topBackBg);
         }
+        if (moreBtn != null) {
+            moreBtn.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+            GradientDrawable moreBackBg = new GradientDrawable();
+            moreBackBg.setColor(surfaceColor);
+            moreBackBg.setCornerRadius(AndroidUtilities.dp(14));
+            moreBackBg.setStroke(AndroidUtilities.dp(1), dividerColor);
+            moreBtn.setBackground(moreBackBg);
+        }
         if (sourceChipTextView != null) {
-            sourceChipTextView.setTextColor(timeColor);
+            sourceChipTextView.setVisibility(View.GONE);
         }
         updatePlayerBackground();
     }
@@ -4554,9 +4578,9 @@ public class AudioPlayerAlert extends BottomSheet
                     fetchLyrics(messageObject);
                 }
             }
-            // Обновляем chip источника при каждой смене трека
+            // Источник скрыт
             if (sourceChipTextView != null) {
-                sourceChipTextView.setText(getSourceDisplayName());
+                sourceChipTextView.setVisibility(View.GONE);
             }
 
             final MessagesController.SavedMusicIds musicIds = MessagesController.getInstance(currentAccount)

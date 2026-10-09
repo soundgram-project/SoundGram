@@ -33,24 +33,59 @@ public class SoundGramDesignTokens {
     public static int COLOR_ACCENT_HOVER = 0xFFD8F58A; // Акцент при нажатии
     public static int COLOR_ON_ACCENT    = 0xFF111111; // Текст на акценте
 
-    static {
-        updateColors();
+    public static boolean isTooClose(int c1, int c2) {
+        if (c1 == c2) return true;
+        float lum1 = (float) ColorUtils.calculateLuminance(c1);
+        float lum2 = (float) ColorUtils.calculateLuminance(c2);
+        return Math.abs(lum1 - lum2) < 0.035f;
+    }
+
+    public static int ensureContrast(int color, int bg, float minDiff) {
+        if (color == 0 || isTooClose(color, bg)) {
+            boolean dark = AndroidUtilities.computePerceivedBrightness(bg) < 0.5f;
+            if (dark) {
+                return ColorUtils.blendARGB(bg, Color.WHITE, Math.max(0.09f, minDiff * 2.5f));
+            } else {
+                return ColorUtils.blendARGB(bg, Color.BLACK, Math.max(0.07f, minDiff * 2.0f));
+            }
+        }
+        return color;
     }
 
     public static void updateColors() {
         try {
             int bg = Theme.getColor(Theme.key_windowBackgroundWhite);
             if (bg != 0) COLOR_BG = bg;
-            int s1 = Theme.getColor(Theme.key_windowBackgroundGray);
-            if (s1 != 0) COLOR_SURFACE_1 = s1;
+
+            int s1 = Theme.getColor(Theme.key_chat_inBubble);
+            if (s1 == 0 || isTooClose(s1, bg)) {
+                s1 = Theme.getColor(Theme.key_dialogBackground);
+            }
+            if (s1 == 0 || isTooClose(s1, bg)) {
+                s1 = Theme.getColor(Theme.key_windowBackgroundGray);
+            }
+            s1 = ensureContrast(s1, bg, 0.045f);
+            COLOR_SURFACE_1 = s1;
+
             int s2 = Theme.getColor(Theme.key_chat_inBubble);
-            if (s2 != 0) COLOR_SURFACE_2 = s2;
+            if (s2 == 0 || isTooClose(s2, bg)) {
+                s2 = ensureContrast(s1, bg, 0.065f);
+            }
+            COLOR_SURFACE_2 = s2;
+
             int s3 = Theme.getColor(Theme.key_graySection);
-            if (s3 != 0) COLOR_SURFACE_3 = s3;
+            if (s3 == 0 || isTooClose(s3, bg)) {
+                s3 = ensureContrast(s2, bg, 0.085f);
+            }
+            COLOR_SURFACE_3 = s3;
+
             int line = Theme.getColor(Theme.key_divider);
             if (line != 0) {
                 COLOR_LINE = line;
                 COLOR_LINE_STRONG = line;
+            } else {
+                COLOR_LINE = ensureContrast(bg, bg, 0.04f);
+                COLOR_LINE_STRONG = ensureContrast(bg, bg, 0.08f);
             }
             int text = Theme.getColor(Theme.key_windowBackgroundWhiteBlackText);
             if (text != 0) COLOR_TEXT = text;
@@ -147,26 +182,19 @@ public class SoundGramDesignTokens {
 
     public static int getPlaylistCardColor() {
         updateColors();
-        int card = Theme.getColor(Theme.key_chat_inBubble);
         int bg = getBgColor();
-        if (card == 0 || card == bg) {
+        int card = Theme.getColor(Theme.key_windowBackgroundGray);
+        if (card == 0 || isTooClose(card, bg)) {
+            card = Theme.getColor(Theme.key_chat_inBubble);
+        }
+        if (card == 0 || isTooClose(card, bg)) {
             card = Theme.getColor(Theme.key_dialogBackground);
         }
-        if (card == 0 || card == bg) {
-            card = Theme.getColor(Theme.key_windowBackgroundGray);
-        }
-        if (card == bg) {
-            if (AndroidUtilities.computePerceivedBrightness(bg) > 0.5f) {
-                card = ColorUtils.blendARGB(bg, Color.BLACK, 0.08f);
-            } else {
-                card = ColorUtils.blendARGB(bg, Color.WHITE, 0.10f);
-            }
-        }
-        return card;
+        return ensureContrast(card, bg, 0.09f);
     }
 
     public static GradientDrawable makePlaylistCardDrawable(float tl, float tr, float br, float bl) {
-        return makeAsymmetricDrawable(getPlaylistCardColor(), getLineColor(), 1f, tl, tr, br, bl);
+        return makeAsymmetricDrawable(getPlaylistCardColor(), getLineStrongColor(), 1f, tl, tr, br, bl);
     }
 
     public static GradientDrawable makeAsymmetricDrawable(int color, float tl, float tr, float br, float bl) {

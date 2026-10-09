@@ -1,5 +1,6 @@
 package soundgram.music;
 
+import android.text.TextUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.telegram.messenger.AndroidUtilities;
@@ -585,7 +586,7 @@ public class MusicWebSearcher {
                             hitmoHtml = fetchHtml(searchUrl);
                         }
 
-                        parseHtmlToResults(hitmoHtml, hitmosTracks, artists, albums, seenIds);
+                        parseHtmlToResults(hitmoHtml, hitmosTracks, new ArrayList<>(), new ArrayList<>(), seenIds);
                     } catch (Exception e) {
                         FileLog.e(e);
                     } finally {
@@ -629,16 +630,21 @@ public class MusicWebSearcher {
                     // 3. Поиск на Deezer (артисты)
                     SEARCH_EXECUTOR.execute(() -> {
                         try {
-                            String artistSearch = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                            String artistSearch = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&limit=25";
                             String aResp = fetchHtml(artistSearch);
                             if (aResp != null && !aResp.isEmpty()) {
                                 JSONObject aJson = new JSONObject(aResp);
                                 if (aJson.has("data")) {
                                     JSONArray data = aJson.getJSONArray("data");
-                                    for (int i = 0; i < data.length() && artists.size() < 10; i++) {
+                                    for (int i = 0; i < data.length() && artists.size() < 20; i++) {
                                         JSONObject obj = data.getJSONObject(i);
+                                        String name = obj.optString("name", "");
+                                        if (TextUtils.isEmpty(name)) continue;
+                                        String pic = obj.optString("picture_xl", "");
+                                        if (pic.isEmpty()) pic = obj.optString("picture_big", "");
+                                        if (pic.isEmpty()) pic = obj.optString("picture_medium", "");
                                         synchronized (artists) {
-                                            artists.add(new WebArtist(obj.getString("name"), "DEEZER_ARTIST:" + obj.getLong("id"), obj.getString("picture_xl")));
+                                            artists.add(new WebArtist(name, "DEEZER_ARTIST:" + obj.optLong("id", 0), pic));
                                         }
                                     }
                                 }
@@ -653,16 +659,22 @@ public class MusicWebSearcher {
                     // 4. Поиск на Deezer (альбомы)
                     SEARCH_EXECUTOR.execute(() -> {
                         try {
-                            String albumSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                            String albumSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&limit=25";
                             String alResp = fetchHtml(albumSearch);
                             if (alResp != null && !alResp.isEmpty()) {
                                 JSONObject alJson = new JSONObject(alResp);
                                 if (alJson.has("data")) {
                                     JSONArray data = alJson.getJSONArray("data");
-                                    for (int i = 0; i < data.length() && albums.size() < 10; i++) {
+                                    for (int i = 0; i < data.length() && albums.size() < 20; i++) {
                                         JSONObject obj = data.getJSONObject(i);
+                                        String aTitle = obj.optString("title", "");
+                                        if (TextUtils.isEmpty(aTitle)) continue;
+                                        String artName = obj.has("artist") ? obj.getJSONObject("artist").optString("name", "") : "";
+                                        String cover = obj.optString("cover_xl", "");
+                                        if (cover.isEmpty()) cover = obj.optString("cover_big", "");
+                                        if (cover.isEmpty()) cover = obj.optString("cover_medium", "");
                                         synchronized (albums) {
-                                            albums.add(new WebAlbum(obj.getString("title"), obj.getJSONObject("artist").getString("name"), "SEARCH_ALBUM:" + obj.getString("title") + "::::" + obj.getJSONObject("artist").getString("name"), obj.getString("cover_xl")));
+                                            albums.add(new WebAlbum(aTitle, artName, "SEARCH_ALBUM:" + aTitle + "::::" + artName, cover));
                                         }
                                     }
                                 }
