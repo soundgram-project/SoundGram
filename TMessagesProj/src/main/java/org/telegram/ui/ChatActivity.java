@@ -16659,7 +16659,7 @@ public class ChatActivity extends BaseFragment implements
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.destroyTime != 0 || messageObject.messageOwner.ttl <= 0) {
             return null;
         }
-        if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !force) {
+        if ((xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() || com.radolyn.ayugram.utils.AyuGhostPreferences.getKeepOnce()) && !force) {
             return null;
         }
         if (readNow) {
@@ -16695,7 +16695,8 @@ public class ChatActivity extends BaseFragment implements
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.ttl != 0x7FFFFFFF) {
             return null;
         }
-        if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() && !force) {
+        if ((xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool() || com.radolyn.ayugram.utils.AyuGhostPreferences.getKeepOnce()) && !force) {
+            messageObject.forceExpired = false;
             return null;
         }
         final long taskId = getMessagesController().createDeleteShowOnceTask(dialog_id, messageObject.getId());

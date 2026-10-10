@@ -60,6 +60,7 @@ public class SeekBarView extends FrameLayout {
 
     private Paint innerPaint1;
     private Paint outerPaint1;
+    private Integer customInnerColor = null;
     private int thumbSize;
     private int selectorWidth;
     private int thumbX;
@@ -188,6 +189,7 @@ public class SeekBarView extends FrameLayout {
     }
 
     public void setColors(int inner, int outer) {
+        customInnerColor = inner;
         innerPaint1.setColor(inner);
         outerPaint1.setColor(outer);
         if (hoverDrawable != null) {
@@ -215,6 +217,7 @@ public class SeekBarView extends FrameLayout {
     }
 
     public void setInnerColor(int color) {
+        customInnerColor = color;
         innerPaint1.setColor(color);
     }
 
@@ -518,7 +521,11 @@ public class SeekBarView extends FrameLayout {
             thumbX = (int) (Math.round((thumbX) / step) * step);
         }
         int y = (getMeasuredHeight() - thumbSize) / 2;
-        innerPaint1.setColor(getThemedColor(Theme.key_player_progressBackground));
+        if (customInnerColor != null) {
+            innerPaint1.setColor(customInnerColor);
+        } else {
+            innerPaint1.setColor(getThemedColor(Theme.key_player_progressBackground));
+        }
 
         float centerY = getMeasuredHeight() / 2f;
         float left = selectorWidth / 2f, right = getMeasuredWidth() - selectorWidth / 2;

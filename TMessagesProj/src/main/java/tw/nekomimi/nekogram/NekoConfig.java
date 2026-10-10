@@ -304,22 +304,11 @@ public class NekoConfig {
 
     // --- Ghost Mode ---
     public static boolean isGhostModeActive() {
-        for (Pair<ConfigItem, ConfigItem> pair : ghostToggleItems) {
-            ConfigItem item = pair.first;
-            ConfigItem lockedItem = pair.second;
-            if (!lockedItem.Bool()) {
-                boolean currentValue = item.Bool();
-                boolean isGhostState = (item == sendOfflinePacketAfterOnline) == currentValue;
-
-                if (!isGhostState) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return com.radolyn.ayugram.utils.AyuGhostPreferences.isGhostModeActive();
     }
 
     public static void setGhostMode(boolean enabled) {
+        com.radolyn.ayugram.utils.AyuGhostPreferences.setGhostMode(enabled);
         for (Pair<ConfigItem, ConfigItem> pair : ghostToggleItems) {
             ConfigItem item = pair.first;
             ConfigItem lockedItem = pair.second;
@@ -333,9 +322,7 @@ public class NekoConfig {
     public static void toggleGhostMode() {
         boolean newState = !isGhostModeActive();
         setGhostMode(newState);
-
-        boolean sendOnlineNow = !newState && !sendOfflinePacketAfterOnlineLocked.Bool() && sendOfflinePacketAfterOnline.Bool();
-        AyuGhostUtils.performStatusRequest(sendOnlineNow);
+        AyuGhostUtils.performStatusRequest(!newState);
     }
 
     private static final List<Pair<ConfigItem, ConfigItem>> ghostToggleItems = Arrays.asList(

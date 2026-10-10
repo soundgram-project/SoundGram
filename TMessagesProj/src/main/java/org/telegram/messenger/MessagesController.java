@@ -6765,6 +6765,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isChatNoForwards(TLRPC.Chat chat) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassForward()) {
+            return false;
+        }
         if (chat == null) {
             return false;
         }
@@ -6778,18 +6781,30 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean isChatNoForwards(long chatId) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassForward()) {
+            return false;
+        }
         return isChatNoForwards(getChat(chatId));
     }
 
     public boolean isPeerNoForwards(long dialogId) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassForward()) {
+            return false;
+        }
         return dialogId > 0 ? isUserNoForwards(dialogId) : isChatNoForwards(-dialogId);
     }
 
     public boolean isUserNoForwards(long userId) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassForward()) {
+            return false;
+        }
         return isUserNoForwards(getUserFull(userId));
     }
 
     public boolean isUserNoForwards(TLRPC.UserFull userFull) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassForward()) {
+            return false;
+        }
         if (userFull == null) {
             return false;
         }
@@ -8344,6 +8359,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     private boolean checkDeletingTask(boolean runnable) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getKeepOnce()) {
+            return false;
+        }
         int currentServerTime = getConnectionsManager().getCurrentTime();
 
         if ((currentDeletingTaskMids != null || currentDeletingTaskMediaMids != null) && (runnable || currentDeletingTaskTime != 0 && currentDeletingTaskTime <= currentServerTime)) {
@@ -11565,6 +11583,11 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public boolean sendTyping(long dialogId, long threadMsgId, int action, String emojicon, int classGuid) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.isGhostModeActive()
+                && com.radolyn.ayugram.utils.AyuGhostPreferences.getBlockTyping()
+                && com.radolyn.ayugram.utils.AyuGhostPreferences.shouldApplyGhostToChat(dialogId)) {
+            return false;
+        }
         if (action < 0 || action >= sendingTypings.length || dialogId == 0) {
             return false;
         }
@@ -12409,6 +12432,12 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                 }, classGuid, loaderLogger);
                 getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoad, dialogId, count, objects, isCache, first_unread_final, last_message_id, unread_count, last_date, load_type, isEnd, classGuid, loadIndex, max_id, mentionsCount, mode);
+            } else {
+                if (!needProcess) {
+                    getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoadWithoutProcess, classGuid, resCount, isCache, isEnd, last_message_id);
+                } else {
+                    getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoad, dialogId, count, objects, isCache, first_unread_final, last_message_id, unread_count, last_date, load_type, isEnd, classGuid, loadIndex, max_id, mentionsCount, mode);
+                }
             }
 
             if (!messagesToReload.isEmpty()) {
@@ -14582,6 +14611,11 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public void markMessageContentAsRead(MessageObject messageObject) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBlockMediaSeen()) {
+            if (messageObject != null && com.radolyn.ayugram.utils.AyuGhostPreferences.shouldApplyGhostToChat(messageObject.getDialogId())) {
+                return;
+            }
+        }
         if (messageObject.scheduled) {
             return;
         }
@@ -23934,6 +23968,9 @@ public class MessagesController extends BaseController implements NotificationCe
 
     private HashMap<Long, ChannelRecommendations> cachedChannelRecommendations;
     public ChannelRecommendations getCachedChannelRecommendations(long dialogId) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getHideRecommended()) {
+            return null;
+        }
         if (cachedChannelRecommendations == null) {
             return null;
         }
@@ -23941,6 +23978,9 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public ChannelRecommendations getChannelRecommendations(long dialogId) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getHideRecommended()) {
+            return null;
+        }
         if (cachedChannelRecommendations == null) {
             cachedChannelRecommendations = new HashMap<>();
         }

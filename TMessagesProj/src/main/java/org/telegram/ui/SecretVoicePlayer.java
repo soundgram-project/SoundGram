@@ -801,6 +801,10 @@ public class SecretVoicePlayer extends Dialog {
         });
         windowView.invalidate();
 
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getKeepOnce()) {
+            this.closeAction = null;
+        }
+
         if (this.closeAction != null) {
             if (cell != null) {
                 cell.makeVisibleAfterChange = true;

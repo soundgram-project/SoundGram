@@ -147,7 +147,7 @@ public class RadioWaveProgressView extends View {
 
         accentPaint.setColor(SoundGramDesignTokens.getAccentColor());
         currentBarPaint.setColor(SoundGramDesignTokens.getTextColor());
-        unplayedPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
+        unplayedPaint.setColor(SoundGramDesignTokens.getPlaylistCardColor());
 
         float gap = AndroidUtilities.dp(3);
         float totalGaps = gap * (BARS_COUNT - 1);

@@ -203,21 +203,192 @@ public class MusicImporter {
         return parseInput(input, org.telegram.messenger.UserConfig.selectedAccount);
     }
 
+    // ── Bypass Fetcher & Strict Matching ──────────────────────────────────────
+    private static final String[] PROXY_MIRRORS = {
+            "https://corsproxy.io/?url=",
+            "https://api.allorigins.win/raw?url=",
+            "https://api.codetabs.com/v1/proxy?quest="
+    };
+
+    public static String fetchUrlWithBypass(String urlString) {
+        if (TextUtils.isEmpty(urlString)) return "";
+        // 1. Прямое соединение через MusicNetworkHelper (учитывает прокси Telegram если настроен)
+        try {
+            HttpURLConnection conn = MusicNetworkHelper.openConnection(urlString);
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(5000);
+            conn.setRequestProperty("User-Agent", MusicNetworkHelper.DEFAULT_USER_AGENT);
+            conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8");
+            conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ru;q=0.8");
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 400) {
+                try (InputStream is = conn.getInputStream();
+                     ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+                    byte[] buf = new byte[8192];
+                    int len;
+                    while ((len = is.read(buf)) != -1) {
+                        bos.write(buf, 0, len);
+                    }
+                    String res = bos.toString("UTF-8");
+                    if (!TextUtils.isEmpty(res)) {
+                        return res;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FileLog.d("MusicImporter: direct fetch failed for " + urlString + ": " + e.getMessage());
+        }
+
+        // 2. Резервный обход через общедоступные CORS/HTTP-реле (по принципу Моей Волны при блокировках РФ)
+        for (String proxyPrefix : PROXY_MIRRORS) {
+            try {
+                String proxyUrl = proxyPrefix + URLEncoder.encode(urlString, "UTF-8");
+                HttpURLConnection conn = MusicNetworkHelper.openConnection(proxyUrl);
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(7000);
+                conn.setRequestProperty("User-Agent", MusicNetworkHelper.DEFAULT_USER_AGENT);
+                int code = conn.getResponseCode();
+                if (code >= 200 && code < 400) {
+                    try (InputStream is = conn.getInputStream();
+                         ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = is.read(buf)) != -1) {
+                            bos.write(buf, 0, len);
+                        }
+                        String res = bos.toString("UTF-8");
+                        if (!TextUtils.isEmpty(res) && res.length() > 50) {
+                            return res;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                FileLog.d("MusicImporter: proxy fetch failed for " + urlString + " via " + proxyPrefix + ": " + e.getMessage());
+            }
+        }
+        return "";
+    }
+
+    public static boolean isStrictTrackMatch(String targetArtist, String targetTitle, String foundArtist, String foundTitle) {
+        if (TextUtils.isEmpty(targetTitle) || TextUtils.isEmpty(foundTitle)) {
+            return false;
+        }
+
+        String cTargetTitle = cleanStringForMatch(targetTitle);
+        String cFoundTitle = cleanStringForMatch(foundTitle);
+        if (cTargetTitle.isEmpty() || cFoundTitle.isEmpty()) {
+            return false;
+        }
+
+        // 1. Проверка артиста (если целевой артист известен)
+        String cTargetArtist = cleanStringForMatch(targetArtist);
+        String cFoundArtist = cleanStringForMatch(foundArtist);
+
+        if (!cTargetArtist.isEmpty()) {
+            if (cFoundArtist.isEmpty()) {
+                if (!cFoundTitle.contains(cTargetArtist)) {
+                    return false;
+                }
+            } else {
+                String pTarget = getPrimaryArtist(cTargetArtist);
+                String pFound = getPrimaryArtist(cFoundArtist);
+
+                boolean artistMatches = pTarget.equals(pFound)
+                        || cTargetArtist.contains(pFound)
+                        || cFoundArtist.contains(pTarget)
+                        || pTarget.contains(pFound)
+                        || pFound.contains(pTarget)
+                        || calculateSimilarity(pTarget, pFound) >= 0.78;
+
+                if (!artistMatches) {
+                    return false;
+                }
+            }
+        }
+
+        // 2. Строгая проверка названия
+        if (cTargetTitle.equals(cFoundTitle)) {
+            return true;
+        }
+
+        double sim = calculateSimilarity(cTargetTitle, cFoundTitle);
+        if (sim >= 0.85) {
+            return true;
+        }
+
+        // Если одно название является подстрокой другого, требуем высокое покрытие длины (>= 80%)
+        if (cTargetTitle.contains(cFoundTitle) || cFoundTitle.contains(cTargetTitle)) {
+            double lenRatio = (double) Math.min(cTargetTitle.length(), cFoundTitle.length()) /
+                              (double) Math.max(cTargetTitle.length(), cFoundTitle.length());
+            if (lenRatio >= 0.80) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static String cleanStringForMatch(String s) {
+        if (s == null) return "";
+        return s.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "")
+                .replaceAll("(?i)\\b(official\\s*video|music\\s*video|lyric\\s*video|audio|remastered|hd|4k|hq)\\b", "")
+                .toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-zа-я0-9]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private static String getPrimaryArtist(String cleanArtist) {
+        if (cleanArtist == null || cleanArtist.isEmpty()) return "";
+        String[] parts = cleanArtist.split("[,/&]|\\b(feat|ft|vs|and|с\\s+участием)\\b");
+        if (parts.length > 0 && !parts[0].trim().isEmpty()) {
+            return parts[0].trim();
+        }
+        return cleanArtist;
+    }
+
+    private static double calculateSimilarity(String s1, String s2) {
+        if (s1.equals(s2)) return 1.0;
+        int len1 = s1.length();
+        int len2 = s2.length();
+        if (len1 == 0 || len2 == 0) return 0.0;
+
+        int[][] dp = new int[len1 + 1][len2 + 1];
+        for (int i = 0; i <= len1; i++) dp[i][0] = i;
+        for (int j = 0; j <= len2; j++) dp[0][j] = j;
+
+        for (int i = 1; i <= len1; i++) {
+            char c1 = s1.charAt(i - 1);
+            for (int j = 1; j <= len2; j++) {
+                char c2 = s2.charAt(j - 1);
+                int cost = (c1 == c2) ? 0 : 1;
+                dp[i][j] = Math.min(dp[i - 1][j] + 1, Math.min(dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost));
+            }
+        }
+
+        int maxLen = Math.max(len1, len2);
+        return 1.0 - ((double) dp[len1][len2] / (double) maxLen);
+    }
+
     // ── Spotify ────────────────────────────────────────────────────────────────
     private static void parseSpotify(String url, ParsedPlaylist result) {
         try {
             Matcher mTrack = SPOTIFY_TRACK_PATTERN.matcher(url);
             if (mTrack.find()) {
                 String trackId = mTrack.group(1);
-                String embedHtml = MusicWebSearcher.fetchHtml("https://open.spotify.com/embed/track/" + trackId);
+                String embedHtml = fetchUrlWithBypass("https://open.spotify.com/embed/track/" + trackId);
                 extractTracksFromSpotifyEmbed(embedHtml, result);
                 if (result.tracks.isEmpty()) {
                     try {
-                        String oembed = MusicWebSearcher.fetchHtml("https://open.spotify.com/oembed?url=" + URLEncoder.encode("https://open.spotify.com/track/" + trackId, "UTF-8"));
-                        JSONObject obj = new JSONObject(oembed);
-                        String title = obj.optString("title");
-                        if (!TextUtils.isEmpty(title)) {
-                            result.tracks.add(new TrackInfo(title, ""));
+                        String oembed = fetchUrlWithBypass("https://open.spotify.com/oembed?url=" + URLEncoder.encode("https://open.spotify.com/track/" + trackId, "UTF-8"));
+                        if (!TextUtils.isEmpty(oembed)) {
+                            JSONObject obj = new JSONObject(oembed);
+                            String title = obj.optString("title");
+                            if (!TextUtils.isEmpty(title)) {
+                                result.tracks.add(new TrackInfo(title, ""));
+                            }
                         }
                     } catch (Exception ignored) {}
                 }
@@ -227,7 +398,7 @@ public class MusicImporter {
             Matcher mAlbum = SPOTIFY_ALBUM_PATTERN.matcher(url);
             if (mAlbum.find()) {
                 String albumId = mAlbum.group(1);
-                String embedHtml = MusicWebSearcher.fetchHtml("https://open.spotify.com/embed/album/" + albumId);
+                String embedHtml = fetchUrlWithBypass("https://open.spotify.com/embed/album/" + albumId);
                 extractTracksFromSpotifyEmbed(embedHtml, result);
                 result.isPlaylist = true;
                 return;
@@ -236,7 +407,7 @@ public class MusicImporter {
             Matcher mPlaylist = SPOTIFY_PLAYLIST_PATTERN.matcher(url);
             if (mPlaylist.find()) {
                 String playlistId = mPlaylist.group(1);
-                String embedHtml = MusicWebSearcher.fetchHtml("https://open.spotify.com/embed/playlist/" + playlistId);
+                String embedHtml = fetchUrlWithBypass("https://open.spotify.com/embed/playlist/" + playlistId);
                 extractTracksFromSpotifyEmbed(embedHtml, result);
                 result.isPlaylist = true;
             }
@@ -573,9 +744,9 @@ public class MusicImporter {
 
     private static void parseYouTubePlaylistHtml(String playlistId, ParsedPlaylist result) {
         try {
-            String html = MusicWebSearcher.fetchHtml("https://www.youtube.com/playlist?list=" + playlistId);
+            String html = fetchUrlWithBypass("https://www.youtube.com/playlist?list=" + playlistId);
             if (TextUtils.isEmpty(html)) {
-                html = MusicWebSearcher.fetchHtml("https://music.youtube.com/playlist?list=" + playlistId);
+                html = fetchUrlWithBypass("https://music.youtube.com/playlist?list=" + playlistId);
             }
             if (TextUtils.isEmpty(html)) return;
 
@@ -639,9 +810,14 @@ public class MusicImporter {
 
     private static void parseYouTubePlaylistInnerTube(String playlistId, ParsedPlaylist result) {
         try {
-            for (String base : new String[]{"https://pipedapi.ducks.party", "https://api.piped.private.coffee"}) {
+            for (String base : new String[]{
+                    "https://pipedapi.ducks.party",
+                    "https://api.piped.private.coffee",
+                    "https://pipedapi.kavin.rocks",
+                    "https://piped.video"
+            }) {
                 try {
-                    String resp = MusicWebSearcher.fetchHtml(base + "/playlists/" + playlistId);
+                    String resp = fetchUrlWithBypass(base + "/playlists/" + playlistId);
                     if (!TextUtils.isEmpty(resp)) {
                         JSONObject json = new JSONObject(resp);
                         if (TextUtils.isEmpty(result.title)) {
@@ -663,9 +839,14 @@ public class MusicImporter {
                 } catch (Exception ignored) {}
             }
 
-            for (String base : new String[]{"https://yewtu.be", "https://inv.tux.pizza", "https://invidious.nerdvpn.de"}) {
+            for (String base : new String[]{
+                    "https://yewtu.be",
+                    "https://inv.tux.pizza",
+                    "https://invidious.nerdvpn.de",
+                    "https://invidious.jing.rocks"
+            }) {
                 try {
-                    String resp = MusicWebSearcher.fetchHtml(base + "/api/v1/playlists/" + playlistId);
+                    String resp = fetchUrlWithBypass(base + "/api/v1/playlists/" + playlistId);
                     if (!TextUtils.isEmpty(resp)) {
                         JSONObject json = new JSONObject(resp);
                         if (TextUtils.isEmpty(result.title)) {
@@ -694,7 +875,7 @@ public class MusicImporter {
     private static void parseYouTubeSingleVideo(String videoId, ParsedPlaylist result) {
         try {
             String oembedUrl = "https://www.youtube.com/oembed?url=" + URLEncoder.encode("https://www.youtube.com/watch?v=" + videoId, "UTF-8") + "&format=json";
-            String resp = MusicWebSearcher.fetchHtml(oembedUrl);
+            String resp = fetchUrlWithBypass(oembedUrl);
             if (!TextUtils.isEmpty(resp)) {
                 JSONObject obj = new JSONObject(resp);
                 String title = obj.optString("title", "");
@@ -709,8 +890,24 @@ public class MusicImporter {
             FileLog.e(e);
         }
 
+        for (String base : new String[]{"https://api.piped.private.coffee", "https://pipedapi.ducks.party"}) {
+            try {
+                String resp = fetchUrlWithBypass(base + "/streams/" + videoId);
+                if (!TextUtils.isEmpty(resp)) {
+                    JSONObject obj = new JSONObject(resp);
+                    String title = obj.optString("title", "");
+                    String author = obj.optString("uploader", "");
+                    if (!TextUtils.isEmpty(title)) {
+                        result.tracks.add(cleanYouTubeTrack(title, author));
+                        result.isPlaylist = false;
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
         try {
-            String html = MusicWebSearcher.fetchHtml("https://www.youtube.com/watch?v=" + videoId);
+            String html = fetchUrlWithBypass("https://www.youtube.com/watch?v=" + videoId);
             if (!TextUtils.isEmpty(html)) {
                 Matcher mt = Pattern.compile("<meta property=\"og:title\" content=\"([^\"]+)\"").matcher(html);
                 if (mt.find()) {
@@ -1382,20 +1579,31 @@ public class MusicImporter {
 
                     MusicWebSearcher.WebTrack hitmosTrack = null;
                     try {
-                        // 1. Точный поиск Hitmos
-                        hitmosTrack = MusicWebSearcher.resolveHitmosSync(ti.title, ti.artist);
-
-                        // 2. Если не найден, пробуем скомбинированный запрос
-                        if (hitmosTrack == null && !TextUtils.isEmpty(ti.artist)) {
-                            hitmosTrack = MusicWebSearcher.resolveHitmosSync(ti.artist + " " + ti.title, "");
+                        // 1. Точный поиск Hitmos со строгой проверкой
+                        MusicWebSearcher.WebTrack candidate = MusicWebSearcher.resolveHitmosSync(ti.title, ti.artist);
+                        if (candidate != null && isStrictTrackMatch(ti.artist, ti.title, candidate.artist, candidate.title)) {
+                            hitmosTrack = candidate;
                         }
 
-                        // 3. Если всё ещё не найден, пробуем общий поиск
+                        // 2. Если не найден, пробуем скомбинированный запрос, но СТРОГО валидируем совпадение
+                        if (hitmosTrack == null && !TextUtils.isEmpty(ti.artist)) {
+                            MusicWebSearcher.WebTrack comb = MusicWebSearcher.resolveHitmosSync(ti.artist + " " + ti.title, ti.artist);
+                            if (comb != null && isStrictTrackMatch(ti.artist, ti.title, comb.artist, comb.title)) {
+                                hitmosTrack = comb;
+                            }
+                        }
+
+                        // 3. Общий поиск: перебираем результаты и берем ТОЛЬКО строго совпадающий трек
                         if (hitmosTrack == null) {
                             ArrayList<MusicWebSearcher.WebTrack> results =
                                     MusicWebSearcher.searchTracksSync(!TextUtils.isEmpty(ti.artist) ? ti.artist + " " + ti.title : ti.title);
-                            if (results != null && !results.isEmpty()) {
-                                hitmosTrack = results.get(0);
+                            if (results != null) {
+                                for (MusicWebSearcher.WebTrack r : results) {
+                                    if (r != null && !TextUtils.isEmpty(r.downloadUrl) && isStrictTrackMatch(ti.artist, ti.title, r.artist, r.title)) {
+                                        hitmosTrack = r;
+                                        break;
+                                    }
+                                }
                             }
                         }
                     } catch (Exception e) {

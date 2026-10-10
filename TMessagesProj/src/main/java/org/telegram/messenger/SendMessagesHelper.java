@@ -1862,6 +1862,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     public void sendScreenshotMessage(TLRPC.User user, int messageId, TLRPC.Message resendMessage) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getNoScreenshotNotify()) {
+            return;
+        }
         if (user == null || messageId == 0 || user.id == getUserConfig().getClientUserId()) {
             return;
         }
@@ -12527,7 +12530,10 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             params.retryMessageObject = retryMessageObject;
             params.entities = entities;
             params.replyMarkup = replyMarkup;
-            params.params = messageParams;
+            if (com.radolyn.ayugram.utils.AyuGhostPreferences.getMuteSend() == 1
+                    || (com.radolyn.ayugram.utils.AyuGhostPreferences.getMuteSend() == 2 && com.radolyn.ayugram.utils.AyuGhostPreferences.isGhostModeActive())) {
+                notify = false;
+            }
             params.notify = notify;
             params.scheduleDate = scheduleDate;
             params.scheduleRepeatPeriod = scheduleRepeatPeriod;

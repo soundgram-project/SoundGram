@@ -7158,6 +7158,9 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
         }
 
         public boolean allowScreenshots() {
+            if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassStory()) {
+                return true;
+            }
             if (uploadingStory != null) {
                 return uploadingStory.entry.allowScreenshots;
             }
