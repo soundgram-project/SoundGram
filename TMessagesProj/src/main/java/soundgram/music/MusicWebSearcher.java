@@ -1854,31 +1854,107 @@ public class MusicWebSearcher {
         return m.find() ? m.group(1).trim() : null;
     }
 
+    private static final java.util.concurrent.ConcurrentHashMap<String, ArrayList<WebAlbum>> sArtistAlbumsCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     public static void loadArtistAlbumsViaDeezer(String artistName, ArtistProfileCallback callback) {
+        loadArtistAlbumsViaDeezer(artistName, null, callback);
+    }
+
+    public static void loadArtistAlbumsViaDeezer(String artistName, String artistUrl, ArtistProfileCallback callback) {
+        if (artistName == null) artistName = "";
+        final String finalArtistName = artistName;
+        final String cacheKey = ((artistUrl != null && !artistUrl.isEmpty() ? artistUrl : artistName).trim().toLowerCase(java.util.Locale.ROOT));
+
+        ArrayList<WebAlbum> cached = sArtistAlbumsCache.get(cacheKey);
+        if (cached != null && !cached.isEmpty()) {
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(cached), new ArrayList<>()));
+            return;
+        }
+
         new Thread(() -> {
             try {
-                String cleanArtist = artistName.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
-                String searchUrl = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(cleanArtist, "UTF-8");
-                String response = fetchHtml(searchUrl);
-                if (response.isEmpty()) { AndroidUtilities.runOnUIThread(callback::onFailed); return; }
-
-                JSONObject json = new JSONObject(response);
-                if (!json.has("data") || json.getJSONArray("data").length() == 0) {
-                    AndroidUtilities.runOnUIThread(callback::onFailed); return;
+                long artistId = -1;
+                if (artistUrl != null && artistUrl.startsWith("DEEZER_ARTIST:")) {
+                    try {
+                        artistId = Long.parseLong(artistUrl.substring("DEEZER_ARTIST:".length()).trim());
+                    } catch (Exception ignored) {}
                 }
 
-                long artistId = json.getJSONArray("data").getJSONObject(0).getLong("id");
-                String albumsResp = fetchHtml("https://api.deezer.com/artist/" + artistId + "/albums?limit=50");
-                JSONArray albumsArr = new JSONObject(albumsResp).getJSONArray("data");
+                if (artistId <= 0) {
+                    String cleanArtist = finalArtistName.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                    String searchUrl = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(cleanArtist, "UTF-8");
+                    String response = fetchHtml(searchUrl);
+                    if (!response.isEmpty()) {
+                        JSONObject json = new JSONObject(response);
+                        if (json.has("data") && json.getJSONArray("data").length() > 0) {
+                            artistId = json.getJSONArray("data").getJSONObject(0).optLong("id", -1);
+                        }
+                    }
+                    if (artistId <= 0 && (cleanArtist.contains(",") || cleanArtist.contains("&") || cleanArtist.toLowerCase().contains("feat") || cleanArtist.toLowerCase().contains("ft."))) {
+                        String primary = cleanArtist.split("(?i),|&|\\bfeat\\.?\\b|\\bft\\.?\\b")[0].trim();
+                        if (!primary.isEmpty()) {
+                            String searchUrl2 = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(primary, "UTF-8");
+                            String response2 = fetchHtml(searchUrl2);
+                            if (!response2.isEmpty()) {
+                                JSONObject json2 = new JSONObject(response2);
+                                if (json2.has("data") && json2.getJSONArray("data").length() > 0) {
+                                    artistId = json2.getJSONArray("data").getJSONObject(0).optLong("id", -1);
+                                }
+                            }
+                        }
+                    }
+                }
 
                 ArrayList<WebAlbum> finalAlbums = new ArrayList<>();
-                for (int i = 0; i < albumsArr.length(); i++) {
-                    JSONObject albObj = albumsArr.getJSONObject(i);
-                    String title = albObj.getString("title");
-                    String cover = albObj.getString("cover_xl");
-                    finalAlbums.add(new WebAlbum(title, artistName, "SEARCH_ALBUM:" + title + "::::" + artistName, cover));
+                if (artistId > 0) {
+                    String albumsResp = fetchHtml("https://api.deezer.com/artist/" + artistId + "/albums?limit=50");
+                    if (!albumsResp.isEmpty()) {
+                        JSONObject albumsJson = new JSONObject(albumsResp);
+                        if (albumsJson.has("data")) {
+                            JSONArray albumsArr = albumsJson.getJSONArray("data");
+                            for (int i = 0; i < albumsArr.length(); i++) {
+                                JSONObject albObj = albumsArr.getJSONObject(i);
+                                String title = albObj.optString("title", "");
+                                if (title.isEmpty()) continue;
+                                String cover = albObj.optString("cover_xl", "");
+                                if (cover.isEmpty()) cover = albObj.optString("cover_big", "");
+                                if (cover.isEmpty()) cover = albObj.optString("cover_medium", "");
+                                if (cover.isEmpty()) cover = albObj.optString("cover_small", "");
+                                if (cover.isEmpty()) cover = albObj.optString("cover", "");
+                                finalAlbums.add(new WebAlbum(title, finalArtistName, "SEARCH_ALBUM:" + title + "::::" + finalArtistName, cover));
+                            }
+                        }
+                    }
                 }
-                AndroidUtilities.runOnUIThread(() -> callback.onResult(finalAlbums, new ArrayList<>()));
+
+                // If Deezer returned no albums, try Hitmos albums fallback
+                if (finalAlbums.isEmpty() && !finalArtistName.isEmpty()) {
+                    try {
+                        String hitmosSearchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(finalArtistName, "UTF-8");
+                        String html = fetchHitmosHtml(hitmosSearchUrl);
+                        if (html != null && !html.isEmpty()) {
+                            ArrayList<WebTrack> dummyTracks = new ArrayList<>();
+                            ArrayList<WebArtist> dummyArtists = new ArrayList<>();
+                            ArrayList<WebAlbum> hitmosAlbums = new ArrayList<>();
+                            parseHtmlToResults(html, dummyTracks, dummyArtists, hitmosAlbums, new HashSet<>());
+                            for (WebAlbum ha : hitmosAlbums) {
+                                if (ha != null && ha.title != null && !ha.title.isEmpty()) {
+                                    if (ha.artist == null || ha.artist.isEmpty()) {
+                                        ha.artist = finalArtistName;
+                                    }
+                                    finalAlbums.add(ha);
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (!finalAlbums.isEmpty()) {
+                    sArtistAlbumsCache.put(cacheKey, finalAlbums);
+                    AndroidUtilities.runOnUIThread(() -> callback.onResult(finalAlbums, new ArrayList<>()));
+                } else {
+                    AndroidUtilities.runOnUIThread(callback::onFailed);
+                }
             } catch (Exception e) {
                 FileLog.e(e);
                 AndroidUtilities.runOnUIThread(callback::onFailed);

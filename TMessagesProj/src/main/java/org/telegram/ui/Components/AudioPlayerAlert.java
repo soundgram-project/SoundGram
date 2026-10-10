@@ -2529,11 +2529,7 @@ public class AudioPlayerAlert extends BottomSheet
             dividerColor = soundgram.ui.SoundGramDesignTokens.ensureContrast(playerBg, playerBg, 0.12f);
         }
 
-        int progressBg = getThemedColor(Theme.key_player_progressBackground);
-        if (progressBg == 0 || soundgram.ui.SoundGramDesignTokens.isTooClose(progressBg, playerBg)) {
-            progressBg = surfaceColor;
-        }
-        progressBg = soundgram.ui.SoundGramDesignTokens.ensureContrast(progressBg, playerBg, 0.10f);
+        int progressBg = soundgram.ui.SoundGramDesignTokens.getPlaylistCardColor();
 
         int progressColor = getThemedColor(Theme.key_player_progress);
         if (progressColor == 0 || soundgram.ui.SoundGramDesignTokens.isTooClose(progressColor, playerBg)) {
@@ -2545,6 +2541,9 @@ public class AudioPlayerAlert extends BottomSheet
         if (seekBarView != null) {
             seekBarView.setWavy(true);
             seekBarView.setColors(progressBg, progressColor);
+        }
+        if (waveProgressView != null) {
+            waveProgressView.updateColors();
         }
         if (timeTextView != null) {
             timeTextView.setTextColor(timeColor);
@@ -4987,7 +4986,7 @@ public class AudioPlayerAlert extends BottomSheet
                 }
             }
 
-            progressView.setBackgroundColor(getThemedColor(Theme.key_player_progressBackground));
+            progressView.setBackgroundColor(soundgram.ui.SoundGramDesignTokens.getPlaylistCardColor());
             progressView.setProgressColor(getThemedColor(Theme.key_player_progress));
 
             updateSubMenu();

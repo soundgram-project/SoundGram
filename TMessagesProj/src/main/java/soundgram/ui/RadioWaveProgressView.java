@@ -46,11 +46,18 @@ public class RadioWaveProgressView extends View {
         currentBarPaint.setColor(SoundGramDesignTokens.getTextColor());
         currentBarPaint.setStyle(Paint.Style.FILL);
 
-        unplayedPaint.setColor(SoundGramDesignTokens.getLineStrongColor());
+        unplayedPaint.setColor(SoundGramDesignTokens.getPlaylistCardColor());
         unplayedPaint.setStyle(Paint.Style.FILL);
 
         // Generate smooth default musical wave pattern
         generateDefaultAmplitudes();
+    }
+
+    public void updateColors() {
+        accentPaint.setColor(SoundGramDesignTokens.getAccentColor());
+        currentBarPaint.setColor(SoundGramDesignTokens.getTextColor());
+        unplayedPaint.setColor(SoundGramDesignTokens.getPlaylistCardColor());
+        invalidate();
     }
 
     private void generateDefaultAmplitudes() {

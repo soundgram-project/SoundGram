@@ -1052,6 +1052,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     private boolean downloadingCurrentMessage;
     private boolean playMusicAgain;
     private boolean isCrossfadingToNext = false;
+    private boolean isAudioFadeInPending = false;
     private PlaylistGlobalSearchParams playlistGlobalSearchParams;
     private AudioInfo audioInfo;
     private final DispatchQueue audioInfoQueue = new DispatchQueue("audioInfoQueue");
@@ -4154,6 +4155,18 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                             lastProgress = seekTo;
                             seekToProgressPending = 0;
                         }
+                        if (isAudioFadeInPending && (playbackState == ExoPlayer.STATE_READY) && playWhenReady) {
+                            isAudioFadeInPending = false;
+                            int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
+                            int fadeInDuration = (cfMs > 0 && messageObject.isMusic()) ? cfMs : 300;
+                            final VideoPlayer curPlayer = audioPlayer;
+                            rampPlayerVolume(curPlayer, 0f, 1f, fadeInDuration, () -> {
+                                audioVolume = 1f;
+                                if (audioPlayer == curPlayer) {
+                                    setPlayerVolume();
+                                }
+                            });
+                        }
                         if (audioPlayer != null && CastSync.isActive()) {
                             audioPlayer.setMute(true);
                         }
@@ -4171,6 +4184,18 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
                     @Override
                     public void onRenderedFirstFrame() {
+                        if (isAudioFadeInPending && audioPlayer != null) {
+                            isAudioFadeInPending = false;
+                            int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
+                            int fadeInDuration = (cfMs > 0 && messageObject.isMusic()) ? cfMs : 300;
+                            final VideoPlayer curPlayer = audioPlayer;
+                            rampPlayerVolume(curPlayer, 0f, 1f, fadeInDuration, () -> {
+                                audioVolume = 1f;
+                                if (audioPlayer == curPlayer) {
+                                    setPlayerVolume();
+                                }
+                            });
+                        }
                     }
                 });
                 audioPlayer.setAudioVisualizerDelegate(new VideoPlayer.AudioVisualizerDelegate() {
@@ -4282,30 +4307,39 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                         audioVolumeAnimator = null;
                     }
                     if (shouldFadeIn) {
+                        isAudioFadeInPending = true;
                         audioVolume = 0f;
                         setPlayerVolume();
+                        try {
+                            if (audioPlayer != null) audioPlayer.setVolume(0f);
+                        } catch (Exception ignored) {}
                     } else {
+                        isAudioFadeInPending = false;
                         audioVolume = 1f;
                         setPlayerVolume();
                     }
                 } else {
+                    isAudioFadeInPending = false;
                     audioVolume = 1f;
                     setPlayerVolume();
                 }
                 audioPlayer.setStreamType(useFrontSpeaker ? AudioManager.STREAM_VOICE_CALL : AudioManager.STREAM_MUSIC);
                 audioPlayer.play();
                 if (shouldFadeIn) {
-                    int fadeInDuration = 250;
-                    if (cfMs > 0 && isMusicTrack) {
-                        fadeInDuration = cfMs;
-                    }
+                    final int cfMsLocal = cfMs;
                     final VideoPlayer curPlayer = audioPlayer;
-                    rampPlayerVolume(curPlayer, 0f, 1f, fadeInDuration, () -> {
-                        audioVolume = 1f;
-                        if (audioPlayer == curPlayer) {
-                            setPlayerVolume();
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (isAudioFadeInPending && audioPlayer == curPlayer) {
+                            isAudioFadeInPending = false;
+                            int fadeInDuration = (cfMsLocal > 0 && messageObject.isMusic()) ? cfMsLocal : 300;
+                            rampPlayerVolume(curPlayer, 0f, 1f, fadeInDuration, () -> {
+                                audioVolume = 1f;
+                                if (audioPlayer == curPlayer) {
+                                    setPlayerVolume();
+                                }
+                            });
                         }
-                    });
+                    }, Math.max(cfMs > 0 ? cfMs : 300, 2500));
                 }
 
             } catch (Exception e) {
