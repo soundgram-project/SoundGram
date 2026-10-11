@@ -34,6 +34,8 @@ public final class SmartRadioEngine {
 
     public static class WaveConfig {
         public String query = "Любой жанр";
+        public String mood = "Бодрое";
+        public float moodProgress = 0.75f;
     }
 
     public static WaveConfig currentConfig = new WaveConfig();
@@ -84,12 +86,13 @@ public final class SmartRadioEngine {
         isLoading = true;
 
         String genre = currentConfig.query != null ? currentConfig.query : "default";
+        String mood = currentConfig.mood != null ? currentConfig.mood : "Бодрое";
         sCurrentMode = WaveQueueManager.MODE_GENRE;
         sCurrentTarget = genre;
 
         sSeedExecutor.execute(() -> {
             try {
-                List<String> seeds = SeedSelector.selectSeedsByGenre(genre, sCancelFlag);
+                List<String> seeds = SeedSelector.selectSeedsByGenre(genre, mood, sCancelFlag);
                 if (sCancelFlag.get() || !isWaveActive) return;
 
                 synchronized (SmartRadioEngine.class) {

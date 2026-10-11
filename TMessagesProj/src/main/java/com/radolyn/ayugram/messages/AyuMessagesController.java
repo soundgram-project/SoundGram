@@ -354,6 +354,17 @@ public class AyuMessagesController {
         return editedMessageDao.getAllRevisions(userId, dialogId, messageId);
     }
 
+    public boolean isDeleted(long userId, long dialogId, int messageId) {
+        try {
+            if (deletedMessageDao == null) {
+                deletedMessageDao = AyuData.getDeletedMessageDao();
+            }
+            return deletedMessageDao != null && deletedMessageDao.getMessage(userId, dialogId, messageId) != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public DeletedMessageFull getMessage(long userId, long dialogId, int messageId) {
         return deletedMessageDao.getMessage(userId, dialogId, messageId);
     }

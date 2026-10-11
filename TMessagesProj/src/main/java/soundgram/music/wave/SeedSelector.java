@@ -260,10 +260,14 @@ public final class SeedSelector {
      * Фолбэк на InnerTube при кастомном жанре.
      */
     public static List<String> selectSeedsByGenre(String genre) {
-        return selectSeedsByGenre(genre, null);
+        return selectSeedsByGenre(genre, null, null);
     }
 
     public static List<String> selectSeedsByGenre(String genre, AtomicBoolean cancelFlag) {
+        return selectSeedsByGenre(genre, null, cancelFlag);
+    }
+
+    public static List<String> selectSeedsByGenre(String genre, String mood, AtomicBoolean cancelFlag) {
         if (genre == null || genre.trim().isEmpty() || genre.equalsIgnoreCase("Любой жанр") || genre.equalsIgnoreCase("Любой")) {
             genre = "default";
         }
@@ -272,12 +276,33 @@ public final class SeedSelector {
         List<String> pool = getAllGenreBeaconIds(genre);
         if (pool != null && !pool.isEmpty()) {
             List<String> copy = new ArrayList<>(pool);
-            Collections.shuffle(copy, sRandom);
-            return copy.subList(0, Math.min(3, copy.size()));
+            if (mood != null && copy.size() >= 4) {
+                String mLower = mood.toLowerCase();
+                if (mLower.contains("спокой") || mLower.contains("calm")) {
+                    copy = copy.subList(0, copy.size() / 2);
+                } else if (mLower.contains("максим") || mLower.contains("max") || mLower.contains("бодр") || mLower.contains("energetic")) {
+                    copy = copy.subList(copy.size() / 2, copy.size());
+                }
+            }
+            List<String> result = new ArrayList<>(copy);
+            Collections.shuffle(result, sRandom);
+            return result.subList(0, Math.min(3, result.size()));
         }
 
         // 2. Попытка получить треки по жанру через InnerTube для кастомных запросов
-        List<InnerTubeClient.RawTrack> songs = searchGenreSongs(genre, 20, cancelFlag);
+        String searchQuery = genre;
+        if (mood != null && !mood.isEmpty()) {
+            String mLower = mood.toLowerCase();
+            if (mLower.contains("спокой") || mLower.contains("calm")) {
+                searchQuery = genre + " chill";
+            } else if (mLower.contains("максим") || mLower.contains("max") || mLower.contains("бодр") || mLower.contains("energetic")) {
+                searchQuery = genre + " energetic";
+            }
+        }
+        List<InnerTubeClient.RawTrack> songs = searchGenreSongs(searchQuery, 20, cancelFlag);
+        if (songs.isEmpty() && !searchQuery.equals(genre)) {
+            songs = searchGenreSongs(genre, 20, cancelFlag);
+        }
         if (!songs.isEmpty()) {
             List<InnerTubeClient.RawTrack> shuffled = new ArrayList<>(songs);
             Collections.shuffle(shuffled, sRandom);

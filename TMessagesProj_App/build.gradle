@@ -50,12 +50,24 @@ android {
 
     signingConfigs {
         release {
+            v1SigningEnabled true
+            v2SigningEnabled true
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
             if (rootProject.ext.hasReleaseSigning) {
                 storeFile rootProject.file(rootProject.ext.releaseSigning.storeFile)
                 storePassword rootProject.ext.releaseSigning.storePassword
                 keyAlias rootProject.ext.releaseSigning.keyAlias
                 keyPassword rootProject.ext.releaseSigning.keyPassword
             }
+        }
+        debug {
+            v1SigningEnabled true
+            v2SigningEnabled true
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
 

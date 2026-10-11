@@ -13875,7 +13875,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                                  boolean topNear,
                                  boolean firstInChat,
                                  boolean lastInChatList) {
-        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getAllowCopy() || com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassSave()) {
+        if (com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassForward() || com.radolyn.ayugram.utils.AyuGhostPreferences.getAllowCopy() || com.radolyn.ayugram.utils.AyuGhostPreferences.getBypassSave()) {
             if (messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.noforwards) {
                 messageObject.messageOwner.noforwards = false;
             }

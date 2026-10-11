@@ -124,16 +124,71 @@ public final class MusicNetworkHelper {
         }
     }
 
+    public static void ensureBypassServiceRunning() {
+        try {
+            android.content.Context ctx = org.telegram.messenger.ApplicationLoader.applicationContext;
+            if (ctx == null) return;
+            android.content.SharedPreferences wsPrefs = ctx.getSharedPreferences("tgwsproxy", android.content.Context.MODE_PRIVATE);
+            if (wsPrefs.getBoolean("enabled", false) || soundgram.wsproxy.TgWsProxyService.isRunning) {
+                if (!soundgram.wsproxy.TgWsProxyService.isRunning) {
+                    String secret = wsPrefs.getString("secret", "");
+                    if (secret.isEmpty()) {
+                        byte[] b = new byte[16];
+                        new java.security.SecureRandom().nextBytes(b);
+                        StringBuilder sb = new StringBuilder();
+                        for (byte v : b) sb.append(String.format("%02x", v));
+                        secret = sb.toString();
+                        wsPrefs.edit().putString("secret", secret).apply();
+                    }
+                    android.content.Intent intent = new android.content.Intent(ctx, soundgram.wsproxy.TgWsProxyService.class);
+                    intent.setAction(soundgram.wsproxy.TgWsProxyService.ACTION_START);
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_PORT, wsPrefs.getInt("port", 1443));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_SECRET, secret);
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_POOL_SIZE, wsPrefs.getInt("pool_size", 4));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_RECV_BUF, wsPrefs.getInt("buffer", 256));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_SEND_BUF, wsPrefs.getInt("buffer", 256));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_ENABLED, wsPrefs.getBoolean("cf_enabled", true));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_DOMAIN, wsPrefs.getString("cf_domain", ""));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_VERBOSE, wsPrefs.getInt("verbose", 0));
+                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_DC_IPS, wsPrefs.getString("dc_ips", ""));
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        ctx.startForegroundService(intent);
+                    } else {
+                        ctx.startService(intent);
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            FileLog.e(TAG + " ensureBypassServiceRunning error: " + t);
+        }
+    }
+
     /**
      * Returns the active Proxy configured in Telegram or Proxy.NO_PROXY if disabled.
      */
     public static Proxy getActiveProxy() {
         try {
+            if (soundgram.wsproxy.TgWsProxyService.isRunning) {
+                int port = soundgram.wsproxy.TgWsProxyService.currentPort > 0 ? soundgram.wsproxy.TgWsProxyService.currentPort : 1443;
+                return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("127.0.0.1", port));
+            }
+
+            try {
+                android.content.Context ctx = org.telegram.messenger.ApplicationLoader.applicationContext;
+                if (ctx != null) {
+                    android.content.SharedPreferences wsPrefs = ctx.getSharedPreferences("tgwsproxy", android.content.Context.MODE_PRIVATE);
+                    if (wsPrefs != null && wsPrefs.getBoolean("enabled", false)) {
+                        int port = wsPrefs.getInt("port", 1443);
+                        return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("127.0.0.1", port));
+                    }
+                }
+            } catch (Throwable ignored) {}
+
             if (SharedConfig.isProxyEnabled() && SharedConfig.currentProxy != null) {
                 SharedConfig.ProxyInfo pi = SharedConfig.currentProxy;
                 if (!TextUtils.isEmpty(pi.address) && pi.port > 0) {
                     if ("127.0.0.1".equals(pi.address) || "localhost".equalsIgnoreCase(pi.address)) {
-                        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(pi.address, pi.port));
+                        return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(pi.address, pi.port));
                     }
                     if (TextUtils.isEmpty(pi.secret)) {
                         return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(pi.address, pi.port));

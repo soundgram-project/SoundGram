@@ -1063,10 +1063,19 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         waveBars.setOnSeekListener((progress, isFinal) -> {
             int p = (int) (progress * 100);
-            if (p < 25) moodCenter.setText(LocaleController.getString("sg_mood_calm", R.string.sg_mood_calm));
-            else if (p < 50) moodCenter.setText(LocaleController.getString("sg_mood_steady", R.string.sg_mood_steady));
-            else if (p < 75) moodCenter.setText(LocaleController.getString("sg_mood_energetic", R.string.sg_mood_energetic));
-            else moodCenter.setText(LocaleController.getString("sg_mood_max", R.string.sg_mood_max));
+            String mood;
+            if (p < 25) {
+                mood = LocaleController.getString("sg_mood_calm", R.string.sg_mood_calm);
+            } else if (p < 50) {
+                mood = LocaleController.getString("sg_mood_steady", R.string.sg_mood_steady);
+            } else if (p < 75) {
+                mood = LocaleController.getString("sg_mood_energetic", R.string.sg_mood_energetic);
+            } else {
+                mood = LocaleController.getString("sg_mood_max", R.string.sg_mood_max);
+            }
+            moodCenter.setText(mood);
+            SmartRadioEngine.currentConfig.mood = mood;
+            SmartRadioEngine.currentConfig.moodProgress = progress;
         });
 
         // 6. Action Button: «В эфир» (52 px, radius 18, matches video 1 frame 3)
@@ -3604,8 +3613,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchFieldContainer.addView(searchInnerIcon, LayoutHelper.createFrame(18, 18, Gravity.LEFT | Gravity.CENTER_VERTICAL));
 
         searchField = new EditText(context);
-        searchField.setHint("Трек, исполнитель, строка из песни");
-        searchField.setContentDescription("Трек, исполнитель, строка из песни");
+        searchField.setHint(LocaleController.getString(R.string.sg_search_hint));
+        searchField.setContentDescription(LocaleController.getString(R.string.sg_search_hint));
         searchField.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         searchField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         searchField.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
@@ -3619,7 +3628,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         clearSearchBtn.setColorFilter(new PorterDuffColorFilter(SoundGramDesignTokens.COLOR_TEXT_MUTED, PorterDuff.Mode.SRC_IN));
         clearSearchBtn.setScaleType(ImageView.ScaleType.CENTER);
         clearSearchBtn.setVisibility(View.GONE);
-        clearSearchBtn.setContentDescription("Очистить");
+        clearSearchBtn.setContentDescription(LocaleController.getString(R.string.Clear));
         clearSearchBtn.setOnClickListener(v -> {
             applySpringClick(v);
             searchField.setText("");
@@ -5355,52 +5364,89 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             actionBar.setItemsColor(SoundGramDesignTokens.COLOR_TEXT, false);
 
             ActionBarMenu menu = actionBar.createMenu();
-            ImageView deleteBtn = new ImageView(context);
-            deleteBtn.setImageResource(R.drawable.msg_delete);
-            deleteBtn.setColorFilter(new PorterDuffColorFilter(SoundGramDesignTokens.COLOR_TEXT_SECONDARY, PorterDuff.Mode.SRC_IN));
-            deleteBtn.setScaleType(ImageView.ScaleType.CENTER);
-            deleteBtn.setContentDescription("Удалить плейлист");
-            deleteBtn.setOnClickListener(v -> {
-                applySpringClick(v);
-                deletePlaylist();
-            });
-            menu.addView(deleteBtn, LayoutHelper.createLinear(40, 40, Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
-
-            TextView editBtn = new TextView(context);
-            editBtnView = editBtn;
-            editBtn.setText(isEditingMode ? "готово" : "изменить");
-            editBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-            editBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-            editBtn.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
-            editBtn.setGravity(Gravity.CENTER);
-            GradientDrawable editBtnBg = new GradientDrawable();
-            editBtnBg.setColor(SoundGramDesignTokens.COLOR_SURFACE_1);
-            editBtnBg.setStroke(AndroidUtilities.dp(1), SoundGramDesignTokens.COLOR_LINE_STRONG);
-            editBtnBg.setCornerRadius(AndroidUtilities.dp(10));
-            editBtn.setBackground(editBtnBg);
-            editBtn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(6), AndroidUtilities.dp(14), AndroidUtilities.dp(6));
-            editBtn.setOnClickListener(v -> {
-                applySpringClick(v);
-                if (isEditingMode) {
-                    if (titleEditView != null) {
-                        String newName = titleEditView.getText().toString().trim();
-                        if (!android.text.TextUtils.isEmpty(newName) && !newName.equals(currentPlaylistName)) {
-                            renamePlaylist(newName);
+            if (isForeign) {
+                TextView addBtn = new TextView(context);
+                addBtn.setText("+ добавить");
+                addBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+                addBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                addBtn.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+                addBtn.setGravity(Gravity.CENTER);
+                GradientDrawable addBtnBg = new GradientDrawable();
+                addBtnBg.setColor(SoundGramDesignTokens.COLOR_SURFACE_1);
+                addBtnBg.setStroke(AndroidUtilities.dp(1), SoundGramDesignTokens.COLOR_LINE_STRONG);
+                addBtnBg.setCornerRadius(AndroidUtilities.dp(10));
+                addBtn.setBackground(addBtnBg);
+                addBtn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(6), AndroidUtilities.dp(14), AndroidUtilities.dp(6));
+                addBtn.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    PublicLibraryManager.clonePlaylistToMyLibrary(
+                        currentAccount,
+                        channelId,
+                        currentPlaylistName,
+                        playlistMessages,
+                        () -> {
+                            if (getParentActivity() != null) {
+                                Toast.makeText(getParentActivity(), "Плейлист добавлен в вашу библиотеку", Toast.LENGTH_SHORT).show();
+                            }
+                            refreshPlaylistFiles();
+                            refreshLibrarySections();
+                        },
+                        error -> {
+                            if (getParentActivity() != null && error != null) {
+                                Toast.makeText(getParentActivity(), error, Toast.LENGTH_SHORT).show();
+                            }
                         }
+                    );
+                });
+                menu.addView(addBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
+            } else {
+                ImageView deleteBtn = new ImageView(context);
+                deleteBtn.setImageResource(R.drawable.msg_delete);
+                deleteBtn.setColorFilter(new PorterDuffColorFilter(SoundGramDesignTokens.COLOR_TEXT_SECONDARY, PorterDuff.Mode.SRC_IN));
+                deleteBtn.setScaleType(ImageView.ScaleType.CENTER);
+                deleteBtn.setContentDescription(LocaleController.getString(R.string.Delete));
+                deleteBtn.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    deletePlaylist();
+                });
+                menu.addView(deleteBtn, LayoutHelper.createLinear(40, 40, Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
+
+                TextView editBtn = new TextView(context);
+                editBtnView = editBtn;
+                editBtn.setText(isEditingMode ? "готово" : "изменить");
+                editBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+                editBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
+                editBtn.setTextColor(SoundGramDesignTokens.COLOR_ACCENT);
+                editBtn.setGravity(Gravity.CENTER);
+                GradientDrawable editBtnBg = new GradientDrawable();
+                editBtnBg.setColor(SoundGramDesignTokens.COLOR_SURFACE_1);
+                editBtnBg.setStroke(AndroidUtilities.dp(1), SoundGramDesignTokens.COLOR_LINE_STRONG);
+                editBtnBg.setCornerRadius(AndroidUtilities.dp(10));
+                editBtn.setBackground(editBtnBg);
+                editBtn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(6), AndroidUtilities.dp(14), AndroidUtilities.dp(6));
+                editBtn.setOnClickListener(v -> {
+                    applySpringClick(v);
+                    if (isEditingMode) {
+                        if (titleEditView != null) {
+                            String newName = titleEditView.getText().toString().trim();
+                            if (!android.text.TextUtils.isEmpty(newName) && !newName.equals(currentPlaylistName)) {
+                                renamePlaylist(newName);
+                            }
+                        }
+                        isEditingMode = false;
+                        editBtn.setText("изменить");
+                        savePlaylistOrder();
+                        safeNotifyAdapter(adapter, listView);
+                        refreshLibrarySections();
+                    } else {
+                        isEditingMode = true;
+                        editBtn.setText("готово");
+                        hasPendingEdits = true;
+                        safeNotifyAdapter(adapter, listView);
                     }
-                    isEditingMode = false;
-                    editBtn.setText("изменить");
-                    savePlaylistOrder();
-                    safeNotifyAdapter(adapter, listView);
-                    refreshLibrarySections();
-                } else {
-                    isEditingMode = true;
-                    editBtn.setText("готово");
-                    hasPendingEdits = true;
-                    safeNotifyAdapter(adapter, listView);
-                }
-            });
-            menu.addView(editBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
+                });
+                menu.addView(editBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
+            }
 
             actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
                 @Override

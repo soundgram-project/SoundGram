@@ -115,10 +115,21 @@ public class SecretChatHelper extends BaseController {
         if (!pendingEncMessagesToDelete.isEmpty()) {
             ArrayList<Long> pendingEncMessagesToDeleteCopy = new ArrayList<>(pendingEncMessagesToDelete);
             AndroidUtilities.runOnUIThread(() -> {
+                boolean saveDeleted = xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool();
                 for (int a = 0; a < pendingEncMessagesToDeleteCopy.size(); a++) {
                     MessageObject messageObject = getMessagesController().dialogMessagesByRandomIds.get(pendingEncMessagesToDeleteCopy.get(a));
                     if (messageObject != null) {
-                        messageObject.deleted = true;
+                        if (saveDeleted) {
+                            messageObject.deleted = false;
+                            if (messageObject.messageOwner != null) {
+                                messageObject.messageOwner.ayuDeleted = true;
+                                var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(messageObject.messageOwner, currentAccount);
+                                prefs.setDialogId(messageObject.getDialogId());
+                                com.radolyn.ayugram.messages.AyuMessagesController.getInstance().onMessageDeleted(prefs, true);
+                            }
+                        } else {
+                            messageObject.deleted = true;
+                        }
                     }
                 }
             });

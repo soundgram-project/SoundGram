@@ -1611,7 +1611,16 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             if (onComplete != null) onComplete.run();
             return;
         }
-        if (durationMs <= 0) {
+        // If fading down, ensure fromVolume is never higher than the player's current actual volume
+        if (toVolume < fromVolume) {
+            try {
+                float actualVol = player.getVolume();
+                if (actualVol >= 0.0f && actualVol < fromVolume) {
+                    fromVolume = actualVol;
+                }
+            } catch (Exception ignored) {}
+        }
+        if (durationMs <= 0 || Math.abs(toVolume - fromVolume) < 0.001f) {
             try {
                 float baseVol = (audioFocus != AUDIO_NO_FOCUS_CAN_DUCK) ? VOLUME_NORMAL : VOLUME_DUCK;
                 player.setVolume(CastSync.isActive() ? 0.0f : baseVol * toVolume);
@@ -1619,6 +1628,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             if (onComplete != null) onComplete.run();
             return;
         }
+        final float startVolume = fromVolume;
         final long startTime = SystemClock.elapsedRealtime();
         final int stepIntervalMs = 25;
         final AtomicBoolean finished = new AtomicBoolean(false);
@@ -1629,7 +1639,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (finished.get()) return;
                 long elapsed = SystemClock.elapsedRealtime() - startTime;
                 float progress = Math.min(1.0f, (float) elapsed / durationMs);
-                float currentVal = fromVolume + (toVolume - fromVolume) * progress;
+                float currentVal = startVolume + (toVolume - startVolume) * progress;
                 float baseVol = (audioFocus != AUDIO_NO_FOCUS_CAN_DUCK) ? VOLUME_NORMAL : VOLUME_DUCK;
                 try {
                     player.setVolume(CastSync.isActive() ? 0.0f : baseVol * currentVal);
@@ -2579,7 +2589,14 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (cfMs > 0 && isMusicTrack) {
                     fadeOutDuration = isCrossfadingToNext ? cfMs : Math.min(cfMs, 1000);
                 }
-                rampPlayerVolume(playerFinal, audioVolume, 0f, fadeOutDuration, releaseRunnable);
+                float startFadeVol = audioVolume;
+                try {
+                    float pv = playerFinal.getVolume();
+                    if (pv >= 0f && pv < startFadeVol) {
+                        startFadeVol = pv;
+                    }
+                } catch (Exception ignored) {}
+                rampPlayerVolume(playerFinal, startFadeVol, 0f, fadeOutDuration, releaseRunnable);
                 AndroidUtilities.runOnUIThread(releaseRunnable, fadeOutDuration + 150);
             } else {
                 try {
@@ -4125,7 +4142,15 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 closePipRoundVideo(true);
             }
             try {
+                int cfMsEarly = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
+                boolean isMusicTrackEarly = messageObject.isMusic();
+                boolean shouldFadeInEarly = !messageObject.isVoice() && (cfMsEarly > 0 && isMusicTrackEarly || LaunchActivity.isResumed);
                 audioPlayer = new VideoPlayer();
+                if (shouldFadeInEarly) {
+                    try {
+                        audioPlayer.setVolume(0f);
+                    } catch (Exception ignored) {}
+                }
                 int tag = ++playerNum;
                 audioPlayer.setDelegate(new VideoPlayer.VideoPlayerDelegate() {
                     @Override

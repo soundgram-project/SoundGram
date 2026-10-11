@@ -212,6 +212,7 @@ public class MusicImporter {
 
     public static String fetchUrlWithBypass(String urlString) {
         if (TextUtils.isEmpty(urlString)) return "";
+        MusicNetworkHelper.ensureBypassServiceRunning();
         // 1. Прямое соединение через MusicNetworkHelper (учитывает прокси Telegram если настроен)
         try {
             HttpURLConnection conn = MusicNetworkHelper.openConnection(urlString);

@@ -14680,11 +14680,12 @@ public class MessagesStorage extends BaseController {
                             final long dialogIdFinal = dialogId;
                             final ArrayList<Integer> midsFinal = new ArrayList<>(mids);
                             AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, midsFinal));
+                        } else {
+                            AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, mids, 0L, false));
+                            updateDialogsWithReadMessagesInternal(mids, null, null, null, null);
+                            markMessagesAsDeletedInternal(dialogId, mids, true, 0, 0);
+                            updateDialogsWithDeletedMessagesInternal(dialogId, 0, mids, null);
                         }
-                        AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, mids, 0L, false));
-                        updateDialogsWithReadMessagesInternal(mids, null, null, null, null);
-                        markMessagesAsDeletedInternal(dialogId, mids, true, 0, 0);
-                        updateDialogsWithDeletedMessagesInternal(dialogId, 0, mids, null);
                     }
                 }
             } catch (Exception e) {

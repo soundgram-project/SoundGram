@@ -697,31 +697,29 @@ public final class WaveQueueManager {
                 }
             }
 
-            // Г. Hitmos поиск по жанру
-            ArrayList<MusicWebSearcher.WebTrack> hitmosGenre = MusicWebSearcher.searchTracksSync(g);
-            if (hitmosGenre != null && !hitmosGenre.isEmpty()) {
-                List<InnerTubeClient.RawTrack> hRaw = new ArrayList<>();
-                for (MusicWebSearcher.WebTrack wt : hitmosGenre) {
-                    if (wt.downloadUrl != null && !wt.downloadUrl.isEmpty()) {
-                        hRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), wt.downloadUrl, wt.coverUrl));
-                    }
+            // Г. Deezer кураторские треки по жанру (высокое качество, проверенная метадата)
+            ArrayList<MusicWebSearcher.WebTrack> deezerTracks = MusicWebSearcher.getGenreTracksSync(g);
+            if (deezerTracks != null && !deezerTracks.isEmpty()) {
+                List<InnerTubeClient.RawTrack> dRaw = new ArrayList<>();
+                for (MusicWebSearcher.WebTrack wt : deezerTracks) {
+                    dRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration)));
                 }
-                if (!hRaw.isEmpty()) {
-                    Collections.shuffle(hRaw, sRandom);
-                    addCandidatesFiltered(hRaw);
-                }
+                Collections.shuffle(dRaw, sRandom);
+                addCandidatesFiltered(dRaw);
             }
 
-            // Д. Deezer фолбэк при малом числе кандидатов
-            if (candidatesPool.size() < 15) {
-                ArrayList<MusicWebSearcher.WebTrack> deezerTracks = MusicWebSearcher.getGenreTracksSync(g);
-                if (deezerTracks != null && !deezerTracks.isEmpty()) {
-                    List<InnerTubeClient.RawTrack> dRaw = new ArrayList<>();
-                    for (MusicWebSearcher.WebTrack wt : deezerTracks) {
-                        dRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration)));
+            // Д. Дополнительная порция из эталонных сидов если кандидатов мало
+            if (candidatesPool.size() < 15 && allGenrePool != null && !allGenrePool.isEmpty()) {
+                List<String> moreSeeds = new ArrayList<>(allGenrePool);
+                Collections.shuffle(moreSeeds, sRandom);
+                for (String sid : moreSeeds.subList(0, Math.min(3, moreSeeds.size()))) {
+                    if (!activeSeedIds.contains(sid)) {
+                        activeSeedIds.add(sid);
+                        InnerTubeClient.NextResult nr = InnerTubeClient.fetchRadioBatch(sid, null, cancelFlag);
+                        if (nr != null && !nr.tracks.isEmpty()) {
+                            addCandidatesFiltered(nr.tracks);
+                        }
                     }
-                    Collections.shuffle(dRaw, sRandom);
-                    addCandidatesFiltered(dRaw);
                 }
             }
             return;

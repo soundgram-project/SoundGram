@@ -86,6 +86,25 @@ public class MusicImportService extends Service {
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         createNotificationChannel();
         acquireWakeLock();
+
+        // Android 8+ / Android 14+ requires immediate startForeground in onCreate()
+        try {
+            Notification notification = buildNotification(0, 0, "Подготовка к импорту...");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                int serviceType = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    serviceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+                }
+                startForeground(NOTIFICATION_ID, notification, serviceType);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Throwable e) {
+            FileLog.e("MusicImportService onCreate startForeground: " + e);
+            try {
+                startForeground(NOTIFICATION_ID, buildNotification(0, 0, "Подготовка к импорту..."));
+            } catch (Throwable ignored) {}
+        }
     }
 
     @Override
@@ -94,7 +113,9 @@ public class MusicImportService extends Service {
             String action = intent.getAction();
             if (ACTION_CANCEL.equals(action)) {
                 MusicImporter.cancelImport();
-                stopForeground(true);
+                try {
+                    stopForeground(true);
+                } catch (Throwable ignored) {}
                 stopSelf();
                 return START_NOT_STICKY;
             } else if (ACTION_START.equals(action)) {
@@ -106,8 +127,16 @@ public class MusicImportService extends Service {
 
         Notification notification = buildNotification(0, currentTotal, "Подготовка к импорту...");
         try {
-            startForeground(NOTIFICATION_ID, notification);
-        } catch (Exception e) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                int serviceType = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    serviceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+                }
+                startForeground(NOTIFICATION_ID, notification, serviceType);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Throwable e) {
             FileLog.e("MusicImportService startForeground: " + e);
         }
         return START_NOT_STICKY;

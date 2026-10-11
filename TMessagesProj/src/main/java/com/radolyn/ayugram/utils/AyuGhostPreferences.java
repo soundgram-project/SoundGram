@@ -163,7 +163,7 @@ public class AyuGhostPreferences {
 
     // --- Bypass Forward ---
     public static boolean getBypassForward() {
-        return getStealth() && getPrefs().getBoolean(KEY_BYPASS_FORWARD, false);
+        return getPrefs().getBoolean(KEY_BYPASS_FORWARD, false);
     }
 
     public static boolean isBypassForwardConfigured() {
@@ -176,7 +176,7 @@ public class AyuGhostPreferences {
 
     // --- Allow Copy ---
     public static boolean getAllowCopy() {
-        return getStealth() && getPrefs().getBoolean(KEY_ALLOW_COPY, false);
+        return getPrefs().getBoolean(KEY_ALLOW_COPY, false);
     }
 
     public static boolean isAllowCopyConfigured() {
@@ -189,7 +189,7 @@ public class AyuGhostPreferences {
 
     // --- Bypass Save ---
     public static boolean getBypassSave() {
-        return getStealth() && getPrefs().getBoolean(KEY_BYPASS_SAVE, false);
+        return getPrefs().getBoolean(KEY_BYPASS_SAVE, false);
     }
 
     public static boolean isBypassSaveConfigured() {
@@ -202,7 +202,7 @@ public class AyuGhostPreferences {
 
     // --- Bypass Story ---
     public static boolean getBypassStory() {
-        return getStealth() && getPrefs().getBoolean(KEY_BYPASS_STORY, false);
+        return getPrefs().getBoolean(KEY_BYPASS_STORY, false);
     }
 
     public static boolean isBypassStoryConfigured() {
@@ -215,7 +215,7 @@ public class AyuGhostPreferences {
 
     // --- Keep Once (View-Once media preservation) ---
     public static boolean getKeepOnce() {
-        return getStealth() && getPrefs().getBoolean(KEY_KEEP_ONCE, false);
+        return getPrefs().getBoolean(KEY_KEEP_ONCE, false);
     }
 
     public static boolean isKeepOnceConfigured() {

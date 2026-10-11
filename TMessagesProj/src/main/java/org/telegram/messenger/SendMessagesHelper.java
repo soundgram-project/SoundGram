@@ -4428,11 +4428,19 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             return;
         }
 
-        if (replyQuote != null && replyQuote.message != null && replyToMsg != null) {
+        if (replyQuote != null && replyQuote.message != null && replyToMsg == null) {
             replyToMsg = replyQuote.message;
         }
 
-        if (replyToMsg != null && replyToMsg.isAyuDeleted()) {
+        boolean isDeleted = false;
+        if (replyToMsg != null) {
+            isDeleted = replyToMsg.isAyuDeleted() || replyToMsg.deleted;
+            if (!isDeleted && replyToMsg.getId() > 0) {
+                isDeleted = com.radolyn.ayugram.messages.AyuMessagesController.getInstance().isDeleted(UserConfig.getInstance(currentAccount).clientUserId, replyToMsg.getDialogId(), replyToMsg.getId());
+            }
+        }
+
+        if (isDeleted) {
             String quoteText = null;
             if (replyQuote != null && !TextUtils.isEmpty(replyQuote.getText())) {
                 quoteText = replyQuote.getText().toString();
@@ -4450,50 +4458,74 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 else quoteText = "";
             }
 
+            TLRPC.User senderUser = null;
             String senderName = null;
-            if (replyToMsg.getSenderId() != 0) {
-                long senderId = replyToMsg.getSenderId();
-                if (DialogObject.isUserDialog(senderId)) {
-                    TLRPC.User u = getMessagesController().getUser(senderId);
-                    if (u != null) {
-                        senderName = UserObject.getUserName(u);
-                    }
-                } else {
-                    TLRPC.Chat c = getMessagesController().getChat(-senderId);
-                    if (c != null) {
-                        senderName = c.title;
-                    }
+            long senderId = 0;
+            if (replyQuote != null && replyQuote.peerId != 0) {
+                senderId = replyQuote.peerId;
+            } else if (replyToMsg != null) {
+                senderId = replyToMsg.getSenderId();
+            }
+            if (senderId > 0) {
+                senderUser = getMessagesController().getUser(senderId);
+                if (senderUser != null) {
+                    senderName = UserObject.getUserName(senderUser);
+                }
+            } else if (senderId < 0) {
+                TLRPC.Chat c = getMessagesController().getChat(-senderId);
+                if (c != null) {
+                    senderName = c.title;
                 }
             }
             if (TextUtils.isEmpty(senderName)) {
                 senderName = LocaleController.getString(R.string.HiddenName);
             }
 
-            String quoteHeaderAndText = senderName + ":\n" + quoteText;
-            String quotePrefix = quoteHeaderAndText + "\n\n";
+            String hdr = senderName;
+            String header = hdr + "\n" + quoteText + "\n";
+            int shift = header.length();
 
             TLRPC.TL_messageEntityBlockquote quoteEntity = new TLRPC.TL_messageEntityBlockquote();
             quoteEntity.offset = 0;
-            quoteEntity.length = quoteHeaderAndText.length();
+            quoteEntity.length = header.length() - 1;
 
-            if (entities == null) {
-                entities = new ArrayList<>();
+            TLRPC.MessageEntity mentionEntity;
+            if (senderUser != null) {
+                TLRPC.TL_inputMessageEntityMentionName mn = new TLRPC.TL_inputMessageEntityMentionName();
+                mn.offset = 0;
+                mn.length = hdr.length();
+                TLRPC.TL_inputUser iu = new TLRPC.TL_inputUser();
+                iu.user_id = senderUser.id;
+                iu.access_hash = senderUser.access_hash;
+                mn.user_id = iu;
+                mentionEntity = mn;
             } else {
-                entities = new ArrayList<>(entities);
+                TLRPC.TL_messageEntityBold bold = new TLRPC.TL_messageEntityBold();
+                bold.offset = 0;
+                bold.length = hdr.length();
+                mentionEntity = bold;
+            }
+
+            ArrayList<TLRPC.MessageEntity> newEntities = new ArrayList<>();
+            newEntities.add(quoteEntity);
+            newEntities.add(mentionEntity);
+
+            if (entities != null) {
                 for (TLRPC.MessageEntity ent : entities) {
-                    ent.offset += quotePrefix.length();
+                    ent.offset += shift;
+                    newEntities.add(ent);
                 }
             }
-            entities.add(0, quoteEntity);
+            entities = newEntities;
 
             if (message != null) {
-                message = quotePrefix + message;
+                message = header + message;
             } else if (caption != null) {
-                caption = quotePrefix + caption;
+                caption = header + caption;
             } else if (photo != null || document != null || videoEditedInfo != null || location != null) {
-                caption = quoteHeaderAndText;
+                caption = header;
             } else {
-                message = quoteHeaderAndText;
+                message = header;
             }
 
             if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
@@ -4504,6 +4536,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             replyQuote = null;
             if (sendMessageParams != null) {
                 sendMessageParams.replyToMsg = replyToMsg;
+                sendMessageParams.replyToTopMsg = replyToMsg;
                 sendMessageParams.replyQuote = null;
                 sendMessageParams.message = message;
                 sendMessageParams.caption = caption;
