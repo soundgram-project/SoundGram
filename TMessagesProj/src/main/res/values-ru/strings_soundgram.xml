@@ -390,4 +390,23 @@
     <string name="sg_mood_steady">ровно</string>
     <string name="sg_mood_energetic">бодро</string>
     <string name="sg_mood_max">на максимум</string>
+
+    <!-- Launcher Icons -->
+    <string name="AppIconCosmos">Космос</string>
+    <string name="AppIconAnime">Сакура (Аниме)</string>
+    <string name="AppIconCyberNeon">Кибер Неон</string>
+    <string name="AppIconSunset">Закат</string>
+    <string name="AppIconEmerald">Изумруд</string>
+    <string name="AppIconMidnight">Полночь</string>
+    <string name="AppIconGold">Золото</string>
+    <string name="AppIconCrimson">Рубин</string>
+    <string name="AppIconLavender">Лаванда</string>
+    <string name="AppIconMatrix">Матрица</string>
+    <string name="AppIconSolar">Солнечный</string>
+
+    <!-- Public Library warning -->
+    <string name="sg_public_library_attach_warning">При прикреплении нового трека библиотека станет приватной.</string>
+    <string name="sg_public_library_unpin_warning">При откреплении трека библиотека станет приватной.</string>
+    <string name="sg_public_library_keep_public">Оставить публичной</string>
+    <string name="sg_public_library_ok">ОК</string>
 </resources>

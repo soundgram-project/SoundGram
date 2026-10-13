@@ -98,7 +98,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
 
         titleTextView = new TextView(context);
         titleTextView.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
-        titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12.5f);
         titleTextView.setTypeface(AndroidUtilities.bold());
         titleTextView.setSingleLine(true);
         titleTextView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
@@ -108,7 +108,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
 
         artistTextView = new TextView(context);
         artistTextView.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
-        artistTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+        artistTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10.5f);
         artistTextView.setSingleLine(true);
         artistTextView.setEllipsize(TextUtils.TruncateAt.END);
         textLayout.addView(artistTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 1, 0, 0));
@@ -150,7 +150,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         int accentColor = getThemedColor(Theme.key_featuredStickers_addButton);
 
         currentTimeTextView = new TextView(context);
-        currentTimeTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
+        currentTimeTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10f);
         currentTimeTextView.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
         currentTimeTextView.setText("0:00");
         timeLayout.addView(currentTimeTextView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
@@ -169,15 +169,15 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
                 }
             }
         });
-        timeLayout.addView(seekBarView, LayoutHelper.createLinear(0, 20, 1.0f, Gravity.CENTER_VERTICAL, 6, 0, 6, 0));
+        timeLayout.addView(seekBarView, LayoutHelper.createLinear(0, 18, 1.0f, Gravity.CENTER_VERTICAL, 6, 0, 6, 0));
 
         durationTextView = new TextView(context);
-        durationTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
+        durationTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10f);
         durationTextView.setTextColor(getThemedColor(Theme.key_dialogTextGray2));
         durationTextView.setText("0:00");
         timeLayout.addView(durationTextView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
 
-        content.addView(timeLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 20, 0, 4, 0, 0));
+        content.addView(timeLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 20, 0, 3, 0, 0));
 
         // 3. Playback Controls: [Prev] [Play/Pause] [Next]
         controlsLayout = new LinearLayout(context);
@@ -214,7 +214,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         });
         controlsLayout.addView(nextButton, LayoutHelper.createLinear(28, 28, Gravity.CENTER, 0, 0, 0, 0));
 
-        content.addView(controlsLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 34, 0, 2, 0, 0));
+        content.addView(controlsLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 34, 0, 3, 0, 0));
 
         setOnLongClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);

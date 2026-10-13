@@ -419,6 +419,10 @@ public class PublicLibraryManager {
     }
 
     public static void publishLibraryWithTrack(int currentAccount, Context context, PublishListener listener) {
+        publishLibraryWithTrack(currentAccount, context, null, listener);
+    }
+
+    public static void publishLibraryWithTrack(int currentAccount, Context context, TLRPC.Document docOverride, PublishListener listener) {
         long userId = ChannelMusicFragment.getValidUserId(currentAccount);
         if (userId == 0) userId = UserConfig.getInstance(currentAccount).getClientUserId();
         final long finalUserId = userId;
@@ -436,11 +440,14 @@ public class PublicLibraryManager {
         }
         final String finalUsername = username;
 
-        TLRPC.UserFull userFull = MessagesController.getInstance(currentAccount).getUserFull(finalUserId);
-        TLRPC.Document pinnedDoc = userFull != null ? userFull.saved_music : null;
+        TLRPC.Document targetDoc = docOverride;
+        if (targetDoc == null) {
+            TLRPC.UserFull userFull = MessagesController.getInstance(currentAccount).getUserFull(finalUserId);
+            targetDoc = userFull != null ? userFull.saved_music : null;
+        }
 
-        if (pinnedDoc != null) {
-            prepareAndSendTrack(currentAccount, context, pinnedDoc, finalUsername, finalUserId, listener);
+        if (targetDoc != null) {
+            prepareAndSendTrack(currentAccount, context, targetDoc, finalUsername, finalUserId, listener);
         } else {
             ArrayList<MessageObject> myTracks = ChannelMusicFragment.getAudioMessages(currentAccount);
             MessageObject lastTrack = (myTracks != null && !myTracks.isEmpty()) ? myTracks.get(0) : null;

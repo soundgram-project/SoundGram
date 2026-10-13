@@ -434,12 +434,21 @@ public class NimarkoIconResources extends Resources {
     }
 
     private Drawable skinned(int stockId, int density, Theme theme, BaseIconReplace replacement) {
+        if ((stockId >>> 24) != 0x7f) {
+            return loadRaw(stockId, density, theme);
+        }
         if (Boolean.TRUE.equals(soundgram.icons.IconPackManager.getInstance().isFetchingOrig())) {
             return loadRaw(stockId, density, theme);
         }
         if (NON_SKINNABLE_DRAWABLES.contains(stockId)) {
             return loadRaw(stockId, density, theme);
         }
+        try {
+            String entryName = getResourceEntryName(stockId);
+            if (entryName != null && entryName.startsWith("ft_avd")) {
+                return loadRaw(stockId, density, theme);
+            }
+        } catch (Throwable ignored) {}
         if (soundgram.icons.IconPackManager.getInstance().hasActivePack()) {
             try {
                 String resName = getResourceEntryName(stockId);

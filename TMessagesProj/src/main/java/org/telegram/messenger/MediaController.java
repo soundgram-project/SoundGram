@@ -2605,7 +2605,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     FileLog.e(e);
                 }
             }
-            audioVolume = 1.0f;
+            if (!canFade && !isCrossfadingToNext) {
+                audioVolume = 1.0f;
+            }
             audioPlayer = null;
             isCrossfadingToNext = false;
             Theme.unrefAudioVisualizeDrawable(playingMessageObject);

@@ -205,20 +205,20 @@ public class MusicImporter {
 
     // ── Bypass Fetcher & Strict Matching ──────────────────────────────────────
     private static final String[] PROXY_MIRRORS = {
-            "https://corsproxy.io/?url=",
             "https://api.allorigins.win/raw?url=",
-            "https://api.codetabs.com/v1/proxy?quest="
+            "https://corsproxy.io/?url=",
+            "https://api.codetabs.com/v1/proxy?quest=",
+            "https://thingproxy.freeboard.io/fetch/"
     };
 
     public static String fetchUrlWithBypass(String urlString) {
         if (TextUtils.isEmpty(urlString)) return "";
-        MusicNetworkHelper.ensureBypassServiceRunning();
-        // 1. Прямое соединение через MusicNetworkHelper (учитывает прокси Telegram если настроен)
+        // 1. Прямое соединение через MusicNetworkHelper
         try {
             HttpURLConnection conn = MusicNetworkHelper.openConnection(urlString);
             conn.setRequestMethod("GET");
-            conn.setConnectTimeout(4000);
-            conn.setReadTimeout(5000);
+            conn.setConnectTimeout(6000);
+            conn.setReadTimeout(8000);
             conn.setRequestProperty("User-Agent", MusicNetworkHelper.DEFAULT_USER_AGENT);
             conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8");
             conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ru;q=0.8");
@@ -241,13 +241,41 @@ public class MusicImporter {
             FileLog.d("MusicImporter: direct fetch failed for " + urlString + ": " + e.getMessage());
         }
 
-        // 2. Резервный обход через общедоступные CORS/HTTP-реле (по принципу Моей Волны при блокировках РФ)
+        // 2. Резервный обход через r.jina.ai
+        try {
+            String jinaUrl = "https://r.jina.ai/" + urlString;
+            HttpURLConnection conn = MusicNetworkHelper.openConnection(jinaUrl);
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(12000);
+            conn.setRequestProperty("User-Agent", MusicNetworkHelper.DEFAULT_USER_AGENT);
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 400) {
+                try (InputStream is = conn.getInputStream();
+                     ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+                    byte[] buf = new byte[8192];
+                    int len;
+                    while ((len = is.read(buf)) != -1) {
+                        bos.write(buf, 0, len);
+                    }
+                    String res = bos.toString("UTF-8");
+                    if (!TextUtils.isEmpty(res) && res.length() > 50) {
+                        return res;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FileLog.d("MusicImporter: jina relay fetch failed for " + urlString + ": " + e.getMessage());
+        }
+
+        // 3. Резервный обход через общедоступные CORS/HTTP-реле
         for (String proxyPrefix : PROXY_MIRRORS) {
             try {
                 String proxyUrl = proxyPrefix + URLEncoder.encode(urlString, "UTF-8");
                 HttpURLConnection conn = MusicNetworkHelper.openConnection(proxyUrl);
                 conn.setRequestMethod("GET");
-                conn.setConnectTimeout(5000);
+                conn.setConnectTimeout(6000);
+                conn.setReadTimeout(8000);
                 conn.setReadTimeout(7000);
                 conn.setRequestProperty("User-Agent", MusicNetworkHelper.DEFAULT_USER_AGENT);
                 int code = conn.getResponseCode();
@@ -412,6 +440,11 @@ public class MusicImporter {
                 extractTracksFromSpotifyEmbed(embedHtml, result);
                 result.isPlaylist = true;
             }
+
+            if (result.tracks.isEmpty()) {
+                String jinaRes = fetchUrlWithBypass("https://r.jina.ai/" + url);
+                extractTracksFromSpotifyEmbed(jinaRes, result);
+            }
         } catch (Exception e) {
             FileLog.e(e);
         }
@@ -496,6 +529,19 @@ public class MusicImporter {
                 String title = tm.group(1);
                 String artist = tm.group(2);
                 if (!"Spotify".equalsIgnoreCase(artist) && !TextUtils.isEmpty(title)) {
+                    result.tracks.add(new TrackInfo(title, artist));
+                }
+            }
+        }
+
+        // Fallback markdown parsing (from r.jina.ai relay)
+        if (result.tracks.isEmpty()) {
+            Pattern mdTrack = Pattern.compile("\\[([^\\]]+)\\]\\(https://open\\.spotify\\.com/track/[a-zA-Z0-9]+\\)(?:[^\\[]*\\[([^\\]]+)\\]\\(https://open\\.spotify\\.com/artist/[a-zA-Z0-9]+\\))?");
+            Matcher m = mdTrack.matcher(html);
+            while (m.find()) {
+                String title = m.group(1).trim();
+                String artist = m.group(2) != null ? m.group(2).trim() : "";
+                if (!TextUtils.isEmpty(title) && !"Spotify".equalsIgnoreCase(title)) {
                     result.tracks.add(new TrackInfo(title, artist));
                 }
             }
@@ -804,6 +850,22 @@ public class MusicImporter {
                     }
                 }
             }
+
+            if (result.tracks.isEmpty()) {
+                String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://www.youtube.com/playlist?list=" + playlistId);
+                if (!TextUtils.isEmpty(jinaRes)) {
+                    Pattern pYt = Pattern.compile("(?:###\\s*)?\\[([^\\]]+)\\]\\(https://www\\.youtube\\.com/watch\\?v=([a-zA-Z0-9_-]+)[^\\)]*\\)");
+                    Matcher mYt = pYt.matcher(jinaRes);
+                    java.util.HashSet<String> seenIds = new java.util.HashSet<>();
+                    while (mYt.find()) {
+                        String title = mYt.group(1).trim();
+                        String vId = mYt.group(2);
+                        if (seenIds.add(vId) && !title.equalsIgnoreCase("Play all") && !title.equalsIgnoreCase("PLAY ALL") && !title.startsWith("Image ") && !title.startsWith("Skip to main")) {
+                            result.tracks.add(cleanYouTubeTrack(title, ""));
+                        }
+                    }
+                }
+            }
         } catch (Exception e) {
             FileLog.e(e);
         }
@@ -919,6 +981,20 @@ public class MusicImporter {
             }
         } catch (Exception e) {
             FileLog.e(e);
+        }
+
+        if (result.tracks.isEmpty()) {
+            try {
+                String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://www.youtube.com/watch?v=" + videoId);
+                if (!TextUtils.isEmpty(jinaRes)) {
+                    Matcher mt = Pattern.compile("Title:\\s*([^\r\n]+)").matcher(jinaRes);
+                    if (mt.find()) {
+                        String title = mt.group(1).replace(" - YouTube", "").replace(" - YouTube Music", "").trim();
+                        result.tracks.add(cleanYouTubeTrack(title, ""));
+                        result.isPlaylist = false;
+                    }
+                }
+            } catch (Exception ignored) {}
         }
     }
 

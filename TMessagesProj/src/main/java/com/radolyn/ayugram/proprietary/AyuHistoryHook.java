@@ -152,6 +152,14 @@ public abstract class AyuHistoryHook {
                     }
                     messagesById.put(mappedMessage.id, mappedMessage);
                     MessagesStorage.addUsersAndChatsFromMessage(mappedMessage, usersToLoad, chatsToLoad, null);
+                } else {
+                    MessageObject existing = existingById.get((long) mid);
+                    if (existing != null) {
+                        existing.deleted = true;
+                        if (existing.messageOwner != null) {
+                            existing.messageOwner.ayuDeleted = true;
+                        }
+                    }
                 }
             }
         }
@@ -344,6 +352,7 @@ public abstract class AyuHistoryHook {
 
     private static MessageObject createMessageObject(int currentAccount, TLRPC.TL_message message, LongSparseArray<TLRPC.User> usersById, LongSparseArray<TLRPC.Chat> chatsById, MessagesController messagesController) {
         MessageObject messageObj = new MessageObject(currentAccount, message, usersById, chatsById, false, true);
+        messageObj.deleted = true;
         messageObj.setIsRead();
         messageObj.setContentIsRead();
         return messageObj;

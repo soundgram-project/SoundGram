@@ -4321,7 +4321,7 @@ public class MessageObject {
     }
 
     public boolean isAyuDeleted() {
-        return messageOwner != null && messageOwner.ayuDeleted;
+        return (messageOwner != null && messageOwner.ayuDeleted) || (deleted && xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool());
     }
 
     public long getPollId() {

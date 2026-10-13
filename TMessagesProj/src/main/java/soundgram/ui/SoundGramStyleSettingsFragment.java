@@ -1,58 +1,28 @@
 package soundgram.ui;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SoundGramStyleSettingsFragment.java — ПОЛНАЯ ПЕРЕРАБОТКА (Задача 1)
-//
-// Новая логика:
-//  • Ползунок СПРАВА = полностью прозрачно (alpha=0)
-//  • Ползунок СЛЕВА  = непрозрачная подложка (alpha=255)
-//  • Тумблер Switch  = только убирает/показывает обводку
-//  • Кнопка-пилюля   = левая половина показывает цвет подложки,
-//                      правая половина показывает цвет обводки
-//  • Нажатие на пилюлю = дропдаун "Для стекла / Для обводки",
-//                        затем полноэкранный ColorPicker (как на скрине)
-//  • Сброс   → берёт цвет из темы TG
-//  • Готово  → применяет, мгновенно диспатчит StyleChanged
-// ═══════════════════════════════════════════════════════════════════════════════
-
 import static org.telegram.messenger.LocaleController.getString;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ComposeShader;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.RadialGradient;
-import android.graphics.Rect;
-import android.graphics.RectF;
-import android.graphics.Shader;
-import android.graphics.SweepGradient;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
-import android.text.Editable;
-import android.text.InputFilter;
-import android.text.TextWatcher;
+import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
@@ -65,15 +35,19 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
-import org.telegram.ui.Components.RecyclerListView;
-import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import soundgram.music.PublicLibraryManager;
-import java.util.List;
-import android.text.TextUtils;
+import soundgram.music.SoundGramConfig;
+import soundgram.music.SoundGramEQAlert;
+import soundgram.music.SoundGramStatsManager;
 
+import java.io.File;
+
+/**
+ * SoundGram Music Tab Settings in Material Design 3 (MD3).
+ * Style customization sliders/colors have been removed in favor of consistent MD3 surfaces.
+ */
 public class SoundGramStyleSettingsFragment extends BaseFragment {
 
-    // ── Prefs ──────────────────────────────────────────────────────────────────
     public static final String PREFS_NAME          = "soundgram_style";
     public static final String KEY_GLASS_TRACKS    = "glass_tracks";
     public static final String KEY_GLASS_ALBUMS    = "glass_albums";
@@ -84,7 +58,6 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
     public static final String KEY_GLASS_ARTIST    = "glass_artist";
     public static final String KEY_GLASS_EQ        = "glass_eq";
 
-    // alpha = 0..255: 255=непрозрачно, 0=прозрачно
     public static final String KEY_ALPHA_TRACKS    = "alpha_tracks";
     public static final String KEY_ALPHA_ALBUMS    = "alpha_albums";
     public static final String KEY_ALPHA_WAVE      = "alpha_wave";
@@ -94,7 +67,6 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
     public static final String KEY_ALPHA_ARTIST    = "alpha_artist";
     public static final String KEY_ALPHA_EQ        = "alpha_eq";
 
-    // кастомный цвет подложки (-1 = использовать тему TG)
     public static final String KEY_COLOR_BG_TRACKS    = "cbg_tracks";
     public static final String KEY_COLOR_BG_ALBUMS    = "cbg_albums";
     public static final String KEY_COLOR_BG_WAVE      = "cbg_wave";
@@ -104,7 +76,6 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
     public static final String KEY_COLOR_BG_ARTIST    = "cbg_artist";
     public static final String KEY_COLOR_BG_EQ        = "cbg_eq";
 
-    // кастомный цвет обводки (-1 = использовать акцент TG)
     public static final String KEY_COLOR_STROKE_TRACKS    = "cs_tracks";
     public static final String KEY_COLOR_STROKE_ALBUMS    = "cs_albums";
     public static final String KEY_COLOR_STROKE_WAVE      = "cs_wave";
@@ -119,7 +90,6 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
     public static final int NOTIFICATION_STYLE_CHANGED = -700;
 
-    // ── Статические хелперы ────────────────────────────────────────────────────
     public static SharedPreferences prefs() {
         return ApplicationLoader.applicationContext
                 .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -133,90 +103,57 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         return prefs().getInt(KEY_WAVE_SPHERE_SIZE, 100) / 100f;
     }
 
-    /** Stroke (обводка) включена? */
     public static boolean isStrokeEnabled(String keySwitch) {
-        return prefs().getBoolean(keySwitch, false);
+        return false;
     }
 
-    /** Glass (стекло/подложка) включено? Проверяет по булевому ключу (по умолч. true) */
     public static boolean isGlassEnabled(String keyGlass) {
-        return prefs().getBoolean(keyGlass, true);
+        return true;
     }
 
-    /** Alpha подложки 0..255 (255 = непрозрачно). Default = 180. */
     public static int getAlpha(String keyAlpha) {
-        return prefs().getInt(keyAlpha, 180);
+        return 255;
     }
 
-    /** Цвет подложки: -1 = из темы TG */
     public static int getBgColor(String keyColor) {
-        return prefs().getInt(keyColor, -1);
+        return -1;
     }
 
-    /** Цвет обводки: -1 = акцент темы */
     public static int getStrokeColor(String keyColor) {
-        return prefs().getInt(keyColor, -1);
+        return -1;
     }
 
-    /** Реальный цвет подложки с учётом темы */
     public static int resolvedBgColor(String keyColor) {
-        int saved = getBgColor(keyColor);
-        return saved == -1 ? Theme.getColor(Theme.key_dialogBackground) : saved;
+        return Theme.getColor(Theme.key_dialogBackground);
     }
 
-    /** Реальный цвет обводки с учётом темы */
     public static int resolvedStrokeColor(String keyColor) {
-        int saved = getStrokeColor(keyColor);
-        return saved == -1 ? Theme.getColor(Theme.key_featuredStickers_addButton) : saved;
+        return Theme.getColor(Theme.key_featuredStickers_addButton);
     }
 
-    // ── Таблица строк: {title, subtitle, KEY_GLASS, KEY_ALPHA, KEY_COLOR_BG, KEY_COLOR_STROKE}
-    // NOTE: titles/subtitles are loaded dynamically via getItemTitle/getItemSubtitle to support localization
-    private static final String[][] ITEMS = {
-            {null, null, KEY_GLASS_TRACKS,    KEY_ALPHA_TRACKS,    KEY_COLOR_BG_TRACKS,    KEY_COLOR_STROKE_TRACKS},
-            {null, null, KEY_GLASS_ALBUMS,    KEY_ALPHA_ALBUMS,    KEY_COLOR_BG_ALBUMS,    KEY_COLOR_STROKE_ALBUMS},
-            {null, null, KEY_GLASS_WAVE,      KEY_ALPHA_WAVE,      KEY_COLOR_BG_WAVE,      KEY_COLOR_STROKE_WAVE},
-            {null, null, KEY_GLASS_PLAYLISTS, KEY_ALPHA_PLAYLISTS, KEY_COLOR_BG_PLAYLISTS, KEY_COLOR_STROKE_PLAYLISTS},
-            {null, null, KEY_GLASS_PLAYER,    KEY_ALPHA_PLAYER,    KEY_COLOR_BG_PLAYER,    KEY_COLOR_STROKE_PLAYER},
-            {null, null, KEY_GLASS_MINI,      KEY_ALPHA_MINI,      KEY_COLOR_BG_MINI,      KEY_COLOR_STROKE_MINI},
-            {null, null, KEY_GLASS_ARTIST,    KEY_ALPHA_ARTIST,    KEY_COLOR_BG_ARTIST,    KEY_COLOR_STROKE_ARTIST},
-            {null, null, KEY_GLASS_EQ,        KEY_ALPHA_EQ,        KEY_COLOR_BG_EQ,        KEY_COLOR_STROKE_EQ},
-    };
+    private TextView tracksCountView;
+    private TextView listenTimeView;
 
-    private String getItemTitle(int index) {
-        int[] ids = {R.string.sg_style_tracks_title, R.string.sg_style_albums_title,
-                R.string.sg_style_wave_title, R.string.sg_style_playlists_title,
-                R.string.sg_style_player_title, R.string.sg_style_mini_title,
-                R.string.sg_style_artist_title, R.string.sg_style_eq_title};
-        return getString(ids[index]);
+    @Override
+    public boolean onFragmentCreate() {
+        super.onFragmentCreate();
+        return true;
     }
-
-    private String getItemSubtitle(int index) {
-        int[] ids = {R.string.sg_style_tracks_subtitle, R.string.sg_style_albums_subtitle,
-                R.string.sg_style_wave_subtitle, R.string.sg_style_playlists_subtitle,
-                R.string.sg_style_player_subtitle, R.string.sg_style_mini_subtitle,
-                R.string.sg_style_artist_subtitle, R.string.sg_style_eq_subtitle};
-        return getString(ids[index]);
-    }
-
-    private RecyclerListView recyclerView;
-    private SettingsAdapter  settingsAdapter;
-
-    // ── Fragment lifecycle ─────────────────────────────────────────────────────
-    @Override public boolean onFragmentCreate() { super.onFragmentCreate(); return true; }
 
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle(getString(R.string.sg_style_title));
+        actionBar.setTitle("Настройки музыки");
         actionBar.setOccupyStatusBar(true);
         actionBar.setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
-            @Override public void onItemClick(int id) { 
+            @Override
+            public void onItemClick(int id) {
                 if (id == -1) {
-                    finishFragment(); 
+                    finishFragment();
                 } else if (id == 1) {
                     prefs().edit().clear().apply();
+                    SoundGramConfig.setCrossfadeDurationSec(0);
                     notifyStyleChanged();
                     android.widget.Toast.makeText(context, "Настройки сброшены", android.widget.Toast.LENGTH_SHORT).show();
                     presentFragment(new SoundGramStyleSettingsFragment(), true);
@@ -225,174 +162,70 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         });
 
         org.telegram.ui.ActionBar.ActionBarMenu menu = actionBar.createMenu();
-        menu.addItem(1, getString(R.string.sg_eq_reset));
+        menu.addItem(1, "Сброс");
 
-        SizeNotifierFrameLayout content = new SizeNotifierFrameLayout(context) {
-            @Override protected void onDraw(Canvas c) {
-                c.drawColor(Theme.getColor(Theme.key_windowBackgroundGray));
-            }
-        };
-        content.setWillNotDraw(false);
-        fragmentView = content;
+        ScrollView scrollView = new ScrollView(context);
+        scrollView.setFillViewport(true);
+        scrollView.setVerticalScrollBarEnabled(false);
+        scrollView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
 
-        recyclerView = new RecyclerListView(context);
-        recyclerView.setLayoutManager(new LinearLayoutManager(context));
-        recyclerView.setVerticalScrollBarEnabled(false);
-        recyclerView.setClipToPadding(false);
-        recyclerView.setPadding(0, 0, 0, AndroidUtilities.dp(16));
-        settingsAdapter = new SettingsAdapter(context);
-        recyclerView.setAdapter(settingsAdapter);
-        content.addView(recyclerView,
-                LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        return fragmentView;
-    }
+        LinearLayout content = new LinearLayout(context);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(32));
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (settingsAdapter != null) {
-            settingsAdapter.notifyItemChanged(0);
-        }
-    }
-
-    private void notifyStyleChanged() {
-        SoundGramStyleManager.dispatchStyleChanged();
-        for (int i = 0; i < 4; i++)
-            NotificationCenter.getInstance(i).postNotificationName(NOTIFICATION_STYLE_CHANGED);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // ADAPTER
-    // ══════════════════════════════════════════════════════════════════════════
-    private static class HeaderHolder extends RecyclerListView.Holder {
-        final TextView tracksValueTextView;
-        final TextView timeValueTextView;
-        HeaderHolder(View itemView, TextView tracksValue, TextView timeValue) {
-            super(itemView);
-            this.tracksValueTextView = tracksValue;
-            this.timeValueTextView = timeValue;
-        }
-    }
-
-    private class SettingsAdapter extends RecyclerListView.SelectionAdapter {
-        private static final int TYPE_HEADER = 0;
-        private static final int TYPE_ITEM   = 1;
-        private final Context ctx;
-        public boolean isDetailsExpanded = false;
-        SettingsAdapter(Context c) { ctx = c; }
-
-        @Override public boolean isEnabled(RecyclerView.ViewHolder h) {
-            return h.getItemViewType() == TYPE_ITEM;
-        }
-        @Override public int getItemCount() { return 1 + (isDetailsExpanded ? ITEMS.length : 0); }
-        @Override public int getItemViewType(int p) { return p == 0 ? TYPE_HEADER : TYPE_ITEM; }
-
-        @Override
-        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            if (viewType == TYPE_HEADER) return buildHeader(ctx);
-            return new RecyclerListView.Holder(new GlassSettingCell(ctx));
-        }
-
-        @Override
-        public void onBindViewHolder(RecyclerView.ViewHolder holder, int pos) {
-            if (holder.getItemViewType() == TYPE_HEADER) {
-                if (holder instanceof HeaderHolder) {
-                    HeaderHolder hh = (HeaderHolder) holder;
-                    SharedPreferences sp = soundgram.music.SoundGramStatsManager.getStatsPrefs(currentAccount);
-                    int   tt = sp.getInt("total_tracks", 0);
-                    long  ts = sp.getLong("total_seconds", 0L);
-                    long  h  = ts / 3600, m = (ts % 3600) / 60;
-                    if (hh.tracksValueTextView != null) {
-                        hh.tracksValueTextView.setText(String.valueOf(tt));
-                    }
-                    if (hh.timeValueTextView != null) {
-                        hh.timeValueTextView.setText(h + getString(R.string.hour) + " " + m + getString(R.string.min));
-                    }
-                }
-                return;
-            }
-            String[] row = ITEMS[pos - 1];
-            ((GlassSettingCell) holder.itemView).bind(getItemTitle(pos - 1), getItemSubtitle(pos - 1), row[2], row[3], row[4], row[5]);
-        }
-    }
-
-    // ── Header (stats) ─────────────────────────────────────────────────────────
-    private HeaderHolder buildHeader(Context ctx) {
         int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
-        LinearLayout root = new LinearLayout(ctx);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setLayoutParams(new RecyclerView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(8));
 
-        TextView lbl = makeLabel(ctx, getString(R.string.sg_style_section_stats));
-        root.addView(lbl, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+        // 1. Stats MD3 Elevated Card
+        content.addView(createSectionHeader(context, "ВАША СТАТИСТИКА"));
+        FrameLayout statsCard = createMd3Card(context);
+        LinearLayout statsRow = new LinearLayout(context);
+        statsRow.setOrientation(LinearLayout.HORIZONTAL);
+        statsRow.setGravity(Gravity.CENTER);
+        statsRow.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(16), AndroidUtilities.dp(14), AndroidUtilities.dp(16));
 
-        FrameLayout card = new FrameLayout(ctx);
-        GradientDrawable cardBg = new GradientDrawable();
-        cardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        cardBg.setCornerRadius(AndroidUtilities.dp(20));
-        card.setBackground(cardBg);
-        if (Build.VERSION.SDK_INT >= 21) card.setElevation(AndroidUtilities.dp(2));
+        SharedPreferences sp = SoundGramStatsManager.getStatsPrefs(currentAccount);
+        int tt = sp.getInt("total_tracks", 0);
+        long ts = sp.getLong("total_seconds", 0L);
+        long h = ts / 3600, m = (ts % 3600) / 60;
 
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
-        row.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(12), AndroidUtilities.dp(16));
-
-        SharedPreferences sp = soundgram.music.SoundGramStatsManager.getStatsPrefs(currentAccount);
-        int   tt = sp.getInt("total_tracks", 0);
-        long  ts = sp.getLong("total_seconds", 0L);
-        long  h  = ts / 3600, m = (ts % 3600) / 60;
-
-        TextView[] tracksHolder = new TextView[1];
+        TextView[] tHolder = new TextView[1];
         TextView[] timeHolder = new TextView[1];
-
-        row.addView(makeStatPill(ctx, "🎵", String.valueOf(tt), getString(R.string.sg_stats_tracks_label), accent, tracksHolder),
+        statsRow.addView(makeMd3StatPill(context, "🎵", String.valueOf(tt), "Треков в медиатеке", accent, tHolder),
                 LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 8, 0));
-        row.addView(makeStatPill(ctx, "⏱", h + getString(R.string.hour) + " " + m + getString(R.string.min), getString(R.string.sg_stats_time_label), accent, timeHolder),
+        statsRow.addView(makeMd3StatPill(context, "⏱", h + " ч " + m + " мин", "Время прослушивания", accent, timeHolder),
                 LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 8, 0, 0, 0));
-        card.addView(row, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        root.addView(card, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+        tracksCountView = tHolder[0];
+        listenTimeView = timeHolder[0];
 
-        // ── Public library setting ────────────────────────────────────────────────
-        FrameLayout pubCard = new FrameLayout(ctx);
-        GradientDrawable pubCardBg = new GradientDrawable();
-        pubCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        pubCardBg.setCornerRadius(AndroidUtilities.dp(20));
-        pubCard.setBackground(pubCardBg);
-        if (Build.VERSION.SDK_INT >= 21) pubCard.setElevation(AndroidUtilities.dp(2));
+        statsCard.addView(statsRow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        content.addView(statsCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        LinearLayout pubRow = new LinearLayout(ctx);
+        // 2. Public Library MD3 Card
+        content.addView(createSectionHeader(context, "ПРОФИЛЬ И ПУБЛИЧНОСТЬ"));
+        FrameLayout pubCard = createMd3Card(context);
+        LinearLayout pubRow = new LinearLayout(context);
         pubRow.setOrientation(LinearLayout.HORIZONTAL);
         pubRow.setGravity(Gravity.CENTER_VERTICAL);
-        pubRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+        pubRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
 
-        LinearLayout pubTextCol = new LinearLayout(ctx);
+        LinearLayout pubTextCol = new LinearLayout(context);
         pubTextCol.setOrientation(LinearLayout.VERTICAL);
 
-        TextView pubTitle = new TextView(ctx);
+        TextView pubTitle = new TextView(context);
         pubTitle.setText(getString(R.string.sg_public_library_title));
         pubTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        pubTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        pubTitle.setTypeface(AndroidUtilities.bold());
         pubTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         pubTextCol.addView(pubTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        TextView pubSub = new TextView(ctx);
+        TextView pubSub = new TextView(context);
         pubSub.setText(getString(R.string.sg_public_library_subtitle));
         pubSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         pubSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        pubTextCol.addView(pubSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+        pubTextCol.addView(pubSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+        pubRow.addView(pubTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 12, 0));
 
-        pubRow.addView(pubTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-
-        Switch pubSwitch = new Switch(ctx);
+        Switch pubSwitch = new Switch(context);
         pubSwitch.setChecked(PublicLibraryManager.isLibraryPublic(currentAccount));
         pubSwitch.setOnClickListener(v -> {
             long channelId = soundgram.music.ChannelMusicFragment.getChannelIdFromFile(currentAccount);
@@ -405,12 +238,11 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             }
             org.telegram.tgnet.TLRPC.Chat chat = org.telegram.messenger.MessagesController.getInstance(currentAccount).getChat(channelId);
             String username = chat != null ? org.telegram.messenger.ChatObject.getPublicUsername(chat) : null;
-            if (!android.text.TextUtils.isEmpty(username)) {
+            if (!TextUtils.isEmpty(username)) {
                 boolean enable = pubSwitch.isChecked();
                 if (enable) {
                     pubSwitch.setChecked(true);
-
-                    Bulletin.ProgressTwoLineAnimatedTitleLottieLayout layout = new Bulletin.ProgressTwoLineAnimatedTitleLottieLayout(ctx, getResourceProvider());
+                    Bulletin.ProgressTwoLineAnimatedTitleLottieLayout layout = new Bulletin.ProgressTwoLineAnimatedTitleLottieLayout(context, getResourceProvider());
                     layout.titleTextView.setText("Публикация библиотеки");
                     layout.subtitleTextView.setText("Отправка трека... 0%");
                     layout.setAnimation(R.raw.ic_save_to_music, "Box", "Arrow");
@@ -469,42 +301,71 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
             }
         });
         pubRow.addView(pubSwitch, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
         pubCard.addView(pubRow);
-        root.addView(pubCard, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+        content.addView(pubCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        // Rays count setting
-        root.addView(makeLabel(ctx, getString(R.string.sg_sphere_settings)),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+        // 3. Playback & Crossfade MD3 Card
+        content.addView(createSectionHeader(context, "ВОСПРОИЗВЕДЕНИЕ И ПЕРЕХОДЫ"));
+        FrameLayout cfCard = createMd3Card(context);
+        LinearLayout cfCol = new LinearLayout(context);
+        cfCol.setOrientation(LinearLayout.VERTICAL);
+        cfCol.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
 
-        FrameLayout raysCard = new FrameLayout(ctx);
-        GradientDrawable raysCardBg = new GradientDrawable();
-        raysCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        raysCardBg.setCornerRadius(AndroidUtilities.dp(20));
-        raysCard.setBackground(raysCardBg);
-        if (Build.VERSION.SDK_INT >= 21) raysCard.setElevation(AndroidUtilities.dp(2));
+        TextView cfTitle = new TextView(context);
+        cfTitle.setText("Кроссфейд треков");
+        cfTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        cfTitle.setTypeface(AndroidUtilities.bold());
+        cfTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        cfCol.addView(cfTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        LinearLayout raysRow = new LinearLayout(ctx);
-        raysRow.setOrientation(LinearLayout.VERTICAL);
-        raysRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+        int currentCfSec = SoundGramConfig.crossfadeDurationSec;
+        TextView cfSub = new TextView(context);
+        cfSub.setText(currentCfSec == 0 ? "Выключен" : ("Плавный переход: " + currentCfSec + " сек."));
+        cfSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        cfSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        cfCol.addView(cfSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 10));
 
-        TextView raysTitle = new TextView(ctx);
+        SeekBar cfSeek = new SeekBar(context);
+        cfSeek.setMax(12);
+        cfSeek.setProgress(currentCfSec);
+        cfSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
+        cfSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
+        cfSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                if (fromUser) {
+                    SoundGramConfig.setCrossfadeDurationSec(progress);
+                    cfSub.setText(progress == 0 ? "Выключен" : ("Плавный переход: " + progress + " сек."));
+                }
+            }
+        });
+        cfCol.addView(cfSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        cfCard.addView(cfCol);
+        content.addView(cfCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+
+        // 4. Wave Visualizer MD3 Card
+        content.addView(createSectionHeader(context, "ВИЗУАЛИЗАТОР «МОЯ ВОЛНА»"));
+        FrameLayout waveCard = createMd3Card(context);
+        LinearLayout waveCol = new LinearLayout(context);
+        waveCol.setOrientation(LinearLayout.VERTICAL);
+        waveCol.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        TextView raysTitle = new TextView(context);
         raysTitle.setText(getString(R.string.sg_sphere_rays_title));
         raysTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        raysTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        raysTitle.setTypeface(AndroidUtilities.bold());
         raysTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-        raysRow.addView(raysTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        waveCol.addView(raysTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        TextView raysSub = new TextView(ctx);
+        TextView raysSub = new TextView(context);
         raysSub.setText(getString(R.string.sg_sphere_rays_subtitle));
         raysSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         raysSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        raysRow.addView(raysSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 10));
+        waveCol.addView(raysSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 10));
 
-        SeekBar raysSeek = new SeekBar(ctx);
-        raysSeek.setMax(200); // 0 to 200 => 100 to 300 (1x to 3x)
+        SeekBar raysSeek = new SeekBar(context);
+        raysSeek.setMax(200);
         raysSeek.setProgress(prefs().getInt(KEY_WAVE_RAYS, 100) - 100);
         raysSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
         raysSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
@@ -517,41 +378,24 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
                 }
             }
         });
-        raysRow.addView(raysSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        
-        raysCard.addView(raysRow);
-        root.addView(raysCard, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+        waveCol.addView(raysSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
 
-        // Sphere size setting
-        FrameLayout sizeCard = new FrameLayout(ctx);
-        GradientDrawable sizeCardBg = new GradientDrawable();
-        sizeCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        sizeCardBg.setCornerRadius(AndroidUtilities.dp(20));
-        sizeCard.setBackground(sizeCardBg);
-        if (Build.VERSION.SDK_INT >= 21) sizeCard.setElevation(AndroidUtilities.dp(2));
-
-        LinearLayout sizeRow = new LinearLayout(ctx);
-        sizeRow.setOrientation(LinearLayout.VERTICAL);
-        sizeRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
-
-        TextView sizeTitle = new TextView(ctx);
+        TextView sizeTitle = new TextView(context);
         sizeTitle.setText(getString(R.string.sg_sphere_size_title));
         sizeTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        sizeTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        sizeTitle.setTypeface(AndroidUtilities.bold());
         sizeTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-        sizeRow.addView(sizeTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        waveCol.addView(sizeTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         int initialSize = prefs().getInt(KEY_WAVE_SPHERE_SIZE, 100);
-        TextView sizeSub = new TextView(ctx);
+        TextView sizeSub = new TextView(context);
         sizeSub.setText(String.format(getString(R.string.sg_sphere_size_subtitle), initialSize));
         sizeSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         sizeSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        sizeRow.addView(sizeSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 10));
+        waveCol.addView(sizeSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 10));
 
-        SeekBar sizeSeek = new SeekBar(ctx);
-        sizeSeek.setMax(100); // 0 to 100 => 70 to 170 (0.7x to 1.7x)
+        SeekBar sizeSeek = new SeekBar(context);
+        sizeSeek.setMax(100);
         sizeSeek.setProgress(initialSize - 70);
         sizeSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
         sizeSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
@@ -566,273 +410,219 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
                 }
             }
         });
-        sizeRow.addView(sizeSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        
-        sizeCard.addView(sizeRow);
-        root.addView(sizeCard, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+        waveCol.addView(sizeSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        waveCard.addView(waveCol);
+        content.addView(waveCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        // ── Crossfade setting ──────────────────────────────────────────────────────
-        root.addView(makeLabel(ctx, "ВОСПРОИЗВЕДЕНИЕ И ПЕРЕХОДЫ"),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+        // 5. DSP Equalizer MD3 Card
+        content.addView(createSectionHeader(context, "ЗВУК И ЭФФЕКТЫ"));
+        FrameLayout eqCard = createMd3Card(context);
+        LinearLayout eqRow = new LinearLayout(context);
+        eqRow.setOrientation(LinearLayout.HORIZONTAL);
+        eqRow.setGravity(Gravity.CENTER_VERTICAL);
+        eqRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
 
-        FrameLayout cfCard = new FrameLayout(ctx);
-        GradientDrawable cfCardBg = new GradientDrawable();
-        cfCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        cfCardBg.setCornerRadius(AndroidUtilities.dp(20));
-        cfCard.setBackground(cfCardBg);
-        if (Build.VERSION.SDK_INT >= 21) cfCard.setElevation(AndroidUtilities.dp(2));
+        LinearLayout eqTextCol = new LinearLayout(context);
+        eqTextCol.setOrientation(LinearLayout.VERTICAL);
 
-        LinearLayout cfRow = new LinearLayout(ctx);
-        cfRow.setOrientation(LinearLayout.VERTICAL);
-        cfRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+        TextView eqTitle = new TextView(context);
+        eqTitle.setText("DSP Эквалайзер и эффекты");
+        eqTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        eqTitle.setTypeface(AndroidUtilities.bold());
+        eqTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        eqTextCol.addView(eqTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        TextView cfTitle = new TextView(ctx);
-        cfTitle.setText("Кроссфейд треков");
-        cfTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        cfTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        cfTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-        cfRow.addView(cfTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        TextView eqSub = new TextView(context);
+        eqSub.setText("10-полосный эквалайзер, усиление басов, реверберация, пресеты");
+        eqSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        eqSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        eqTextCol.addView(eqSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+        eqRow.addView(eqTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 12, 0));
 
-        int currentCfSec = soundgram.music.SoundGramConfig.crossfadeDurationSec;
-        TextView cfSub = new TextView(ctx);
-        cfSub.setText(currentCfSec == 0 ? "Выключен" : ("Плавный переход: " + currentCfSec + " сек."));
-        cfSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        cfSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        cfRow.addView(cfSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 10));
-
-        SeekBar cfSeek = new SeekBar(ctx);
-        cfSeek.setMax(12); // 0 to 12 seconds
-        cfSeek.setProgress(currentCfSec);
-        cfSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
-        cfSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));
-        cfSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar s) {}
-            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
-                if (fromUser) {
-                    soundgram.music.SoundGramConfig.setCrossfadeDurationSec(progress);
-                    cfSub.setText(progress == 0 ? "Выключен" : ("Плавный переход: " + progress + " сек."));
-                }
-            }
+        TextView eqBtn = createMd3Button(context, "Открыть", accent, () -> {
+            new SoundGramEQAlert(getParentActivity(), getResourceProvider()).show();
         });
-        cfRow.addView(cfSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        eqRow.addView(eqBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        eqCard.addView(eqRow);
+        content.addView(eqCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        cfCard.addView(cfRow);
-        root.addView(cfCard, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
-
-        // ── Import tracks setting ──────────────────────────────────────────────────
-        root.addView(makeLabel(ctx, "ИМПОРТ МУЗЫКИ"),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
-
-        FrameLayout importCard = new FrameLayout(ctx);
-        GradientDrawable importCardBg = new GradientDrawable();
-        importCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        importCardBg.setCornerRadius(AndroidUtilities.dp(20));
-        importCard.setBackground(importCardBg);
-        if (Build.VERSION.SDK_INT >= 21) importCard.setElevation(AndroidUtilities.dp(2));
-
-        LinearLayout importRow = new LinearLayout(ctx);
+        // 6. Music Import MD3 Card
+        content.addView(createSectionHeader(context, "ИМПОРТ МУЗЫКИ"));
+        FrameLayout importCard = createMd3Card(context);
+        LinearLayout importRow = new LinearLayout(context);
         importRow.setOrientation(LinearLayout.HORIZONTAL);
         importRow.setGravity(Gravity.CENTER_VERTICAL);
-        importRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+        importRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
 
-        LinearLayout importTextCol = new LinearLayout(ctx);
+        LinearLayout importTextCol = new LinearLayout(context);
         importTextCol.setOrientation(LinearLayout.VERTICAL);
 
-        TextView importTitle = new TextView(ctx);
+        TextView importTitle = new TextView(context);
         importTitle.setText("Импорт треков");
         importTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        importTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        importTitle.setTypeface(AndroidUtilities.bold());
         importTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         importTextCol.addView(importTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        TextView importSub = new TextView(ctx);
-        importSub.setText("Spotify, VK, Яндекс Музыка, текст");
+        TextView importSub = new TextView(context);
+        importSub.setText("Spotify, VK, Яндекс Музыка, YouTube, текстовые списки");
         importSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         importSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        importTextCol.addView(importSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+        importTextCol.addView(importSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+        importRow.addView(importTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 12, 0));
 
-        importRow.addView(importTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-
-        TextView importBtn = new TextView(ctx);
-        importBtn.setText("Импорт");
-        importBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        importBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        importBtn.setTextColor(Color.WHITE);
-        importBtn.setGravity(Gravity.CENTER);
-        importBtn.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
-        GradientDrawable btnBg = new GradientDrawable();
-        btnBg.setColor(accent);
-        btnBg.setCornerRadius(AndroidUtilities.dp(16));
-        importBtn.setBackground(btnBg);
+        TextView importBtn = createMd3Button(context, "Импорт", accent, () -> showImportBottomSheet(context));
         importRow.addView(importBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
         importCard.addView(importRow);
-        importCard.setOnClickListener(v -> showImportBottomSheet(ctx));
-        root.addView(importCard, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+        importCard.setOnClickListener(v -> showImportBottomSheet(context));
+        content.addView(importCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        // ── Master Surface Transparency + Live Mini Player Preview ─────────────
-        root.addView(makeLabel(ctx, "ПРОЗРАЧНОСТЬ ПОВЕРХНОСТЕЙ"),
-                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
+        // 7. Storage Cache MD3 Card
+        content.addView(createSectionHeader(context, "ХРАНИЛИЩЕ И КЭШ"));
+        FrameLayout cacheCard = createMd3Card(context);
+        LinearLayout cacheRow = new LinearLayout(context);
+        cacheRow.setOrientation(LinearLayout.HORIZONTAL);
+        cacheRow.setGravity(Gravity.CENTER_VERTICAL);
+        cacheRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
 
-        FrameLayout masterCard = new FrameLayout(ctx);
-        GradientDrawable masterCardBg = new GradientDrawable();
-        masterCardBg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        masterCardBg.setCornerRadius(AndroidUtilities.dp(20));
-        masterCard.setBackground(masterCardBg);
-        if (Build.VERSION.SDK_INT >= 21) masterCard.setElevation(AndroidUtilities.dp(2));
+        LinearLayout cacheTextCol = new LinearLayout(context);
+        cacheTextCol.setOrientation(LinearLayout.VERTICAL);
 
-        LinearLayout masterCol = new LinearLayout(ctx);
-        masterCol.setOrientation(LinearLayout.VERTICAL);
-        masterCol.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16),
-                AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+        TextView cacheTitle = new TextView(context);
+        cacheTitle.setText("Кэш аудиозаписей");
+        cacheTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        cacheTitle.setTypeface(AndroidUtilities.bold());
+        cacheTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        cacheTextCol.addView(cacheTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // Live preview mini-player
-        FrameLayout previewMini = new FrameLayout(ctx);
-        previewMini.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(8),
-                AndroidUtilities.dp(12), AndroidUtilities.dp(8));
-        int initialAlpha = prefs().getInt(KEY_ALPHA_MINI, 220);
-        previewMini.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
-                androidx.core.graphics.ColorUtils.setAlphaComponent(SoundGramDesignTokens.COLOR_SURFACE_1, initialAlpha),
-                SoundGramDesignTokens.COLOR_LINE, 1, 18, 18, 18, 18));
+        TextView cacheSub = new TextView(context);
+        cacheSub.setText("Локальные аудиофайлы и кэш обложек");
+        cacheSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        cacheSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        cacheTextCol.addView(cacheSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+        cacheRow.addView(cacheTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 12, 0));
 
-        LinearLayout miniRow = new LinearLayout(ctx);
-        miniRow.setOrientation(LinearLayout.HORIZONTAL);
-        miniRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        View miniCover = new View(ctx);
-        miniCover.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
-                SoundGramDesignTokens.COLOR_SURFACE_3, SoundGramDesignTokens.COLOR_LINE, 1, 4, 4, 14, 4));
-        miniRow.addView(miniCover, LayoutHelper.createLinear(44, 44, 0, 0, 12, 0));
-
-        LinearLayout miniTextCol = new LinearLayout(ctx);
-        miniTextCol.setOrientation(LinearLayout.VERTICAL);
-        TextView miniTitle = new TextView(ctx);
-        miniTitle.setText("моя волна");
-        miniTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-        miniTitle.setTypeface(AndroidUtilities.bold());
-        miniTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
-        miniTextCol.addView(miniTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-        TextView miniSub = new TextView(ctx);
-        miniSub.setText("92.4 мгц · интерактивное превью");
-        miniSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        miniSub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        miniSub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        miniTextCol.addView(miniSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-        miniRow.addView(miniTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
-
-        View miniPlay = new View(ctx);
-        miniPlay.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
-                SoundGramDesignTokens.COLOR_ACCENT, SoundGramDesignTokens.COLOR_ACCENT, 0, 18, 18, 18, 18));
-        miniRow.addView(miniPlay, LayoutHelper.createLinear(36, 36, 0, 0, 0, 0));
-
-        previewMini.addView(miniRow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        masterCol.addView(previewMini, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
-
-        TextView masterLabel = new TextView(ctx);
-        masterLabel.setText("Общая прозрачность: " + (int) ((1f - initialAlpha / 255f) * 100f) + "%");
-        masterLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        masterLabel.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        masterLabel.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
-        masterCol.addView(masterLabel, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
-
-        SeekBar masterSeek = new SeekBar(ctx);
-        masterSeek.setMax(255);
-        masterSeek.setProgress(255 - initialAlpha);
-        masterSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_ACCENT));
-        masterSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(SoundGramDesignTokens.COLOR_ACCENT));
-        masterSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar s) {}
-            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
-                if (fromUser) {
-                    int alpha = 255 - progress;
-                    masterLabel.setText("Общая прозрачность: " + (int) ((progress / 255f) * 100f) + "%");
-                    previewMini.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(
-                            androidx.core.graphics.ColorUtils.setAlphaComponent(SoundGramDesignTokens.COLOR_SURFACE_1, alpha),
-                            SoundGramDesignTokens.COLOR_LINE, 1, 18, 18, 18, 18));
-                    prefs().edit()
-                            .putInt(KEY_ALPHA_TRACKS, alpha)
-                            .putInt(KEY_ALPHA_ALBUMS, alpha)
-                            .putInt(KEY_ALPHA_WAVE, alpha)
-                            .putInt(KEY_ALPHA_PLAYLISTS, alpha)
-                            .putInt(KEY_ALPHA_PLAYER, alpha)
-                            .putInt(KEY_ALPHA_MINI, alpha)
-                            .putInt(KEY_ALPHA_ARTIST, alpha)
-                            .putInt(KEY_ALPHA_EQ, alpha)
-                            .apply();
-                    notifyStyleChanged();
+        TextView cacheBtn = createMd3Button(context, "Очистить", Theme.getColor(Theme.key_text_RedRegular), () -> {
+            try {
+                File cacheDir = ApplicationLoader.applicationContext.getCacheDir();
+                if (cacheDir != null) {
+                    File musicCache = new File(cacheDir, "music");
+                    if (musicCache.exists() && musicCache.isDirectory()) {
+                        File[] files = musicCache.listFiles();
+                        if (files != null) {
+                            for (File f : files) f.delete();
+                        }
+                    }
                 }
-            }
+            } catch (Throwable ignored) {}
+            BulletinFactory.of(SoundGramStyleSettingsFragment.this)
+                    .createSimpleBulletin(R.raw.ic_save_to_music, "Кэш музыки очищен")
+                    .show();
         });
-        masterCol.addView(masterSeek, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        masterCard.addView(masterCol);
-        root.addView(masterCard, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+        cacheRow.addView(cacheBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        cacheCard.addView(cacheRow);
+        content.addView(cacheCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        CollapsibleSectionHeaderView detailsHeader = new CollapsibleSectionHeaderView(ctx, "настроить каждый элемент отдельно", true);
-        detailsHeader.setOnToggleListener(collapsed -> {
-            if (settingsAdapter != null) {
-                settingsAdapter.isDetailsExpanded = !collapsed;
-                settingsAdapter.notifyDataSetChanged();
-            }
-        });
-        root.addView(detailsHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
-
-        return new HeaderHolder(root, tracksHolder[0], timeHolder[0]);
+        scrollView.addView(content);
+        fragmentView = scrollView;
+        return fragmentView;
     }
 
-    private TextView makeLabel(Context ctx, String text) {
-        TextView tv = new TextView(ctx);
-        tv.setText(text);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
-        tv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        tv.setLetterSpacing(0.08f);
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (tracksCountView != null && listenTimeView != null) {
+            SharedPreferences sp = SoundGramStatsManager.getStatsPrefs(currentAccount);
+            int tt = sp.getInt("total_tracks", 0);
+            long ts = sp.getLong("total_seconds", 0L);
+            long h = ts / 3600, m = (ts % 3600) / 60;
+            tracksCountView.setText(String.valueOf(tt));
+            listenTimeView.setText(h + " ч " + m + " мин");
+        }
+    }
+
+    private void notifyStyleChanged() {
+        SoundGramStyleManager.dispatchStyleChanged();
+        for (int i = 0; i < 4; i++) {
+            NotificationCenter.getInstance(i).postNotificationName(NOTIFICATION_STYLE_CHANGED);
+        }
+    }
+
+    private TextView createSectionHeader(Context context, String title) {
+        TextView tv = new TextView(context);
+        tv.setText(title);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        tv.setTypeface(AndroidUtilities.bold());
+        tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader));
+        tv.setPadding(AndroidUtilities.dp(6), 0, 0, AndroidUtilities.dp(8));
         return tv;
     }
 
-    /**
-     * SoundGram: карточка с тумблером «Сделать библиотеку публичной».
-     * При включении сохраняет флаг через ChannelStorageManager.
-     */
-
-
-    private View makeStatPill(Context ctx, String emoji, String value, String label, int accent, TextView[] outValView) {
-        LinearLayout p = new LinearLayout(ctx);
-        p.setOrientation(LinearLayout.VERTICAL);
-        p.setGravity(Gravity.CENTER);
-        p.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(14),
-                AndroidUtilities.dp(8), AndroidUtilities.dp(14));
+    private FrameLayout createMd3Card(Context context) {
+        FrameLayout card = new FrameLayout(context);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 18));
-        bg.setCornerRadius(AndroidUtilities.dp(16));
-        bg.setStroke(AndroidUtilities.dp(1),
-                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 60));
-        p.setBackground(bg);
-        for (String[] td : new String[][]{{emoji, "26", ""}, {value, "20", "bold"}, {label, "11", ""}}) {
-            TextView tv = new TextView(ctx);
-            tv.setText(td[0]);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, Float.parseFloat(td[1]));
-            tv.setGravity(Gravity.CENTER);
-            if (!td[2].isEmpty()) {
-                tv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-                tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-                if (outValView != null) {
-                    outValView[0] = tv;
-                }
-            } else {
-                tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            }
-            p.addView(tv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+        bg.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        bg.setCornerRadius(AndroidUtilities.dp(20));
+        card.setBackground(bg);
+        if (Build.VERSION.SDK_INT >= 21) {
+            card.setElevation(AndroidUtilities.dp(2));
         }
-        return p;
+        return card;
+    }
+
+    private TextView createMd3Button(Context context, String text, int color, Runnable onClick) {
+        TextView btn = new TextView(context);
+        btn.setText(text);
+        btn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13.5f);
+        btn.setTypeface(AndroidUtilities.bold());
+        btn.setTextColor(Color.WHITE);
+        btn.setGravity(Gravity.CENTER);
+        btn.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(8), AndroidUtilities.dp(16), AndroidUtilities.dp(8));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(color);
+        bg.setCornerRadius(AndroidUtilities.dp(16));
+        btn.setBackground(bg);
+        btn.setOnClickListener(v -> {
+            if (onClick != null) onClick.run();
+        });
+        return btn;
+    }
+
+    private View makeMd3StatPill(Context ctx, String icon, String value, String label, int accent, TextView[] outHolder) {
+        LinearLayout pill = new LinearLayout(ctx);
+        pill.setOrientation(LinearLayout.VERTICAL);
+        pill.setGravity(Gravity.CENTER);
+        pill.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12));
+
+        GradientDrawable bg = new GradientDrawable();
+        int surfaceColor = Theme.getColor(Theme.key_windowBackgroundGray);
+        bg.setColor(surfaceColor);
+        bg.setCornerRadius(AndroidUtilities.dp(16));
+        pill.setBackground(bg);
+
+        TextView iconTv = new TextView(ctx);
+        iconTv.setText(icon);
+        iconTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
+        iconTv.setGravity(Gravity.CENTER);
+        pill.addView(iconTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 4));
+
+        TextView valTv = new TextView(ctx);
+        valTv.setText(value);
+        valTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        valTv.setTypeface(AndroidUtilities.bold());
+        valTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        valTv.setGravity(Gravity.CENTER);
+        pill.addView(valTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 2));
+
+        TextView lblTv = new TextView(ctx);
+        lblTv.setText(label);
+        lblTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+        lblTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        lblTv.setGravity(Gravity.CENTER);
+        pill.addView(lblTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        if (outHolder != null) outHolder[0] = valTv;
+        return pill;
     }
 
     private void showImportBottomSheet(Context ctx) {
@@ -851,30 +641,28 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(dialogBg);
-        bg.setCornerRadii(new float[]{AndroidUtilities.dp(20), AndroidUtilities.dp(20), AndroidUtilities.dp(20), AndroidUtilities.dp(20), 0, 0, 0, 0});
+        bg.setCornerRadii(new float[]{AndroidUtilities.dp(24), AndroidUtilities.dp(24), AndroidUtilities.dp(24), AndroidUtilities.dp(24), 0, 0, 0, 0});
         container.setBackground(bg);
 
-        // Header
         TextView titleTv = new TextView(activityCtx);
         titleTv.setText("Импорт музыки");
         titleTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
-        titleTv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        titleTv.setTypeface(AndroidUtilities.bold());
         titleTv.setTextColor(textColor);
         container.addView(titleTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
 
         TextView hintTv = new TextView(activityCtx);
-        hintTv.setText("Вставьте ссылку на плейлист, библиотеку, альбом или трек (YouTube, YouTube Music, VK, Яндекс Музыка, Spotify, Telegram-канал) или список треков текстом (Исполнитель - Трек):");
+        hintTv.setText("Вставьте ссылку на плейлист или трек (YouTube, Spotify, VK, Яндекс Музыка) или список треков текстом (Исполнитель - Трек):");
         hintTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         hintTv.setTextColor(grayColor);
         hintTv.setLineSpacing(AndroidUtilities.dp(2), 1.0f);
         container.addView(hintTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
 
-        // Input view
         LinearLayout inputLayout = new LinearLayout(activityCtx);
         inputLayout.setOrientation(LinearLayout.VERTICAL);
 
         EditText inputEt = new EditText(activityCtx);
-        inputEt.setHint("https://music.youtube.com/playlist?list=...\nhttps://open.spotify.com/playlist/...\nhttps://vk.com/audios12345678\nhttps://t.me/music_channel\nили:\nMiyagi - Minor\nImagine Dragons - Believer");
+        inputEt.setHint("https://music.youtube.com/playlist?list=...\nhttps://open.spotify.com/playlist/...\nили:\nLinkin Park - Numb\nQueen - Bohemian Rhapsody");
         inputEt.setHintTextColor(Theme.getColor(Theme.key_chat_messagePanelHint));
         inputEt.setTextColor(textColor);
         inputEt.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -885,12 +673,11 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
 
         GradientDrawable etBg = new GradientDrawable();
         etBg.setColor(Theme.getColor(Theme.key_windowBackgroundGray));
-        etBg.setCornerRadius(AndroidUtilities.dp(12));
-        etBg.setStroke(AndroidUtilities.dp(1), androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 40));
+        etBg.setCornerRadius(AndroidUtilities.dp(16));
+        etBg.setStroke(AndroidUtilities.dp(1), ColorUtils.setAlphaComponent(accent, 40));
         inputEt.setBackground(etBg);
         inputLayout.addView(inputEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 10));
 
-        // Quick buttons row (Paste clipboard, clear)
         LinearLayout actionsRow = new LinearLayout(activityCtx);
         actionsRow.setOrientation(LinearLayout.HORIZONTAL);
         actionsRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -924,43 +711,14 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         clearBtn.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(6), AndroidUtilities.dp(8), AndroidUtilities.dp(6));
         clearBtn.setOnClickListener(v -> inputEt.setText(""));
         actionsRow.addView(clearBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
         inputLayout.addView(actionsRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 16));
 
-        // Progress layout (hidden initially)
-        LinearLayout progressLayout = new LinearLayout(activityCtx);
-        progressLayout.setOrientation(LinearLayout.VERTICAL);
-        progressLayout.setVisibility(View.GONE);
-
-        TextView statusTv = new TextView(activityCtx);
-        statusTv.setText("Подготовка...");
-        statusTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        statusTv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        statusTv.setTextColor(textColor);
-        progressLayout.addView(statusTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
-
-        android.widget.ProgressBar progressBar = new android.widget.ProgressBar(activityCtx, null, android.R.attr.progressBarStyleHorizontal);
-        progressBar.setMax(100);
-        progressBar.setProgress(0);
-        progressBar.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));
-        progressLayout.addView(progressBar, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
-
-        TextView trackDetailTv = new TextView(activityCtx);
-        trackDetailTv.setText("");
-        trackDetailTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-        trackDetailTv.setTextColor(grayColor);
-        trackDetailTv.setSingleLine(true);
-        trackDetailTv.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        progressLayout.addView(trackDetailTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
-
         container.addView(inputLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        container.addView(progressLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        // Main action button (Импортировать / Готово)
         TextView actionBtn = new TextView(activityCtx);
         actionBtn.setText("Импортировать");
         actionBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        actionBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        actionBtn.setTypeface(AndroidUtilities.bold());
         actionBtn.setTextColor(Color.WHITE);
         actionBtn.setGravity(Gravity.CENTER);
         actionBtn.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
@@ -969,7 +727,6 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         actionBg.setColor(accent);
         actionBg.setCornerRadius(AndroidUtilities.dp(16));
         actionBtn.setBackground(actionBg);
-
         container.addView(actionBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         builder.setCustomView(container);
@@ -998,616 +755,5 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         showDialog(sheet);
         inputEt.requestFocus();
         inputEt.postDelayed(() -> AndroidUtilities.showKeyboard(inputEt), 200);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // GlassSettingCell
-    //
-    //  ┌─────────────────────────────────────────────────────────────┐
-    //  │ [ColorPill]  Заголовок                       [Switch=обводка]│
-    //  │              подзаголовок                                    │
-    //  │ Прозрачность  ←════════════●════════════→                   │
-    //  │               ЛЕВО=непрозр  ПРАВО=прозр                     │
-    //  └─────────────────────────────────────────────────────────────┘
-    // ══════════════════════════════════════════════════════════════════════════
-    private class GlassSettingCell extends LinearLayout {
-        private String  keySwitch, keyAlpha, keyBgColor, keyStrokeColor;
-        private int     currentAlpha;
-        private boolean strokeEnabled;
-
-        private LinearLayout previewBox;
-        private TextView     titleTv, subtitleTv;
-        private Switch       strokeToggle;
-        private SeekBar      alphaSeek;
-
-        // Пилюля с цветами
-        private View   bgColorSwatch;
-        private View   strokeColorSwatch;
-
-        GlassSettingCell(Context ctx) {
-            super(ctx);
-            setOrientation(LinearLayout.VERTICAL);
-            setLayoutParams(new RecyclerView.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            build(ctx);
-        }
-
-        private void build(Context ctx) {
-            int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
-
-            // Outer padding
-            setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(6),
-                    AndroidUtilities.dp(16), AndroidUtilities.dp(6));
-
-            // ── Карточка-превью ─────────────────────────────────────────────
-            previewBox = new LinearLayout(ctx);
-            previewBox.setOrientation(LinearLayout.VERTICAL);
-            if (Build.VERSION.SDK_INT >= 21) previewBox.setElevation(AndroidUtilities.dp(2));
-
-            // ── TopRow: цвет-пилюля | текст | switch ───────────────────────
-            LinearLayout topRow = new LinearLayout(ctx);
-            topRow.setOrientation(LinearLayout.HORIZONTAL);
-            topRow.setGravity(Gravity.CENTER_VERTICAL);
-            topRow.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(14),
-                    AndroidUtilities.dp(14), AndroidUtilities.dp(14));
-
-            // Пилюля с двумя цветами (левая = фон, правая = обводка)
-            FrameLayout colorPill = buildColorPill(ctx);
-            topRow.addView(colorPill, LayoutHelper.createLinear(
-                    50, 28, Gravity.CENTER_VERTICAL, 0, 0, 14, 0));
-
-            // Текст
-            LinearLayout textCol = new LinearLayout(ctx);
-            textCol.setOrientation(LinearLayout.VERTICAL);
-            titleTv = new TextView(ctx);
-            titleTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-            titleTv.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            titleTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-            textCol.addView(titleTv, LayoutHelper.createLinear(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-            subtitleTv = new TextView(ctx);
-            subtitleTv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-            subtitleTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            textCol.addView(subtitleTv, LayoutHelper.createLinear(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-            topRow.addView(textCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-
-            // Switch = управляет только обводкой
-            strokeToggle = new Switch(ctx);
-            strokeToggle.setThumbTintList(
-                    android.content.res.ColorStateList.valueOf(accent));
-            strokeToggle.setTrackTintList(new android.content.res.ColorStateList(
-                    new int[][]{{-android.R.attr.state_checked}, {android.R.attr.state_checked}},
-                    new int[]{
-                            androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 70),
-                            androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 180)}));
-            topRow.addView(strokeToggle, LayoutHelper.createLinear(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
-            previewBox.addView(topRow, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-            // ── Slider row ─────────────────────────────────────────────────
-            LinearLayout sliderRow = new LinearLayout(ctx);
-            sliderRow.setOrientation(LinearLayout.HORIZONTAL);
-            sliderRow.setGravity(Gravity.CENTER_VERTICAL);
-            sliderRow.setPadding(AndroidUtilities.dp(14), 0,
-                    AndroidUtilities.dp(14), AndroidUtilities.dp(14));
-
-            // Левая метка = "Непрозрачно"
-            TextView leftLbl = new TextView(ctx);
-            leftLbl.setText(getString(R.string.sg_opacity_opaque));
-            leftLbl.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
-            leftLbl.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            sliderRow.addView(leftLbl, LayoutHelper.createLinear(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
-
-            alphaSeek = new SeekBar(ctx);
-            alphaSeek.setMax(255);
-            // Инвертируем: максимум seekbar = непрозрачно (alpha=255), минимум = прозрачно (alpha=0)
-            alphaSeek.setProgressTintList(
-                    android.content.res.ColorStateList.valueOf(accent));
-            alphaSeek.setThumbTintList(
-                    android.content.res.ColorStateList.valueOf(accent));
-            sliderRow.addView(alphaSeek, LayoutHelper.createLinear(
-                    0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 6, 0));
-
-            // Правая метка = "Прозрачно"
-            TextView rightLbl = new TextView(ctx);
-            rightLbl.setText(getString(R.string.sg_opacity_transparent));
-            rightLbl.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
-            rightLbl.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            sliderRow.addView(rightLbl, LayoutHelper.createLinear(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
-            previewBox.addView(sliderRow, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-            addView(previewBox, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-            // ── Листенеры ──────────────────────────────────────────────────
-            strokeToggle.setOnCheckedChangeListener((btn, checked) -> {
-                strokeEnabled = checked;
-                prefs().edit().putBoolean(keySwitch, checked).apply();
-                refreshPreviewBg();
-                notifyStyleChanged();
-            });
-
-            // Слайдер: ЛЕВО = непрозрачно (255), ПРАВО = прозрачно (0)
-            alphaSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                @Override public void onStartTrackingTouch(SeekBar s) {}
-                @Override public void onStopTrackingTouch(SeekBar s) { notifyStyleChanged(); }
-                @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
-                    if (!fromUser) return;
-                    currentAlpha = progress;
-                    prefs().edit().putInt(keyAlpha, progress).apply();
-                    refreshPreviewBg();
-                }
-            });
-        }
-
-        // Пилюля: левая половина = bgColor, правая = strokeColor
-        private FrameLayout buildColorPill(Context ctx) {
-            FrameLayout pill = new FrameLayout(ctx);
-            GradientDrawable pillBg = new GradientDrawable();
-            pillBg.setCornerRadius(AndroidUtilities.dp(14));
-            pillBg.setStroke(AndroidUtilities.dp(1),
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFFFFFFFF, 80));
-            pill.setBackground(pillBg);
-            pill.setClipToOutline(true);
-
-            // Левая половина (цвет фона)
-            bgColorSwatch = new View(ctx);
-            pill.addView(bgColorSwatch, new FrameLayout.LayoutParams(
-                    LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT) {{
-                width = AndroidUtilities.dp(25);
-            }});
-
-            // Правая половина (цвет обводки)
-            strokeColorSwatch = new View(ctx);
-            pill.addView(strokeColorSwatch, new FrameLayout.LayoutParams(
-                    AndroidUtilities.dp(25), LayoutHelper.MATCH_PARENT, Gravity.RIGHT));
-
-            // Разделитель между половинками
-            View divider = new View(ctx);
-            divider.setBackgroundColor(0x40FFFFFF);
-            pill.addView(divider, new FrameLayout.LayoutParams(
-                    AndroidUtilities.dp(1), LayoutHelper.MATCH_PARENT, Gravity.CENTER_HORIZONTAL));
-
-            pill.setOnClickListener(v -> showColorTargetMenu(v));
-            return pill;
-        }
-
-        public void bind(String title, String subtitle,
-                         String kSwitch, String kAlpha,
-                         String kBgColor, String kStrokeColor) {
-            keySwitch      = kSwitch;
-            keyAlpha       = kAlpha;
-            keyBgColor     = kBgColor;
-            keyStrokeColor = kStrokeColor;
-
-            strokeEnabled  = isStrokeEnabled(kSwitch);
-            currentAlpha   = SoundGramStyleSettingsFragment.getAlpha(kAlpha);
-
-            titleTv.setText(title);
-            subtitleTv.setText(subtitle);
-
-            strokeToggle.setOnCheckedChangeListener(null);
-            strokeToggle.setChecked(strokeEnabled);
-            strokeToggle.setOnCheckedChangeListener((btn, checked) -> {
-                strokeEnabled = checked;
-                prefs().edit().putBoolean(keySwitch, checked).apply();
-                refreshPreviewBg();
-                notifyStyleChanged();
-            });
-
-            // Слайдер: позиция = alpha (255 = слева = непрозрачно)
-            alphaSeek.setProgress(currentAlpha);
-
-            refreshSwatches();
-            refreshPreviewBg();
-        }
-
-        /** Обновляет цветовые кружки пилюли */
-        private void refreshSwatches() {
-            bgColorSwatch.setBackgroundColor(resolvedBgColor(keyBgColor));
-            strokeColorSwatch.setBackgroundColor(resolvedStrokeColor(keyStrokeColor));
-        }
-
-        /** Перерисовывает фон карточки-превью по текущим настройкам */
-        private void refreshPreviewBg() {
-            int bgCol  = resolvedBgColor(keyBgColor);
-            int strCol = resolvedStrokeColor(keyStrokeColor);
-            int radius = AndroidUtilities.dp(18);
-
-            GradientDrawable gd = new GradientDrawable();
-            gd.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(bgCol, currentAlpha));
-            gd.setCornerRadius(radius);
-            if (strokeEnabled) {
-                gd.setStroke(AndroidUtilities.dp(1),
-                        androidx.core.graphics.ColorUtils.setAlphaComponent(strCol, 180));
-            }
-            previewBox.setBackground(gd);
-        }
-
-        // ── Дропдаун: "Для стекла / Для обводки" ──────────────────────────
-        private void showColorTargetMenu(View anchor) {
-            if (getContext() == null) return;
-            BottomSheet.Builder builder = new BottomSheet.Builder(getContext());
-            LinearLayout container = new LinearLayout(getContext());
-            container.setOrientation(LinearLayout.VERTICAL);
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Theme.getColor(Theme.key_dialogBackground));
-            float r = AndroidUtilities.dp(24);
-            bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
-            container.setBackground(bg);
-            container.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(24));
-
-            // Handle
-            View handle = new View(getContext());
-            GradientDrawable hBg = new GradientDrawable();
-            hBg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
-                    Theme.getColor(Theme.key_windowBackgroundWhiteGrayText), 80));
-            hBg.setCornerRadius(AndroidUtilities.dp(2));
-            handle.setBackground(hBg);
-            FrameLayout hw = new FrameLayout(getContext());
-            hw.addView(handle, new FrameLayout.LayoutParams(
-                    AndroidUtilities.dp(40), AndroidUtilities.dp(4), Gravity.CENTER));
-            container.addView(hw, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 24, 0, 0, 0, 12));
-
-            // Заголовок
-            TextView tit = new TextView(getContext());
-            tit.setText(String.format(getString(R.string.sg_color_pick_title), titleTv.getText()));
-            tit.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
-            tit.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            tit.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-            tit.setGravity(Gravity.CENTER);
-            container.addView(tit, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 20));
-
-            // Опция: Для стекла
-            container.addView(makeMenuRow(getContext(), getString(R.string.sg_color_for_glass), keyBgColor, true, builder));
-            // Опция: Для обводки
-            container.addView(makeMenuRow(getContext(), getString(R.string.sg_color_for_stroke), keyStrokeColor, false, builder));
-
-            builder.setCustomView(container);
-            // Показываем через BaseFragment (у нас есть доступ к showDialog через внешний фрагмент)
-            SoundGramStyleSettingsFragment.this.showDialog(builder.create());
-        }
-
-        private View makeMenuRow(Context ctx, String label, String colorKey,
-                                 boolean isBg, BottomSheet.Builder parentBuilder) {
-            LinearLayout row = new LinearLayout(ctx);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(14),
-                    AndroidUtilities.dp(20), AndroidUtilities.dp(14));
-            row.setBackground(Theme.createSelectorDrawable(
-                    Theme.getColor(Theme.key_listSelector), 0));
-
-            // Цветовой кружок
-            View swatch = new View(ctx);
-            int savedColor = isBg ? resolvedBgColor(colorKey) : resolvedStrokeColor(colorKey);
-            GradientDrawable swatchBg = new GradientDrawable();
-            swatchBg.setColor(savedColor);
-            swatchBg.setShape(GradientDrawable.OVAL);
-            swatchBg.setStroke(AndroidUtilities.dp(1),
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(0xFF000000, 30));
-            swatch.setBackground(swatchBg);
-            row.addView(swatch, LayoutHelper.createLinear(
-                    22, 22, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
-
-            TextView tv = new TextView(ctx);
-            tv.setText(label);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-            tv.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-            row.addView(tv, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-
-            TextView chevron = new TextView(ctx);
-            chevron.setText("›");
-            chevron.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
-            chevron.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            row.addView(chevron, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-
-            row.setOnClickListener(v -> {
-                parentBuilder.getDismissRunnable().run();
-                showColorPicker(ctx, label, colorKey, isBg);
-            });
-            return row;
-        }
-
-        // ── Полноэкранный ColorPicker (как на скрине) ─────────────────────
-        private void showColorPicker(Context ctx, String forLabel, String colorKey, boolean isBg) {
-            BottomSheet.Builder builder = new BottomSheet.Builder(
-                    SoundGramStyleSettingsFragment.this.getParentActivity());
-
-            LinearLayout root = new LinearLayout(ctx);
-            root.setOrientation(LinearLayout.VERTICAL);
-            GradientDrawable rootBg = new GradientDrawable();
-            rootBg.setColor(Theme.getColor(Theme.key_dialogBackground));
-            float r = AndroidUtilities.dp(24);
-            rootBg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
-            root.setBackground(rootBg);
-            root.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(8),
-                    AndroidUtilities.dp(20), AndroidUtilities.dp(24));
-
-            // Handle
-            View handle = new View(ctx);
-            GradientDrawable hbg = new GradientDrawable();
-            hbg.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(
-                    Theme.getColor(Theme.key_windowBackgroundWhiteGrayText), 80));
-            hbg.setCornerRadius(AndroidUtilities.dp(2));
-            handle.setBackground(hbg);
-            FrameLayout hw = new FrameLayout(ctx);
-            hw.addView(handle, new FrameLayout.LayoutParams(
-                    AndroidUtilities.dp(40), AndroidUtilities.dp(4), Gravity.CENTER));
-            root.addView(hw, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 24, 0, 0, 0, 16));
-
-            // Шапка: [заголовок]  [Сброс]
-            FrameLayout headerRow = new FrameLayout(ctx);
-            TextView pickerTitle = new TextView(ctx);
-            pickerTitle.setText(forLabel);
-            pickerTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
-            pickerTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            pickerTitle.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-            headerRow.addView(pickerTitle, LayoutHelper.createFrame(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
-                    Gravity.CENTER_VERTICAL | Gravity.LEFT));
-
-            TextView resetBtn = new TextView(ctx);
-            resetBtn.setText(getString(R.string.sg_color_reset));
-            resetBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-            resetBtn.setTextColor(Theme.getColor(Theme.key_featuredStickers_addButton));
-            headerRow.addView(resetBtn, LayoutHelper.createFrame(
-                    LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,
-                    Gravity.CENTER_VERTICAL | Gravity.RIGHT));
-            root.addView(headerRow, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, 40, 0, 0, 0, 16));
-
-            // Начальный цвет
-            int initialColor = isBg ? resolvedBgColor(colorKey) : resolvedStrokeColor(colorKey);
-            final int[] pickedColor = {initialColor};
-
-            // ── Основной квадрат HSV (Saturation + Value) ─────────────────
-            ColorSVPickerView svPicker = new ColorSVPickerView(ctx, initialColor);
-            root.addView(svPicker, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, 240, 0, 0, 0, 16));
-
-            // ── Полоска оттенка (Hue bar) ──────────────────────────────────
-            HueBarView hueBar = new HueBarView(ctx, initialColor);
-            root.addView(hueBar, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, 28, 0, 0, 0, 16));
-
-            // Связываем: Hue bar → SV picker перерисовывается
-            hueBar.setHueListener(hue -> {
-                svPicker.setHue(hue);
-                pickedColor[0] = svPicker.getColor();
-            });
-            svPicker.setColorListener(() -> {
-                pickedColor[0] = svPicker.getColor();
-            });
-
-            // ── Hex поле ───────────────────────────────────────────────────
-            LinearLayout hexRow = new LinearLayout(ctx);
-            hexRow.setOrientation(LinearLayout.HORIZONTAL);
-            hexRow.setGravity(Gravity.CENTER_VERTICAL);
-
-            // Превью итогового цвета
-            View previewSwatch = new View(ctx);
-            GradientDrawable prevBg = new GradientDrawable();
-            prevBg.setShape(GradientDrawable.OVAL);
-            prevBg.setColor(initialColor);
-            previewSwatch.setBackground(prevBg);
-            hexRow.addView(previewSwatch, LayoutHelper.createLinear(
-                    32, 32, Gravity.CENTER_VERTICAL, 0, 0, 12, 0));
-
-            EditText hexEdit = new EditText(ctx);
-            hexEdit.setText(String.format("%06X", 0xFFFFFF & initialColor));
-            hexEdit.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-            hexEdit.setHintTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            hexEdit.setHint("rrggbb");
-            hexEdit.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-            hexEdit.setTypeface(AndroidUtilities.getTypeface("fonts/rmonospace.ttf"));
-            hexEdit.setFilters(new InputFilter[]{new InputFilter.LengthFilter(6)});
-            GradientDrawable editBg = new GradientDrawable();
-            editBg.setColor(Theme.getColor(Theme.key_windowBackgroundGray));
-            editBg.setCornerRadius(AndroidUtilities.dp(8));
-            hexEdit.setBackground(editBg);
-            hexEdit.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(6),
-                    AndroidUtilities.dp(10), AndroidUtilities.dp(6));
-            hexRow.addView(hexEdit, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-            root.addView(hexRow, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
-
-            // Синхронизация hex ↔ pickers
-            svPicker.setColorListener(() -> {
-                int color = svPicker.getColor();
-                pickedColor[0] = color;
-                prevBg.setColor(color);
-                String hex = String.format("%06X", 0xFFFFFF & color);
-                if (!hexEdit.getText().toString().equalsIgnoreCase(hex))
-                    hexEdit.setText(hex);
-            });
-            hexEdit.addTextChangedListener(new TextWatcher() {
-                @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
-                @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
-                @Override public void afterTextChanged(Editable e) {
-                    if (e.length() == 6) {
-                        try {
-                            int color = Color.parseColor("#" + e.toString());
-                            pickedColor[0] = color;
-                            prevBg.setColor(color);
-                            svPicker.setColor(color);
-                            hueBar.setColor(color);
-                        } catch (Exception ignored) {}
-                    }
-                }
-            });
-
-            // Сброс
-            resetBtn.setOnClickListener(v -> {
-                prefs().edit().putInt(colorKey, -1).apply();
-                int def = isBg
-                        ? Theme.getColor(Theme.key_dialogBackground)
-                        : Theme.getColor(Theme.key_featuredStickers_addButton);
-                pickedColor[0] = def;
-                svPicker.setColor(def);
-                hueBar.setColor(def);
-                prevBg.setColor(def);
-                hexEdit.setText(String.format("%06X", 0xFFFFFF & def));
-                refreshSwatches();
-                refreshPreviewBg();
-                notifyStyleChanged();
-                builder.getDismissRunnable().run();
-            });
-
-            // ── Кнопка «Готово» ────────────────────────────────────────────
-            TextView doneBtn = new TextView(ctx);
-            doneBtn.setText(getString(R.string.sg_color_done));
-            doneBtn.setGravity(Gravity.CENTER);
-            doneBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-            doneBtn.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            doneBtn.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
-            int accent = Theme.getColor(Theme.key_featuredStickers_addButton);
-            GradientDrawable doneBg = new GradientDrawable();
-            doneBg.setColor(accent);
-            doneBg.setCornerRadius(AndroidUtilities.dp(14));
-            doneBtn.setBackground(doneBg);
-            doneBtn.setOnClickListener(v -> {
-                // Применяем только при нажатии Готово
-                prefs().edit().putInt(colorKey, pickedColor[0]).apply();
-                refreshSwatches();
-                refreshPreviewBg();
-                notifyStyleChanged();
-                builder.getDismissRunnable().run();
-            });
-            root.addView(doneBtn, LayoutHelper.createLinear(
-                    LayoutHelper.MATCH_PARENT, 52));
-
-            builder.setCustomView(root);
-            SoundGramStyleSettingsFragment.this.showDialog(builder.create());
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // ColorSVPickerView — квадрат Saturation × Value (как на скрине)
-    // ══════════════════════════════════════════════════════════════════════════
-    public static class ColorSVPickerView extends View {
-        private float hue = 0f, sat = 1f, val = 1f;
-        private final Paint huePaint    = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint satPaint    = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint thumbPaint  = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint thumbBorder = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private Runnable colorListener;
-
-        ColorSVPickerView(Context ctx, int initialColor) {
-            super(ctx);
-            setFromColor(initialColor);
-            thumbPaint.setStyle(Paint.Style.FILL);
-            thumbBorder.setStyle(Paint.Style.STROKE);
-            thumbBorder.setStrokeWidth(AndroidUtilities.dp(2));
-            thumbBorder.setColor(0xFFFFFFFF);
-        }
-
-        void setHue(float h) { hue = h; invalidate(); }
-        void setColor(int c) { setFromColor(c); invalidate(); }
-        void setColorListener(Runnable r) { colorListener = r; }
-        int  getColor() { return Color.HSVToColor(new float[]{hue, sat, val}); }
-
-        private void setFromColor(int c) {
-            float[] hsv = new float[3];
-            Color.colorToHSV(c, hsv);
-            hue = hsv[0]; sat = hsv[1]; val = hsv[2];
-        }
-
-        @Override protected void onDraw(Canvas canvas) {
-            int w = getWidth(), h = getHeight();
-            if (w == 0 || h == 0) return;
-            // Основной цвет (hue)
-            huePaint.setShader(new LinearGradient(0, 0, w, 0,
-                    Color.WHITE, Color.HSVToColor(new float[]{hue, 1f, 1f}),
-                    Shader.TileMode.CLAMP));
-            // Затемнение сверху вниз
-            Shader darkShader = new LinearGradient(0, 0, 0, h,
-                    Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP);
-            satPaint.setShader(darkShader);
-
-            RectF rect = new RectF(0, 0, w, h);
-            float cornerR = AndroidUtilities.dp(12);
-            canvas.save();
-            canvas.clipRect(rect);
-            canvas.drawRoundRect(rect, cornerR, cornerR, huePaint);
-            canvas.drawRoundRect(rect, cornerR, cornerR, satPaint);
-            canvas.restore();
-
-            // Thumb
-            float tx = sat * w;
-            float ty = (1f - val) * h;
-            thumbPaint.setColor(getColor());
-            canvas.drawCircle(tx, ty, AndroidUtilities.dp(9), thumbBorder);
-            canvas.drawCircle(tx, ty, AndroidUtilities.dp(7), thumbPaint);
-        }
-
-        @Override public boolean onTouchEvent(MotionEvent e) {
-            int w = getWidth(), h = getHeight();
-            sat = Math.max(0, Math.min(1, e.getX() / w));
-            val = Math.max(0, Math.min(1, 1f - e.getY() / h));
-            invalidate();
-            if (colorListener != null) colorListener.run();
-            return true;
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // HueBarView — горизонтальная полоса оттенка
-    // ══════════════════════════════════════════════════════════════════════════
-    public static class HueBarView extends View {
-        private float hue = 0f;
-        private final Paint barPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint thumbPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint thumbBorder = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private java.util.function.Consumer<Float> hueListener;
-
-        HueBarView(Context ctx, int initialColor) {
-            super(ctx);
-            float[] hsv = new float[3];
-            Color.colorToHSV(initialColor, hsv);
-            hue = hsv[0];
-            thumbPaint.setStyle(Paint.Style.FILL);
-            thumbBorder.setStyle(Paint.Style.STROKE);
-            thumbBorder.setStrokeWidth(AndroidUtilities.dp(2));
-            thumbBorder.setColor(0xFFFFFFFF);
-        }
-
-        void setHueListener(java.util.function.Consumer<Float> l) { hueListener = l; }
-        void setColor(int c) {
-            float[] hsv = new float[3]; Color.colorToHSV(c, hsv); hue = hsv[0]; invalidate();
-        }
-
-        @Override protected void onDraw(Canvas canvas) {
-            int w = getWidth(), h = getHeight();
-            float r = h / 2f;
-            // Радужный градиент
-            int[] cols = new int[]{
-                    0xFFFF0000, 0xFFFFFF00, 0xFF00FF00,
-                    0xFF00FFFF, 0xFF0000FF, 0xFFFF00FF, 0xFFFF0000
-            };
-            barPaint.setShader(new LinearGradient(0, 0, w, 0, cols, null, Shader.TileMode.CLAMP));
-            RectF bar = new RectF(0, 0, w, h);
-            canvas.drawRoundRect(bar, r, r, barPaint);
-
-            // Thumb
-            float tx = hue / 360f * w;
-            thumbPaint.setColor(Color.HSVToColor(new float[]{hue, 1f, 1f}));
-            canvas.drawCircle(tx, h / 2f, r, thumbBorder);
-            canvas.drawCircle(tx, h / 2f, r - AndroidUtilities.dp(2), thumbPaint);
-        }
-
-        @Override public boolean onTouchEvent(MotionEvent e) {
-            hue = Math.max(0, Math.min(360, e.getX() / getWidth() * 360f));
-            invalidate();
-            if (hueListener != null) hueListener.accept(hue);
-            return true;
-        }
     }
 }

@@ -14679,7 +14679,10 @@ public class MessagesStorage extends BaseController {
                         if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
                             final long dialogIdFinal = dialogId;
                             final ArrayList<Integer> midsFinal = new ArrayList<>(mids);
-                            AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, midsFinal));
+                            AndroidUtilities.runOnUIThread(() -> {
+                                getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, midsFinal);
+                                getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, midsFinal, 0L, false);
+                            });
                         } else {
                             AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, mids, 0L, false));
                             updateDialogsWithReadMessagesInternal(mids, null, null, null, null);

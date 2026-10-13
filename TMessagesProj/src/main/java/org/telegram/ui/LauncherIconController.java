@@ -83,6 +83,28 @@ public class LauncherIconController {
     public static int getActiveIconRes() {
         LauncherIcon icon = getActiveIcon();
         switch (icon) {
+            case COSMOS:
+                return R.mipmap.icon_cosmos_launcher;
+            case ANIME:
+                return R.mipmap.icon_anime_launcher;
+            case NEON:
+                return R.mipmap.icon_neon_launcher;
+            case SUNSET:
+                return R.mipmap.icon_sunset_launcher;
+            case EMERALD:
+                return R.mipmap.icon_emerald_launcher;
+            case MIDNIGHT:
+                return R.mipmap.icon_midnight_launcher;
+            case GOLD:
+                return R.mipmap.icon_gold_launcher;
+            case CRIMSON:
+                return R.mipmap.icon_crimson_launcher;
+            case LAVENDER:
+                return R.mipmap.icon_lavender_launcher;
+            case MATRIX:
+                return R.mipmap.icon_matrix_launcher;
+            case SOLAR:
+                return R.mipmap.icon_solar_launcher;
             case TELEGRAM:
                 return R.mipmap.ic_launcher_dr;
             case VINTAGE:
@@ -178,6 +200,28 @@ public class LauncherIconController {
             return R.style.Theme_TMessages_Start_BlueIcon;
         }
         switch (icon) {
+            case COSMOS:
+                return R.style.Theme_TMessages_Start_CosmosIcon;
+            case ANIME:
+                return R.style.Theme_TMessages_Start_AnimeIcon;
+            case NEON:
+                return R.style.Theme_TMessages_Start_NeonIcon;
+            case SUNSET:
+                return R.style.Theme_TMessages_Start_SunsetIcon;
+            case EMERALD:
+                return R.style.Theme_TMessages_Start_EmeraldIcon;
+            case MIDNIGHT:
+                return R.style.Theme_TMessages_Start_MidnightIcon;
+            case GOLD:
+                return R.style.Theme_TMessages_Start_GoldIcon;
+            case CRIMSON:
+                return R.style.Theme_TMessages_Start_CrimsonIcon;
+            case LAVENDER:
+                return R.style.Theme_TMessages_Start_LavenderIcon;
+            case MATRIX:
+                return R.style.Theme_TMessages_Start_MatrixIcon;
+            case SOLAR:
+                return R.style.Theme_TMessages_Start_SolarIcon;
             case TELEGRAM:
                 return R.style.Theme_TMessages_Start_TelegramIcon;
             case VINTAGE:
@@ -259,6 +303,17 @@ public class LauncherIconController {
     public enum LauncherIcon {
         DEFAULT("BlueIcon", R.mipmap.ic_launcher_background, R.mipmap.ic_launcher_foreground, R.string.AppIconDefault),
         TELEGRAM("TelegramIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconTelegramOriginal),
+        COSMOS("CosmosIcon", R.drawable.icon_cosmos_background_sa, R.drawable.icon_cosmos_foreground_sa, R.string.AppIconCosmos),
+        ANIME("AnimeIcon", R.drawable.icon_anime_background_sa, R.drawable.icon_anime_foreground_sa, R.string.AppIconAnime),
+        NEON("NeonIcon", R.drawable.icon_neon_background_sa, R.drawable.icon_neon_foreground_sa, R.string.AppIconCyberNeon),
+        SUNSET("SunsetIcon", R.drawable.icon_sunset_background_sa, R.drawable.icon_sunset_foreground_sa, R.string.AppIconSunset),
+        EMERALD("EmeraldIcon", R.drawable.icon_emerald_background_sa, R.drawable.icon_emerald_foreground_sa, R.string.AppIconEmerald),
+        MIDNIGHT("MidnightIcon", R.drawable.icon_midnight_background_sa, R.drawable.icon_midnight_foreground_sa, R.string.AppIconMidnight),
+        GOLD("GoldIcon", R.drawable.icon_gold_background_sa, R.drawable.icon_gold_foreground_sa, R.string.AppIconGold),
+        CRIMSON("CrimsonIcon", R.drawable.icon_crimson_background_sa, R.drawable.icon_crimson_foreground_sa, R.string.AppIconCrimson),
+        LAVENDER("LavenderIcon", R.drawable.icon_lavender_background_sa, R.drawable.icon_lavender_foreground_sa, R.string.AppIconLavender),
+        MATRIX("MatrixIcon", R.drawable.icon_matrix_background_sa, R.drawable.icon_matrix_foreground_sa, R.string.AppIconMatrix),
+        SOLAR("SolarIcon", R.drawable.icon_solar_background_sa, R.drawable.icon_solar_foreground_sa, R.string.AppIconSolar),
         VINTAGE("VintageIcon", R.drawable.icon_6_background_sa, R.mipmap.icon_6_foreground_sa, R.string.AppIconVintage),
         AQUA("AquaIcon", R.drawable.icon_4_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconAqua),
         PREMIUM("PremiumIcon", R.drawable.icon_3_background_sa, R.mipmap.icon_3_foreground_sa, R.string.AppIconPremium),

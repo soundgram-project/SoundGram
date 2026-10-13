@@ -433,26 +433,212 @@ public class AudioPlayerAlert extends BottomSheet
             o.add(R.drawable.msg_delete, "Открепить от профиля", () -> {
                 o.dismiss();
                 if (document != null) {
-                    PublicLibraryManager.saveDocumentToProfile(currentAccount, document, false, success -> {
-                        if (success && containerView != null) {
-                            BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
-                                    .createSimpleBulletin(R.raw.saved_messages, "Удалено из профиля")
-                                    .show();
+                    boolean isPublic = PublicLibraryManager.isLibraryPublic(currentAccount);
+                    boolean shouldWarn = false;
+                    TLRPC.Document replacementDoc = null;
+                    if (isPublic) {
+                        MessagesController.SavedMusicIds musicIds = MessagesController.getInstance(currentAccount).getSavedMusicIds();
+                        java.util.HashSet<Long> remainingIds = new java.util.HashSet<>();
+                        if (musicIds != null && musicIds.ids != null) {
+                            for (Long id : musicIds.ids) {
+                                if (id != null && id != documentId) {
+                                    remainingIds.add(id);
+                                }
+                            }
                         }
-                    });
+                        if (remainingIds.isEmpty()) {
+                            shouldWarn = true;
+                        } else {
+                            long channelId = ChannelMusicFragment.getChannelIdFromFile(currentAccount);
+                            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(channelId);
+                            String channelUsername = chat != null ? ChatObject.getPublicUsername(chat) : null;
+
+                            if (savedMusicList != null && savedMusicList.list != null) {
+                                for (MessageObject m : savedMusicList.list) {
+                                    if (m != null && m.getDocument() != null && m.getDocument().id != documentId && remainingIds.contains(m.getDocument().id)) {
+                                        replacementDoc = m.getDocument();
+                                        break;
+                                    }
+                                }
+                            }
+                            if (replacementDoc == null && playlist != null) {
+                                for (MessageObject m : playlist) {
+                                    if (m != null && m.getDocument() != null && m.getDocument().id != documentId && remainingIds.contains(m.getDocument().id)) {
+                                        replacementDoc = m.getDocument();
+                                        break;
+                                    }
+                                }
+                            }
+                            if (replacementDoc == null) {
+                                ArrayList<MessageObject> myTracks = ChannelMusicFragment.getAudioMessages(currentAccount);
+                                if (myTracks != null) {
+                                    for (MessageObject m : myTracks) {
+                                        if (m != null && m.getDocument() != null && m.getDocument().id != documentId && remainingIds.contains(m.getDocument().id)) {
+                                            replacementDoc = m.getDocument();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (replacementDoc == null) {
+                                shouldWarn = true;
+                            } else {
+                                String docUser = PublicLibraryManager.extractLibraryUsername(replacementDoc);
+                                if (TextUtils.isEmpty(docUser) || (channelUsername != null && !channelUsername.equalsIgnoreCase(docUser))) {
+                                    shouldWarn = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (shouldWarn) {
+                        final TLRPC.Document nextDoc = replacementDoc;
+                        Context alertCtx = getContext() != null ? getContext() : ApplicationLoader.applicationContext;
+                        AlertDialog.Builder builder = new AlertDialog.Builder(alertCtx);
+                        builder.setTitle(LocaleController.getString(R.string.sg_public_library_title));
+                        builder.setMessage(LocaleController.getString(R.string.sg_public_library_unpin_warning));
+                        builder.setPositiveButton(LocaleController.getString(R.string.sg_public_library_keep_public), (dialog, which) -> {
+                            Bulletin.ProgressTwoLineAnimatedTitleLottieLayout layout = new Bulletin.ProgressTwoLineAnimatedTitleLottieLayout(alertCtx, resourcesProvider);
+                            layout.titleTextView.setText("Публикация библиотеки");
+                            layout.subtitleTextView.setText("Обновление трека... 0%");
+                            layout.setAnimation(R.raw.ic_save_to_music, "Box", "Arrow");
+                            layout.setProgress(0.01f);
+
+                            Bulletin progressBulletin = containerView != null ? Bulletin.make((FrameLayout) containerView, layout, 60000) : null;
+                            if (progressBulletin != null) {
+                                progressBulletin.setCanHide(false);
+                                progressBulletin.show();
+                            }
+
+                            PublicLibraryManager.saveDocumentToProfile(currentAccount, document, false, unpinned -> {
+                                PublicLibraryManager.publishLibraryWithTrack(currentAccount, alertCtx, nextDoc, new PublicLibraryManager.PublishListener() {
+                                    @Override
+                                    public void onProgress(float progress) {
+                                        AndroidUtilities.runOnUIThread(() -> {
+                                            layout.setProgress(progress);
+                                            layout.subtitleTextView.setText("Обновление трека... " + (int) (progress * 100) + "%");
+                                        });
+                                    }
+
+                                    @Override
+                                    public void onDone(boolean success) {
+                                        AndroidUtilities.runOnUIThread(() -> {
+                                            if (progressBulletin != null) {
+                                                progressBulletin.setCanHide(true);
+                                                progressBulletin.hide();
+                                            }
+                                            if (containerView != null) {
+                                                if (success) {
+                                                    BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                                            .createSimpleBulletin(R.raw.saved_messages, "Библиотека обновлена")
+                                                            .show();
+                                                } else {
+                                                    BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                                            .createErrorBulletin("Не удалось обновить публичную библиотеку")
+                                                            .show();
+                                                }
+                                            }
+                                        });
+                                    }
+                                });
+                            });
+                        });
+                        builder.setNegativeButton(LocaleController.getString(R.string.sg_public_library_ok), (dialog, which) -> {
+                            PublicLibraryManager.saveDocumentToProfile(currentAccount, document, false, success -> {
+                                PublicLibraryManager.setLibraryPublic(currentAccount, false);
+                                if (success && containerView != null) {
+                                    BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                            .createSimpleBulletin(R.raw.saved_messages, "Удалено из профиля")
+                                            .show();
+                                }
+                            });
+                        });
+                        builder.show();
+                    } else {
+                        PublicLibraryManager.saveDocumentToProfile(currentAccount, document, false, success -> {
+                            if (success && containerView != null) {
+                                BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                        .createSimpleBulletin(R.raw.saved_messages, "Удалено из профиля")
+                                        .show();
+                            }
+                        });
+                    }
                 }
             });
         } else {
             o.add(R.drawable.left_status_profile, "Добавить в профиль", () -> {
                 o.dismiss();
                 if (document != null) {
-                    PublicLibraryManager.saveDocumentToProfile(currentAccount, document, true, success -> {
-                        if (success && containerView != null) {
-                            BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
-                                    .createSimpleBulletin(R.raw.saved_messages, getString(R.string.AudioSaveToMyProfileSaved))
-                                    .show();
-                        }
-                    });
+                    if (PublicLibraryManager.isLibraryPublic(currentAccount)) {
+                        Context alertCtx = getContext() != null ? getContext() : ApplicationLoader.applicationContext;
+                        AlertDialog.Builder builder = new AlertDialog.Builder(alertCtx);
+                        builder.setTitle(LocaleController.getString(R.string.sg_public_library_title));
+                        builder.setMessage(LocaleController.getString(R.string.sg_public_library_attach_warning));
+                        builder.setPositiveButton(LocaleController.getString(R.string.sg_public_library_keep_public), (dialog, which) -> {
+                            Bulletin.ProgressTwoLineAnimatedTitleLottieLayout layout = new Bulletin.ProgressTwoLineAnimatedTitleLottieLayout(alertCtx, resourcesProvider);
+                            layout.titleTextView.setText("Публикация библиотеки");
+                            layout.subtitleTextView.setText("Обновление трека... 0%");
+                            layout.setAnimation(R.raw.ic_save_to_music, "Box", "Arrow");
+                            layout.setProgress(0.01f);
+
+                            Bulletin progressBulletin = containerView != null ? Bulletin.make((FrameLayout) containerView, layout, 60000) : null;
+                            if (progressBulletin != null) {
+                                progressBulletin.setCanHide(false);
+                                progressBulletin.show();
+                            }
+
+                            PublicLibraryManager.publishLibraryWithTrack(currentAccount, alertCtx, document, new PublicLibraryManager.PublishListener() {
+                                @Override
+                                public void onProgress(float progress) {
+                                    AndroidUtilities.runOnUIThread(() -> {
+                                        layout.setProgress(progress);
+                                        layout.subtitleTextView.setText("Обновление трека... " + (int) (progress * 100) + "%");
+                                    });
+                                }
+
+                                @Override
+                                public void onDone(boolean success) {
+                                    AndroidUtilities.runOnUIThread(() -> {
+                                        if (progressBulletin != null) {
+                                            progressBulletin.setCanHide(true);
+                                            progressBulletin.hide();
+                                        }
+                                        if (containerView != null) {
+                                            if (success) {
+                                                BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                                        .createSimpleBulletin(R.raw.saved_messages, LocaleController.getString(R.string.AudioSaveToMyProfileSaved))
+                                                        .show();
+                                            } else {
+                                                BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                                        .createErrorBulletin("Не удалось обновить публичную библиотеку")
+                                                        .show();
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                        builder.setNegativeButton(LocaleController.getString(R.string.sg_public_library_ok), (dialog, which) -> {
+                            PublicLibraryManager.saveDocumentToProfile(currentAccount, document, true, success -> {
+                                PublicLibraryManager.setLibraryPublic(currentAccount, false);
+                                if (success && containerView != null) {
+                                    BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                            .createSimpleBulletin(R.raw.saved_messages, LocaleController.getString(R.string.AudioSaveToMyProfileSaved))
+                                            .show();
+                                }
+                            });
+                        });
+                        builder.show();
+                    } else {
+                        PublicLibraryManager.saveDocumentToProfile(currentAccount, document, true, success -> {
+                            if (success && containerView != null) {
+                                BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                        .createSimpleBulletin(R.raw.saved_messages, LocaleController.getString(R.string.AudioSaveToMyProfileSaved))
+                                        .show();
+                            }
+                        });
+                    }
                 }
             });
         }

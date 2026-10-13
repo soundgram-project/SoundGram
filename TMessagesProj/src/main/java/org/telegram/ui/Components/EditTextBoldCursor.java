@@ -1225,29 +1225,35 @@ public class EditTextBoldCursor extends EditTextEffects {
 
     @Override
     public ActionMode startActionMode(ActionMode.Callback callback) {
-        if (Build.VERSION.SDK_INT >= 23 && (windowView != null || attachedToWindow != null)) {
-            if (floatingActionMode != null) {
-                floatingActionMode.finish();
-            }
-            cleanupFloatingActionModeViews();
-            floatingToolbar = new FloatingToolbar(getContext(), windowView != null ? windowView : attachedToWindow, getActionModeStyle(), getResourcesProvider(), blurredBackgroundDrawableViewFactory);
-            floatingToolbar.setOnPremiumLockClick(onPremiumMenuLockClickListener);
-            floatingToolbar.setQuoteShowVisible(this::shouldShowQuoteButton);
-            floatingActionMode = new FloatingActionMode(getContext(), new ActionModeCallback2Wrapper(callback), this, floatingToolbar);
-            floatingToolbarPreDrawListener = () -> {
+        try {
+            View targetRoot = windowView != null ? windowView : (attachedToWindow != null ? attachedToWindow : getRootView());
+            if (Build.VERSION.SDK_INT >= 23 && targetRoot != null) {
                 if (floatingActionMode != null) {
-                    floatingActionMode.updateViewLocationInWindow();
+                    floatingActionMode.finish();
                 }
-                return true;
-            };
-            callback.onCreateActionMode(floatingActionMode, floatingActionMode.getMenu());
-            extendActionMode(floatingActionMode, floatingActionMode.getMenu());
-            floatingActionMode.invalidate();
-            getViewTreeObserver().addOnPreDrawListener(floatingToolbarPreDrawListener);
-            invalidate();
-            return floatingActionMode;
-        } else {
-            return super.startActionMode(callback);
+                cleanupFloatingActionModeViews();
+                floatingToolbar = new FloatingToolbar(getContext(), targetRoot, getActionModeStyle(), getResourcesProvider(), blurredBackgroundDrawableViewFactory);
+                floatingToolbar.setOnPremiumLockClick(onPremiumMenuLockClickListener);
+                floatingToolbar.setQuoteShowVisible(this::shouldShowQuoteButton);
+                floatingActionMode = new FloatingActionMode(getContext(), new ActionModeCallback2Wrapper(callback), this, floatingToolbar);
+                floatingToolbarPreDrawListener = () -> {
+                    if (floatingActionMode != null) {
+                        floatingActionMode.updateViewLocationInWindow();
+                    }
+                    return true;
+                };
+                callback.onCreateActionMode(floatingActionMode, floatingActionMode.getMenu());
+                extendActionMode(floatingActionMode, floatingActionMode.getMenu());
+                floatingActionMode.invalidate();
+                getViewTreeObserver().addOnPreDrawListener(floatingToolbarPreDrawListener);
+                invalidate();
+                return floatingActionMode;
+            } else {
+                return super.startActionMode(callback);
+            }
+        } catch (Throwable e) {
+            FileLog.e("EditTextBoldCursor startActionMode: " + e);
+            return null;
         }
     }
 
@@ -1265,10 +1271,15 @@ public class EditTextBoldCursor extends EditTextEffects {
 
     @Override
     public ActionMode startActionMode(ActionMode.Callback callback, int type) {
-        if (Build.VERSION.SDK_INT >= 23 && (windowView != null || attachedToWindow != null)) {
-            return startActionMode(callback);
-        } else {
-            return super.startActionMode(callback, type);
+        try {
+            if (Build.VERSION.SDK_INT >= 23) {
+                return startActionMode(callback);
+            } else {
+                return super.startActionMode(callback, type);
+            }
+        } catch (Throwable e) {
+            FileLog.e("EditTextBoldCursor startActionMode typed: " + e);
+            return null;
         }
     }
 

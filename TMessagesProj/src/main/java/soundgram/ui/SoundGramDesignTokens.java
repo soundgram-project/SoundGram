@@ -194,7 +194,12 @@ public class SoundGramDesignTokens {
     }
 
     public static GradientDrawable makePlaylistCardDrawable(float tl, float tr, float br, float bl) {
-        return makeAsymmetricDrawable(getPlaylistCardColor(), getLineStrongColor(), 1f, tl, tr, br, bl);
+        return makePlaylistCardDrawable(tl, tr, br, bl, 0);
+    }
+
+    public static GradientDrawable makePlaylistCardDrawable(float tl, float tr, float br, float bl, int tintColor) {
+        int color = tintColor != 0 ? tintColor : getPlaylistCardColor();
+        return makeAsymmetricDrawable(color, getLineStrongColor(), 1f, tl, tr, br, bl);
     }
 
     public static GradientDrawable makeAsymmetricDrawable(int color, float tl, float tr, float br, float bl) {

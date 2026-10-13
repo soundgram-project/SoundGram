@@ -175,7 +175,7 @@ public class AnimatedLinearLayout extends LinearLayout {
 
     private float lastAnimatedHeight;
 
-    private void checkViewsVisibility() {
+    protected void checkViewsVisibility() {
         for (ListAnimator.Entry<Holder> entry : listAnimator) {
             final View view = entry.item.view;
             final RectF pos = entry.getRectF();

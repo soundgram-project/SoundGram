@@ -68,6 +68,11 @@ public class SoundGramEQAlert extends BottomSheet {
         initView(context);
     }
 
+    public SoundGramEQAlert(Context context, org.telegram.ui.ActionBar.Theme.ResourcesProvider resourcesProvider) {
+        super(context, true, resourcesProvider);
+        initView(context);
+    }
+
     private void initView(Context context) {
         int sessionId = 0;
         try { sessionId = MediaController.getInstance().getAudioSessionId(); } catch (Exception ignored) {}

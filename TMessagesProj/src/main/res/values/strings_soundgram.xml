@@ -385,4 +385,23 @@
     <string name="sg_mood_steady">steady</string>
     <string name="sg_mood_energetic">energetic</string>
     <string name="sg_mood_max">to the max</string>
+
+    <!-- Launcher Icons -->
+    <string name="AppIconCosmos">Cosmos</string>
+    <string name="AppIconAnime">Sakura Anime</string>
+    <string name="AppIconCyberNeon">Cyber Neon</string>
+    <string name="AppIconSunset">Sunset</string>
+    <string name="AppIconEmerald">Emerald</string>
+    <string name="AppIconMidnight">Midnight OLED</string>
+    <string name="AppIconGold">Gold Luxe</string>
+    <string name="AppIconCrimson">Crimson</string>
+    <string name="AppIconLavender">Lavender</string>
+    <string name="AppIconMatrix">Matrix</string>
+    <string name="AppIconSolar">Solar Orange</string>
+
+    <!-- Public Library warning -->
+    <string name="sg_public_library_attach_warning">Attaching a new track will make your music library private.</string>
+    <string name="sg_public_library_unpin_warning">Unpinning this track will make your music library private.</string>
+    <string name="sg_public_library_keep_public">Keep Public</string>
+    <string name="sg_public_library_ok">OK</string>
 </resources>

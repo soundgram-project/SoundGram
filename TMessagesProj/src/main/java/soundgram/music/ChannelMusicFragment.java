@@ -4167,7 +4167,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 heroCard.setOrientation(LinearLayout.HORIZONTAL);
                 heroCard.setGravity(Gravity.CENTER_VERTICAL);
                 heroCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
-                heroCard.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 4, 56));
+                heroCard.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 4, 56, 0xFF282828));
 
                 BackupImageView cover = new BackupImageView(context);
                 cover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(40));
@@ -4213,7 +4213,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 tallCard.setOrientation(LinearLayout.VERTICAL);
                 tallCard.setGravity(Gravity.BOTTOM);
                 tallCard.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14));
-                tallCard.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(56, 4, 4, 4));
+                tallCard.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(56, 4, 4, 4, 0xFF23322C));
 
                 BackupImageView tallCover = new BackupImageView(context);
                 tallCover.setRoundRadius(AndroidUtilities.dp(28), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
@@ -4251,10 +4251,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     cardSm1.setOrientation(LinearLayout.HORIZONTAL);
                     cardSm1.setGravity(Gravity.CENTER_VERTICAL);
                     cardSm1.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
-                    cardSm1.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 4, 4));
+                    cardSm1.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 24, 4, 0xFF2A2533));
 
                     BackupImageView sm1Cover = new BackupImageView(context);
-                    sm1Cover.setRoundRadius(AndroidUtilities.dp(4));
+                    sm1Cover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(16), AndroidUtilities.dp(4));
                     setLibPlaylistCover(sm1Cover, sm1, 4);
                     cardSm1.addView(sm1Cover, LayoutHelper.createLinear(44, 44));
 
@@ -4289,10 +4289,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         cardSm2.setOrientation(LinearLayout.HORIZONTAL);
                         cardSm2.setGravity(Gravity.CENTER_VERTICAL);
                         cardSm2.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
-                        cardSm2.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 4, 4));
+                        cardSm2.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 4, 24, 0xFF332D29));
 
                         BackupImageView sm2Cover = new BackupImageView(context);
-                        sm2Cover.setRoundRadius(AndroidUtilities.dp(4));
+                        sm2Cover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(16));
                         setLibPlaylistCover(sm2Cover, sm2, 4);
                         cardSm2.addView(sm2Cover, LayoutHelper.createLinear(44, 44));
 
@@ -4381,10 +4381,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 cardD1.setOrientation(LinearLayout.HORIZONTAL);
                 cardD1.setGravity(Gravity.CENTER_VERTICAL);
                 cardD1.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
-                cardD1.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 4, 4));
+                cardD1.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(18, 4, 4, 4, 0xFF253038));
 
                 BackupImageView d1Cover = new BackupImageView(context);
-                d1Cover.setRoundRadius(AndroidUtilities.dp(4));
+                d1Cover.setRoundRadius(AndroidUtilities.dp(12), AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
                 setLibPlaylistCover(d1Cover, d1, 4);
                 cardD1.addView(d1Cover, LayoutHelper.createLinear(44, 44));
 
@@ -4419,10 +4419,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     cardD2.setOrientation(LinearLayout.HORIZONTAL);
                     cardD2.setGravity(Gravity.CENTER_VERTICAL);
                     cardD2.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(8), AndroidUtilities.dp(10), AndroidUtilities.dp(8));
-                    cardD2.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 4, 4));
+                    cardD2.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 18, 4, 0xFF382A2C));
 
                     BackupImageView d2Cover = new BackupImageView(context);
-                    d2Cover.setRoundRadius(AndroidUtilities.dp(4));
+                    d2Cover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(12), AndroidUtilities.dp(4));
                     setLibPlaylistCover(d2Cover, d2, 4);
                     cardD2.addView(d2Cover, LayoutHelper.createLinear(44, 44));
 
@@ -4461,7 +4461,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 eCard.setOrientation(LinearLayout.HORIZONTAL);
                 eCard.setGravity(Gravity.CENTER_VERTICAL);
                 eCard.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(10));
-                eCard.setBackground(SoundGramDesignTokens.makeAsymmetricDrawable(SoundGramDesignTokens.getSurface2Color(), 4, 4, 56, 4));
+                eCard.setBackground(SoundGramDesignTokens.makePlaylistCardDrawable(4, 4, 56, 4, 0xFF262838));
 
                 BackupImageView eCover = new BackupImageView(context);
                 eCover.setRoundRadius(AndroidUtilities.dp(4), AndroidUtilities.dp(4), AndroidUtilities.dp(28), AndroidUtilities.dp(4));

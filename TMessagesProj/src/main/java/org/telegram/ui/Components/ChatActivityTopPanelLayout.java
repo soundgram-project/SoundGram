@@ -40,6 +40,7 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
     public void setExtraHeight(float extraHeight) {
         if (this.extraHeight != extraHeight) {
             this.extraHeight = extraHeight;
+            checkViewsVisibility();
             checkBoundsAndClipping();
             invalidate();
         }
@@ -47,6 +48,47 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
 
     public float getExtraHeight() {
         return extraHeight;
+    }
+
+    @Override
+    public float getAnimatedHeightWithPadding(float padding) {
+        return super.getAnimatedHeightWithPadding(padding) + extraHeight;
+    }
+
+    private boolean isContextViewOrWrapper(View view) {
+        if (view == null) return false;
+        if (view == callFragmentContextView) return true;
+        if (callFragmentContextView != null) {
+            if (view == callFragmentContextView.getParent()) return true;
+            if (view instanceof android.view.ViewGroup) {
+                return ((android.view.ViewGroup) view).indexOfChild(callFragmentContextView) != -1;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    protected void checkViewsVisibility() {
+        super.checkViewsVisibility();
+        if (extraHeight > 0) {
+            boolean afterContext = false;
+            for (int a = 0, N = getChildCount(); a < N; a++) {
+                View child = getChildAt(a);
+                if (!afterContext) {
+                    if (isContextViewOrWrapper(child)) {
+                        afterContext = true;
+                    }
+                    continue;
+                }
+                if (child != null && child.getVisibility() == VISIBLE) {
+                    if (child.getClass().getSimpleName().contains("Translate")) {
+                        child.setTranslationY(child.getTranslationY() + extraHeight);
+                    } else {
+                        child.setTranslationY(0);
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -98,7 +140,7 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
         }
         float fx = localX - targetX;
         float fy = localY - targetY;
-        float islandHeight = dp(116);
+        float islandHeight = dp(88);
         return fx >= 0 && fx <= callFragmentContextView.getWidth() && fy >= 0 && fy <= islandHeight;
     }
 
@@ -120,7 +162,7 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
             float x = ev.getX() - targetX;
             float y = ev.getY() - targetY;
             int action = ev.getActionMasked();
-            float islandHeight = dp(116);
+            float islandHeight = dp(88);
             if (action == MotionEvent.ACTION_DOWN) {
                 isIslandTouchTarget = (x >= 0 && x <= callFragmentContextView.getWidth() && y >= 0 && y <= islandHeight);
             }

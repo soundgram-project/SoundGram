@@ -168,28 +168,9 @@ public final class MusicNetworkHelper {
      */
     public static Proxy getActiveProxy() {
         try {
-            if (soundgram.wsproxy.TgWsProxyService.isRunning) {
-                int port = soundgram.wsproxy.TgWsProxyService.currentPort > 0 ? soundgram.wsproxy.TgWsProxyService.currentPort : 1443;
-                return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("127.0.0.1", port));
-            }
-
-            try {
-                android.content.Context ctx = org.telegram.messenger.ApplicationLoader.applicationContext;
-                if (ctx != null) {
-                    android.content.SharedPreferences wsPrefs = ctx.getSharedPreferences("tgwsproxy", android.content.Context.MODE_PRIVATE);
-                    if (wsPrefs != null && wsPrefs.getBoolean("enabled", false)) {
-                        int port = wsPrefs.getInt("port", 1443);
-                        return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("127.0.0.1", port));
-                    }
-                }
-            } catch (Throwable ignored) {}
-
             if (SharedConfig.isProxyEnabled() && SharedConfig.currentProxy != null) {
                 SharedConfig.ProxyInfo pi = SharedConfig.currentProxy;
                 if (!TextUtils.isEmpty(pi.address) && pi.port > 0) {
-                    if ("127.0.0.1".equals(pi.address) || "localhost".equalsIgnoreCase(pi.address)) {
-                        return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(pi.address, pi.port));
-                    }
                     if (TextUtils.isEmpty(pi.secret)) {
                         return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(pi.address, pi.port));
                     }
