@@ -134,6 +134,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private org.telegram.ui.Components.blur3.ViewGroupPartRenderer albumsBlurCapture;
     private boolean iBlur3Invalidated;
     private int navigationBarHeight;
+    private MiniPlayerView miniPlayerView;
 
     private final ArrayList<android.graphics.RectF> iBlur3Positions = new ArrayList<>();
     private final android.graphics.RectF iBlur3PositionActionBar = new android.graphics.RectF();
@@ -1218,6 +1219,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         // Register Window Insets listener to track navigation bar height
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
             navigationBarHeight = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
+            updateBottomInsets();
             return androidx.core.view.WindowInsetsCompat.CONSUMED;
         });
 
@@ -1520,9 +1522,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
 
         // ── MINI PLAYER ───────────────────────────────────────────────────────
-        MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
+        miniPlayerView = new MiniPlayerView(context, this);
+        int navBarDp = (int) Math.ceil(AndroidUtilities.navigationBarHeight / AndroidUtilities.density);
         boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1);
-        int bottomTabsOffset = isInTabs ? 88 : 0;
+        int bottomTabsOffset = (isInTabs ? 88 : 0) + navBarDp;
         content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, bottomTabsOffset + 8));
         SoundGramStyleManager.applyGlass(
                 miniPlayerView,
@@ -1815,6 +1818,31 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             importBannerCancelBtn.setVisibility(View.VISIBLE);
         } else {
             importBannerView.setVisibility(View.GONE);
+        }
+    }
+
+    private void updateBottomInsets() {
+        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1);
+        int navBarDp = (int) Math.ceil(navigationBarHeight / AndroidUtilities.density);
+        int baseBottomTabs = (isInTabs ? 88 : 0) + navBarDp;
+
+        if (miniPlayerView != null && miniPlayerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+            lp.bottomMargin = AndroidUtilities.dp(baseBottomTabs + 8);
+            miniPlayerView.setLayoutParams(lp);
+        }
+        if (importBannerView != null && importBannerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) importBannerView.getLayoutParams();
+            boolean hasMiniPlayer = org.telegram.messenger.MediaController.getInstance().getPlayingMessageObject() != null;
+            lp.bottomMargin = AndroidUtilities.dp(baseBottomTabs + (hasMiniPlayer ? 76 : 12));
+            importBannerView.setLayoutParams(lp);
+        }
+        int listBottomPad = baseBottomTabs + 88;
+        if (listView != null) {
+            listView.setPadding(0, 0, 0, AndroidUtilities.dp(listBottomPad));
+        }
+        if (savedAlbumsListView != null) {
+            savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(listBottomPad));
         }
     }
 
@@ -3598,14 +3626,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchBackBtn.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         searchBackBtn.setOnClickListener(v -> { applySpringClick(v); SoundGramTTS.speak(v, searchBackBtn.getContentDescription()); closeSearch(); });
 
-        // Контейнер для строки поиска (высота 46, радиус 14, фон #1B1B1B)
+        // Контейнер для строки поиска (MD3 стиль: pill shape радиус 24dp)
         FrameLayout searchFieldContainer = new FrameLayout(context);
         GradientDrawable searchBg = new GradientDrawable();
         searchBg.setColor(SoundGramDesignTokens.COLOR_SURFACE_1);
-        searchBg.setCornerRadius(AndroidUtilities.dp(14));
-        searchBg.setStroke(AndroidUtilities.dp(0.5f), SoundGramDesignTokens.COLOR_LINE);
+        searchBg.setCornerRadius(AndroidUtilities.dp(24));
+        searchBg.setStroke(AndroidUtilities.dp(1f), SoundGramDesignTokens.COLOR_LINE);
         searchFieldContainer.setBackground(searchBg);
-        searchFieldContainer.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(8), 0);
+        searchFieldContainer.setPadding(AndroidUtilities.dp(14), 0, AndroidUtilities.dp(10), 0);
 
         ImageView searchInnerIcon = new ImageView(context);
         searchInnerIcon.setImageResource(R.drawable.msg_search);

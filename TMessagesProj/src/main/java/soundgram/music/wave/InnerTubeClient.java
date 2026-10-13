@@ -344,6 +344,62 @@ public final class InnerTubeClient {
         return searchSongsViaRelay(query, limit, cancelFlag);
     }
 
+    /**
+     * Calls /browse to fetch tracks from a YouTube / YouTube Music playlist.
+     */
+    public static List<RawTrack> fetchPlaylist(String playlistId, AtomicBoolean cancelFlag) {
+        List<RawTrack> results = new ArrayList<>();
+        if (playlistId == null || playlistId.trim().isEmpty() || (cancelFlag != null && cancelFlag.get())) {
+            return results;
+        }
+        String pId = playlistId.trim();
+        String browseId = pId.startsWith("VL") ? pId : ("VL" + pId);
+        try {
+            JSONObject body = new JSONObject();
+            body.put("context", buildContext());
+            body.put("browseId", browseId);
+
+            String resp = post("browse", body.toString(), cancelFlag);
+            if (!resp.isEmpty()) {
+                JSONObject json = new JSONObject(resp);
+                collectSearchSongs(json, results, 300);
+                if (results.isEmpty()) {
+                    collectPanelVideos(json, results);
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(TAG + " fetchPlaylist browse error: " + e);
+        }
+
+        if (results.isEmpty() && (cancelFlag == null || !cancelFlag.get())) {
+            for (String base : RELAY_BASES) {
+                if (cancelFlag != null && cancelFlag.get()) break;
+                try {
+                    String resp = getFromRelay("/playlists/" + pId, cancelFlag);
+                    if (resp != null && !resp.isEmpty()) {
+                        JSONObject json = new JSONObject(resp);
+                        JSONArray streams = json.optJSONArray("relatedStreams");
+                        if (streams != null && streams.length() > 0) {
+                            for (int i = 0; i < streams.length(); i++) {
+                                JSONObject s = streams.getJSONObject(i);
+                                String url = s.optString("url", "");
+                                String vid = extractVideoId(url);
+                                String title = s.optString("title", "");
+                                String artist = s.optString("uploaderName", "");
+                                int duration = s.optInt("duration", 0);
+                                if (!title.isEmpty()) {
+                                    results.add(new RawTrack(vid, title, artist, duration));
+                                }
+                            }
+                            if (!results.isEmpty()) break;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        return results;
+    }
+
     private static String getRunsText(JSONObject obj) {
         if (obj == null) return null;
         try {

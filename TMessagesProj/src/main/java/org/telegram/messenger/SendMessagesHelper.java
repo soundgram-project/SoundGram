@@ -2666,7 +2666,22 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     }
                     req.random_id = randomIds;
                     req.id = ids;
-                    req.drop_author = forwardFromMyName;
+                    boolean dropAuthor = forwardFromMyName;
+                    if (!dropAuthor && messages != null) {
+                        for (int i = 0; i < messages.size(); i++) {
+                            MessageObject m = messages.get(i);
+                            if (m != null) {
+                                if ((m.messageOwner != null && m.messageOwner.noforwards) ||
+                                    getMessagesController().isPeerNoForwards(m.getDialogId()) ||
+                                    m.hasRevealedExtendedMedia() ||
+                                    (m.messageOwner != null && !m.messageOwner.restriction_reason.isEmpty())) {
+                                    dropAuthor = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    req.drop_author = dropAuthor;
                     req.drop_media_captions = hideCaption;
                     req.with_my_score = messages.size() == 1 && messages.get(0).messageOwner.with_my_score;
                     req.from_ephemeral = fwdEphemeral;
@@ -2843,22 +2858,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 }
                                 getStatsController().incrementSentItemsCount(ApplicationLoader.getCurrentNetworkType(), StatsController.TYPE_MESSAGES, sentCount);
                             } else {
-                                if (error != null && error.text != null && (error.text.contains("RESTRICTED") || error.text.contains("NOFORWARDS") || error.text.contains("FORBIDDEN"))) {
-                                    AndroidUtilities.runOnUIThread(() -> {
-                                        ArrayList<Integer> failedIds = new ArrayList<>();
-                                        for (int a1 = 0; a1 < newMsgObjArr.size(); a1++) {
-                                            failedIds.add(newMsgObjArr.get(a1).id);
-                                            removeFromSendingMessages(newMsgObjArr.get(a1).id, scheduleDate != 0);
-                                        }
-                                        getMessagesStorage().markMessagesAsDeleted(peer, failedIds, false, false, 0, 0);
-                                        getMessagesController().deleteMessages(failedIds, null, null, peer, false, 0, false, 0, null, 0, false, 0);
-                                        for (int a1 = 0; a1 < newMsgArr.size(); a1++) {
-                                            processForwardFromMyName(newMsgArr.get(a1), peer, payStars, monoForumPeerId, suggestionParams, replyToTopMsg, scheduleDate, notify);
-                                        }
-                                    });
-                                    return;
-                                }
-                                AndroidUtilities.runOnUIThread(() -> AlertsCreator.processError(currentAccount, error, null, req));
+                                AndroidUtilities.runOnUIThread(() -> {
+                                    for (int a1 = 0; a1 < newMsgArr.size(); a1++) {
+                                        retrySendMessage(newMsgArr.get(a1), true, payStars);
+                                    }
+                                });
+                                return;
                             }
                             for (int a1 = 0; a1 < newMsgObjArr.size(); a1++) {
                                 final TLRPC.Message newMsgObj1 = newMsgObjArr.get(a1);
@@ -4629,12 +4634,16 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 message = header;
             }
 
-            if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
-                replyToMsg = replyToTopMsg;
+            if (DialogObject.isEncryptedDialog(peer)) {
+                // In secret chats, preserve replyToMsg so reply_to_random_id is transmitted to peer
             } else {
-                replyToMsg = null;
+                if (replyToTopMsg != null && replyToTopMsg != replyToMsg) {
+                    replyToMsg = replyToTopMsg;
+                } else {
+                    replyToMsg = null;
+                }
+                replyQuote = null;
             }
-            replyQuote = null;
             if (sendMessageParams != null) {
                 sendMessageParams.replyToMsg = replyToMsg;
                 sendMessageParams.replyToTopMsg = replyToMsg;

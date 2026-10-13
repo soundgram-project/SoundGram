@@ -243,7 +243,7 @@ public class MusicImporter {
 
         // 2. Резервный обход через r.jina.ai
         try {
-            String jinaUrl = "https://r.jina.ai/" + urlString;
+            String jinaUrl = urlString.startsWith("https://r.jina.ai/") ? urlString : ("https://r.jina.ai/" + urlString);
             HttpURLConnection conn = MusicNetworkHelper.openConnection(jinaUrl);
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(8000);
@@ -541,6 +541,17 @@ public class MusicImporter {
             while (m.find()) {
                 String title = m.group(1).trim();
                 String artist = m.group(2) != null ? m.group(2).trim() : "";
+                if (!TextUtils.isEmpty(title) && !"Spotify".equalsIgnoreCase(title)) {
+                    result.tracks.add(new TrackInfo(title, artist));
+                }
+            }
+        }
+        if (result.tracks.isEmpty()) {
+            Pattern mdHeaderTrack = Pattern.compile("###\\s+([^\\n\\r]+)[\\r\\n]+(?:[E\\s]*[\\r\\n]+)?####\\s+(?:[E\\s]*\\[?)([^\\n\\r\\]]+)");
+            Matcher m2 = mdHeaderTrack.matcher(html);
+            while (m2.find()) {
+                String title = m2.group(1).trim();
+                String artist = m2.group(2).trim();
                 if (!TextUtils.isEmpty(title) && !"Spotify".equalsIgnoreCase(title)) {
                     result.tracks.add(new TrackInfo(title, artist));
                 }
@@ -872,6 +883,22 @@ public class MusicImporter {
     }
 
     private static void parseYouTubePlaylistInnerTube(String playlistId, ParsedPlaylist result) {
+        try {
+            List<soundgram.music.wave.InnerTubeClient.RawTrack> raw = soundgram.music.wave.InnerTubeClient.fetchPlaylist(playlistId, null);
+            if (raw != null && !raw.isEmpty()) {
+                if (TextUtils.isEmpty(result.title)) {
+                    result.title = "Плейлист YouTube";
+                }
+                for (soundgram.music.wave.InnerTubeClient.RawTrack rt : raw) {
+                    if (!TextUtils.isEmpty(rt.title)) {
+                        result.tracks.add(cleanYouTubeTrack(rt.title, rt.artist));
+                    }
+                }
+                if (!result.tracks.isEmpty()) return;
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
         try {
             for (String base : new String[]{
                     "https://pipedapi.ducks.party",

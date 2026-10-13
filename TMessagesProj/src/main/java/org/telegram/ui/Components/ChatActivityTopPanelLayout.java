@@ -67,25 +67,27 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
         return false;
     }
 
+    private boolean isTranslateView(View view) {
+        if (view == null) return false;
+        Class<?> cls = view.getClass();
+        while (cls != null && cls != Object.class) {
+            String name = cls.getName();
+            if (name.contains("Translate")) {
+                return true;
+            }
+            cls = cls.getSuperclass();
+        }
+        return false;
+    }
+
     @Override
     protected void checkViewsVisibility() {
         super.checkViewsVisibility();
         if (extraHeight > 0) {
-            boolean afterContext = false;
             for (int a = 0, N = getChildCount(); a < N; a++) {
                 View child = getChildAt(a);
-                if (!afterContext) {
-                    if (isContextViewOrWrapper(child)) {
-                        afterContext = true;
-                    }
-                    continue;
-                }
-                if (child != null && child.getVisibility() == VISIBLE) {
-                    if (child.getClass().getSimpleName().contains("Translate")) {
-                        child.setTranslationY(child.getTranslationY() + extraHeight);
-                    } else {
-                        child.setTranslationY(0);
-                    }
+                if (child != null && child.getVisibility() == VISIBLE && isTranslateView(child)) {
+                    child.setTranslationY(child.getTranslationY() + extraHeight);
                 }
             }
         }

@@ -14666,9 +14666,22 @@ public class MessagesStorage extends BaseController {
                                         continue;
                                     }
                                     msg.dialog_id = dialogId;
+                                    msg.ayuDeleted = true;
                                     var prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, currentAccount);
                                     prefs.setDialogId(dialogId);
                                     ayuMessagesController.onMessageDeleted(prefs, true);
+                                    try {
+                                        NativeByteBuffer data = new NativeByteBuffer(msg.getObjectSize());
+                                        msg.serializeToStream(data);
+                                        SQLitePreparedStatement state = database.executeFast("UPDATE messages_v2 SET data = ? WHERE mid = ? AND uid = ?");
+                                        state.requery();
+                                        state.bindByteBuffer(1, data);
+                                        state.bindInteger(2, msgId);
+                                        state.bindLong(3, dialogId);
+                                        state.step();
+                                        state.dispose();
+                                        data.reuse();
+                                    } catch (Exception ignored) {}
                                 }
                             }
                         }
