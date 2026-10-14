@@ -11271,7 +11271,7 @@
     <string name="NM_MI_SaveToSaved">Save to Saved Messages</string>
     <string name="NM_MI_Details">Details</string>
 
-    <!-- NimarkoGram OTA updater (design ported from Cherrygram) -->
+    <!-- NimarkoGram OTA updater (design ported from SoundGram) -->
     <string name="UP_UpdateAvailable">Update available!</string>
     <string name="UP_Version">Version</string>
     <string name="UP_CurrentVersion">Current version</string>
@@ -11478,8 +11478,8 @@
     <string name="NM_HUB_Header_Misc">Misc</string>
     <string name="NM_HUB_Restart">Restart app</string>
     <string name="NM_HUB_SourceCode">Source code</string>
-    <string name="NM_HUB_ForkedFromCherrygram">Ported from Cherrygram</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram is built on the official Telegram client; features were ported from &lt;a href="https://github.com/arslan4k1390/Cherrygram"&gt;Cherrygram&lt;/a&gt; — thanks to the upstream project.</string>
+    <string name="NM_HUB_ForkedFromCherrygram">SoundGram</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram is built on the official Telegram client with a full suite of enhanced features.</string>
     <string name="NM_HUB_Debug">Debug</string>
     <string name="NM_HUB_Experimental">Experimental</string>
 
@@ -11817,7 +11817,7 @@
     <string name="NG_OpenStickerPack">Open sticker pack</string>
 
     <!-- ============================================================= -->
-    <!-- CG strings ported from Cherrygram res-cherrygram/cg_strings.xml -->
+    <!-- CG strings ported from SoundGram res-cherrygram/cg_strings.xml -->
     <!-- (verbatim, generic / non-branded entries only; ported 2026-05-22) -->
     <!-- ============================================================= -->
     <string name="CG_ChooseFolderIcon">Choose an Icon</string>
@@ -12136,7 +12136,7 @@
     <string name="AIEditorStyleSharedToManyChats_one">Sent AI Style link to **a chat**.</string>
     <string name="AIEditorStyleSharedToManyChats_other">Sent AI Style link to **%1$d chats**.</string>
 
-    <!-- Cherrygram-style relative last-seen strings (formatDateOnlineIOS / formatUserStatusIOS) -->
+    <!-- SoundGram-style relative last-seen strings (formatDateOnlineIOS / formatUserStatusIOS) -->
     <string name="CG_LastSeenNow">last seen just now</string>
     <string name="CG_LastSeenMinutes_one">last seen %1$d minute ago</string>
     <string name="CG_LastSeenMinutes_few">last seen %1$d minutes ago</string>
@@ -12146,7 +12146,7 @@
     <string name="CG_LastSeenHours_few">last seen %1$d hours ago</string>
     <string name="CG_LastSeenHours_many">last seen %1$d hours ago</string>
     <string name="CG_LastSeenHours_other">last seen %1$d hours ago</string>
-    <!-- NimarkoGram start (ported from Cherrygram): SafeStars -->
+    <!-- NimarkoGram start (ported from SoundGram): SafeStars -->
     <string name="CG_SafeStars_buy">Buy via SafeStars</string>
     <string name="CG_SafeStars_Desc">Multi-chain &amp; No KYC</string>
     <string name="CG_SafeStars_BuyPremiumButton">Check on the website</string>

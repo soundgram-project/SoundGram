@@ -1386,7 +1386,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Verzend premium emoji zonder Premium-abonnement.</string>
     <string name="NM_GEN_MiscHeader">Diversen</string>
     <string name="NM_GE_UploadSpeedBoost">Snellere uploads</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram is gebouwd op Telegram; functies overgenomen van Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram is gebouwd op Telegram; functies overgenomen van SoundGram.</string>
     <string name="NM_HUB_SourceCode">Broncode</string>
     <string name="NM_HideActionBarStatus">Koptekststatus verbergen</string>
     <string name="NM_HideBubbleTail">Berichtstaarten verbergen</string>

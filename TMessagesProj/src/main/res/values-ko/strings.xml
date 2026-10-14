@@ -1437,7 +1437,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Premium 구독 없이 프리미엄 이모지를 전송합니다.</string>
     <string name="NM_GEN_MiscHeader">기타</string>
     <string name="NM_GE_UploadSpeedBoost">업로드 속도 향상</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram은 공식 Telegram 기반이며, 기능은 Cherrygram에서 이식되었습니다.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram은 공식 Telegram 기반이며, 기능은 SoundGram에서 이식되었습니다.</string>
     <string name="NM_HUB_SourceCode">소스 코드</string>
     <string name="NM_HideActionBarStatus">상단 바 상태 숨기기</string>
     <string name="NM_HideBubbleTail">메시지 꼬리 숨기기</string>

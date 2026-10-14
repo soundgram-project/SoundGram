@@ -87,6 +87,8 @@ public class LauncherIconController {
                 return R.mipmap.icon_cosmos_launcher;
             case ANIME:
                 return R.mipmap.icon_anime_launcher;
+            case MATRIX:
+                return R.mipmap.icon_matrix_launcher;
             case NEON:
                 return R.mipmap.icon_neon_launcher;
             case SUNSET:
@@ -99,24 +101,6 @@ public class LauncherIconController {
                 return R.mipmap.icon_gold_launcher;
             case CRIMSON:
                 return R.mipmap.icon_crimson_launcher;
-            case LAVENDER:
-                return R.mipmap.icon_lavender_launcher;
-            case MATRIX:
-                return R.mipmap.icon_matrix_launcher;
-            case SOLAR:
-                return R.mipmap.icon_solar_launcher;
-            case TELEGRAM:
-                return R.mipmap.ic_launcher_dr;
-            case VINTAGE:
-                return R.mipmap.icon_6_launcher;
-            case AQUA:
-                return R.mipmap.icon_4_launcher;
-            case PREMIUM:
-                return R.mipmap.icon_3_launcher;
-            case TURBO:
-                return R.mipmap.icon_5_launcher;
-            case NOX:
-                return R.mipmap.icon_2_launcher;
             case DEFAULT:
             default:
                 return R.mipmap.ic_launcher;
@@ -204,6 +188,8 @@ public class LauncherIconController {
                 return R.style.Theme_TMessages_Start_CosmosIcon;
             case ANIME:
                 return R.style.Theme_TMessages_Start_AnimeIcon;
+            case MATRIX:
+                return R.style.Theme_TMessages_Start_MatrixIcon;
             case NEON:
                 return R.style.Theme_TMessages_Start_NeonIcon;
             case SUNSET:
@@ -216,24 +202,6 @@ public class LauncherIconController {
                 return R.style.Theme_TMessages_Start_GoldIcon;
             case CRIMSON:
                 return R.style.Theme_TMessages_Start_CrimsonIcon;
-            case LAVENDER:
-                return R.style.Theme_TMessages_Start_LavenderIcon;
-            case MATRIX:
-                return R.style.Theme_TMessages_Start_MatrixIcon;
-            case SOLAR:
-                return R.style.Theme_TMessages_Start_SolarIcon;
-            case TELEGRAM:
-                return R.style.Theme_TMessages_Start_TelegramIcon;
-            case VINTAGE:
-                return R.style.Theme_TMessages_Start_VintageIcon;
-            case AQUA:
-                return R.style.Theme_TMessages_Start_AquaIcon;
-            case PREMIUM:
-                return R.style.Theme_TMessages_Start_PremiumIcon;
-            case TURBO:
-                return R.style.Theme_TMessages_Start_TurboIcon;
-            case NOX:
-                return R.style.Theme_TMessages_Start_NoxIcon;
             case DEFAULT:
             default:
                 return R.style.Theme_TMessages_Start_BlueIcon;
@@ -302,23 +270,15 @@ public class LauncherIconController {
 
     public enum LauncherIcon {
         DEFAULT("BlueIcon", R.mipmap.ic_launcher_background, R.mipmap.ic_launcher_foreground, R.string.AppIconDefault),
-        TELEGRAM("TelegramIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconTelegramOriginal),
-        COSMOS("CosmosIcon", R.drawable.icon_cosmos_background_sa, R.drawable.icon_cosmos_foreground_sa, R.string.AppIconCosmos),
-        ANIME("AnimeIcon", R.drawable.icon_anime_background_sa, R.drawable.icon_anime_foreground_sa, R.string.AppIconAnime),
-        NEON("NeonIcon", R.drawable.icon_neon_background_sa, R.drawable.icon_neon_foreground_sa, R.string.AppIconCyberNeon),
-        SUNSET("SunsetIcon", R.drawable.icon_sunset_background_sa, R.drawable.icon_sunset_foreground_sa, R.string.AppIconSunset),
-        EMERALD("EmeraldIcon", R.drawable.icon_emerald_background_sa, R.drawable.icon_emerald_foreground_sa, R.string.AppIconEmerald),
-        MIDNIGHT("MidnightIcon", R.drawable.icon_midnight_background_sa, R.drawable.icon_midnight_foreground_sa, R.string.AppIconMidnight),
-        GOLD("GoldIcon", R.drawable.icon_gold_background_sa, R.drawable.icon_gold_foreground_sa, R.string.AppIconGold),
-        CRIMSON("CrimsonIcon", R.drawable.icon_crimson_background_sa, R.drawable.icon_crimson_foreground_sa, R.string.AppIconCrimson),
-        LAVENDER("LavenderIcon", R.drawable.icon_lavender_background_sa, R.drawable.icon_lavender_foreground_sa, R.string.AppIconLavender),
-        MATRIX("MatrixIcon", R.drawable.icon_matrix_background_sa, R.drawable.icon_matrix_foreground_sa, R.string.AppIconMatrix),
-        SOLAR("SolarIcon", R.drawable.icon_solar_background_sa, R.drawable.icon_solar_foreground_sa, R.string.AppIconSolar),
-        VINTAGE("VintageIcon", R.drawable.icon_6_background_sa, R.mipmap.icon_6_foreground_sa, R.string.AppIconVintage),
-        AQUA("AquaIcon", R.drawable.icon_4_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconAqua),
-        PREMIUM("PremiumIcon", R.drawable.icon_3_background_sa, R.mipmap.icon_3_foreground_sa, R.string.AppIconPremium),
-        TURBO("TurboIcon", R.drawable.icon_5_background_sa, R.mipmap.icon_5_foreground_sa, R.string.AppIconTurbo),
-        NOX("NoxIcon", R.mipmap.icon_2_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconNox);
+        ANIME("AnimeIcon", R.mipmap.icon_anime_background, R.mipmap.icon_anime_foreground, R.string.AppIconAnime),
+        COSMOS("CosmosIcon", R.mipmap.icon_cosmos_background, R.mipmap.icon_cosmos_foreground, R.string.AppIconCosmos),
+        MATRIX("MatrixIcon", R.mipmap.icon_matrix_background, R.mipmap.icon_matrix_foreground, R.string.AppIconMatrix),
+        NEON("NeonIcon", R.mipmap.icon_neon_background, R.mipmap.icon_neon_foreground, R.string.AppIconCyberNeon),
+        SUNSET("SunsetIcon", R.mipmap.icon_sunset_background, R.mipmap.icon_sunset_foreground, R.string.AppIconSunset),
+        EMERALD("EmeraldIcon", R.mipmap.icon_emerald_background, R.mipmap.icon_emerald_foreground, R.string.AppIconEmerald),
+        MIDNIGHT("MidnightIcon", R.mipmap.icon_midnight_background, R.mipmap.icon_midnight_foreground, R.string.AppIconMidnight),
+        GOLD("GoldIcon", R.mipmap.icon_gold_background, R.mipmap.icon_gold_foreground, R.string.AppIconGold),
+        CRIMSON("CrimsonIcon", R.mipmap.icon_crimson_background, R.mipmap.icon_crimson_foreground, R.string.AppIconCrimson);
 
         public final String key;
         public final int background;

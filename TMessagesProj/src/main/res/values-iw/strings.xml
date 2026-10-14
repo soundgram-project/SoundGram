@@ -320,7 +320,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">שלח אימוג\'י פרימיום ללא מנוי פרימיום.</string>
     <string name="NM_GEN_MiscHeader">שונות</string>
     <string name="NM_GE_UploadSpeedBoost">העלאות מהירות יותר</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram מבוסס על טלגרם הרשמי; תכונות הועברו מ-Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram מבוסס על טלגרם הרשמי; תכונות הועברו מ-SoundGram.</string>
     <string name="NM_HUB_SourceCode">קוד מקור</string>
     <string name="NM_HideActionBarStatus">הסתר סטטוס בכותרת</string>
     <string name="NM_HideBubbleTail">הסתר זנבות הודעות</string>

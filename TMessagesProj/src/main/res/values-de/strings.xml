@@ -1668,7 +1668,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Premium-Emojis ohne Premium-Abonnement senden.</string>
     <string name="NM_GEN_MiscHeader">Verschiedenes</string>
     <string name="NM_GE_UploadSpeedBoost">Schnelleres Hochladen</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram basiert auf dem offiziellen Telegram-Client; Features stammen von Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram basiert auf dem offiziellen Telegram-Client; Features stammen von SoundGram.</string>
     <string name="NM_HUB_SourceCode">Quellcode</string>
     <string name="NM_HideActionBarStatus">Kopfzeilenstatus ausblenden</string>
     <string name="NM_HideBubbleTail">Nachrichtenschwänze ausblenden</string>

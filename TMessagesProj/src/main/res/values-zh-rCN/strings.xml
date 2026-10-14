@@ -527,8 +527,8 @@
     <string name="NM_HUB_Header_Misc">杂项</string>
     <string name="NM_HUB_Restart">重启应用</string>
     <string name="NM_HUB_SourceCode">源代码</string>
-    <string name="NM_HUB_ForkedFromCherrygram">移植自 Cherrygram</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram 基于官方 Telegram 客户端构建；功能移植自 &lt;a href=\"https://github.com/arslan4k1390/Cherrygram\"&gt;Cherrygram&lt;/a&gt; — 感谢上游项目。</string>
+    <string name="NM_HUB_ForkedFromCherrygram">SoundGram</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram 基于官方 Telegram 客户端构建；功能移植自 &lt;a href=\"https://github.com/arslan4k1390/SoundGram\"&gt;SoundGram&lt;/a&gt; — 感谢上游项目。</string>
     <string name="NM_HUB_Debug">调试</string>
     <string name="NM_HUB_Experimental">实验性</string>
     <string name="NM_RestartRequired">需要重启以应用更改</string>

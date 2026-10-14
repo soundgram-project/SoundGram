@@ -283,7 +283,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">ارسال اموجی‌های پرمیوم بدون اشتراک تلگرام پرمیوم.</string>
     <string name="NM_GEN_MiscHeader">متفرقه</string>
     <string name="NM_GE_UploadSpeedBoost">آپلود سریع‌تر</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">برنامه SoundGram بر پایه تلگرام رسمی ساخته شده و امکانات از Cherrygram اضافه شده است.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">برنامه SoundGram بر پایه تلگرام رسمی ساخته شده و امکانات از SoundGram اضافه شده است.</string>
     <string name="NM_HUB_SourceCode">کد منبع</string>
     <string name="NM_HideActionBarStatus">پنهان کردن وضعیت در نوار بالا</string>
     <string name="NM_HideBubbleTail">پنهان کردن دم حباب پیام</string>

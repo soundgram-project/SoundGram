@@ -1537,7 +1537,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">إرسال رموز تعبيرية مميزة بدون اشتراك Premium.</string>
     <string name="NM_GEN_MiscHeader">متنوع</string>
     <string name="NM_GE_UploadSpeedBoost">رفع أسرع</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">تم بناء SoundGram على تطبيق تيليجرام الرسمي؛ وتم نقل الميزات من Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">تم بناء SoundGram على تطبيق تيليجرام الرسمي؛ وتم نقل الميزات من SoundGram.</string>
     <string name="NM_HUB_SourceCode">الرمز المصدري</string>
     <string name="NM_HideActionBarStatus">إخفاء الحالة في الشريط العلوي</string>
     <string name="NM_HideBubbleTail">إخفاء ذيول الرسائل</string>

@@ -324,7 +324,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Send premium-emoji uten et Premium-abonnement.</string>
     <string name="NM_GEN_MiscHeader">Forskjellig</string>
     <string name="NM_GE_UploadSpeedBoost">Raskere opplasting</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram er bygget på Telegram; funksjoner portert fra Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram er bygget på Telegram; funksjoner portert fra SoundGram.</string>
     <string name="NM_HUB_SourceCode">Kildekode</string>
     <string name="NM_HideActionBarStatus">Skjul status i topptekst</string>
     <string name="NM_HideBubbleTail">Skjul meldingshaler</string>

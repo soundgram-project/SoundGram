@@ -283,7 +283,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Premium aboneliği olmadan premium emojiler gönderin.</string>
     <string name="NM_GEN_MiscHeader">Çeşitli</string>
     <string name="NM_GE_UploadSpeedBoost">Daha hızlı yüklemeler</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram resmi Telegram üzerinde oluşturulmuştur; özellikler Cherrygram\'dan aktarılmıştır.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram resmi Telegram üzerinde oluşturulmuştur; özellikler SoundGram\'dan aktarılmıştır.</string>
     <string name="NM_HUB_SourceCode">Kaynak kodu</string>
     <string name="NM_HideActionBarStatus">Başlık çubuğu durumunu gizle</string>
     <string name="NM_HideBubbleTail">Mesaj kuyruklarını gizle</string>

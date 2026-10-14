@@ -312,7 +312,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Envoyez des émojis premium sans abonnement Premium.</string>
     <string name="NM_GEN_MiscHeader">Divers</string>
     <string name="NM_GE_UploadSpeedBoost">Téléversements plus rapides</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram est basé sur Telegram officiel ; fonctionnalités portées depuis Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram est basé sur Telegram officiel ; fonctionnalités portées depuis SoundGram.</string>
     <string name="NM_HUB_SourceCode">Code source</string>
     <string name="NM_HideActionBarStatus">Masquer le statut d\'en-tête</string>
     <string name="NM_HideBubbleTail">Masquer les queues de bulles</string>

@@ -51,6 +51,13 @@ public class SoundGramConfig {
 
     public static boolean hasBadge(long id) {
         if (id == 0) return false;
+        try {
+            for (int i = 0; i < org.telegram.messenger.UserConfig.MAX_ACCOUNT_COUNT; i++) {
+                if (org.telegram.messenger.UserConfig.getInstance(i).getClientUserId() == id) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {}
         if (customUserBadges.containsKey(id)) return true;
         if (id < -1000000000000L) {
             long rawId = -id - 1000000000000L;
@@ -70,6 +77,13 @@ public class SoundGramConfig {
         if (id == 0) return null;
         String b = customUserBadges.get(id);
         if (b != null) return b;
+        try {
+            for (int i = 0; i < org.telegram.messenger.UserConfig.MAX_ACCOUNT_COUNT; i++) {
+                if (org.telegram.messenger.UserConfig.getInstance(i).getClientUserId() == id) {
+                    return "𝄞";
+                }
+            }
+        } catch (Throwable ignored) {}
         if (id < -1000000000000L) {
             long rawId = -id - 1000000000000L;
             b = customUserBadges.get(rawId);

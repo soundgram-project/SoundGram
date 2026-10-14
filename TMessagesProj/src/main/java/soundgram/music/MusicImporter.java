@@ -157,6 +157,7 @@ public class MusicImporter {
 
     // ── Парсинг входных данных ────────────────────────────────────────────────
     public static ParsedPlaylist parseInput(String input, int account) {
+        MusicNetworkHelper.ensureBypassServiceRunning();
         ParsedPlaylist result = new ParsedPlaylist();
         if (input == null || input.trim().isEmpty()) {
             return result;
@@ -206,9 +207,9 @@ public class MusicImporter {
     // ── Bypass Fetcher & Strict Matching ──────────────────────────────────────
     private static final String[] PROXY_MIRRORS = {
             "https://api.allorigins.win/raw?url=",
-            "https://corsproxy.io/?url=",
             "https://api.codetabs.com/v1/proxy?quest=",
-            "https://thingproxy.freeboard.io/fetch/"
+            "https://corsproxy.org/?url=",
+            "https://api.allorigins.hexatester.repl.co/raw?url="
     };
 
     public static String fetchUrlWithBypass(String urlString) {
@@ -407,38 +408,95 @@ public class MusicImporter {
             Matcher mTrack = SPOTIFY_TRACK_PATTERN.matcher(url);
             if (mTrack.find()) {
                 String trackId = mTrack.group(1);
-                String embedHtml = fetchUrlWithBypass("https://open.spotify.com/embed/track/" + trackId);
-                extractTracksFromSpotifyEmbed(embedHtml, result);
-                if (result.tracks.isEmpty()) {
-                    try {
-                        String oembed = fetchUrlWithBypass("https://open.spotify.com/oembed?url=" + URLEncoder.encode("https://open.spotify.com/track/" + trackId, "UTF-8"));
-                        if (!TextUtils.isEmpty(oembed)) {
-                            JSONObject obj = new JSONObject(oembed);
-                            String title = obj.optString("title");
+                // 1. Jina relay for track (works in RU without VPN)
+                try {
+                    String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://open.spotify.com/track/" + trackId);
+                    if (!TextUtils.isEmpty(jinaRes)) {
+                        Matcher mJt = Pattern.compile("Title:\\s*([^-\\n\\r]+?)\\s*-\\s*song\\s+and\\s+lyrics\\s+by\\s+([^\\n\\r]+)").matcher(jinaRes);
+                        if (mJt.find()) {
+                            String title = mJt.group(1).trim();
+                            String artist = mJt.group(2).replace("| Spotify", "").replace("- Spotify", "").trim();
                             if (!TextUtils.isEmpty(title)) {
-                                result.tracks.add(new TrackInfo(title, ""));
+                                result.tracks.add(new TrackInfo(title, artist));
+                                result.isPlaylist = false;
+                                return;
                             }
                         }
-                    } catch (Exception ignored) {}
-                }
+                    }
+                } catch (Exception ignored) {}
+
+                // 2. oEmbed via CORS relay
+                try {
+                    String oembed = fetchUrlWithBypass("https://open.spotify.com/oembed?url=" + URLEncoder.encode("https://open.spotify.com/track/" + trackId, "UTF-8"));
+                    if (!TextUtils.isEmpty(oembed)) {
+                        JSONObject obj = new JSONObject(oembed);
+                        String title = obj.optString("title");
+                        String author = obj.optString("author_name", "");
+                        if (!TextUtils.isEmpty(title)) {
+                            result.tracks.add(new TrackInfo(title, author));
+                            result.isPlaylist = false;
+                            return;
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                // 3. Fallback embed HTML
+                String embedHtml = fetchUrlWithBypass("https://open.spotify.com/embed/track/" + trackId);
+                extractTracksFromSpotifyEmbed(embedHtml, result);
                 return;
             }
 
             Matcher mAlbum = SPOTIFY_ALBUM_PATTERN.matcher(url);
             if (mAlbum.find()) {
                 String albumId = mAlbum.group(1);
+                result.isPlaylist = true;
+
+                // 1. Jina relay for album embed
+                String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://open.spotify.com/embed/album/" + albumId);
+                extractTracksFromSpotifyEmbed(jinaRes, result);
+                if (!result.tracks.isEmpty()) return;
+
+                // 2. Allorigins relay
+                try {
+                    String allorigins = fetchUrlWithBypass("https://api.allorigins.win/raw?url=" + URLEncoder.encode("https://open.spotify.com/embed/album/" + albumId, "UTF-8"));
+                    extractTracksFromSpotifyEmbed(allorigins, result);
+                    if (!result.tracks.isEmpty()) return;
+                } catch (Exception ignored) {}
+
+                // 3. Direct embed HTML
                 String embedHtml = fetchUrlWithBypass("https://open.spotify.com/embed/album/" + albumId);
                 extractTracksFromSpotifyEmbed(embedHtml, result);
-                result.isPlaylist = true;
-                return;
+                if (!result.tracks.isEmpty()) return;
             }
 
             Matcher mPlaylist = SPOTIFY_PLAYLIST_PATTERN.matcher(url);
             if (mPlaylist.find()) {
                 String playlistId = mPlaylist.group(1);
+                result.isPlaylist = true;
+
+                // 1. Jina relay for playlist embed (verified: returns all tracks in clean markdown)
+                String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://open.spotify.com/embed/playlist/" + playlistId);
+                extractTracksFromSpotifyEmbed(jinaRes, result);
+                if (!result.tracks.isEmpty()) return;
+
+                // 2. Allorigins relay for playlist embed (full __NEXT_DATA__ JSON)
+                try {
+                    String allorigins = fetchUrlWithBypass("https://api.allorigins.win/raw?url=" + URLEncoder.encode("https://open.spotify.com/embed/playlist/" + playlistId, "UTF-8"));
+                    extractTracksFromSpotifyEmbed(allorigins, result);
+                    if (!result.tracks.isEmpty()) return;
+                } catch (Exception ignored) {}
+
+                // 3. Codetabs proxy
+                try {
+                    String codetabs = fetchUrlWithBypass("https://api.codetabs.com/v1/proxy?quest=" + URLEncoder.encode("https://open.spotify.com/embed/playlist/" + playlistId, "UTF-8"));
+                    extractTracksFromSpotifyEmbed(codetabs, result);
+                    if (!result.tracks.isEmpty()) return;
+                } catch (Exception ignored) {}
+
+                // 4. Direct embed HTML
                 String embedHtml = fetchUrlWithBypass("https://open.spotify.com/embed/playlist/" + playlistId);
                 extractTracksFromSpotifyEmbed(embedHtml, result);
-                result.isPlaylist = true;
+                if (!result.tracks.isEmpty()) return;
             }
 
             if (result.tracks.isEmpty()) {
@@ -534,9 +592,55 @@ public class MusicImporter {
             }
         }
 
+        // Fallback for new Spotify initial-state (base64 encoded JSON)
+        if (result.tracks.isEmpty()) {
+            try {
+                Pattern statePattern = Pattern.compile("<script id=\"initial-state\"[^>]*>(.*?)</script>", Pattern.DOTALL);
+                Matcher sm = statePattern.matcher(html);
+                if (sm.find()) {
+                    String b64 = sm.group(1).trim();
+                    byte[] decoded = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                    String jsonStr = new String(decoded, "UTF-8");
+                    Pattern trackInState = Pattern.compile("\"name\":\"([^\"]+)\"[^}]*?\"artists\":\\[\\{\"name\":\"([^\"]+)\"");
+                    Matcher tsm = trackInState.matcher(jsonStr);
+                    while (tsm.find()) {
+                        String title = tsm.group(1);
+                        String artist = tsm.group(2);
+                        if (!"Spotify".equalsIgnoreCase(artist) && !TextUtils.isEmpty(title)) {
+                            result.tracks.add(new TrackInfo(title, artist));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Extract title from Markdown if present
+        if (TextUtils.isEmpty(result.title) && !TextUtils.isEmpty(html)) {
+            Matcher tm = Pattern.compile("(?i)Title:\\s*([^\\n\\r]+)").matcher(html);
+            if (tm.find()) {
+                String raw = tm.group(1).trim();
+                raw = raw.replaceAll("(?i)\\s*-\\s*(?:playlist by\\s+)?Spotify.*$", "")
+                         .replaceAll("(?i)\\s*\\|\\s*Spotify.*$", "").trim();
+                if (!raw.isEmpty()) {
+                    result.title = raw;
+                }
+            }
+        }
+
         // Fallback markdown parsing (from r.jina.ai relay)
         if (result.tracks.isEmpty()) {
-            Pattern mdTrack = Pattern.compile("\\[([^\\]]+)\\]\\(https://open\\.spotify\\.com/track/[a-zA-Z0-9]+\\)(?:[^\\[]*\\[([^\\]]+)\\]\\(https://open\\.spotify\\.com/artist/[a-zA-Z0-9]+\\))?");
+            Pattern mdNumbered = Pattern.compile("(?m)^\\s*\\d+\\.\\s+###\\s+([^\\r\\n]+)[\\r\\n]+(?:\\s*[\\r\\n]+)?####\\s+(?:E\\s+)?([^\\r\\n]+)");
+            Matcher mn = mdNumbered.matcher(html);
+            while (mn.find()) {
+                String title = mn.group(1).trim();
+                String artist = mn.group(2).trim();
+                if (!TextUtils.isEmpty(title) && !"Spotify".equalsIgnoreCase(title)) {
+                    result.tracks.add(new TrackInfo(title, artist));
+                }
+            }
+        }
+        if (result.tracks.isEmpty()) {
+            Pattern mdTrack = Pattern.compile("\\[([^\\]]+)\\]\\((?:https://open\\.spotify\\.com)?/track/[a-zA-Z0-9]+\\)(?:[^\\[]*\\[([^\\]]+)\\]\\((?:https://open\\.spotify\\.com)?/artist/[a-zA-Z0-9]+\\))?");
             Matcher m = mdTrack.matcher(html);
             while (m.find()) {
                 String title = m.group(1).trim();
@@ -552,6 +656,18 @@ public class MusicImporter {
             while (m2.find()) {
                 String title = m2.group(1).trim();
                 String artist = m2.group(2).trim();
+                if (!TextUtils.isEmpty(title) && !"Spotify".equalsIgnoreCase(title)) {
+                    result.tracks.add(new TrackInfo(title, artist));
+                }
+            }
+        }
+        if (result.tracks.isEmpty()) {
+            // Pattern for numbered list: "1. Artist - Track" or "1. Track - Artist" or markdown table: "| 1 | Track | Artist |"
+            Pattern numList = Pattern.compile("(?m)^\\s*\\d+\\.\\s*\\*\\*([^*]+)\\*\\*\\s*(?:[-–—]\\s*([^\\r\\n]+))?");
+            Matcher m3 = numList.matcher(html);
+            while (m3.find()) {
+                String title = m3.group(1).trim();
+                String artist = m3.group(2) != null ? m3.group(2).trim() : "";
                 if (!TextUtils.isEmpty(title) && !"Spotify".equalsIgnoreCase(title)) {
                     result.tracks.add(new TrackInfo(title, artist));
                 }
@@ -754,7 +870,10 @@ public class MusicImporter {
             if (mPl.find()) {
                 String playlistId = mPl.group(1);
                 result.isPlaylist = true;
-                parseYouTubePlaylistHtml(playlistId, result);
+                parseYouTubePlaylistDirectApi(playlistId, result);
+                if (result.tracks.isEmpty()) {
+                    parseYouTubePlaylistHtml(playlistId, result);
+                }
                 if (result.tracks.isEmpty()) {
                     parseYouTubePlaylistInnerTube(playlistId, result);
                 }
@@ -781,7 +900,10 @@ public class MusicImporter {
                     } catch (Exception ignored) {}
                 }
                 if (uploadsPl != null) {
-                    parseYouTubePlaylistHtml(uploadsPl, result);
+                    parseYouTubePlaylistDirectApi(uploadsPl, result);
+                    if (result.tracks.isEmpty()) {
+                        parseYouTubePlaylistHtml(uploadsPl, result);
+                    }
                     if (result.tracks.isEmpty()) {
                         parseYouTubePlaylistInnerTube(uploadsPl, result);
                     }
@@ -798,6 +920,93 @@ public class MusicImporter {
         } catch (Exception e) {
             FileLog.e(e);
         }
+    }
+
+    private static void parseYouTubePlaylistDirectApi(String playlistId, ParsedPlaylist result) {
+        // 1. Invidious pool (unblocked, returns JSON with 100-200 tracks per page)
+        String[] invInstances = new String[]{
+                "https://inv.nadeko.net",
+                "https://invidious.nerdvpn.de",
+                "https://yewtu.be",
+                "https://invidious.jing.rocks"
+        };
+        for (String base : invInstances) {
+            try {
+                String resp = fetchUrlWithBypass(base + "/api/v1/playlists/" + playlistId);
+                if (!TextUtils.isEmpty(resp)) {
+                    JSONObject json = new JSONObject(resp);
+                    if (TextUtils.isEmpty(result.title)) {
+                        result.title = json.optString("title", "Плейлист YouTube");
+                    }
+                    JSONArray videos = json.optJSONArray("videos");
+                    if (videos != null && videos.length() > 0) {
+                        for (int i = 0; i < videos.length(); i++) {
+                            JSONObject v = videos.getJSONObject(i);
+                            String title = v.optString("title", "");
+                            String author = v.optString("author", "");
+                            if (!TextUtils.isEmpty(title)) {
+                                result.tracks.add(cleanYouTubeTrack(title, author));
+                            }
+                        }
+                        if (!result.tracks.isEmpty()) return;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Piped pool
+        String[] pipedInstances = new String[]{
+                "https://pipedapi.ducks.party",
+                "https://api.piped.private.coffee"
+        };
+        for (String base : pipedInstances) {
+            try {
+                String resp = fetchUrlWithBypass(base + "/playlists/" + playlistId);
+                if (!TextUtils.isEmpty(resp)) {
+                    JSONObject json = new JSONObject(resp);
+                    if (TextUtils.isEmpty(result.title)) {
+                        result.title = json.optString("name", "Плейлист YouTube");
+                    }
+                    JSONArray streams = json.optJSONArray("relatedStreams");
+                    if (streams != null && streams.length() > 0) {
+                        for (int i = 0; i < streams.length(); i++) {
+                            JSONObject s = streams.getJSONObject(i);
+                            String title = s.optString("title", "");
+                            String uploader = s.optString("uploaderName", "");
+                            if (!TextUtils.isEmpty(title)) {
+                                result.tracks.add(cleanYouTubeTrack(title, uploader));
+                            }
+                        }
+                        if (!result.tracks.isEmpty()) return;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 3. Jina relay
+        try {
+            String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://www.youtube.com/playlist?list=" + playlistId);
+            if (!TextUtils.isEmpty(jinaRes)) {
+                if (TextUtils.isEmpty(result.title)) {
+                    Matcher tm = Pattern.compile("(?i)Title:\\s*([^\\n\\r]+)").matcher(jinaRes);
+                    if (tm.find()) {
+                        result.title = tm.group(1).replace(" - YouTube", "").replace(" - YouTube Music", "").trim();
+                    }
+                }
+                Pattern pYt = Pattern.compile("\\[([^\\]]+)\\]\\((?:https://www\\.youtube\\.com)?/watch\\?v=([a-zA-Z0-9_-]{11})");
+                Matcher mYt = pYt.matcher(jinaRes);
+                java.util.HashSet<String> seenIds = new java.util.HashSet<>();
+                while (mYt.find()) {
+                    String title = mYt.group(1).trim();
+                    String vId = mYt.group(2);
+                    if (seenIds.add(vId) && !title.equalsIgnoreCase("Play all") && !title.equalsIgnoreCase("PLAY ALL")
+                            && !title.startsWith("Image ") && !title.startsWith("Skip to main")
+                            && !title.equalsIgnoreCase("YouTube") && !title.equals(result.title)) {
+                        result.tracks.add(cleanYouTubeTrack(title, ""));
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     private static void parseYouTubePlaylistHtml(String playlistId, ParsedPlaylist result) {
@@ -963,23 +1172,7 @@ public class MusicImporter {
     }
 
     private static void parseYouTubeSingleVideo(String videoId, ParsedPlaylist result) {
-        try {
-            String oembedUrl = "https://www.youtube.com/oembed?url=" + URLEncoder.encode("https://www.youtube.com/watch?v=" + videoId, "UTF-8") + "&format=json";
-            String resp = fetchUrlWithBypass(oembedUrl);
-            if (!TextUtils.isEmpty(resp)) {
-                JSONObject obj = new JSONObject(resp);
-                String title = obj.optString("title", "");
-                String author = obj.optString("author_name", "");
-                if (!TextUtils.isEmpty(title)) {
-                    result.tracks.add(cleanYouTubeTrack(title, author));
-                    result.isPlaylist = false;
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            FileLog.e(e);
-        }
-
+        // 1. Piped streams (fast JSON, unblocked)
         for (String base : new String[]{"https://api.piped.private.coffee", "https://pipedapi.ducks.party"}) {
             try {
                 String resp = fetchUrlWithBypass(base + "/streams/" + videoId);
@@ -996,6 +1189,36 @@ public class MusicImporter {
             } catch (Exception ignored) {}
         }
 
+        // 2. Jina relay
+        try {
+            String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://www.youtube.com/watch?v=" + videoId);
+            if (!TextUtils.isEmpty(jinaRes)) {
+                Matcher mt = Pattern.compile("Title:\\s*([^\r\n]+)").matcher(jinaRes);
+                if (mt.find()) {
+                    String title = mt.group(1).replace(" - YouTube", "").replace(" - YouTube Music", "").trim();
+                    result.tracks.add(cleanYouTubeTrack(title, ""));
+                    result.isPlaylist = false;
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // 3. oEmbed / direct fallback
+        try {
+            String oembedUrl = "https://www.youtube.com/oembed?url=" + URLEncoder.encode("https://www.youtube.com/watch?v=" + videoId, "UTF-8") + "&format=json";
+            String resp = fetchUrlWithBypass(oembedUrl);
+            if (!TextUtils.isEmpty(resp)) {
+                JSONObject obj = new JSONObject(resp);
+                String title = obj.optString("title", "");
+                String author = obj.optString("author_name", "");
+                if (!TextUtils.isEmpty(title)) {
+                    result.tracks.add(cleanYouTubeTrack(title, author));
+                    result.isPlaylist = false;
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+
         try {
             String html = fetchUrlWithBypass("https://www.youtube.com/watch?v=" + videoId);
             if (!TextUtils.isEmpty(html)) {
@@ -1006,23 +1229,7 @@ public class MusicImporter {
                     result.isPlaylist = false;
                 }
             }
-        } catch (Exception e) {
-            FileLog.e(e);
-        }
-
-        if (result.tracks.isEmpty()) {
-            try {
-                String jinaRes = fetchUrlWithBypass("https://r.jina.ai/https://www.youtube.com/watch?v=" + videoId);
-                if (!TextUtils.isEmpty(jinaRes)) {
-                    Matcher mt = Pattern.compile("Title:\\s*([^\r\n]+)").matcher(jinaRes);
-                    if (mt.find()) {
-                        String title = mt.group(1).replace(" - YouTube", "").replace(" - YouTube Music", "").trim();
-                        result.tracks.add(cleanYouTubeTrack(title, ""));
-                        result.isPlaylist = false;
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
+        } catch (Exception ignored) {}
     }
 
     private static void collectYouTubeJsonTracks(Object node, ParsedPlaylist result) {

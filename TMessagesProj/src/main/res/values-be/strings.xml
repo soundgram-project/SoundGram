@@ -324,7 +324,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Адпраўляйце прэміум-эмодзі без падпіскі Premium.</string>
     <string name="NM_GEN_MiscHeader">Рознае</string>
     <string name="NM_GE_UploadSpeedBoost">Паскарэнне адпраўкі</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram пабудаваны на афіцыйным кліенце Telegram; функцыі партаваны з Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram пабудаваны на афіцыйным кліенце Telegram; функцыі партаваны з SoundGram.</string>
     <string name="NM_HUB_SourceCode">Зыходны код</string>
     <string name="NM_HideActionBarStatus">Схаваць статус у шапцы</string>
     <string name="NM_HideBubbleTail">Схаваць хвосцікі паведамленняў</string>

@@ -99,8 +99,8 @@ public final class MusicNetworkHelper {
                         if (host == null || "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host)) {
                             return Collections.singletonList(Proxy.NO_PROXY);
                         }
-                        // Web requests and media CDNs (Hitmos, Deezer, etc.) should use direct connection unless user configured a socks5 proxy
-                        if (host.contains("hitmo") || host.contains("deezer") || host.contains("cdn")) {
+                        // Web requests, mirrors and media CDNs should use direct connection unless user configured a socks5 proxy
+                        if (isBypassOrMirrorHost(host)) {
                             if (SharedConfig.isProxyEnabled() && SharedConfig.currentProxy != null) {
                                 SharedConfig.ProxyInfo pi = SharedConfig.currentProxy;
                                 if (!TextUtils.isEmpty(pi.address) && pi.port > 0 && TextUtils.isEmpty(pi.secret)) {
@@ -168,9 +168,15 @@ public final class MusicNetworkHelper {
      */
     public static Proxy getActiveProxy() {
         try {
+            if (soundgram.wsproxy.TgWsProxyService.isRunning && soundgram.wsproxy.TgWsProxyService.currentPort > 0) {
+                return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("127.0.0.1", soundgram.wsproxy.TgWsProxyService.currentPort));
+            }
             if (SharedConfig.isProxyEnabled() && SharedConfig.currentProxy != null) {
                 SharedConfig.ProxyInfo pi = SharedConfig.currentProxy;
                 if (!TextUtils.isEmpty(pi.address) && pi.port > 0) {
+                    if ("127.0.0.1".equals(pi.address) || "localhost".equalsIgnoreCase(pi.address)) {
+                        return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("127.0.0.1", pi.port));
+                    }
                     if (TextUtils.isEmpty(pi.secret)) {
                         return new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(pi.address, pi.port));
                     }
@@ -180,6 +186,27 @@ public final class MusicNetworkHelper {
             FileLog.e(TAG + " getActiveProxy error: " + e);
         }
         return Proxy.NO_PROXY;
+    }
+
+    public static boolean isBypassOrMirrorHost(String host) {
+        if (host == null) return false;
+        String h = host.toLowerCase(java.util.Locale.ROOT);
+        return h.contains("jina.ai")
+                || h.contains("allorigins")
+                || h.contains("codetabs")
+                || h.contains("corsproxy")
+                || h.contains("nadeko.net")
+                || h.contains("nerdvpn.de")
+                || h.contains("yewtu.be")
+                || h.contains("pipedapi")
+                || h.contains("piped")
+                || h.contains("spotifydown")
+                || h.contains("hitmo")
+                || h.contains("deezer")
+                || h.contains("cdn")
+                || h.contains("cloudflare")
+                || h.contains("github")
+                || h.contains("raw.githubusercontent.com");
     }
 
     /**
@@ -193,7 +220,10 @@ public final class MusicNetworkHelper {
      * Opens a HttpURLConnection strictly using the active proxy setting (or direct if disabled).
      */
     public static HttpURLConnection openConnection(URL url) throws IOException {
-        Proxy proxy = getActiveProxy();
+        Proxy proxy = Proxy.NO_PROXY;
+        if (url != null && !isBypassOrMirrorHost(url.getHost())) {
+            proxy = getActiveProxy();
+        }
         HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
 
         if (conn instanceof HttpsURLConnection && sTrustAllSslSocketFactory != null) {
@@ -206,6 +236,31 @@ public final class MusicNetworkHelper {
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(20000);
         return conn;
+    }
+
+    /**
+     * Opens a HttpURLConnection strictly bypassing any proxy (direct connection).
+     */
+    public static HttpURLConnection openConnectionDirect(URL url) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection(Proxy.NO_PROXY);
+
+        if (conn instanceof HttpsURLConnection && sTrustAllSslSocketFactory != null) {
+            try {
+                ((HttpsURLConnection) conn).setSSLSocketFactory(sTrustAllSslSocketFactory);
+                ((HttpsURLConnection) conn).setHostnameVerifier((hostname, session) -> true);
+            } catch (Exception ignored) {}
+        }
+
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(20000);
+        return conn;
+    }
+
+    /**
+     * Opens a HttpURLConnection strictly bypassing any proxy for a given URL string.
+     */
+    public static HttpURLConnection openConnectionDirect(String urlStr) throws IOException {
+        return openConnectionDirect(new URL(urlStr));
     }
 
     /**

@@ -312,7 +312,7 @@
     <string name="NM_GEN_LocalPremiumEmoji_Desc">Kirim emoji premium tanpa langganan Premium.</string>
     <string name="NM_GEN_MiscHeader">Lain-lain</string>
     <string name="NM_GE_UploadSpeedBoost">Unggahan lebih cepat</string>
-    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram dibangun di atas Telegram resmi; fitur di-porting dari Cherrygram.</string>
+    <string name="NM_HUB_ForkedFromCherrygramSub">SoundGram dibangun di atas Telegram resmi; fitur di-porting dari SoundGram.</string>
     <string name="NM_HUB_SourceCode">Kode sumber</string>
     <string name="NM_HideActionBarStatus">Sembunyikan status di header</string>
     <string name="NM_HideBubbleTail">Sembunyikan ekor pesan</string>
