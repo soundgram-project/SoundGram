@@ -1208,7 +1208,6 @@ public final class AnimatedFileDrawable extends BitmapDrawable implements Animat
     public ReferenceList<ImageReceiver> getParents() {
         return parents;
     }
-
     public boolean hasParents() {
         return !parents.isEmpty();
     }

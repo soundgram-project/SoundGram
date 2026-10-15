@@ -36,7 +36,6 @@ android {
 
     defaultConfig.applicationId = APP_PACKAGE
 
-    sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
 
     lintOptions {
         disable 'MissingTranslation'
@@ -83,6 +82,12 @@ android {
                 keyAlias "key0"
                 keyPassword "serega070908"
             }
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 

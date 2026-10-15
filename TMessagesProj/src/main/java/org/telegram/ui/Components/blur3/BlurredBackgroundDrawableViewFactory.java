@@ -12,6 +12,7 @@ import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorPro
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.utils.glass.GlassEngine;
+import java.lang.ref.WeakReference;
 
 import me.vkryl.core.reference.ReferenceList;
 
@@ -112,10 +113,13 @@ public class BlurredBackgroundDrawableViewFactory {
         }
 
         if (viewPositionWatcher != null && parent != null && view != null) {
-            
+            final WeakReference<View> viewInstance = new WeakReference<>(view);
             viewPositionWatcher.subscribe(view, parent, (v, pos) -> {
                 drawable.setSourceOffset(pos.left, pos.top);
-                v.invalidate();
+                final View viewR = viewInstance.get();
+                if (viewR != null) {
+                    viewR.invalidate();
+                }
             }, multiwindow);
         }
 

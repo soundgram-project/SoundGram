@@ -234,6 +234,9 @@ import org.telegram.ui.Stories.recorder.StoryEntry;
 import org.telegram.ui.Stories.recorder.StoryRecorder;
 import org.telegram.ui.Stories.LiveStoryPipOverlay;
 import org.telegram.ui.TON.TONIntroActivity;
+import org.telegram.ui.Wallet.GramWalletStorageAuth;
+import org.telegram.ui.Wallet.WalletActivity;
+import org.telegram.ui.Wallet.WalletSendSelectSender;
 import org.telegram.ui.bots.BotWebViewAttachedSheet;
 import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.bots.WebViewRequestProps;
@@ -6816,6 +6819,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             return;
         }
         super.onActivityResult(requestCode, resultCode, data);
+        if (GramWalletStorageAuth.onActivityResult(this, requestCode, resultCode)) return;
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
                 VoIPService service = VoIPService.getSharedInstance();
@@ -6986,6 +6990,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     @Override
     protected void onStop() {
         super.onStop();
+        GramWalletStorageAuth.onActivityStopped(this);
         // NimarkoGram SECURITY (H1): clear all biometric "recently verified" tokens when the app is
         // genuinely no longer visible (onStop, NOT onPause — onPause fires on transient excursions like the
         // photo picker / share sheet and would wrongly wipe the configurable locked-chats TTL grace). So
@@ -7051,6 +7056,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     @Override
     protected void onDestroy() {
+        GramWalletStorageAuth.onActivityDestroyed(this);
         // Invalidate any posted icon-pack cache/rebuild callback before fragment
         // teardown starts; an old activity must never rebuild a replacement stack.
         nmIconReloadGeneration.incrementAndGet();
@@ -7933,6 +7939,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 ForumUtilities.switchAllFragmentsInStackToForum(chatId, actionBarLayout);
             }
         } else if (id == NotificationCenter.tlSchemeParseException) {
+            if (BuildConfig.DEBUG_PRIVATE_VERSION) {
+                return;
+            }
             if (tlErrorAlertDialog == null) {
                 final TLParseException error = (TLParseException) args[0];
 

@@ -25,7 +25,9 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
+import com.google.firebase.analytics.FirebaseAnalytics;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.telephony.TelephonyManager;
@@ -281,6 +283,16 @@ public class ApplicationLoader extends Application {
         try {
             Utilities.globalQueue.postRunnable(org.telegram.ui.CastSync::preload);
         } catch (Throwable ignored) {}
+        final FirebaseAnalytics fa;
+        FirebaseAnalytics faTmp = null;
+        try {
+            faTmp = FirebaseAnalytics.getInstance(applicationContext);
+            faTmp.setAnalyticsCollectionEnabled(true);
+        } catch (Throwable t) {
+            FileLog.e(t);
+        }
+        fa = faTmp;
+
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
             UserConfig.getInstance(a).loadConfig();
             MessagesController.getInstance(a);
@@ -293,6 +305,28 @@ public class ApplicationLoader extends Application {
             if (user != null) {
                 MessagesController.getInstance(a).putUser(user, true);
                 SendMessagesHelper.getInstance(a).checkUnsentMessages();
+                if (a == UserConfig.selectedAccount && fa != null) {
+                    try {
+                        fa.setUserId(String.valueOf(user.id));
+                        Bundle sessionParams = new Bundle();
+                        sessionParams.putString(FirebaseAnalytics.Param.METHOD, "telegram");
+                        sessionParams.putString("build_version", BuildVars.BUILD_VERSION_STRING);
+                        fa.logEvent(FirebaseAnalytics.Event.LOGIN, sessionParams);
+                    } catch (Throwable t) {
+                        FileLog.e(t);
+                    }
+                }
+            }
+        }
+
+        if (fa != null) {
+            try {
+                Bundle openParams = new Bundle();
+                openParams.putString("build_version", BuildVars.BUILD_VERSION_STRING);
+                openParams.putBoolean("has_account", UserConfig.getInstance(UserConfig.selectedAccount).isClientActivated());
+                fa.logEvent("sg_app_open", openParams);
+            } catch (Throwable t) {
+                FileLog.e(t);
             }
         }
 
@@ -480,7 +514,6 @@ public class ApplicationLoader extends Application {
 
         LauncherIconController.tryFixLauncherIconIfNeeded();
         ProxyRotationController.init();
-
         try {
             app.nimarkogram.messenger.NimarkoFeatureHooks.setDiscussInsteadOfMute(
                     app.nimarkogram.messenger.NimarkoConfig.discussInsteadOfMute);

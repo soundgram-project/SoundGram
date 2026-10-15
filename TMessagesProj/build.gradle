@@ -20,6 +20,10 @@ idea {
             file('jni/third_party/libyuv'),
             file('jni/third_party/openh264'),
             file('jni/third_party/xiph'),
+            file('jni/third_party/wamr'),
+            file('jni/third_party/libprisma'),
+            file('jni/third_party/boost-regex'),
+            file('jni/tgcalls'),
             file('jni/tlottie'),
             file('jni/voip/webrtc'),
             file('jni/sqlite')
@@ -37,7 +41,6 @@ configurations {
 }
 
 configurations.all {
-    exclude group: 'com.google.firebase', module: 'firebase-core'
     exclude group: 'androidx.recyclerview', module: 'recyclerview'
     exclude group: 'androidx.media3', module: 'media3-common'
     exclude group: 'androidx.media3', module: 'media3-container'
@@ -63,6 +66,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-cast-framework:21.4.0'
     implementation "androidx.mediarouter:mediarouter:1.7.0"
     implementation 'com.google.zxing:core:3.5.4'
+    implementation 'com.neovisionaries:nv-websocket-client:2.14'
 
     implementation 'androidx.car.app:app:1.4.0'
     implementation 'androidx.car.app:app-projected:1.4.0'
@@ -71,6 +75,7 @@ dependencies {
     compileOnly 'org.checkerframework:checker-qual:2.5.2'
     compileOnly 'org.checkerframework:checker-compat-qual:2.5.0'
     implementation 'com.google.firebase:firebase-messaging:22.0.0'
+    implementation 'com.google.firebase:firebase-analytics:22.4.0'
     implementation 'com.google.firebase:firebase-datatransport:18.1.0'
     implementation 'com.google.firebase:firebase-appindexing:20.0.0'
     implementation 'com.google.android.gms:play-services-maps:18.1.0'
@@ -182,7 +187,6 @@ android {
         buildConfig = true
     }
 
-    sourceSets.main.jniLibs.srcDirs = ['./jni/']
 
 
 

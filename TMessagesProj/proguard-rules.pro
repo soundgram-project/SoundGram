@@ -40,6 +40,10 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
+-keep class org.telegram.utils.code.highlight.PrismaHighlighter {
+    private static native <methods>;
+}
+
 # https://developers.google.com/ml-kit/known-issues#android_issues
 -keep class com.google.mlkit.nl.languageid.internal.LanguageIdentificationJni { *; }
 -keep class soundgram.wsproxy.** { *; }
@@ -84,3 +88,4 @@
 # Use -keep to explicitly keep any other classes shrinking would remove
 #-dontoptimize
 #-dontobfuscate
+

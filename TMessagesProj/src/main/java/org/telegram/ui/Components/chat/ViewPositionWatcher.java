@@ -116,7 +116,7 @@ public final class ViewPositionWatcher implements
         ensureListening();
 
         if (multiwindow) {
-            ensureMultiwindowListening(view, trackedView);
+            new ViewOnPreDraw(view, this);
         }
     }
 

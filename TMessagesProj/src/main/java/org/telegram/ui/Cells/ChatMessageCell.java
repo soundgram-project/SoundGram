@@ -111,7 +111,7 @@ import org.telegram.messenger.BotForumHelper;
 import org.telegram.messenger.BotInlineKeyboard;
 import org.telegram.messenger.ChatMessageSharedResources;
 import org.telegram.messenger.ChatObject;
-import org.telegram.messenger.CodeHighlighting;
+import org.telegram.utils.code.highlight.CodeHighlighting;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DocumentObject;
@@ -6873,7 +6873,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             .addGlobal(NotificationCenter.stopSpoilers)
             .addGlobal(NotificationCenter.emojiLoaded)
             .addGlobal(NotificationCenter.didUpdatePremiumGiftStickers);
-
         if (soundGramGlowAnimator == null) {
             soundGramGlowAnimator = android.animation.ValueAnimator.ofFloat(0.4f, 1f);
             soundGramGlowAnimator.setDuration(1500);
@@ -19195,14 +19194,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         } else if (edited && ayuDeleted && shouldShowAyuDeletedMark(currentMessageObject)) {
             timeString = tw.nekomimi.nekogram.helpers.TimeStringHelper.createDeletedString(currentMessageObject, edited, false, false, 0, currentMessagesGroup != null ? currentMessagesGroup.getMaxEditDate() : messageObject.messageOwner.edit_date);
         } else if (edited) {
-            // NimarkoGram: when showPencilIcon is enabled, swap the "edited" text for a real
-            // pencil drawable rendered through a ColoredImageSpan (parity with Cherrygram).
             if (app.nimarkogram.messenger.NimarkoConfig.showPencilIcon) {
-                // NG FIX: prepend a leading char BEFORE the pencil span (parity with
-                // createForwardedString), so the ReplacementSpan never lands at buffer index 0 of an
-                // empty SpannableStringBuilder where SpannableStringBuilder.replace() can drop it.
-                // Combined with SPAN_EXCLUSIVE_EXCLUSIVE in getEditedSpan(), this guarantees the
-                // pencil actually draws instead of leaving an invisible-glyph gap.
                 SpannableStringBuilder editedBuilder = new SpannableStringBuilder();
                 editedBuilder
                         .append(' ')

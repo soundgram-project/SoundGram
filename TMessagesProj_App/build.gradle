@@ -11,7 +11,6 @@ configurations {
 }
 
 configurations.all {
-    exclude group: 'com.google.firebase', module: 'firebase-core'
     exclude group: 'androidx.recyclerview', module: 'recyclerview'
 }
 
@@ -28,7 +27,6 @@ android {
 
     defaultConfig.applicationId = APP_PACKAGE
 
-    sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
 
     lintOptions {
         disable 'MissingTranslation'
@@ -68,6 +66,12 @@ android {
             v2SigningEnabled true
             enableV1Signing = true
             enableV2Signing = true
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 

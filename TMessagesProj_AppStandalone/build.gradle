@@ -41,7 +41,6 @@ android {
 
     defaultConfig.applicationId = APP_PACKAGE
 
-    sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
 
     lintOptions {
         disable 'MissingTranslation'
@@ -100,6 +99,12 @@ android {
             enableV2Signing true
             enableV3Signing true
             enableV4Signing false
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 

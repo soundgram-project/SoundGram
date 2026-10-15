@@ -435,7 +435,6 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
         final SharedPreferences preferences = MessagesController.getGlobalMainSettings();
         useProxySettings = preferences.getBoolean("proxy_enabled", false) && !SharedConfig.proxyList.isEmpty();
-
         // Sync TG WS Proxy state from its own preferences
         SharedPreferences wsPrefs = ApplicationLoader.applicationContext.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
         useTgvsProxy = wsPrefs.getBoolean("enabled", false);

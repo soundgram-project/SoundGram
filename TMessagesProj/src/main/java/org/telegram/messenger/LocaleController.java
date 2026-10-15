@@ -4654,7 +4654,6 @@ public class LocaleController {
     private static int getLocalizedStringByName(String key) {
         return ApplicationLoader.applicationContext.getResources().getIdentifier(key, "string", ApplicationLoader.applicationContext.getPackageName());
     }
-
     private String getLocalizedString(String key) {
         checkLocalizationInternal();
         return localizationInternal.getByResName(key);
