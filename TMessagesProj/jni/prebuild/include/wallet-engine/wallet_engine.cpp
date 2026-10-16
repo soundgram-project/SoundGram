@@ -361,10 +361,14 @@ struct RustFutureHandleGuard {
     uint64_t handle;
     F free;
 
+    RustFutureHandleGuard(uint64_t handle, F free) : handle(handle), free(free) {}
+
     ~RustFutureHandleGuard() {
         free(handle);
     }
 };
+template <typename F>
+RustFutureHandleGuard(uint64_t, F) -> RustFutureHandleGuard<F>;
 }
 
 template <typename Start, typename Poll, typename Complete, typename Free, typename EF,

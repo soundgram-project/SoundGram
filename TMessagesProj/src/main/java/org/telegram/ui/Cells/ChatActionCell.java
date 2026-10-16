@@ -639,10 +639,7 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
     }
 
     private boolean offerExpired;
-<<<<<<< HEAD
-=======
     private int walletSendState = -1;
->>>>>>> upstream/master
 
     public void setMessageObject(MessageObject messageObject, boolean force) {
         if (messageObject == null) return;

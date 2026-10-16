@@ -240,9 +240,6 @@ public class FileLog {
                 privateFields.add("FLAG_" + i);
             }
 
-            excludeRequests = new HashSet<>();
-            excludeRequests.add("TL_upload_getFile");
-            excludeRequests.add("TL_upload_getWebFile");
             exclusionStrategy = new ExclusionStrategy() {
 
                 @Override

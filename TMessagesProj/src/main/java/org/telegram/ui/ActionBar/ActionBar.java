@@ -3246,7 +3246,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             invalidate();
         }
     }
-<<<<<<< HEAD
 
     /** NimarkoGram start (ported from Cherrygram, GPL-2.0) */
     // CG-port: unread-chats badge painted to the right of the back arrow.
