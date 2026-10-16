@@ -30,11 +30,11 @@ cd "$SCRIPT_DIR" || exit 1
 
 CURRENT_DIR="$SCRIPT_DIR"
 while [ "$CURRENT_DIR" != "/" ]; do
-    if [ -d "$CURRENT_DIR/TMessagesProj" ]; then
-        TM_PROJ_DIR="$CURRENT_DIR/TMessagesProj"
-        break
-    elif [ "$(basename "$CURRENT_DIR")" = "TMessagesProj" ]; then
+    if [ "$(basename "$CURRENT_DIR")" = "TMessagesProj" ]; then
         TM_PROJ_DIR="$CURRENT_DIR"
+        break
+    elif [ -d "$CURRENT_DIR/TMessagesProj" ]; then
+        TM_PROJ_DIR="$CURRENT_DIR/TMessagesProj"
         break
     fi
     CURRENT_DIR="$(dirname "$CURRENT_DIR")"
@@ -46,8 +46,11 @@ if [ -z "$TM_PROJ_DIR" ]; then
 fi
 
 OUT_BASE="$TM_PROJ_DIR/jni"
+JNI_LIBS="$TM_PROJ_DIR/src/main/jniLibs"
 mkdir -p "$OUT_BASE/arm64-v8a"
 mkdir -p "$OUT_BASE/armeabi-v7a"
+mkdir -p "$JNI_LIBS/arm64-v8a"
+mkdir -p "$JNI_LIBS/armeabi-v7a"
 
 export CGO_ENABLED=1
 export GOOS=android
@@ -70,4 +73,7 @@ go build -trimpath -ldflags="-s -w -extldflags '-Wl,-z,max-page-size=16384 -Wl,-
 
 echo ""
 echo "✅ Готово!"
+cp -f "$OUT_BASE/arm64-v8a/libtgwsproxy.so" "$JNI_LIBS/arm64-v8a/"
+cp -f "$OUT_BASE/armeabi-v7a/libtgwsproxy.so" "$JNI_LIBS/armeabi-v7a/"
 ls -lh "$OUT_BASE"/*/
+ls -lh "$JNI_LIBS"/*/

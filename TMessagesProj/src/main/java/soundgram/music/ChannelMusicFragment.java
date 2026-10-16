@@ -457,7 +457,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     private ArrayList<PlaylistSyncManager.PlaylistData> foreignPlaylists = new ArrayList<>();
     private boolean isSearching = false;
     private int currentSearchFilter = 0;
-    private Timer searchTimer;
+    private Runnable pendingWebSearchRunnable;
+    private int lastSearchRequestId = 0;
+    private String lastExecutedSearchQuery = "";
     private String currentSearchQuery = "";
 
     @Override
@@ -653,6 +655,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             waveWidget.releaseVisualizer();
         }
         isWaitingForUpload = false;
+        if (pendingWebSearchRunnable != null) {
+            AndroidUtilities.cancelRunOnUIThread(pendingWebSearchRunnable);
+            pendingWebSearchRunnable = null;
+        }
         AndroidUtilities.cancelRunOnUIThread(pollMessagesRunnable);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.didReceiveNewMessages);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
@@ -693,6 +699,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     @Override
     public void onResume() {
         super.onResume();
+        updateBottomInsets();
         checkOrCreateMusicChannel();
         checkImportBannerState();
         if (waveWidget != null) {
@@ -1222,6 +1229,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             updateBottomInsets();
             return androidx.core.view.WindowInsetsCompat.CONSUMED;
         });
+        content.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (bottom != oldBottom) {
+                updateBottomInsets();
+            }
+        });
 
         // WaveGLSurfaceView убран по запросу пользователя (шарик сзади)
         waveWidget = null;
@@ -1523,10 +1535,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── MINI PLAYER ───────────────────────────────────────────────────────
         miniPlayerView = new MiniPlayerView(context, this);
-        int navBarDp = (int) Math.ceil(AndroidUtilities.navigationBarHeight / AndroidUtilities.density);
-        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1);
-        int bottomTabsOffset = (isInTabs ? 88 : 0) + navBarDp;
-        content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, bottomTabsOffset + 8));
+        content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 8));
         SoundGramStyleManager.applyGlass(
                 miniPlayerView,
                 SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
@@ -1537,11 +1546,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 () -> miniPlayerView.invalidate()
         );
 
-        setupImportBanner(context, content, bottomTabsOffset);
-
-        int listBottomPad = bottomTabsOffset + 88;
-        listView.setPadding(0, 0, 0, AndroidUtilities.dp(listBottomPad));
-        savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(listBottomPad));
+        setupImportBanner(context, content, 0);
+        updateBottomInsets();
 
         listView.setOnItemClickListener((view, position) -> {
             if (view != null && view.getContentDescription() != null) {
@@ -1822,27 +1828,34 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
     private void updateBottomInsets() {
-        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1);
-        int navBarDp = (int) Math.ceil(navigationBarHeight / AndroidUtilities.density);
-        int baseBottomTabs = (isInTabs ? 88 : 0) + navBarDp;
+        int navBar = navigationBarHeight > 0 ? navigationBarHeight : AndroidUtilities.navigationBarHeight;
+        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs
+                && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1 || (parentLayout.getLastFragment() instanceof org.telegram.ui.MainTabsActivity));
+        int tabsOffset = isInTabs ? AndroidUtilities.dp(org.telegram.ui.DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
+        int targetBottomMargin = navBar + tabsOffset + AndroidUtilities.dp(8);
 
         if (miniPlayerView != null && miniPlayerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
-            lp.bottomMargin = AndroidUtilities.dp(baseBottomTabs + 8);
-            miniPlayerView.setLayoutParams(lp);
+            if (lp.bottomMargin != targetBottomMargin) {
+                lp.bottomMargin = targetBottomMargin;
+                miniPlayerView.setLayoutParams(lp);
+            }
         }
         if (importBannerView != null && importBannerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) importBannerView.getLayoutParams();
             boolean hasMiniPlayer = org.telegram.messenger.MediaController.getInstance().getPlayingMessageObject() != null;
-            lp.bottomMargin = AndroidUtilities.dp(baseBottomTabs + (hasMiniPlayer ? 76 : 12));
-            importBannerView.setLayoutParams(lp);
+            int bannerBottomMargin = targetBottomMargin + (hasMiniPlayer ? AndroidUtilities.dp(72) : 0);
+            if (lp.bottomMargin != bannerBottomMargin) {
+                lp.bottomMargin = bannerBottomMargin;
+                importBannerView.setLayoutParams(lp);
+            }
         }
-        int listBottomPad = baseBottomTabs + 88;
-        if (listView != null) {
-            listView.setPadding(0, 0, 0, AndroidUtilities.dp(listBottomPad));
+        int listBottomPad = targetBottomMargin + AndroidUtilities.dp(72);
+        if (listView != null && listView.getPaddingBottom() != listBottomPad) {
+            listView.setPadding(0, 0, 0, listBottomPad);
         }
-        if (savedAlbumsListView != null) {
-            savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(listBottomPad));
+        if (savedAlbumsListView != null && savedAlbumsListView.getPaddingBottom() != listBottomPad) {
+            savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), listBottomPad);
         }
     }
 
@@ -2008,10 +2021,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (playing != null && playing.getId() != lastTrackedId) {
                 lastTrackedId = playing.getId();
             }
+            updateBottomInsets();
             safeNotifyAdapter(adapter, listView);
             updateWavePlayButton();
         }
         else if (id == NotificationCenter.messagePlayingDidReset || id == NotificationCenter.messagePlayingPlayStateChanged) {
+            updateBottomInsets();
             safeNotifyAdapter(adapter, listView);
             updateWavePlayButton();
         } else if (id == NotificationCenter.userInfoDidLoad) {
@@ -3665,14 +3680,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchField.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                clearSearchBtn.setVisibility(s.length() > 0 ? View.VISIBLE : View.GONE);
-                if (searchTimer != null) searchTimer.cancel();
-                searchTimer = new Timer();
-                searchTimer.schedule(new TimerTask() {
-                    @Override public void run() {
-                        AndroidUtilities.runOnUIThread(() -> filterMusic(s.toString()));
-                    }
-                }, 200);
+                clearSearchBtn.setVisibility(s != null && s.length() > 0 ? View.VISIBLE : View.GONE);
+                onSearchInputChanged(s != null ? s.toString() : "");
             }
             @Override public void afterTextChanged(Editable s) {}
         });
@@ -5519,8 +5528,33 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             content.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
+            int initialNavBar = AndroidUtilities.navigationBarHeight;
+            int initBottomMargin = initialNavBar + AndroidUtilities.dp(8);
             MiniPlayerView miniPlayerView = new MiniPlayerView(context, this);
-            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 8));
+            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 0));
+            FrameLayout.LayoutParams miniLp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+            miniLp.bottomMargin = initBottomMargin;
+            miniPlayerView.setLayoutParams(miniLp);
+            listView.setPadding(0, 0, 0, initBottomMargin + AndroidUtilities.dp(72));
+
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
+                int nb = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
+                if (nb <= 0) nb = AndroidUtilities.navigationBarHeight;
+                int targetBottom = nb + AndroidUtilities.dp(8);
+                if (miniPlayerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+                    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+                    if (lp.bottomMargin != targetBottom) {
+                        lp.bottomMargin = targetBottom;
+                        miniPlayerView.setLayoutParams(lp);
+                    }
+                }
+                int targetListPad = targetBottom + AndroidUtilities.dp(72);
+                if (listView != null && listView.getPaddingBottom() != targetListPad) {
+                    listView.setPadding(0, 0, 0, targetListPad);
+                }
+                return insets;
+            });
+
             SoundGramStyleManager.applyGlass(
                     miniPlayerView,
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
@@ -7762,91 +7796,26 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     }
 
     private void filterMusic(String query) {
-        String queryNoTrailing = query != null ? query.replaceAll("\\s+$", "") : "";
+        String cleanQuery = query != null ? query.trim() : "";
+        if (cleanQuery.equals(currentSearchQuery) && cleanQuery.equals(lastExecutedSearchQuery) && !webResultTracks.isEmpty()) {
+            updateSearchFilterVisibility();
+            safeNotifyAdapter(adapter, listView);
+            return;
+        }
+        onSearchInputChanged(cleanQuery);
+    }
 
-        if (!TextUtils.isEmpty(queryNoTrailing)) {
-            if (tabStrip != null) tabStrip.setVisibility(View.GONE);
-            if (libraryListHeader != null) libraryListHeader.setVisibility(View.GONE);
-            if (viewPager != null && viewPager.getCurrentItem() != 1) viewPager.setCurrentItem(1, false);
+    private void onSearchInputChanged(String query) {
+        String cleanQuery = query != null ? query.trim() : "";
 
-            currentSearchQuery = queryNoTrailing;
-
-            if (currentSearchFilter == 4) {
-                searchMusicInChats(queryNoTrailing);
-                return;
+        if (cleanQuery.isEmpty()) {
+            if (pendingWebSearchRunnable != null) {
+                AndroidUtilities.cancelRunOnUIThread(pendingWebSearchRunnable);
+                pendingWebSearchRunnable = null;
             }
-
-            if (queryNoTrailing.equals(currentSearchQuery) && !webResultTracks.isEmpty()) {
-                updateSearchFilterVisibility();
-                safeNotifyAdapter(adapter, listView);
-                return;
-            }
-
-            currentSearchPage = 1;
-            hasMoreSearchResults = true;
-            isSearchLoadingMore = false;
-
-            searchResultMessages.clear();
-            webResultTracks.clear();
-
-            String lower = queryNoTrailing.toLowerCase();
-            for (MessageObject msg : audioMessages) {
-                if (msg.getMusicTitle().toLowerCase().contains(lower) || msg.getMusicAuthor().toLowerCase().contains(lower)) {
-                    searchResultMessages.add(msg);
-                }
-            }
-
-            MusicWebSearcher.search(queryNoTrailing, 1, (tracks, artists, albums) -> {
-                if (!queryNoTrailing.equals(currentSearchQuery)) return;
-
-                webResultTracks.clear();
-                if (tracks != null) {
-                    webResultTracks.addAll(tracks);
-                    if (tracks.size() < 3) hasMoreSearchResults = false;
-                } else {
-                    hasMoreSearchResults = false;
-                }
-
-                ArrayList<MusicWebSearcher.WebArtist> validArtists = new ArrayList<>();
-                if (artists != null) {
-                    for (MusicWebSearcher.WebArtist a : artists) {
-                        if (a.name != null && !a.name.trim().isEmpty() && !a.name.equalsIgnoreCase("Unknown")) {
-                            validArtists.add(a);
-                        }
-                    }
-                }
-
-                ArrayList<MusicWebSearcher.WebAlbum> validAlbums = new ArrayList<>();
-                if (albums != null) {
-                    for (MusicWebSearcher.WebAlbum a : albums) {
-                        if (a.title != null && !a.title.trim().isEmpty() && !a.title.equalsIgnoreCase("Unknown")) {
-                            validAlbums.add(a);
-                        }
-                    }
-                }
-
-                if (artistAdapter != null) artistAdapter.setArtists(validArtists);
-                if (albumsAdapter != null) albumsAdapter.setAlbums(validAlbums);
-
-                LinearLayout.LayoutParams artistLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validArtists.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
-                artistLP.setMargins(0, 0, 0, 0);
-                artistRecyclerView.setLayoutParams(artistLP);
-
-                LinearLayout.LayoutParams albumsLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validAlbums.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
-                albumsLP.setMargins(0, 0, 0, 0);
-                albumsRecyclerView.setLayoutParams(albumsLP);
-
-                boolean showArtists = (currentSearchFilter == 0 || currentSearchFilter == 2) && !validArtists.isEmpty();
-                boolean showAlbums = (currentSearchFilter == 0 || currentSearchFilter == 3) && !validAlbums.isEmpty();
-
-                artistRecyclerView.setVisibility(showArtists ? View.VISIBLE : View.GONE);
-                albumsRecyclerView.setVisibility(showAlbums ? View.VISIBLE : View.GONE);
-
-                safeNotifyAdapter(adapter, listView);
-            });
-
-        } else {
+            lastSearchRequestId++;
             currentSearchQuery = "";
+            lastExecutedSearchQuery = "";
             currentSearchPage = 1;
             hasMoreSearchResults = true;
             isSearchLoadingMore = false;
@@ -7857,19 +7826,120 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (tabStrip != null) tabStrip.setVisibility(View.VISIBLE);
             if (libraryListHeader != null) libraryListHeader.setVisibility((!isForeignLibrary || !foreignPlaylists.isEmpty()) ? View.VISIBLE : View.GONE);
 
-            artistRecyclerView.setVisibility(View.GONE);
-            albumsRecyclerView.setVisibility(View.GONE);
+            if (artistRecyclerView != null) artistRecyclerView.setVisibility(View.GONE);
+            if (albumsRecyclerView != null) albumsRecyclerView.setVisibility(View.GONE);
 
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, 0);
-            p.setMargins(0, 0, 0, 0);
-            artistRecyclerView.setLayoutParams(p);
-            albumsRecyclerView.setLayoutParams(p);
+            if (artistRecyclerView != null) {
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, 0);
+                p.setMargins(0, 0, 0, 0);
+                artistRecyclerView.setLayoutParams(p);
+            }
+            if (albumsRecyclerView != null) {
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, 0);
+                p.setMargins(0, 0, 0, 0);
+                albumsRecyclerView.setLayoutParams(p);
+            }
 
             if (artistAdapter != null) artistAdapter.setArtists(new ArrayList<>());
             if (albumsAdapter != null) albumsAdapter.setAlbums(new ArrayList<>());
 
             safeNotifyAdapter(adapter, listView);
+            return;
         }
+
+        if (tabStrip != null) tabStrip.setVisibility(View.GONE);
+        if (libraryListHeader != null) libraryListHeader.setVisibility(View.GONE);
+        if (viewPager != null && viewPager.getCurrentItem() != 1) viewPager.setCurrentItem(1, false);
+
+        currentSearchQuery = cleanQuery;
+        currentSearchPage = 1;
+        hasMoreSearchResults = true;
+        isSearchLoadingMore = false;
+
+        // Instant local search on every character
+        searchResultMessages.clear();
+        String lower = cleanQuery.toLowerCase();
+        for (MessageObject msg : audioMessages) {
+            if (msg != null) {
+                String title = msg.getMusicTitle();
+                String author = msg.getMusicAuthor();
+                if ((title != null && title.toLowerCase().contains(lower)) ||
+                    (author != null && author.toLowerCase().contains(lower))) {
+                    searchResultMessages.add(msg);
+                }
+            }
+        }
+        safeNotifyAdapter(adapter, listView);
+
+        if (currentSearchFilter == 4) {
+            searchMusicInChats(cleanQuery);
+            return;
+        }
+
+        // Debounce network search (220ms)
+        if (pendingWebSearchRunnable != null) {
+            AndroidUtilities.cancelRunOnUIThread(pendingWebSearchRunnable);
+        }
+        final int reqId = ++lastSearchRequestId;
+        pendingWebSearchRunnable = () -> executeWebSearch(cleanQuery, reqId);
+        AndroidUtilities.runOnUIThread(pendingWebSearchRunnable, 220);
+    }
+
+    private void executeWebSearch(String query, int reqId) {
+        if (reqId != lastSearchRequestId || !query.equals(currentSearchQuery)) {
+            return;
+        }
+        lastExecutedSearchQuery = query;
+
+        MusicWebSearcher.search(query, 1, (tracks, artists, albums) -> {
+            if (reqId != lastSearchRequestId || !query.equals(currentSearchQuery)) {
+                return;
+            }
+
+            webResultTracks.clear();
+            if (tracks != null) {
+                webResultTracks.addAll(tracks);
+                if (tracks.size() < 3) hasMoreSearchResults = false;
+            } else {
+                hasMoreSearchResults = false;
+            }
+
+            ArrayList<MusicWebSearcher.WebArtist> validArtists = new ArrayList<>();
+            if (artists != null) {
+                for (MusicWebSearcher.WebArtist a : artists) {
+                    if (a.name != null && !a.name.trim().isEmpty() && !a.name.equalsIgnoreCase("Unknown")) {
+                        validArtists.add(a);
+                    }
+                }
+            }
+
+            ArrayList<MusicWebSearcher.WebAlbum> validAlbums = new ArrayList<>();
+            if (albums != null) {
+                for (MusicWebSearcher.WebAlbum a : albums) {
+                    if (a.title != null && !a.title.trim().isEmpty() && !a.title.equalsIgnoreCase("Unknown")) {
+                        validAlbums.add(a);
+                    }
+                }
+            }
+
+            if (artistAdapter != null) artistAdapter.setArtists(validArtists);
+            if (albumsAdapter != null) albumsAdapter.setAlbums(validAlbums);
+
+            if (artistRecyclerView != null) {
+                LinearLayout.LayoutParams artistLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validArtists.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
+                artistLP.setMargins(0, 0, 0, 0);
+                artistRecyclerView.setLayoutParams(artistLP);
+            }
+
+            if (albumsRecyclerView != null) {
+                LinearLayout.LayoutParams albumsLP = new LinearLayout.LayoutParams(LayoutHelper.MATCH_PARENT, validAlbums.isEmpty() ? 0 : LayoutHelper.WRAP_CONTENT);
+                albumsLP.setMargins(0, 0, 0, 0);
+                albumsRecyclerView.setLayoutParams(albumsLP);
+            }
+
+            updateSearchFilterVisibility();
+            safeNotifyAdapter(adapter, listView);
+        });
     }
     private void filterOfflineTracks() {
         ArrayList<MessageObject> offlineList = new ArrayList<>();
@@ -8333,10 +8403,35 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             contentLayout.addView(similarScroll, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 18, 0, 18, 30));
 
             // ── MiniPlayer (bottom, glass) ─────────────────────────
+            int initialNavBar = AndroidUtilities.navigationBarHeight;
+            int initBottomMargin = initialNavBar + AndroidUtilities.dp(8);
             ChannelMusicFragment.MiniPlayerView miniPlayerView =
                     new ChannelMusicFragment.MiniPlayerView(context, this);
             rootFrame.addView(miniPlayerView,
-                    LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 8));
+                    LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 0));
+            FrameLayout.LayoutParams miniLp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+            miniLp.bottomMargin = initBottomMargin;
+            miniPlayerView.setLayoutParams(miniLp);
+            scrollView.setPadding(0, topPad, 0, initBottomMargin + AndroidUtilities.dp(72));
+
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootFrame, (v, insets) -> {
+                int nb = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
+                if (nb <= 0) nb = AndroidUtilities.navigationBarHeight;
+                int targetBottom = nb + AndroidUtilities.dp(8);
+                if (miniPlayerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+                    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+                    if (lp.bottomMargin != targetBottom) {
+                        lp.bottomMargin = targetBottom;
+                        miniPlayerView.setLayoutParams(lp);
+                    }
+                }
+                int targetPad = targetBottom + AndroidUtilities.dp(72);
+                if (scrollView.getPaddingBottom() != targetPad) {
+                    scrollView.setPadding(0, topPad, 0, targetPad);
+                }
+                return insets;
+            });
+
             SoundGramStyleManager.applyGlass(
                     miniPlayerView,
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
@@ -8989,8 +9084,33 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
             content.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
+            int initialNavBar = AndroidUtilities.navigationBarHeight;
+            int initBottomMargin = initialNavBar + AndroidUtilities.dp(8);
             ChannelMusicFragment.MiniPlayerView miniPlayerView = new ChannelMusicFragment.MiniPlayerView(context, this);
-            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 8));
+            content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 0));
+            FrameLayout.LayoutParams miniLp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+            miniLp.bottomMargin = initBottomMargin;
+            miniPlayerView.setLayoutParams(miniLp);
+            listView.setPadding(0, topPad, 0, initBottomMargin + AndroidUtilities.dp(72));
+
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
+                int nb = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
+                if (nb <= 0) nb = AndroidUtilities.navigationBarHeight;
+                int targetBottom = nb + AndroidUtilities.dp(8);
+                if (miniPlayerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+                    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+                    if (lp.bottomMargin != targetBottom) {
+                        lp.bottomMargin = targetBottom;
+                        miniPlayerView.setLayoutParams(lp);
+                    }
+                }
+                int targetPad = targetBottom + AndroidUtilities.dp(72);
+                if (listView != null && listView.getPaddingBottom() != targetPad) {
+                    listView.setPadding(0, topPad, 0, targetPad);
+                }
+                return insets;
+            });
+
             SoundGramStyleManager.applyGlass(
                     miniPlayerView,
                     SoundGramStyleSettingsFragment.KEY_GLASS_MINI,

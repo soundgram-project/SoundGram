@@ -165,8 +165,9 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
 
         if (hasVpn) {
             vpnActive = true;
-            if (prefs.getBoolean("enabled", false) || TgWsProxyService.isRunning) {
-                Log.i(TAG, "VPN detected, disabling proxy and turning off switch");
+            boolean suspendOnVpn = prefs.getBoolean("suspend_on_vpn", false);
+            if (suspendOnVpn && (prefs.getBoolean("enabled", false) || TgWsProxyService.isRunning)) {
+                Log.i(TAG, "VPN detected and suspend_on_vpn enabled, disabling proxy");
                 prefs.edit().putBoolean("enabled", false).commit();
 
                 Intent stopIntent = new Intent(context, TgWsProxyService.class);

@@ -388,7 +388,7 @@
 
     <!-- Launcher Icons -->
     <string name="AppIconCosmos">Cosmos</string>
-    <string name="AppIconAnime">Suno-chan (Anime)</string>
+    <string name="AppIconAnime">Suno-chan</string>
     <string name="AppIconCyberNeon">Cyber Neon</string>
     <string name="AppIconSunset">Sunset</string>
     <string name="AppIconEmerald">Emerald</string>
