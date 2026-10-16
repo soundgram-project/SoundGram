@@ -717,11 +717,18 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     @Override
     public void onTransitionAnimationEnd(boolean isOpen, boolean backward) {
         super.onTransitionAnimationEnd(isOpen, backward);
+        updateBottomInsets();
         if (isOpen && waveWidget != null && viewPager != null && viewPager.getCurrentItem() == 0) {
             setSphereVisible(true);
         } else if (!isOpen && waveWidget != null) {
             setSphereVisible(false);
         }
+    }
+
+    @Override
+    public void onBecomeFullyVisible() {
+        super.onBecomeFullyVisible();
+        updateBottomInsets();
     }
 
     @Override
@@ -1547,6 +1554,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         );
 
         setupImportBanner(context, content, 0);
+        miniPlayerView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {
+                updateBottomInsets();
+            }
+            @Override
+            public void onViewDetachedFromWindow(View v) {}
+        });
         updateBottomInsets();
 
         listView.setOnItemClickListener((view, position) -> {
@@ -1827,10 +1842,29 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
     }
 
+    private int getActualNavBarHeight() {
+        int nb = Math.max(navigationBarHeight, AndroidUtilities.navigationBarHeight);
+        if (nb > 0) {
+            return nb;
+        }
+        if (fragmentView != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            android.view.WindowInsets insets = fragmentView.getRootWindowInsets();
+            if (insets != null) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    int b = insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom;
+                    if (b > 0) return b;
+                } else {
+                    int b = insets.getSystemWindowInsetBottom();
+                    if (b > 0) return b;
+                }
+            }
+        }
+        return 0;
+    }
+
     private void updateBottomInsets() {
-        int navBar = navigationBarHeight > 0 ? navigationBarHeight : AndroidUtilities.navigationBarHeight;
-        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs
-                && (parentLayout == null || parentLayout.getFragmentStack().size() <= 1 || (parentLayout.getLastFragment() instanceof org.telegram.ui.MainTabsActivity));
+        int navBar = getActualNavBarHeight();
+        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs;
         int tabsOffset = isInTabs ? AndroidUtilities.dp(org.telegram.ui.DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
         int targetBottomMargin = navBar + tabsOffset + AndroidUtilities.dp(8);
 

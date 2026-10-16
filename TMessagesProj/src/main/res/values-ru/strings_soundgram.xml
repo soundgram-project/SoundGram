@@ -393,7 +393,7 @@
 
     <!-- Launcher Icons -->
     <string name="AppIconCosmos">Космос</string>
-    <string name="AppIconAnime">суно-тян</string>
+    <string name="AppIconAnime">Суно</string>
     <string name="AppIconCyberNeon">Кибер Неон</string>
     <string name="AppIconSunset">Закат</string>
     <string name="AppIconEmerald">Изумруд</string>
