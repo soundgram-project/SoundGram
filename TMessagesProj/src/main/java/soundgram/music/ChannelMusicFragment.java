@@ -526,6 +526,15 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         // 1. Проверяем сохранённый ID канала для этого аккаунта
         long savedId = getChannelIdFromFile();
         if (savedId != 0) {
+            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(savedId);
+            if (chat != null && (chat.left || chat.kicked || chat.deactivated || chat instanceof TLRPC.TL_channelForbidden)) {
+                clearChannelId(currentAccount);
+                musicChannelId = 0;
+                musicChannelHash = 0;
+                loadMessagesFromCache();
+                showSetupChannelPromptDialog();
+                return;
+            }
             musicChannelId = savedId;
             loadMessagesFromCache();
             loadMusicFromChannel();
@@ -627,8 +636,26 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         return null;
     }
 
+    public static boolean canAdministerMusicChannel(TLRPC.Chat chat) {
+        if (chat == null || chat.left || chat.kicked || chat.deactivated || chat instanceof TLRPC.TL_channelForbidden) {
+            return false;
+        }
+        if (!ChatObject.isChannel(chat) && !ChatObject.isMegagroup(chat)) {
+            return false;
+        }
+        if (chat.creator) {
+            return true;
+        }
+        if (chat.admin_rights != null) {
+            boolean canPost = chat.admin_rights.post_messages || chat.admin_rights.edit_messages;
+            boolean canEditDescription = chat.admin_rights.change_info;
+            return canPost && canEditDescription;
+        }
+        return false;
+    }
+
     private boolean isSoundGramAdmin(TLRPC.Chat chat) {
-        return chat.creator || (chat.admin_rights != null && (chat.admin_rights.post_messages || chat.admin_rights.edit_messages));
+        return canAdministerMusicChannel(chat);
     }
     private int currentSearchPage = 1;
     private boolean isSearchLoadingMore = false;
@@ -3013,7 +3040,25 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         req.hash = 0;
 
         org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
-            if (error != null || !(response instanceof TLRPC.messages_Messages)) {
+            if (error != null) {
+                if (!isForeignLibrary && ("CHANNEL_INVALID".equals(error.text) || "CHANNEL_PRIVATE".equals(error.text) || "CHAT_ID_INVALID".equals(error.text) || "PEER_ID_INVALID".equals(error.text) || (error.text != null && error.text.startsWith("CHANNEL_")))) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        clearChannelId(currentAccount);
+                        musicChannelId = 0;
+                        musicChannelHash = 0;
+                        loadMessagesFromCache();
+                        showSetupChannelPromptDialog();
+                    });
+                    return;
+                }
+                if (accumulatedMessages.isEmpty()) {
+                    AndroidUtilities.runOnUIThread(this::loadMessagesFromCache);
+                    return;
+                }
+                processLoadedChannelMessages(accumulatedMessages);
+                return;
+            }
+            if (!(response instanceof TLRPC.messages_Messages)) {
                 if (accumulatedMessages.isEmpty()) {
                     AndroidUtilities.runOnUIThread(this::loadMessagesFromCache);
                     return;
@@ -3756,6 +3801,62 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         return userId != 0 ? "music_channel_id_" + userId : "music_channel_id_acc" + currentAccount;
     }
 
+    public static void clearChannelId(int account) {
+        long userId = getValidUserId(account);
+        SharedPreferences.Editor editor = MessagesController.getNotificationsSettings(account).edit();
+        if (userId != 0) {
+            editor.remove("music_channel_id_" + userId);
+            editor.remove("music_channel_hash_" + userId);
+        }
+        editor.remove("music_channel_id_acc" + account);
+        editor.remove("music_channel_hash_acc" + account);
+        if (account == 0) {
+            editor.remove("music_channel_id");
+        }
+        editor.apply();
+
+        File dir = getUserStorageDir(account);
+        if (dir != null) {
+            File[] candidateFiles = userId != 0 ? new File[]{
+                    new File(dir, "music_channel_id_" + userId + ".txt"),
+                    new File(dir, "music_channel_id_acc" + account + ".txt"),
+                    new File(dir, "music_channel_id_0.txt"),
+                    new File(dir, "music_channel_id.txt")
+            } : new File[]{
+                    new File(dir, "music_channel_id_acc" + account + ".txt"),
+                    new File(dir, "music_channel_id_0.txt"),
+                    new File(dir, "music_channel_id.txt")
+            };
+            for (File f : candidateFiles) {
+                if (f != null && f.exists()) {
+                    f.delete();
+                }
+            }
+        }
+    }
+
+    public static void saveChannelId(int account, long channelId, long accessHash) {
+        if (channelId == 0) return;
+        long userId = getValidUserId(account);
+
+        SharedPreferences.Editor editor = MessagesController.getNotificationsSettings(account).edit();
+        if (userId != 0) {
+            editor.putLong("music_channel_id_" + userId, channelId);
+            if (accessHash != 0) editor.putLong("music_channel_hash_" + userId, accessHash);
+        }
+        editor.putLong("music_channel_id_acc" + account, channelId);
+        if (accessHash != 0) editor.putLong("music_channel_hash_acc" + account, accessHash);
+        editor.apply();
+
+        File dir = getUserStorageDir(account);
+        if (dir == null) return;
+        String fileName = userId != 0 ? "music_channel_id_" + userId + ".txt" : "music_channel_id_acc" + account + ".txt";
+        File file = new File(dir, fileName);
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            writer.write(channelId + (accessHash != 0 ? ":" + accessHash : ""));
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+
     private void saveChannelIdToFile(long channelId) {
         saveChannelIdToFile(channelId, 0);
     }
@@ -3766,23 +3867,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         if (accessHash != 0) {
             musicChannelHash = accessHash;
         }
-        long userId = getValidUserId(currentAccount);
-
-        SharedPreferences.Editor editor = MessagesController.getNotificationsSettings(currentAccount).edit();
-        if (userId != 0) {
-            editor.putLong("music_channel_id_" + userId, channelId);
-            if (accessHash != 0) editor.putLong("music_channel_hash_" + userId, accessHash);
-        }
-        editor.putLong("music_channel_id_acc" + currentAccount, channelId);
-        if (accessHash != 0) editor.putLong("music_channel_hash_acc" + currentAccount, accessHash);
-        editor.apply();
-
-        File dir = getUserStorageDir(currentAccount);
-        if (dir == null) return;
-        File file = new File(dir, getAccountChannelIdFileName());
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            writer.write(channelId + (accessHash != 0 ? ":" + accessHash : ""));
-        } catch (IOException e) { e.printStackTrace(); }
+        saveChannelId(currentAccount, channelId, accessHash);
     }
 
     public static long getChannelHashFromFile(int account) {
@@ -4878,8 +4963,20 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         builder.show();
     }
 
+    public interface OnChannelSelectedListener {
+        void onChannelSelected(TLRPC.Chat chat);
+    }
+
     private void showAdminChannelPicker() {
-        Activity activity = getParentActivity();
+        showAdminChannelPicker(getParentActivity(), currentAccount, selectedChat -> {
+            musicChannelId = selectedChat.id;
+            musicChannelHash = selectedChat.access_hash;
+            loadMessagesFromCache();
+            loadMusicFromChannel();
+        });
+    }
+
+    public static void showAdminChannelPicker(Activity activity, int currentAccount, OnChannelSelectedListener listener) {
         if (activity == null) activity = LaunchActivity.instance;
         if (activity == null) return;
         final Activity finalAct = activity;
@@ -4894,9 +4991,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     long chatId = -dialog.id;
                     TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(chatId);
                     if (chat != null && !addedIds.contains(chat.id)) {
-                        boolean isAdmin = chat.creator || (chat.admin_rights != null && (chat.admin_rights.post_messages || chat.admin_rights.edit_messages || chat.admin_rights.change_info));
-                        boolean isPublic = !TextUtils.isEmpty(chat.username);
-                        if (isAdmin && isPublic && (ChatObject.isChannel(chat) || ChatObject.isMegagroup(chat))) {
+                        if (canAdministerMusicChannel(chat)) {
                             adminChats.add(chat);
                             addedIds.add(chat.id);
                         }
@@ -4909,9 +5004,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         if (chatsMap != null) {
             for (TLRPC.Chat chat : chatsMap.values()) {
                 if (chat != null && !addedIds.contains(chat.id)) {
-                    boolean isAdmin = chat.creator || (chat.admin_rights != null && (chat.admin_rights.post_messages || chat.admin_rights.edit_messages || chat.admin_rights.change_info));
-                    boolean isPublic = !TextUtils.isEmpty(chat.username);
-                    if (isAdmin && isPublic && (ChatObject.isChannel(chat) || ChatObject.isMegagroup(chat))) {
+                    if (canAdministerMusicChannel(chat)) {
                         adminChats.add(chat);
                         addedIds.add(chat.id);
                     }
@@ -4922,19 +5015,19 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         long userId = getValidUserId(currentAccount);
         if (adminChats.isEmpty()) {
             AlertDialog.Builder emptyBuilder = new AlertDialog.Builder(finalAct);
-            emptyBuilder.setTitle(getString(R.string.SoundGram));
-            emptyBuilder.setMessage("Для хранения музыки требуется публичный канал или группа с публичной ссылкой (@username), в котором у вас есть права администратора.\n\nПодходящих публичных каналов не найдено. Создать персональный канал id" + userId + "soundgram автоматически?");
-            emptyBuilder.setPositiveButton(getString(R.string.MusicStorageCreateAuto), (d, w) -> {
-                createMusicChannel("id" + userId + "soundgram");
+            emptyBuilder.setTitle(LocaleController.getString("SoundGram", R.string.SoundGram));
+            emptyBuilder.setMessage("Каналов или групп, где вы являетесь создателем или администратором с правами отправки сообщений и изменения описания, не найдено.\n\nСоздать персональный канал id" + userId + "soundgram автоматически?");
+            emptyBuilder.setPositiveButton(LocaleController.getString("MusicStorageCreateAuto", R.string.MusicStorageCreateAuto), (d, w) -> {
+                createMusicChannelStatic(finalAct, currentAccount, listener);
             });
-            emptyBuilder.setNegativeButton(getString(R.string.cancel), null);
+            emptyBuilder.setNegativeButton(LocaleController.getString("Cancel", R.string.Cancel), null);
             emptyBuilder.show();
             return;
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(finalAct);
-        builder.setTitle(getString(R.string.MusicStorageSelect));
-        builder.setMessage("Выберите публичный канал или группу (@username) для хранения вашей музыки:");
+        builder.setTitle(LocaleController.getString("MusicStorageSelect", R.string.MusicStorageSelect));
+        builder.setMessage("Выберите канал или супергруппу для хранения вашей музыки (вы должны быть администратором с правами отправки сообщений и изменения описания):");
 
         RecyclerListView listView = new RecyclerListView(finalAct);
         listView.setLayoutManager(new LinearLayoutManager(finalAct, LinearLayoutManager.VERTICAL, false));
@@ -4959,7 +5052,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
                 ProfileSearchCell cell = (ProfileSearchCell) holder.itemView;
                 TLRPC.Chat chat = adminChats.get(position);
-                String subtext = ChatObject.isChannelAndNotMegaGroup(chat) ? getString(R.string.MusicStorageChannel) : getString(R.string.MusicStorageGroup);
+                String subtext = ChatObject.isChannelAndNotMegaGroup(chat) ? LocaleController.getString("MusicStorageChannel", R.string.MusicStorageChannel) : LocaleController.getString("MusicStorageGroup", R.string.MusicStorageGroup);
                 if (!TextUtils.isEmpty(chat.username)) {
                     subtext += " • @" + chat.username;
                 }
@@ -4979,24 +5072,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         listView.setOnItemClickListener((view, position) -> {
             if (position >= 0 && position < adminChats.size()) {
                 TLRPC.Chat selectedChat = adminChats.get(position);
-                musicChannelId = selectedChat.id;
-                musicChannelHash = selectedChat.access_hash;
-                saveChannelIdToFile(musicChannelId, musicChannelHash);
+                saveChannelId(currentAccount, selectedChat.id, selectedChat.access_hash);
                 if (dialogRef[0] != null) dialogRef[0].dismiss();
                 Toast.makeText(finalAct, LocaleController.formatString("MusicStorageLinked", R.string.MusicStorageLinked, selectedChat.title), Toast.LENGTH_SHORT).show();
-                loadMessagesFromCache();
-                loadMusicFromChannel();
+                if (listener != null) {
+                    listener.onChannelSelected(selectedChat);
+                }
             }
         });
 
         builder.setView(listView);
-        builder.setNegativeButton(getString(R.string.cancel), null);
+        builder.setNegativeButton(LocaleController.getString("Cancel", R.string.Cancel), null);
         dialogRef[0] = builder.create();
         dialogRef[0].show();
     }
 
-    private void createMusicChannel(String title) {
-        Activity activity = getParentActivity();
+    public static void createMusicChannelStatic(Activity activity, int currentAccount, OnChannelSelectedListener listener) {
         if (activity == null) activity = LaunchActivity.instance;
         final Activity finalAct = activity;
 
@@ -5011,13 +5102,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 MessagesController.getInstance(currentAccount).processUpdates(updates, false);
                 for (TLRPC.Chat chat : updates.chats) {
                     if (chat != null) {
-                        musicChannelId = chat.id;
-                        musicChannelHash = chat.access_hash;
                         AndroidUtilities.runOnUIThread(() -> {
-                            saveChannelIdToFile(musicChannelId, musicChannelHash);
-                            loadMusicFromChannel();
+                            saveChannelId(currentAccount, chat.id, chat.access_hash);
                             if (finalAct != null) {
-                                Toast.makeText(finalAct, getString(R.string.MusicStorageCreated), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(finalAct, LocaleController.getString("MusicStorageCreated", R.string.MusicStorageCreated), Toast.LENGTH_SHORT).show();
+                            }
+                            if (listener != null) {
+                                listener.onChannelSelected(chat);
                             }
                         });
 
@@ -5042,6 +5133,14 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     }
                 });
             }
+        });
+    }
+
+    private void createMusicChannel(String title) {
+        createMusicChannelStatic(getParentActivity(), currentAccount, chat -> {
+            musicChannelId = chat.id;
+            musicChannelHash = chat.access_hash;
+            loadMusicFromChannel();
         });
     }
 

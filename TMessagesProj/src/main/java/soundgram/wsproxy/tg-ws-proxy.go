@@ -3481,7 +3481,14 @@ func handleClient(ctx context.Context, conn net.Conn) {
 		wsTimeout = wsFailTimeout
 	}
 
-	ws, wsFailedRedirect, allRedirects := connectDirectWS(ctx, target, domains, wsTimeout)
+	var ws *RawWebSocket
+	var wsFailedRedirect, allRedirects bool
+	if now >= failUntil {
+		ws = wsPool.Get(ctx, dc, isMedia, target, domains)
+	}
+	if ws == nil {
+		ws, wsFailedRedirect, allRedirects = connectDirectWS(ctx, target, domains, wsTimeout)
+	}
 
 	if ws == nil {
 		logWarn.Printf(" DC%d%s: all WS attempts failed (DPI/Internet)", dc, mTag)

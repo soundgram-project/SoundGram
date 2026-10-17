@@ -30,16 +30,30 @@ public class ProxyDrawable extends Drawable {
 
     private boolean connected;
     private boolean isEnabled;
+    private int currentColor = Color.WHITE;
+
+    public void setColor(int color) {
+        currentColor = color;
+        android.graphics.PorterDuffColorFilter cf = new android.graphics.PorterDuffColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN);
+        emptyDrawable.setColorFilter(cf);
+        fullDrawable.setColorFilter(cf);
+        outerPaint.setColor(color);
+        invalidateSelf();
+    }
 
     public ProxyDrawable(Context context) {
         super();
         emptyDrawable = context.getResources().getDrawable(R.drawable.outline_shield_plain_24).mutate();
         fullDrawable = context.getResources().getDrawable(R.drawable.outline_shield_check).mutate();
 
-        outerPaint.setColor(Color.WHITE);
         outerPaint.setStyle(Paint.Style.STROKE);
         outerPaint.setStrokeWidth(AndroidUtilities.dp(1.66f));
         outerPaint.setStrokeCap(Paint.Cap.ROUND);
+        try {
+            setColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_windowBackgroundWhiteBlackText));
+        } catch (Throwable ignored) {
+            outerPaint.setColor(Color.WHITE);
+        }
         lastUpdateTime = SystemClock.elapsedRealtime();
     }
 

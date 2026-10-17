@@ -347,9 +347,6 @@ public class ChatThemeController extends BaseController {
 
     public void saveChatWallpaper(long dialogId, TLRPC.WallPaper wallPaper) {
         if (wallPaper != null) {
-            if (wallPaper.document == null) {
-                return;
-            }
             SerializedData data = new SerializedData(wallPaper.getObjectSize());
             wallPaper.serializeToStream(data);
             String wallpaperString = Utilities.bytesToHex(data.toByteArray());
@@ -633,19 +630,32 @@ public class ChatThemeController extends BaseController {
     }
 
     public static boolean wallpaperEquals(TLRPC.WallPaper a, TLRPC.WallPaper b) {
-        if (a == null && b == null) {
+        if (a == b) {
             return true;
         }
-        if (a instanceof TLRPC.TL_wallPaper && b instanceof TLRPC.TL_wallPaper) {
-            return a.id == b.id;
+        if (a == null || b == null) {
+            return false;
         }
-        if (a instanceof TLRPC.TL_wallPaperNoFile && b instanceof TLRPC.TL_wallPaperNoFile) {
-            if (a.settings != null && b.settings != null) {
-                return TextUtils.equals(getWallpaperEmoticon(a), getWallpaperEmoticon(b));
+        if (a.id != b.id) {
+            return false;
+        }
+        if (a.settings != null || b.settings != null) {
+            if (a.settings == null || b.settings == null) {
+                return false;
             }
-            return a.id == b.id;
+            if (a.settings.motion != b.settings.motion ||
+                    a.settings.blur != b.settings.blur ||
+                    a.settings.background_color != b.settings.background_color ||
+                    a.settings.second_background_color != b.settings.second_background_color ||
+                    a.settings.third_background_color != b.settings.third_background_color ||
+                    a.settings.fourth_background_color != b.settings.fourth_background_color ||
+                    a.settings.intensity != b.settings.intensity ||
+                    a.settings.rotation != b.settings.rotation ||
+                    !TextUtils.equals(a.settings.emoticon, b.settings.emoticon)) {
+                return false;
+            }
         }
-        return false;
+        return true;
     }
 
     public static String getWallpaperEmoticon(TLRPC.WallPaper a) {

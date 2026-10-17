@@ -2641,6 +2641,9 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         if (currentWallpaper instanceof TLRPC.TL_wallPaper) {
             tlwallPaper = (TLRPC.TL_wallPaper) currentWallpaper;
             slug = tlwallPaper.slug;
+        } else if (currentWallpaper instanceof TLRPC.WallPaper) {
+            tlwallPaper = (TLRPC.WallPaper) currentWallpaper;
+            slug = tlwallPaper.slug;
         } else if (currentWallpaper instanceof WallpapersListActivity.ColorWallpaper) {
             WallpapersListActivity.ColorWallpaper wallPaper = (WallpapersListActivity.ColorWallpaper) currentWallpaper;
             if (Theme.DEFAULT_BACKGROUND_SLUG.equals(wallPaper.slug)) {
@@ -2677,6 +2680,13 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         }
 
         Theme.OverrideWallpaperInfo wallpaperInfo = new Theme.OverrideWallpaperInfo();
+        if (tlwallPaper != null) {
+            wallpaperInfo.wallpaperId = tlwallPaper.id;
+            wallpaperInfo.accessHash = tlwallPaper.access_hash;
+            if (tlwallPaper.slug != null && !tlwallPaper.slug.isEmpty()) {
+                wallpaperInfo.slug = tlwallPaper.slug;
+            }
+        }
         wallpaperInfo.fileName = fileName;
         wallpaperInfo.originalFileName = originalFileName;
         wallpaperInfo.slug = slug;
@@ -2765,6 +2775,26 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
                         }
                     }
                 } else {
+                    if (tlwallPaper != null) {
+                        if (dialogId >= 0) {
+                            TLRPC.UserFull fullUser = getMessagesController().getUserFull(dialogId);
+                            if (fullUser != null) {
+                                fullUser.wallpaper = tlwallPaper;
+                                fullUser.flags |= 16777216;
+                                getMessagesStorage().updateUserInfo(fullUser, false);
+                                NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.userInfoDidLoad, dialogId, fullUser);
+                            }
+                        } else {
+                            TLRPC.ChatFull fullChat = getMessagesController().getChatFull(-dialogId);
+                            if (fullChat != null) {
+                                fullChat.wallpaper = tlwallPaper;
+                                fullChat.flags2 |= 128;
+                                getMessagesStorage().updateChatInfo(fullChat, false);
+                                NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.chatInfoDidLoad, fullChat, 0, false, false);
+                            }
+                        }
+                        ChatThemeController.getInstance(currentAccount).saveChatWallpaper(dialogId, tlwallPaper);
+                    }
                     ChatThemeController.getInstance(currentAccount).setWallpaperToPeer(dialogId, null, wallpaperInfo, serverWallpaper, () -> {
 
                     });

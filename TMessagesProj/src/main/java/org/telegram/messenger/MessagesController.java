@@ -9346,6 +9346,10 @@ public class MessagesController extends BaseController implements NotificationCe
             inputWallPaperId.id = info.wallpaperId;
             inputWallPaperId.access_hash = info.accessHash;
             inputWallPaper = inputWallPaperId;
+        } else if (info.isColor() || TextUtils.isEmpty(info.slug) || Theme.COLOR_BACKGROUND_SLUG.equals(info.slug)) {
+            TLRPC.TL_inputWallPaperNoFile inputWallPaperNoFile = new TLRPC.TL_inputWallPaperNoFile();
+            inputWallPaperNoFile.id = info.wallpaperId;
+            inputWallPaper = inputWallPaperNoFile;
         } else {
             TLRPC.TL_inputWallPaperSlug inputWallPaperSlug = new TLRPC.TL_inputWallPaperSlug();
             inputWallPaperSlug.slug = info.slug;

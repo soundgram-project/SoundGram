@@ -35,10 +35,13 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
+import soundgram.music.ChannelMusicFragment;
 import soundgram.music.PublicLibraryManager;
 import soundgram.music.SoundGramConfig;
 import soundgram.music.SoundGramEQAlert;
 import soundgram.music.SoundGramStatsManager;
+import org.telegram.messenger.MessagesController;
+import org.telegram.tgnet.TLRPC;
 
 import java.io.File;
 
@@ -200,7 +203,64 @@ public class SoundGramStyleSettingsFragment extends BaseFragment {
         statsCard.addView(statsRow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         content.addView(statsCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
 
-        // 2. Public Library MD3 Card
+        // 2. Music Channel Storage Binding MD3 Card
+        content.addView(createSectionHeader(context, "ХРАНИЛИЩЕ МУЗЫКИ"));
+        FrameLayout bindCard = createMd3Card(context);
+        LinearLayout bindRow = new LinearLayout(context);
+        bindRow.setOrientation(LinearLayout.HORIZONTAL);
+        bindRow.setGravity(Gravity.CENTER_VERTICAL);
+        bindRow.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+
+        LinearLayout bindTextCol = new LinearLayout(context);
+        bindTextCol.setOrientation(LinearLayout.VERTICAL);
+
+        TextView bindTitle = new TextView(context);
+        bindTitle.setText("Канал для музыки");
+        bindTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        bindTitle.setTypeface(AndroidUtilities.bold());
+        bindTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        bindTextCol.addView(bindTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        TextView bindSub = new TextView(context);
+        long currentChannelId = ChannelMusicFragment.getChannelIdFromFile(currentAccount);
+        TLRPC.Chat linkedChat = currentChannelId != 0 ? MessagesController.getInstance(currentAccount).getChat(currentChannelId) : null;
+        if (linkedChat != null && !linkedChat.left && !linkedChat.kicked && !linkedChat.deactivated && !(linkedChat instanceof TLRPC.TL_channelForbidden)) {
+            String chTitle = linkedChat.title;
+            if (!TextUtils.isEmpty(linkedChat.username)) {
+                chTitle += " (@" + linkedChat.username + ")";
+            }
+            bindSub.setText("Привязан: " + chTitle);
+        } else if (currentChannelId != 0) {
+            bindSub.setText("Канал ID " + currentChannelId + " (недоступен или удалён)");
+        } else {
+            bindSub.setText("Канал не привязан");
+        }
+        bindSub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        bindSub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        bindTextCol.addView(bindSub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+        bindRow.addView(bindTextCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 12, 0));
+
+        TextView[] bindBtnHolder = new TextView[1];
+        bindBtnHolder[0] = createMd3Button(context, currentChannelId != 0 ? "Изменить" : "Привязать", accent, () -> {
+            ChannelMusicFragment.showAdminChannelPicker(getParentActivity(), currentAccount, selectedChat -> {
+                if (selectedChat != null) {
+                    String title = selectedChat.title;
+                    if (!TextUtils.isEmpty(selectedChat.username)) {
+                        title += " (@" + selectedChat.username + ")";
+                    }
+                    bindSub.setText("Привязан: " + title);
+                    bindBtnHolder[0].setText("Изменить");
+                    BulletinFactory.of(SoundGramStyleSettingsFragment.this)
+                            .createSimpleBulletin(R.raw.contact_check, "Канал успешно привязан")
+                            .show();
+                }
+            });
+        });
+        bindRow.addView(bindBtnHolder[0], LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        bindCard.addView(bindRow);
+        content.addView(bindCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 20));
+
+        // 3. Public Library MD3 Card
         content.addView(createSectionHeader(context, "ПРОФИЛЬ И ПУБЛИЧНОСТЬ"));
         FrameLayout pubCard = createMd3Card(context);
         LinearLayout pubRow = new LinearLayout(context);

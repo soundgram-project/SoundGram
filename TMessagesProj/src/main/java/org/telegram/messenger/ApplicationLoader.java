@@ -430,10 +430,10 @@ public class ApplicationLoader extends Application {
 
         new Thread(() -> {
             try {
-                Thread.sleep(2000);
                 soundgram.wsproxy.ProxyAutoDetector.init(this);
                 android.content.SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
-                if (prefs.getBoolean("enabled", false) && !soundgram.wsproxy.TgWsProxyService.isRunning) {
+                boolean proxyEnabled = prefs.getBoolean("enabled", false);
+                if (proxyEnabled && !soundgram.wsproxy.TgWsProxyService.isRunning) {
                     Intent intent = new Intent(this, soundgram.wsproxy.TgWsProxyService.class);
                     intent.setAction(soundgram.wsproxy.TgWsProxyService.ACTION_START);
                     intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_PORT, prefs.getInt("port", 1443));
@@ -442,10 +442,22 @@ public class ApplicationLoader extends Application {
                     intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_ENABLED, prefs.getBoolean("cf_enabled", true));
                     intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_DOMAIN, prefs.getString("cf_domain", ""));
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent);
-                    } else {
-                        startService(intent);
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent);
+                        } else {
+                            startService(intent);
+                        }
+                    } catch (Throwable t) {
+                        try {
+                            startService(intent);
+                        } catch (Throwable ignored) {}
+                    }
+                } else if (!proxyEnabled) {
+                    android.content.SharedPreferences mainPrefs = getSharedPreferences("mainconfig", Context.MODE_PRIVATE);
+                    if (mainPrefs.getBoolean("proxy_enabled", false) && "127.0.0.1".equals(mainPrefs.getString("proxy_ip", ""))) {
+                        mainPrefs.edit().putBoolean("proxy_enabled", false).apply();
+                        org.telegram.tgnet.ConnectionsManager.setProxySettings(false, "", 0, "", "", "");
                     }
                 }
             } catch (Exception e) {
