@@ -699,7 +699,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     @Override
     public void onResume() {
         super.onResume();
-        updateBottomInsets();
         checkOrCreateMusicChannel();
         checkImportBannerState();
         if (waveWidget != null) {
@@ -717,18 +716,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     @Override
     public void onTransitionAnimationEnd(boolean isOpen, boolean backward) {
         super.onTransitionAnimationEnd(isOpen, backward);
-        updateBottomInsets();
         if (isOpen && waveWidget != null && viewPager != null && viewPager.getCurrentItem() == 0) {
             setSphereVisible(true);
         } else if (!isOpen && waveWidget != null) {
             setSphereVisible(false);
         }
-    }
-
-    @Override
-    public void onBecomeFullyVisible() {
-        super.onBecomeFullyVisible();
-        updateBottomInsets();
     }
 
     @Override
@@ -1230,16 +1222,29 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             }
         };
 
+        final boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs;
         // Register Window Insets listener to track navigation bar height
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content, (v, insets) -> {
             navigationBarHeight = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom;
-            updateBottomInsets();
-            return androidx.core.view.WindowInsetsCompat.CONSUMED;
-        });
-        content.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-            if (bottom != oldBottom) {
-                updateBottomInsets();
+            if (navigationBarHeight <= 0) navigationBarHeight = AndroidUtilities.navigationBarHeight;
+            int nbDp = (int) Math.ceil(navigationBarHeight / AndroidUtilities.density);
+            int baseTabs = (isInTabs ? 88 : 0) + nbDp;
+            if (miniPlayerView != null && miniPlayerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+                FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
+                int targetMargin = AndroidUtilities.dp(baseTabs + 8);
+                if (lp.bottomMargin != targetMargin) {
+                    lp.bottomMargin = targetMargin;
+                    miniPlayerView.setLayoutParams(lp);
+                }
             }
+            int pad = AndroidUtilities.dp(baseTabs + 88);
+            if (listView != null && listView.getPaddingBottom() != pad) {
+                listView.setPadding(0, 0, 0, pad);
+            }
+            if (savedAlbumsListView != null && savedAlbumsListView.getPaddingBottom() != pad) {
+                savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), pad);
+            }
+            return insets;
         });
 
         // WaveGLSurfaceView убран по запросу пользователя (шарик сзади)
@@ -1542,7 +1547,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
         // ── MINI PLAYER ───────────────────────────────────────────────────────
         miniPlayerView = new MiniPlayerView(context, this);
-        content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, 8));
+        int navBarDp = (int) Math.ceil(AndroidUtilities.navigationBarHeight / AndroidUtilities.density);
+        int bottomTabsOffset = (isInTabs ? 88 : 0) + navBarDp;
+        content.addView(miniPlayerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 64, Gravity.BOTTOM, 8, 0, 8, bottomTabsOffset + 8));
         SoundGramStyleManager.applyGlass(
                 miniPlayerView,
                 SoundGramStyleSettingsFragment.KEY_GLASS_MINI,
@@ -1553,16 +1560,11 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 () -> miniPlayerView.invalidate()
         );
 
-        setupImportBanner(context, content, 0);
-        miniPlayerView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
-            @Override
-            public void onViewAttachedToWindow(View v) {
-                updateBottomInsets();
-            }
-            @Override
-            public void onViewDetachedFromWindow(View v) {}
-        });
-        updateBottomInsets();
+        setupImportBanner(context, content, bottomTabsOffset);
+
+        int listBottomPad = bottomTabsOffset + 88;
+        listView.setPadding(0, 0, 0, AndroidUtilities.dp(listBottomPad));
+        savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(listBottomPad));
 
         listView.setOnItemClickListener((view, position) -> {
             if (view != null && view.getContentDescription() != null) {
@@ -1842,56 +1844,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         }
     }
 
-    private int getActualNavBarHeight() {
-        int nb = Math.max(navigationBarHeight, AndroidUtilities.navigationBarHeight);
-        if (nb > 0) {
-            return nb;
-        }
-        if (fragmentView != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            android.view.WindowInsets insets = fragmentView.getRootWindowInsets();
-            if (insets != null) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                    int b = insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom;
-                    if (b > 0) return b;
-                } else {
-                    int b = insets.getSystemWindowInsetBottom();
-                    if (b > 0) return b;
-                }
-            }
-        }
-        return 0;
-    }
 
-    private void updateBottomInsets() {
-        int navBar = getActualNavBarHeight();
-        boolean isInTabs = !isStandalone && !isForeignLibrary && app.nimarkogram.messenger.NimarkoConfig.showMainTabs;
-        int tabsOffset = isInTabs ? AndroidUtilities.dp(org.telegram.ui.DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
-        int targetBottomMargin = navBar + tabsOffset + AndroidUtilities.dp(8);
-
-        if (miniPlayerView != null && miniPlayerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
-            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) miniPlayerView.getLayoutParams();
-            if (lp.bottomMargin != targetBottomMargin) {
-                lp.bottomMargin = targetBottomMargin;
-                miniPlayerView.setLayoutParams(lp);
-            }
-        }
-        if (importBannerView != null && importBannerView.getLayoutParams() instanceof FrameLayout.LayoutParams) {
-            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) importBannerView.getLayoutParams();
-            boolean hasMiniPlayer = org.telegram.messenger.MediaController.getInstance().getPlayingMessageObject() != null;
-            int bannerBottomMargin = targetBottomMargin + (hasMiniPlayer ? AndroidUtilities.dp(72) : 0);
-            if (lp.bottomMargin != bannerBottomMargin) {
-                lp.bottomMargin = bannerBottomMargin;
-                importBannerView.setLayoutParams(lp);
-            }
-        }
-        int listBottomPad = targetBottomMargin + AndroidUtilities.dp(72);
-        if (listView != null && listView.getPaddingBottom() != listBottomPad) {
-            listView.setPadding(0, 0, 0, listBottomPad);
-        }
-        if (savedAlbumsListView != null && savedAlbumsListView.getPaddingBottom() != listBottomPad) {
-            savedAlbumsListView.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(8), listBottomPad);
-        }
-    }
 
     private void showWaveSettingsSheet(Context context, TextView updateTextTarget) {
         BottomSheet.Builder builder = new BottomSheet.Builder(getParentActivity());
@@ -2055,12 +2008,10 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             if (playing != null && playing.getId() != lastTrackedId) {
                 lastTrackedId = playing.getId();
             }
-            updateBottomInsets();
             safeNotifyAdapter(adapter, listView);
             updateWavePlayButton();
         }
         else if (id == NotificationCenter.messagePlayingDidReset || id == NotificationCenter.messagePlayingPlayStateChanged) {
-            updateBottomInsets();
             safeNotifyAdapter(adapter, listView);
             updateWavePlayButton();
         } else if (id == NotificationCenter.userInfoDidLoad) {
