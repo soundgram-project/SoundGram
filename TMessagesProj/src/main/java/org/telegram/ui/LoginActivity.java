@@ -3239,7 +3239,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                             needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("FloodWait", R.string.FloodWait));
                         } else if (error.code != -1000) {
                             AlertsCreator.processError(currentAccount, error, LoginActivity.this, req, phoneInputData.phoneNumber);
+                        } else {
+                            needShowAlert(getString(R.string.AppName), "Не удалось соединиться с серверами Telegram.\n\nПроверьте интернет-соединение или включите встроенный обход (нажмите на значок щита в правом верхнем углу экрана).");
                         }
+                    } else if (error.code == -1000) {
+                        needShowAlert(getString(R.string.AppName), "Не удалось соединиться с серверами Telegram.\n\nПроверьте интернет-соединение или включите встроенный обход (нажмите на значок щита в правом верхнем углу экрана).");
                     }
                 }
                 if (!isRequestingFirebaseSms) {

@@ -87,8 +87,7 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
                         SharedPreferences prefs = sContext.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
                         if (prefs.getBoolean("enabled", false) || TgWsProxyService.isRunning) return;
                         if (!prefs.getBoolean("auto_detect", true)) return;
-                        String secret = prefs.getString("secret", "");
-                        if (secret.isEmpty()) return;
+                        String secret = getOrCreateSecret(prefs);
 
                         if (tcpPing(TG_HOST, TG_PORT, TG_TIMEOUT)) {
                             return; // TG reachable
@@ -235,10 +234,7 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
         if (!prefs.getBoolean("auto_detect", true)) {
             return;
         }
-        String secret = prefs.getString("secret", "");
-        if (secret.isEmpty()) {
-            return;
-        }
+        String secret = getOrCreateSecret(prefs);
 
         Log.i(TAG, "Pinging Telegram...");
         if (tcpPing(TG_HOST, TG_PORT, TG_TIMEOUT)) {
@@ -257,9 +253,22 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
         startProxyService(ctx, prefs);
     }
 
+    public static String getOrCreateSecret(SharedPreferences prefs) {
+        String secret = prefs.getString("secret", "");
+        if (secret == null || secret.isEmpty()) {
+            byte[] b = new byte[16];
+            new java.security.SecureRandom().nextBytes(b);
+            StringBuilder sb = new StringBuilder();
+            for (byte v : b) sb.append(String.format("%02x", v));
+            secret = sb.toString();
+            prefs.edit().putString("secret", secret).apply();
+        }
+        return secret;
+    }
+
     public static void startProxyService(Context ctx, SharedPreferences prefs) {
         int port = prefs.getInt("port", 1443);
-        String secret = prefs.getString("secret", "");
+        String secret = getOrCreateSecret(prefs);
         
         Intent intent = new Intent(ctx, TgWsProxyService.class);
         intent.setAction(TgWsProxyService.ACTION_START);

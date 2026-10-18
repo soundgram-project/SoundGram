@@ -53,7 +53,7 @@ android {
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
-            enableV4Signing = true
+            enableV4Signing = false
             if (rootProject.ext.hasReleaseSigning) {
                 storeFile rootProject.file(rootProject.ext.releaseSigning.storeFile)
                 storePassword rootProject.ext.releaseSigning.storePassword
@@ -129,7 +129,7 @@ android {
     productFlavors {
         bundleAfat {
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                abiFilters "armeabi-v7a", "arm64-v8a"
             }
             ext {
                 abiVersionCode = 1
@@ -138,7 +138,7 @@ android {
         }
         bundleAfat_SDK23 {
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                abiFilters "armeabi-v7a", "arm64-v8a"
             }
             sourceSets.debug {
                 manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
@@ -154,7 +154,7 @@ android {
         }
         afat {
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                abiFilters "armeabi-v7a", "arm64-v8a"
             }
             sourceSets.debug {
                 manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
