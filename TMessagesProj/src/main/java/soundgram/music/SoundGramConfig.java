@@ -205,6 +205,8 @@ public class SoundGramConfig {
                 String urlString = "https://raw.githubusercontent.com/soundgram-project/SoundGram_donate/main/user.txt?t=" + System.currentTimeMillis();
                 URL url = new URL(urlString);
                 URLConnection connection = url.openConnection();
+                connection.setConnectTimeout(4000);
+                connection.setReadTimeout(4000);
                 connection.setUseCaches(false);
                 connection.setDefaultUseCaches(false);
                 connection.setRequestProperty("Cache-Control", "no-cache");

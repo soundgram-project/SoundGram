@@ -25,7 +25,6 @@ public class LauncherIconController {
     private static volatile LauncherIcon sCachedActiveIcon = null;
 
     public static void tryFixLauncherIconIfNeeded() {
-        sCachedActiveIcon = null;
         LauncherIcon active = getActiveIcon();
         if (active != null && isEnabled(active)) {
             return;

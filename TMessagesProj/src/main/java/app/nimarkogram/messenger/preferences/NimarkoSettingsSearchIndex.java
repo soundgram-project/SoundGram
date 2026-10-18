@@ -227,7 +227,6 @@ final class NimarkoSettingsSearchIndex {
                 R.string.NM_Cat_Chats, R.string.NM_SettingsSectionChatList,
                 1, R.string.CP_SortByUnread,
                 2, R.string.CP_UnarchiveOnSwipe,
-                6, R.string.NM_AutoOpenArchive,
                 4, R.string.EP_CustomChat);
         rows(entries, guid, SCREEN_CHATS, R.drawable.msg_msgbubble3_solar,
                 R.string.NM_Cat_Chats, R.string.NM_SettingsSectionInputText,

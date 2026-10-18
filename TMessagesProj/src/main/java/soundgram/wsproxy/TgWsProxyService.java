@@ -297,10 +297,75 @@ public class TgWsProxyService extends Service {
     public void onCreate() {
         super.onCreate();
         destroyed = false;
+        ensureForegroundNotification(currentPort > 0 ? currentPort : 1443);
+    }
+
+    private void ensureForegroundNotification(int port) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        try {
+            NotificationChannel ch = new NotificationChannel(
+                    CHANNEL_ID, "TG WS Proxy", NotificationManager.IMPORTANCE_LOW);
+            ch.setSound(null, null);
+            ch.enableVibration(false);
+            ch.setShowBadge(false);
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) nm.createNotificationChannel(ch);
+
+            Intent contentIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+            PendingIntent contentPI = null;
+            if (contentIntent != null) {
+                contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                contentPI = PendingIntent.getActivity(this, 0, contentIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            }
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("TG WS Proxy")
+                    .setContentText("Running on 127.0.0.1:" + port)
+                    .setSmallIcon(R.drawable.proxy_off_solar)
+                    .setContentIntent(contentPI)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                    .setOngoing(true)
+                    .setShowWhen(false)
+                    .setLocalOnly(true);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
+            }
+
+            Notification notification;
+            try {
+                notification = builder.build();
+            } catch (Exception e) {
+                notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle("TG WS Proxy")
+                        .setContentText("Running")
+                        .setSmallIcon(android.R.drawable.ic_menu_info_details)
+                        .setPriority(NotificationCompat.PRIORITY_LOW)
+                        .setOngoing(true)
+                        .build();
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "ensureForegroundNotification failed", e);
+        }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        int notifPort = currentPort > 0 ? currentPort : 1443;
+        if (intent != null) {
+            notifPort = intent.getIntExtra(EXTRA_PORT, notifPort);
+        }
+        ensureForegroundNotification(notifPort);
+
         if (intent == null || intent.getAction() == null) {
             tryAutoStart();
             return START_STICKY;
@@ -405,62 +470,7 @@ public class TgWsProxyService extends Service {
         synchronized (proxyLock) {
             if (isRunning || sStopInProgress.get() || destroyed) return;
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel ch = new NotificationChannel(
-                        CHANNEL_ID, "TG WS Proxy", NotificationManager.IMPORTANCE_LOW);
-                ch.setSound(null, null);
-                ch.enableVibration(false);
-                ch.setShowBadge(false);
-                NotificationManager nm = getSystemService(NotificationManager.class);
-                if (nm != null) nm.createNotificationChannel(ch);
-            }
-
-            Intent contentIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
-            PendingIntent contentPI = null;
-            if (contentIntent != null) {
-                contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                contentPI = PendingIntent.getActivity(this, 0, contentIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            }
-
-            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("TG WS Proxy")
-                    .setContentText("Running on 127.0.0.1:" + port)
-                    .setSmallIcon(R.drawable.proxy_off_solar)
-                    .setContentIntent(contentPI)
-                    .setPriority(NotificationCompat.PRIORITY_LOW)
-                    .setCategory(NotificationCompat.CATEGORY_SERVICE)
-                    .setOngoing(true)
-                    .setShowWhen(false)
-                    .setLocalOnly(true);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
-            }
-
-            Notification notification;
-            try {
-                notification = builder.build();
-            } catch (Exception e) {
-                notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setContentTitle("TG WS Proxy")
-                        .setContentText("Running")
-                        .setSmallIcon(android.R.drawable.ic_menu_info_details)
-                        .setPriority(NotificationCompat.PRIORITY_LOW)
-                        .setOngoing(true)
-                        .build();
-            }
-
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(NOTIFICATION_ID, notification,
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForeground(NOTIFICATION_ID, notification);
-                }
-            } catch (Throwable e) {
-                Log.e(TAG, "startForeground failed", e);
-            }
+            ensureForegroundNotification(port);
 
             acquireWakeLock();
             isRunning = true;
