@@ -178,6 +178,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     private boolean autoplay;
     private boolean mixedAudio;
     public boolean allowMultipleInstances;
+    private float currentVolume = 1.0f;
 
     private boolean triedReinit;
 
@@ -251,8 +252,8 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
 
         java.util.Map<String, String> headers = new java.util.HashMap<>();
         // Referer только для hitmos хостов, чтобы не ломать CDN стриминг Deezer / других сервисов 403 ошибкой
-        if (uri != null && uri.getHost() != null && uri.getHost().contains("hitmo")) {
-            headers.put("Referer", "https://rus.hitmos.fm/");
+        if (uri != null && uri.getHost() != null && (uri.getHost().contains("hitmo") || uri.getHost().contains("hitmoz"))) {
+            headers.put("Referer", "https://ru.hitmoz.org/");
         }
         headers.put("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
         headers.put("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8");
@@ -356,6 +357,9 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
             }
 
             player = builder.build();
+            if (currentVolume >= 0) {
+                player.setVolume(currentVolume);
+            }
 
             // --- SOUNDGRAM FX: EQ/REVERB только для музыки ---
             // Скорость и тон из SoundGramAudioFX НЕ применяются здесь:
@@ -1657,6 +1661,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
 
     public void setVolume(float volume) {
+        currentVolume = volume;
         if (player != null) {
             player.setVolume(volume);
         }
@@ -1669,7 +1674,7 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         if (player != null) {
             return player.getVolume();
         }
-        return 1.0f;
+        return currentVolume;
     }
 
     public void seekTo(long positionMs) {

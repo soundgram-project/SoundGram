@@ -750,6 +750,7 @@ public class WallpapersListActivity extends BaseFragment implements Notification
                 builder.setTitle(LocaleController.getString(R.string.ResetChatBackgroundsAlertTitle));
                 builder.setMessage(LocaleController.getString(R.string.ResetChatBackgroundsAlert));
                 builder.setPositiveButton(LocaleController.getString(R.string.Reset), (dialogInterface, i) -> {
+                    soundgram.ui.SoundGramWallpaperHelper.clearChatVideoWallpaper();
                     if (actionBar.isActionModeShowed()) {
                         selectedWallPapers.clear();
                         actionBar.hideActionMode();

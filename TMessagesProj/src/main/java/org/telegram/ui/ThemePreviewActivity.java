@@ -2474,6 +2474,9 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         String originalFileName = theme.generateWallpaperName(null, isBlurred);
         String fileName = isBlurred ? theme.generateWallpaperName(null, false) : originalFileName;
         File toFile = new File(ApplicationLoader.getFilesDirFixed(), originalFileName);
+        if (!(currentWallpaper instanceof WallpapersListActivity.FileWallpaper && ((WallpapersListActivity.FileWallpaper) currentWallpaper).videoPath != null)) {
+            soundgram.ui.SoundGramWallpaperHelper.clearChatVideoWallpaper();
+        }
         if (currentWallpaper instanceof TLRPC.TL_wallPaper) {
             if (originalBitmap != null) {
                 try {
@@ -2591,8 +2594,7 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
                             FileLog.e(e);
                         }
                     } else {
-                        soundgram.music.SoundGramConfig.chatVideoPath = "";
-                        soundgram.music.SoundGramConfig.save();
+                        soundgram.ui.SoundGramWallpaperHelper.clearChatVideoWallpaper();
                     }
                 } catch (Exception e) {
                     done = false;
@@ -2600,6 +2602,7 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
                 }
             }
         } else if (currentWallpaper instanceof MediaController.SearchImage) {
+            soundgram.ui.SoundGramWallpaperHelper.clearChatVideoWallpaper();
             MediaController.SearchImage wallpaper = (MediaController.SearchImage) currentWallpaper;
             File f;
             if (wallpaper.photo != null) {
@@ -2615,6 +2618,7 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
                 FileLog.e(e);
             }
         } else {
+            soundgram.ui.SoundGramWallpaperHelper.clearChatVideoWallpaper();
             done = false;
         }
         if (isBlurred) {

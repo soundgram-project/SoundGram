@@ -144,7 +144,8 @@ public final class WaveQueueManager {
         // Фонк
         Set<String> phonkBlocked = new HashSet<>(Arrays.asList(
                 "classical", "классика", "jazz", "джаз", "indie folk", "к-поп", "kpop",
-                "symphony", "acoustic ballad"
+                "symphony", "acoustic ballad", "русский рок", "шансон", "дискотека",
+                "эстрада", "медляк", "вальс", "deathcore", "grunge", "рок-н-ролл"
         ));
         CLUSTER_BLOCKED_KEYWORDS.put("фонк", phonkBlocked);
 
@@ -895,8 +896,7 @@ public final class WaveQueueManager {
 
             // В. Дополнительная порция из корзины эпох YouTube Music если кандидатов мало
             if (discoveryPool.size() < 15) {
-                SeedSelector.EraSeedBucket bucket = SeedSelector.getEraBucket(g, moodIdx);
-                List<String> moreSeeds = bucket.pickSampleSeeds(2);
+                List<String> moreSeeds = SeedSelector.selectSeedsByGenre(g, SmartRadioEngine.currentConfig.mood, cancelFlag);
                 for (String sid : moreSeeds) {
                     if (!activeSeedIds.contains(sid)) {
                         activeSeedIds.add(sid);
@@ -1073,7 +1073,8 @@ public final class WaveQueueManager {
         }
 
         if (newSeedIds.isEmpty()) {
-            newSeedIds.addAll(SeedSelector.selectSeedsByGenre("default", cancelFlag));
+            String fallbackGenre = (waveMode == MODE_GENRE && !targetName.isEmpty()) ? targetName : "default";
+            newSeedIds.addAll(SeedSelector.selectSeedsByGenre(fallbackGenre, cancelFlag));
         }
 
         if (!newSeedIds.isEmpty()) {

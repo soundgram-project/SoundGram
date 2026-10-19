@@ -25354,6 +25354,7 @@ public class ChatActivity extends BaseFragment implements
             }
         } else if (id == NotificationCenter.didSetNewWallpapper) {
             if (fragmentView != null) {
+                soundgram.ui.SoundGramWallpaperHelper.applyChatVideoWallpaper(contentView);
                 updateBackground();
                 progressView2.invalidate();
                 if (emptyView != null) {

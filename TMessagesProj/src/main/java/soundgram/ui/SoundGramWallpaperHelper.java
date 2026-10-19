@@ -37,6 +37,17 @@ public class SoundGramWallpaperHelper {
         return !TextUtils.isEmpty(SoundGramConfig.chatVideoPath) && new File(SoundGramConfig.chatVideoPath).exists();
     }
 
+    public static void clearChatVideoWallpaper() {
+        SoundGramConfig.chatVideoPath = "";
+        SoundGramConfig.save();
+        try {
+            File videoDst = new File(ApplicationLoader.getFilesDirFixed(), "chat_wallpaper.mp4");
+            if (videoDst.exists()) {
+                videoDst.delete();
+            }
+        } catch (Exception ignored) {}
+    }
+
     public static void applyChatListWallpaper(ViewGroup container) {
         if (container == null) return;
         Context context = container.getContext();

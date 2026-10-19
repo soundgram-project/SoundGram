@@ -24,6 +24,8 @@ public class SoundGramAudioHooks {
 
     public static boolean isHitmosStream(String url) {
         if (url == null) return false;
-        return url.contains("hitmos.fm") || url.contains("pl1.hitmos") || url.contains("dw1.hitmos");
+        return url.contains("hitmos.fm") || url.contains("hitmoz.org") || url.contains("hitmoz.com")
+                || url.contains("deliciousoranges.com") || url.contains("pl1.hitmos")
+                || url.contains("dw1.hitmos") || url.contains("plc1.hitmos") || url.contains("dwc1.hitmos");
     }
 }

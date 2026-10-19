@@ -1036,6 +1036,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     private float fastMusicPlaybackSpeed = 1.0f;
     private float seekToProgressPending;
     private long lastProgress = 0;
+    private long lastPlaybackErrorTime = 0;
+    private int consecutivePlaybackErrors = 0;
     private MessageObject playingMessageObject;
     private MessageObject goingToShowMessageObject;
     private MusicListenReporter reporter;
@@ -2572,9 +2574,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
             int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
             boolean isMusicTrack = playingMessageObject != null && playingMessageObject.isMusic();
-            boolean canFade = !CastSync.isActive() && audioPlayer.isPlaying() && playingMessageObject != null && !playingMessageObject.isVoice();
+            boolean canFade = !CastSync.isActive() && audioPlayer != null && (audioPlayer.isPlaying() || isCrossfadingToNext) && playingMessageObject != null && !playingMessageObject.isVoice();
             if (canFade) {
                 VideoPlayer playerFinal = audioPlayer;
+                playerFinal.allowMultipleInstances = true;
                 AtomicBoolean released = new AtomicBoolean(false);
                 Runnable releaseRunnable = () -> {
                     if (released.compareAndSet(false, true)) {
@@ -2589,10 +2592,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 if (cfMs > 0 && isMusicTrack) {
                     fadeOutDuration = isCrossfadingToNext ? cfMs : Math.min(cfMs, 1000);
                 }
-                float startFadeVol = audioVolume;
+                float startFadeVol = 1.0f;
                 try {
                     float pv = playerFinal.getVolume();
-                    if (pv >= 0f && pv < startFadeVol) {
+                    if (pv >= 0f && pv <= 1.0f) {
                         startFadeVol = pv;
                     }
                 } catch (Exception ignored) {}
@@ -4201,7 +4204,39 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
                     @Override
                     public void onError(VideoPlayer player, Exception e) {
+                        FileLog.e("SoundGram: AudioPlayer playback error: " + e);
+                        if (tag != playerNum) {
+                            return;
+                        }
+                        AndroidUtilities.runOnUIThread(() -> {
+                            if (audioPlayer != player && player != null) {
+                                return;
+                            }
+                            long now = SystemClock.elapsedRealtime();
+                            if (now - lastPlaybackErrorTime < 2500) {
+                                consecutivePlaybackErrors++;
+                            } else {
+                                consecutivePlaybackErrors = 1;
+                            }
+                            lastPlaybackErrorTime = now;
 
+                            if (consecutivePlaybackErrors >= 5) {
+                                FileLog.e("SoundGram: too many playback errors, stopping player");
+                                cleanupPlayer(true, true, false, false);
+                                consecutivePlaybackErrors = 0;
+                                return;
+                            }
+
+                            if (messageObject != null && messageObject.isMusic()) {
+                                if (!playlist.isEmpty() && (playlist.size() > 1 || !messageObject.isVoice())) {
+                                    playNextMessageWithoutOrder(true);
+                                } else {
+                                    cleanupPlayer(true, true, false, false);
+                                }
+                            } else {
+                                cleanupPlayer(true, true, false, false);
+                            }
+                        });
                     }
 
                     @Override

@@ -133,8 +133,14 @@ public class MusicWebSearcher {
         if (query == null || query.trim().isEmpty()) return tracks;
         try {
             String cleanQuery = query.replaceAll("\\s+$", "").trim();
-            String searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+            String searchUrl = "https://ru.hitmoz.org/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
             String hitmoHtml = fetchHtml(searchUrl);
+            if (hitmoHtml == null || hitmoHtml.length() < 500) {
+                try {
+                    String altHtml = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8"));
+                    if (altHtml != null && altHtml.length() > 500) hitmoHtml = altHtml;
+                } catch (Exception ignored) {}
+            }
             if (hitmoHtml != null && !hitmoHtml.isEmpty()) {
                 parseHtmlToResults(hitmoHtml, tracks, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
             }
@@ -267,10 +273,10 @@ public class MusicWebSearcher {
             String cacheKey = "hitmos:" + query.toLowerCase();
             ArrayList<WebTrack> list = getCachedSearch(cacheKey);
             if (list == null) {
-                String html = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                String html = fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(query, "UTF-8"));
                 if (html == null || html.length() < 500) {
                     try {
-                        String altHtml = fetchHtml("https://hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                        String altHtml = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
                         if (altHtml != null && altHtml.length() > 500) html = altHtml;
                     } catch (Exception ignored) {}
                 }
@@ -342,7 +348,7 @@ public class MusicWebSearcher {
                 if (m3.find()) img = m3.group(1);
             }
         }
-        if (!img.isEmpty() && img.startsWith("/")) return "https://rus.hitmos.fm" + img;
+        if (!img.isEmpty() && img.startsWith("/")) return "https://ru.hitmoz.org" + img;
         return img;
     }
 
@@ -391,11 +397,11 @@ public class MusicWebSearcher {
                                 String trackClean = trackTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
                                 int exactDuration = tracksArr.getJSONObject(i).getInt("duration");
 
-                                String trackSearchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8");
+                                String trackSearchUrl = "https://ru.hitmoz.org/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8");
                                 String trackHtml = fetchHtml(trackSearchUrl);
                                 if (trackHtml == null || trackHtml.length() < 500) {
                                     try {
-                                        String altHtml = fetchHtml("https://hitmos.fm/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8"));
+                                        String altHtml = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8"));
                                         if (altHtml != null && altHtml.length() > 500) trackHtml = altHtml;
                                     } catch (Exception ignored) {}
                                 }
@@ -566,24 +572,20 @@ public class MusicWebSearcher {
                     try {
                         String searchUrl;
                         if (page == 1) {
-                            searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                            searchUrl = "https://ru.hitmoz.org/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
                         } else {
-                            searchUrl = "https://rus.hitmos.fm/search/page/" + page + "/?q=" + URLEncoder.encode(cleanQuery, "UTF-8");
+                            searchUrl = "https://ru.hitmoz.org/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&page=" + page;
                         }
 
                         String hitmoHtml = fetchHtml(searchUrl);
                         if (hitmoHtml == null || hitmoHtml.length() < 500) {
-                            String altUrl = searchUrl.replace("rus.hitmos.fm", "hitmos.fm");
+                            String altUrl = searchUrl.replace("ru.hitmoz.org", "rus.hitmos.fm");
                             try {
                                 String altHtml = fetchHtml(altUrl);
                                 if (altHtml != null && altHtml.length() > 500) {
                                     hitmoHtml = altHtml;
                                 }
                             } catch (Exception ignored) {}
-                        }
-                        if (hitmoHtml == null || hitmoHtml.isEmpty()) {
-                            searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanQuery, "UTF-8") + "&page=" + page;
-                            hitmoHtml = fetchHtml(searchUrl);
                         }
 
                         parseHtmlToResults(hitmoHtml, hitmosTracks, new ArrayList<>(), new ArrayList<>(), seenIds);
@@ -610,10 +612,11 @@ public class MusicWebSearcher {
                                     String cover = obj.has("album") ? obj.getJSONObject("album").optString("cover_xl", "") : "";
                                     int duration = obj.optInt("duration", 0);
                                     String durStr = String.format(Locale.US, "%d:%02d", duration / 60, duration % 60);
+                                    String preview = obj.optString("preview", "");
 
                                     if (!title.isEmpty()) {
                                         synchronized (deezerTracks) {
-                                            deezerTracks.add(new WebTrack(title, artist, "", durStr, cover));
+                                            deezerTracks.add(new WebTrack(title, artist, preview, durStr, cover));
                                         }
                                     }
                                 }
@@ -703,6 +706,8 @@ public class MusicWebSearcher {
                     }
                 }
 
+
+
                 // Обогащаем обложки треков Hitmos из Deezer
                 for (WebTrack dt : deezerTracks) {
                     String cleanDtTitle = dt.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
@@ -762,8 +767,8 @@ public class MusicWebSearcher {
             FileLog.e("Primary fetch failed for " + urlString + ": " + e);
         }
 
-        if (urlString.contains("hitmos.me")) {
-            String fallbackUrl = urlString.replace("hitmos.me", "rus.hitmos.fm");
+        if (urlString.contains("hitmos.me") || urlString.contains("rus.hitmos.fm")) {
+            String fallbackUrl = urlString.replace("hitmos.me", "ru.hitmoz.org").replace("rus.hitmos.fm", "ru.hitmoz.org");
             try {
                 String fallbackHtml = fetchHtml(fallbackUrl);
                 if (fallbackHtml != null && !fallbackHtml.isEmpty() && (fallbackHtml.contains("track-item") || fallbackHtml.contains(".mp3") || fallbackHtml.contains("track__info") || fallbackHtml.contains("artist"))) {
@@ -790,7 +795,7 @@ public class MusicWebSearcher {
 
                 String cleanArtist = artistNameHint != null ? artistNameHint.trim() : "";
                 if (cleanArtist.isEmpty() && artistUrl != null) {
-                    String path = artistUrl.replace("https://hitmos.me", "").replace("https://rus.hitmos.fm", "");
+                    String path = artistUrl.replace("https://hitmos.me", "").replace("https://rus.hitmos.fm", "").replace("https://ru.hitmoz.org", "");
                     cleanArtist = path.replace("/artist/", "").replace("artist/", "");
                     cleanArtist = cleanArtist.replaceAll("^[0-9]+-?", "").replace("-", " ").replaceAll("/.*", "").trim();
                 }
@@ -801,8 +806,8 @@ public class MusicWebSearcher {
 
                 // 1. Попытка загрузить по прямой ссылке, если она валидна
                 if (artistUrl != null && !artistUrl.isEmpty() && !artistUrl.startsWith("DEEZER_ARTIST:")) {
-                    String path = artistUrl.replace("https://hitmos.me", "").replace("https://rus.hitmos.fm", "");
-                    String baseUrl = artistUrl.startsWith("http") ? artistUrl : "https://rus.hitmos.fm" + (path.startsWith("/") ? path : "/" + path);
+                    String path = artistUrl.replace("https://hitmos.me", "").replace("https://rus.hitmos.fm", "").replace("https://ru.hitmoz.org", "");
+                    String baseUrl = artistUrl.startsWith("http") ? artistUrl : "https://ru.hitmoz.org" + (path.startsWith("/") ? path : "/" + path);
 
                     int emptyPageCount = 0;
                     for (int page = 1; page <= 50; page++) {
@@ -853,7 +858,7 @@ public class MusicWebSearcher {
                 if (tracks.isEmpty() && !cleanArtist.isEmpty()) {
                     String resolvedUrl = resolveHitmosArtistUrl(cleanArtist);
                     if (resolvedUrl != null && !resolvedUrl.isEmpty()) {
-                        String baseUrl = resolvedUrl.startsWith("http") ? resolvedUrl : "https://rus.hitmos.fm" + (resolvedUrl.startsWith("/") ? resolvedUrl : "/" + resolvedUrl);
+                        String baseUrl = resolvedUrl.startsWith("http") ? resolvedUrl : "https://ru.hitmoz.org" + (resolvedUrl.startsWith("/") ? resolvedUrl : "/" + resolvedUrl);
 
                         int emptyPageCount = 0;
                         for (int page = 1; page <= 50; page++) {
@@ -919,7 +924,7 @@ public class MusicWebSearcher {
     }
 
     private static String resolveHitmosArtistUrl(String artistName) {
-        String[] domains = {"https://rus.hitmos.fm", "https://hitmos.me"};
+        String[] domains = {"https://ru.hitmoz.org", "https://rus.hitmos.fm", "https://hitmos.me"};
         String[] queries = {artistName, transliterate(artistName)};
 
         for (String domain : domains) {
@@ -952,7 +957,9 @@ public class MusicWebSearcher {
             if (q == null || q.isEmpty()) continue;
             for (int page = 1; page <= 20; page++) {
                 try {
-                    String searchUrl = "https://rus.hitmos.fm/search/page/" + page + "/?q=" + URLEncoder.encode(q, "UTF-8");
+                    String searchUrl = page == 1
+                            ? ("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(q, "UTF-8"))
+                            : ("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(q, "UTF-8") + "&page=" + page);
                     String html = fetchHitmosHtml(searchUrl);
                     if (html == null || html.isEmpty()) break;
 
@@ -1019,21 +1026,21 @@ public class MusicWebSearcher {
                     ArrayList<WebTrack> results = new ArrayList<>();
                     try {
                         String q1 = artistName + " " + cleanTitle;
-                        parseHtmlToResults(fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(q1, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                        parseHtmlToResults(fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(q1, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                     } catch (Exception e) { FileLog.e(e); }
 
                     // Стратегия 2: транслитерация имени + название
                     if (results.isEmpty() && !translitName.equals(artistName)) {
                         try {
                             String q2 = translitName + " " + cleanTitle;
-                            parseHtmlToResults(fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(q2, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                            parseHtmlToResults(fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(q2, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                         } catch (Exception e) { FileLog.e(e); }
                     }
 
                     // Стратегия 3: только название
                     if (results.isEmpty()) {
                         try {
-                            parseHtmlToResults(fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                            parseHtmlToResults(fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                         } catch (Exception e) { FileLog.e(e); }
                     }
 
@@ -1135,8 +1142,8 @@ public class MusicWebSearcher {
         try { conn.setRequestMethod("GET"); } catch (Exception e) {}
         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
         conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
-        conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9");
-        conn.setRequestProperty("Referer", "https://rus.hitmos.fm/");
+        conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+        conn.setRequestProperty("Referer", "https://ru.hitmoz.org/");
         conn.setInstanceFollowRedirects(false);
         conn.setConnectTimeout(8000);
         conn.setReadTimeout(8000);
@@ -1159,7 +1166,8 @@ public class MusicWebSearcher {
         try { conn.setRequestMethod("HEAD"); } catch (ProtocolException e) { conn.setRequestMethod("GET"); }
         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
         conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
-        conn.setRequestProperty("Referer", "https://rus.hitmos.fm/");
+        conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+        conn.setRequestProperty("Referer", "https://ru.hitmoz.org/");
         conn.setInstanceFollowRedirects(false);
         conn.setConnectTimeout(8000);
         conn.setReadTimeout(8000);
@@ -1207,7 +1215,8 @@ public class MusicWebSearcher {
         conn.setRequestProperty("User-Agent",
                 "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
         conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
-        conn.setRequestProperty("Referer", "https://rus.hitmos.fm/");
+        conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+        conn.setRequestProperty("Referer", "https://ru.hitmoz.org/");
         conn.setInstanceFollowRedirects(false); // вручную, чтобы ловить http→https
         conn.setConnectTimeout(8000);
         conn.setReadTimeout(8000);
@@ -1350,6 +1359,9 @@ public class MusicWebSearcher {
             conn.setRequestProperty("Connection", "keep-alive");
             conn.setRequestProperty("Upgrade-Insecure-Requests", "1");
             conn.setRequestProperty("Cache-Control", "no-cache");
+            if (conn.getURL() != null && conn.getURL().getHost() != null && (conn.getURL().getHost().contains("hitmo") || conn.getURL().getHost().contains("hitmoz"))) {
+                conn.setRequestProperty("Referer", "https://ru.hitmoz.org/");
+            }
         } catch (ProtocolException e) {
             // Handle the case where the protocol is invalid (unlikely for "GET")
             e.printStackTrace();
@@ -1489,9 +1501,10 @@ public class MusicWebSearcher {
             conn.setRequestProperty("User-Agent",
                     "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
             conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+            conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
             conn.setRequestProperty("Accept-Encoding", "identity");
-            String hostReferer = (url.getHost() != null && url.getHost().contains("hitmo"))
-                    ? "https://rus.hitmos.fm/" : (url.getProtocol() + "://" + url.getHost() + "/");
+            String hostReferer = (url.getHost() != null && (url.getHost().contains("hitmo") || url.getHost().contains("hitmoz") || url.getHost().contains("deliciousoranges")))
+                    ? "https://ru.hitmoz.org/" : (url.getProtocol() + "://" + url.getHost() + "/");
             conn.setRequestProperty("Referer", hostReferer);
             conn.setConnectTimeout(20000);
             conn.setReadTimeout(60000);
@@ -1572,9 +1585,10 @@ public class MusicWebSearcher {
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
             conn.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+            conn.setRequestProperty("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
             conn.setRequestProperty("Accept-Encoding", "identity");
-            String hostReferer = (url.getHost() != null && url.getHost().contains("hitmo"))
-                    ? "https://rus.hitmos.fm/" : (url.getProtocol() + "://" + url.getHost() + "/");
+            String hostReferer = (url.getHost() != null && (url.getHost().contains("hitmo") || url.getHost().contains("hitmoz") || url.getHost().contains("deliciousoranges")))
+                    ? "https://ru.hitmoz.org/" : (url.getProtocol() + "://" + url.getHost() + "/");
             conn.setRequestProperty("Referer", hostReferer);
             conn.setConnectTimeout(20000);
             conn.setReadTimeout(60000);
@@ -1773,7 +1787,7 @@ public class MusicWebSearcher {
             if (downloadUrl == null) downloadUrl = extract(block, "data-url=\"([^\"]+)\"");
             if (downloadUrl == null) continue;
 
-            if (!downloadUrl.startsWith("http")) downloadUrl = "https://rus.hitmos.fm" + downloadUrl;
+            if (!downloadUrl.startsWith("http")) downloadUrl = "https://ru.hitmoz.org" + downloadUrl;
             synchronized (seen) {
                 if (seen.contains("TR_" + downloadUrl)) continue;
                 seen.add("TR_" + downloadUrl);
@@ -1801,7 +1815,7 @@ public class MusicWebSearcher {
         Matcher mArt = Pattern.compile("<a[^>]+href=[\"']([^\"']*/artist/[^\"']+)[\"'][^>]*>(.*?)</a>", Pattern.DOTALL).matcher(html);
         while (mArt.find()) {
             String url = mArt.group(1);
-            if (!url.startsWith("http")) url = "https://rus.hitmos.fm" + url;
+            if (!url.startsWith("http")) url = "https://ru.hitmoz.org" + url;
             String innerHtml = mArt.group(2);
             String name = innerHtml.replaceAll("<[^>]*>", "").trim();
 
@@ -1820,7 +1834,7 @@ public class MusicWebSearcher {
         Matcher mAlb = Pattern.compile("<a[^>]+href=[\"']([^\"']*/album/[^\"']+)[\"'][^>]*>(.*?)</a>", Pattern.DOTALL).matcher(html);
         while (mAlb.find()) {
             String url = mAlb.group(1);
-            if (!url.startsWith("http")) url = "https://rus.hitmos.fm" + url;
+            if (!url.startsWith("http")) url = "https://ru.hitmoz.org" + url;
             String innerHtml = mAlb.group(2);
             String cardTitle = extract(innerHtml, "class=[\"']card__title[\"'][^>]*>\\s*(.*?)\\s*</");
             String title = (cardTitle != null && !cardTitle.isEmpty())
@@ -1930,7 +1944,7 @@ public class MusicWebSearcher {
                 // If Deezer returned no albums, try Hitmos albums fallback
                 if (finalAlbums.isEmpty() && !finalArtistName.isEmpty()) {
                     try {
-                        String hitmosSearchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(finalArtistName, "UTF-8");
+                        String hitmosSearchUrl = "https://ru.hitmoz.org/search?q=" + URLEncoder.encode(finalArtistName, "UTF-8");
                         String html = fetchHitmosHtml(hitmosSearchUrl);
                         if (html != null && !html.isEmpty()) {
                             ArrayList<WebTrack> dummyTracks = new ArrayList<>();
@@ -2118,11 +2132,11 @@ public class MusicWebSearcher {
                         try {
                             ArrayList<WebTrack> results = new ArrayList<>();
                             try {
-                                parseHtmlToResults(fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(artistName + " " + cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                                parseHtmlToResults(fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(artistName + " " + cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                             } catch (Exception e) { FileLog.e(e); }
                             if (results.isEmpty() && !translitName.equals(artistName)) {
                                 try {
-                                    parseHtmlToResults(fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(translitName + " " + cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
+                                    parseHtmlToResults(fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(translitName + " " + cleanTitle, "UTF-8")), results, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                                 } catch (Exception e) { FileLog.e(e); }
                             }
                             WebTrack best = null;
@@ -2194,16 +2208,15 @@ public class MusicWebSearcher {
 
                 for (String q : queries) {
                     for (int page = 1; page <= 30; page++) {
-                        String searchUrl;
-                        if (page == 1) {
-                            searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(q, "UTF-8");
-                        } else {
-                            searchUrl = "https://rus.hitmos.fm/search/page/" + page + "/?q=" + URLEncoder.encode(q, "UTF-8");
-                        }
+                        String searchUrl = page == 1
+                                ? ("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(q, "UTF-8"))
+                                : ("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(q, "UTF-8") + "&page=" + page);
                         String html = fetchHtml(searchUrl);
-                        if (html == null || html.isEmpty()) {
-                            searchUrl = "https://rus.hitmos.fm/search?q=" + URLEncoder.encode(q, "UTF-8") + "&page=" + page;
-                            html = fetchHtml(searchUrl);
+                        if (html == null || html.length() < 500) {
+                            try {
+                                String altHtml = fetchHtml(searchUrl.replace("ru.hitmoz.org", "rus.hitmos.fm"));
+                                if (altHtml != null && altHtml.length() > 500) html = altHtml;
+                            } catch (Exception ignored) {}
                         }
                         if (html == null || html.isEmpty()) break;
 
@@ -2345,7 +2358,13 @@ public class MusicWebSearcher {
 
             ArrayList<WebTrack> cached = getCachedSearch(cacheKey);
             if (cached == null) {
-                String html = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                String html = fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                if (html == null || html.length() < 500) {
+                    try {
+                        String altHtml = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(query, "UTF-8"));
+                        if (altHtml != null && altHtml.length() > 500) html = altHtml;
+                    } catch (Exception ignored) {}
+                }
                 cached = new ArrayList<>();
                 parseHtmlToResults(html, cached, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                 putCachedSearch(cacheKey, cached);
@@ -2361,7 +2380,13 @@ public class MusicWebSearcher {
                 String cacheKey2 = "strict:" + translitQuery.toLowerCase();
                 ArrayList<WebTrack> cached2 = getCachedSearch(cacheKey2);
                 if (cached2 == null) {
-                    String html2 = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(translitQuery, "UTF-8"));
+                    String html2 = fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(translitQuery, "UTF-8"));
+                    if (html2 == null || html2.length() < 500) {
+                        try {
+                            String altHtml2 = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(translitQuery, "UTF-8"));
+                            if (altHtml2 != null && altHtml2.length() > 500) html2 = altHtml2;
+                        } catch (Exception ignored) {}
+                    }
                     cached2 = new ArrayList<>();
                     parseHtmlToResults(html2, cached2, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                     putCachedSearch(cacheKey2, cached2);
@@ -2377,7 +2402,13 @@ public class MusicWebSearcher {
                 String cacheKey3 = "strict:t:" + cleanT.toLowerCase();
                 ArrayList<WebTrack> cached3 = getCachedSearch(cacheKey3);
                 if (cached3 == null) {
-                    String html3 = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanT, "UTF-8"));
+                    String html3 = fetchHtml("https://ru.hitmoz.org/search?q=" + URLEncoder.encode(cleanT, "UTF-8"));
+                    if (html3 == null || html3.length() < 500) {
+                        try {
+                            String altHtml3 = fetchHtml("https://rus.hitmos.fm/search?q=" + URLEncoder.encode(cleanT, "UTF-8"));
+                            if (altHtml3 != null && altHtml3.length() > 500) html3 = altHtml3;
+                        } catch (Exception ignored) {}
+                    }
                     cached3 = new ArrayList<>();
                     parseHtmlToResults(html3, cached3, new ArrayList<>(), new ArrayList<>(), new HashSet<>());
                     putCachedSearch(cacheKey3, cached3);
