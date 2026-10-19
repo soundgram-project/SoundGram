@@ -16,6 +16,7 @@ import androidx.annotation.NonNull;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.NotificationCenter;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.ConnectionsManager;
 
@@ -30,13 +31,16 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
 
     private static final String TAG = "ProxyAutoDetect";
 
-    private static final String TG_HOST    = "149.154.167.51";
-    private static final int    TG_PORT    = 443;
-    private static final int    TG_TIMEOUT = 3000;
-
-    private static final String GOOGLE_HOST    = "8.8.8.8";
-    private static final int    GOOGLE_PORT    = 53;
-    private static final int    GOOGLE_TIMEOUT = 2000;
+    // Primary Telegram Data Centers to test direct access
+    private static final String[] TG_DCS = {
+        "149.154.167.51", // DC2 (Amsterdam / Primary RU & EU)
+        "149.154.167.50", // DC2
+        "149.154.167.91", // DC4
+        "149.154.175.53", // DC1
+        "91.108.56.130"   // DC5
+    };
+    private static final int TG_PORT = 443;
+    private static final int TG_TIMEOUT = 1200;
 
     private static final int PORT_WAIT_TIMEOUT_MS = 8_000;
     private static final int PORT_WAIT_INTERVAL_MS = 300;
@@ -45,7 +49,6 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
     private static ConnectivityManager.NetworkCallback networkCallback;
     private static volatile boolean isInitialized = false;
     private static volatile boolean vpnActive = false;
-    private static volatile int lastNetworkTransport = 0;
     private static Context sContext;
     private static final ProxyAutoDetector sDelegate = new ProxyAutoDetector();
     private static volatile long lastConnectionCheckTime = 0;
@@ -54,6 +57,8 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
         if (isInitialized) return;
         isInitialized = true;
         sContext = context.getApplicationContext();
+
+        vpnActive = isVpnActive(sContext);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             registerNetworkCallback(sContext);
@@ -65,40 +70,53 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
             }
         });
 
-        // Initial check on app startup
-        new Thread(() -> {
-            checkAndAutoEnable(sContext);
-        }, "proxy-auto-detect-init").start();
+        // Delay initial check on startup so Telegram has a chance to connect directly
+        SharedPreferences prefs = sContext.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+        boolean autoStart = prefs.getBoolean("auto_start", true);
+        if (autoStart && !isVpnActive(sContext)) {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                new Thread(() -> {
+                    checkAndAutoEnable(sContext);
+                }, "proxy-auto-detect-init").start();
+            }, 4000);
+        }
     }
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.didUpdateConnectionState) {
+            if (account != UserConfig.selectedAccount) return;
+            if (sContext == null) return;
+            SharedPreferences prefs = sContext.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+
+            // 1. If auto_start is turned OFF: bypass MUST NOT start automatically
+            if (!prefs.getBoolean("auto_start", true)) return;
+
+            // 2. If VPN is active: bypass sleeps
+            if (isVpnActive(sContext)) return;
+
+            // 3. If bypass is already running: nothing to do
+            if (TgWsProxyService.isRunning) return;
+
             int state = ConnectionsManager.getInstance(account).getConnectionState();
             if (state == ConnectionsManager.ConnectionStateConnecting || state == ConnectionsManager.ConnectionStateWaitingForNetwork) {
                 long now = System.currentTimeMillis();
-                if (now - lastConnectionCheckTime < 10000) {
+                if (now - lastConnectionCheckTime < 8000) {
                     return;
                 }
                 lastConnectionCheckTime = now;
-                if (sContext != null && !isVpnActive() && !TgWsProxyService.isRunning) {
-                    new Thread(() -> {
-                        if (isVpnActive()) return;
-                        SharedPreferences prefs = sContext.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
-                        if (prefs.getBoolean("enabled", false) || TgWsProxyService.isRunning) return;
-                        if (!prefs.getBoolean("auto_detect", true)) return;
-                        String secret = getOrCreateSecret(prefs);
 
-                        if (tcpPing(TG_HOST, TG_PORT, TG_TIMEOUT)) {
-                            return; // TG reachable
-                        }
-                        if (tcpPing(GOOGLE_HOST, GOOGLE_PORT, GOOGLE_TIMEOUT) || tcpPing("google.com", 443, GOOGLE_TIMEOUT)) {
-                            Log.i(TAG, "TG connecting/waiting and Google reachable -> auto-enabling bypass");
-                            prefs.edit().putBoolean("enabled", true).apply();
-                            startProxyService(sContext, prefs);
-                        }
+                // Wait 3.5 seconds to see if Telegram connects directly on its own
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (sContext == null || isVpnActive(sContext) || TgWsProxyService.isRunning) return;
+                    int curState = ConnectionsManager.getInstance(account).getConnectionState();
+                    if (curState == ConnectionsManager.ConnectionStateConnected || curState == ConnectionsManager.ConnectionStateUpdating) {
+                        return; // Connected directly!
+                    }
+                    new Thread(() -> {
+                        checkAndAutoEnable(sContext);
                     }, "proxy-auto-detect-connection").start();
-                }
+                }, 3500);
             }
         }
     }
@@ -130,125 +148,166 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
         }
     }
 
-    private static void evaluateNetwork(Context context) {
-        if (connectivityManager == null) return;
-
-        boolean hasVpn  = isVpnActive();
-        boolean hasWifi = false;
-        boolean hasCell = false;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Network active = connectivityManager.getActiveNetwork();
-            if (active != null) {
-                NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(active);
-                if (caps != null) {
-                    hasWifi = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
-                    hasCell = caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR);
-                }
-            }
-        } else {
-            Network[] networks = connectivityManager.getAllNetworks();
-            for (Network network : networks) {
-                NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(network);
-                if (caps != null
-                        && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                        && !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                    hasWifi = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
-                    hasCell = caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR);
-                    break;
-                }
-            }
-        }
-
+    private static synchronized void evaluateNetwork(Context context) {
+        if (context == null) return;
+        boolean hasVpn = isVpnActive(context);
         SharedPreferences prefs = context.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
 
         if (hasVpn) {
             vpnActive = true;
-            boolean suspendOnVpn = prefs.getBoolean("suspend_on_vpn", false);
-            if (suspendOnVpn && (prefs.getBoolean("enabled", false) || TgWsProxyService.isRunning)) {
-                Log.i(TAG, "VPN detected and suspend_on_vpn enabled, disabling proxy");
-                prefs.edit().putBoolean("enabled", false).commit();
+            // VPN activated: bypass MUST enter sleep mode until VPN is disconnected
+            boolean wasRunning = TgWsProxyService.isRunning || prefs.getBoolean("enabled", false);
+            if (wasRunning) {
+                Log.i(TAG, "VPN activated -> bypass entering sleep mode");
+                prefs.edit()
+                        .putBoolean("vpn_sleep", true)
+                        .putBoolean("enabled", false)
+                        .apply();
 
-                Intent stopIntent = new Intent(context, TgWsProxyService.class);
-                stopIntent.setAction(TgWsProxyService.ACTION_STOP);
-                context.startService(stopIntent);
-
+                stopProxyService(context);
                 disableTelegramProxy();
                 sendStateChangedBroadcast(context);
             }
-        } else {
-            vpnActive = false;
+            return;
         }
 
-        // Just a normal network switch (e.g., Wi-Fi <-> Cellular <-> VPN)
-        int currentTransport = hasVpn ? 3 : (hasWifi ? 1 : (hasCell ? 2 : 0));
-        if (currentTransport != 0 && lastNetworkTransport != 0 && currentTransport != lastNetworkTransport) {
-            Log.i(TAG, "Network changed → auto detecting or resetting proxy");
-            lastNetworkTransport = currentTransport;
+        // VPN is NOT active
+        boolean wasInVpnSleep = prefs.getBoolean("vpn_sleep", false);
+        if (vpnActive || wasInVpnSleep) {
+            vpnActive = false;
+            prefs.edit().putBoolean("vpn_sleep", false).apply();
+            Log.i(TAG, "VPN disconnected -> waking up bypass from sleep mode");
 
+            // Only after VPN is turned off should bypass automatically start
             new Thread(() -> {
-                if (!hasVpn) {
-                    if (TgWsProxyService.isRunning) {
-                        NativeProxy.resetForNetworkChange();
-                        try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
-                        // Fast restart via intent
-                        startProxyService(context, prefs);
-                    } else {
-                        checkAndAutoEnable(context);
-                    }
+                try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
+                if (isVpnActive(context)) return;
+
+                boolean manual = prefs.getBoolean("manual_enabled", false);
+                boolean autoStart = prefs.getBoolean("auto_start", true);
+
+                if (manual) {
+                    Log.i(TAG, "Resuming manual bypass after VPN");
+                    prefs.edit().putBoolean("enabled", true).apply();
+                    startProxyService(context, prefs);
+                } else if (autoStart) {
+                    Log.i(TAG, "Checking TG access after VPN disconnect");
+                    checkAndAutoEnable(context);
                 }
+            }, "proxy-vpn-wakeup").start();
+            return;
+        }
+
+        // Normal network switch (e.g. Wi-Fi <-> Cellular)
+        boolean autoStart = prefs.getBoolean("auto_start", true);
+        boolean manual = prefs.getBoolean("manual_enabled", false);
+
+        if (TgWsProxyService.isRunning) {
+            new Thread(() -> {
+                NativeProxy.resetForNetworkChange();
+                try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                startProxyService(context, prefs);
             }, "proxy-net-change").start();
-        } else if (currentTransport != 0) {
-            lastNetworkTransport = currentTransport;
+        } else if (autoStart && !manual) {
+            new Thread(() -> {
+                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                checkAndAutoEnable(context);
+            }, "proxy-net-recheck").start();
         }
     }
 
-    private static boolean isVpnActive() {
-        if (connectivityManager == null) return false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Network active = connectivityManager.getActiveNetwork();
-            if (active == null) return false;
-            NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(active);
-            return caps != null && !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN);
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            for (Network network : connectivityManager.getAllNetworks()) {
-                NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(network);
-                if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+    public static boolean isVpnActive(Context context) {
+        if (context == null) return false;
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return false;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network active = cm.getActiveNetwork();
+                if (active != null) {
+                    NetworkCapabilities caps = cm.getNetworkCapabilities(active);
+                    if (caps != null && (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                            || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN))) {
+                        return true;
+                    }
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Network[] networks = cm.getAllNetworks();
+                if (networks != null) {
+                    for (Network n : networks) {
+                        NetworkCapabilities caps = cm.getNetworkCapabilities(n);
+                        if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "isVpnActive error", t);
+        }
+        return false;
+    }
+
+    public static boolean isTelegramReachableDirectly() {
+        // If Telegram is already connected without proxy, it is accessible directly
+        if (!SharedConfig.isProxyEnabled() && !TgWsProxyService.isRunning) {
+            try {
+                int state = ConnectionsManager.getInstance(UserConfig.selectedAccount).getConnectionState();
+                if (state == ConnectionsManager.ConnectionStateConnected || state == ConnectionsManager.ConnectionStateUpdating) {
                     return true;
                 }
+            } catch (Throwable ignored) {}
+        }
+        // Test direct reachability of Telegram DC IP addresses
+        for (String dc : TG_DCS) {
+            if (tcpPing(dc, TG_PORT, TG_TIMEOUT)) {
+                return true;
             }
         }
         return false;
     }
 
+    public static boolean isInternetAvailable() {
+        return tcpPing("8.8.8.8", 53, 1200) || tcpPing("1.1.1.1", 53, 1200) || tcpPing("google.com", 443, 1500);
+    }
+
     public static void checkAndAutoEnable(Context ctx) {
-        if (vpnActive) {
-            Log.i(TAG, "VPN active, skipping proxy auto-enable");
-            return;
-        }
+        if (ctx == null) return;
         SharedPreferences prefs = ctx.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
 
-        if (prefs.getBoolean("enabled", false) || TgWsProxyService.isRunning) {
-            return; // Already enabled manually
-        }
-        if (!prefs.getBoolean("auto_detect", true)) {
-            return;
-        }
-        String secret = getOrCreateSecret(prefs);
-
-        Log.i(TAG, "Pinging Telegram...");
-        if (tcpPing(TG_HOST, TG_PORT, TG_TIMEOUT)) {
-            Log.i(TAG, "Telegram reachable — proxy not needed");
+        // 1. If auto_start is OFF: bypass MUST NOT start automatically
+        if (!prefs.getBoolean("auto_start", true)) {
+            Log.i(TAG, "Auto-start is disabled — skipping bypass auto-enable");
             return;
         }
 
-        Log.i(TAG, "Telegram unreachable — pinging Google...");
-        if (!tcpPing(GOOGLE_HOST, GOOGLE_PORT, GOOGLE_TIMEOUT) && !tcpPing("google.com", 443, GOOGLE_TIMEOUT)) {
-            Log.i(TAG, "No internet — skip");
+        // 2. If VPN is active: bypass MUST be in sleep mode
+        if (isVpnActive(ctx)) {
+            Log.i(TAG, "VPN is active — skipping bypass auto-enable");
             return;
         }
 
-        Log.i(TAG, "Telegram blocked, internet OK — enabling proxy");
+        // 3. If bypass is already running: no action needed
+        if (TgWsProxyService.isRunning) {
+            return;
+        }
+
+        // 4. Check if Telegram servers are accessible directly
+        Log.i(TAG, "Checking direct Telegram reachability...");
+        if (isTelegramReachableDirectly()) {
+            Log.i(TAG, "Telegram reachable directly — bypass not needed");
+            return;
+        }
+
+        // 5. If Telegram is unreachable, make sure internet is working
+        Log.i(TAG, "Telegram unreachable — checking internet connection...");
+        if (!isInternetAvailable()) {
+            Log.i(TAG, "No internet connection — skipping bypass");
+            return;
+        }
+
+        // 6. Telegram is blocked, internet is available, VPN is off, auto_start is on -> enable bypass
+        Log.i(TAG, "Telegram blocked, internet OK — auto-enabling bypass");
         prefs.edit().putBoolean("enabled", true).apply();
         startProxyService(ctx, prefs);
     }
@@ -298,6 +357,17 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
         }
 
         waitForPortAndApply(ctx, port, secret);
+    }
+
+    public static void stopProxyService(Context context) {
+        if (context == null) return;
+        try {
+            Intent stopIntent = new Intent(context, TgWsProxyService.class);
+            stopIntent.setAction(TgWsProxyService.ACTION_STOP);
+            context.startService(stopIntent);
+        } catch (Throwable t) {
+            Log.w(TAG, "stopProxyService failed", t);
+        }
     }
 
     private static void waitForPortAndApply(Context ctx, int port, String secret) {
@@ -365,7 +435,7 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
         });
     }
 
-    private static void disableTelegramProxy() {
+    public static void disableTelegramProxy() {
         new Handler(Looper.getMainLooper()).post(() -> {
             try {
                 org.telegram.messenger.MessagesController.getGlobalMainSettings()

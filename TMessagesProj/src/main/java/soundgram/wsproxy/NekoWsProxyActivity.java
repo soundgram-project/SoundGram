@@ -313,6 +313,23 @@ public class NekoWsProxyActivity extends org.telegram.ui.ActionBar.BaseFragment 
         } else if (position == autoStartRow) {
             boolean on = !getPrefs().getBoolean("auto_start", DEFAULT_AUTO_START);
             getPrefs().edit().putBoolean("auto_start", on).commit();
+            if (!on) {
+                if (!getPrefs().getBoolean("manual_enabled", false) && (TgWsProxyService.isRunning || getPrefs().getBoolean("enabled", false))) {
+                    getPrefs().edit().putBoolean("enabled", false).commit();
+                    Context ctx = getParentActivity();
+                    if (ctx != null) {
+                        ctx.startService(new Intent(ctx, TgWsProxyService.class).setAction(TgWsProxyService.ACTION_STOP));
+                    }
+                    disableTelegramProxy();
+                }
+            } else {
+                Context ctx = getParentActivity();
+                if (ctx != null) {
+                    new Thread(() -> {
+                        ProxyAutoDetector.checkAndAutoEnable(ctx);
+                    }, "proxy-auto-start-toggle").start();
+                }
+            }
             updateRows();
 
         } else if (position == portRow) {
@@ -441,7 +458,10 @@ public class NekoWsProxyActivity extends org.telegram.ui.ActionBar.BaseFragment 
 
     private void toggleProxy() {
         boolean on = !getPrefs().getBoolean("enabled", false);
-        getPrefs().edit().putBoolean("enabled", on).commit();
+        getPrefs().edit()
+                .putBoolean("enabled", on)
+                .putBoolean("manual_enabled", on)
+                .commit();
 
         Context ctx = getParentActivity();
         if (ctx == null) return;
@@ -723,7 +743,7 @@ public class NekoWsProxyActivity extends org.telegram.ui.ActionBar.BaseFragment 
                     cell.setTextAndCheck("Enable TG WS Proxy",
                             prefs.getBoolean("enabled", false), true);
                 } else if (position == autoStartRow) {
-                    cell.setTextAndCheck("Auto-start on boot",
+                    cell.setTextAndCheck("Автостарт",
                             prefs.getBoolean("auto_start", DEFAULT_AUTO_START), true);
                 } else if (position == cfEnabledRow) {
                     cell.setTextAndCheck("Cloudflare CDN",

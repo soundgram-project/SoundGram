@@ -255,7 +255,15 @@ public class TgWsProxyService extends Service {
         @Override
         public Result doWork() {
             Context ctx = getApplicationContext();
+            if (ProxyAutoDetector.isVpnActive(ctx)) return Result.success();
             SharedPreferences prefs = ctx.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+            boolean manual = prefs.getBoolean("manual_enabled", false);
+            boolean autoStart = prefs.getBoolean("auto_start", true);
+            if (!manual && !autoStart) return Result.success();
+            if (!manual && autoStart) {
+                ProxyAutoDetector.checkAndAutoEnable(ctx);
+                return Result.success();
+            }
             if (!prefs.getBoolean("enabled", false)) return Result.success();
 
             Intent intent = new Intent(ctx, TgWsProxyService.class);
@@ -377,6 +385,15 @@ public class TgWsProxyService extends Service {
                 if (intent.getBooleanExtra(EXTRA_IS_HEARTBEAT, false)) {
                     // Re-arm the alarm for the next cycle (setAndAllowWhileIdle is one-shot on API 23+)
                     schedulePeriodicHeartbeat();
+                    if (ProxyAutoDetector.isVpnActive(this)) {
+                        break;
+                    }
+                    SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+                    boolean manual = prefs.getBoolean("manual_enabled", false);
+                    boolean autoStart = prefs.getBoolean("auto_start", true);
+                    if (!manual && !autoStart) {
+                        break;
+                    }
                     if (!isRunning && !sStopInProgress.get() && !destroyed) {
                         Log.i(TAG, "Heartbeat: proxy not running — auto-starting");
                         new Thread(this::tryAutoStart, "proxy-heartbeat-start").start();
@@ -429,8 +446,11 @@ public class TgWsProxyService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
+        if (ProxyAutoDetector.isVpnActive(this)) return;
         SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
-        if (prefs.getBoolean("enabled", false) && !userStopped) {
+        boolean manual = prefs.getBoolean("manual_enabled", false);
+        boolean autoStart = prefs.getBoolean("auto_start", true);
+        if ((manual || autoStart) && prefs.getBoolean("enabled", false) && !userStopped) {
             Log.i(TAG, "Task removed — scheduling restart");
             scheduleServiceRestart(2000);
         }
@@ -452,11 +472,19 @@ public class TgWsProxyService extends Service {
     }
 
     private void tryAutoStart() {
+        if (ProxyAutoDetector.isVpnActive(this)) return;
         SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
-        if (!prefs.getBoolean("enabled", false) || isRunning) return;
-        String secret = prefs.getString("secret", "");
-        if (secret.isEmpty()) return;
-        new Thread(this::restartFromPrefs, "proxy-auto-start").start();
+        boolean manual = prefs.getBoolean("manual_enabled", false);
+        boolean autoStart = prefs.getBoolean("auto_start", true);
+        if (!manual && !autoStart) return;
+        if (isRunning) return;
+        if (manual) {
+            String secret = prefs.getString("secret", "");
+            if (secret.isEmpty()) return;
+            new Thread(this::restartFromPrefs, "proxy-auto-start").start();
+        } else {
+            ProxyAutoDetector.checkAndAutoEnable(this);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -601,6 +629,9 @@ public class TgWsProxyService extends Service {
             sStopInProgress.set(true);
             isRunning = false;
             currentPort = 0;
+            if (!getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE).getBoolean("manual_enabled", false)) {
+                getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE).edit().putBoolean("enabled", false).apply();
+            }
             sendStateBroadcast(); // immediate UI update
 
             stopWatchdog();
@@ -855,8 +886,13 @@ public class TgWsProxyService extends Service {
     public void onDestroy() {
         destroyed = true;
         stopWatchdog();
-        if (!userStopped) {
-            scheduleServiceRestart(3000);
+        if (!userStopped && !ProxyAutoDetector.isVpnActive(this)) {
+            SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+            boolean manual = prefs.getBoolean("manual_enabled", false);
+            boolean autoStart = prefs.getBoolean("auto_start", true);
+            if (manual || autoStart) {
+                scheduleServiceRestart(3000);
+            }
         }
         super.onDestroy();
     }

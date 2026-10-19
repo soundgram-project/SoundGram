@@ -432,34 +432,27 @@ public class ApplicationLoader extends Application {
             try {
                 soundgram.wsproxy.ProxyAutoDetector.init(this);
                 android.content.SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
-                boolean proxyEnabled = prefs.getBoolean("enabled", false);
-                if (proxyEnabled && !soundgram.wsproxy.TgWsProxyService.isRunning) {
-                    Intent intent = new Intent(this, soundgram.wsproxy.TgWsProxyService.class);
-                    intent.setAction(soundgram.wsproxy.TgWsProxyService.ACTION_START);
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_PORT, prefs.getInt("port", 1443));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_SECRET, prefs.getString("secret", ""));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_POOL_SIZE, prefs.getInt("pool_size", 4));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_ENABLED, prefs.getBoolean("cf_enabled", true));
-                    intent.putExtra(soundgram.wsproxy.TgWsProxyService.EXTRA_CF_DOMAIN, prefs.getString("cf_domain", ""));
+                boolean isVpn = soundgram.wsproxy.ProxyAutoDetector.isVpnActive(this);
+                boolean manualEnabled = prefs.getBoolean("manual_enabled", false);
+                boolean autoStart = prefs.getBoolean("auto_start", true);
 
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startForegroundService(intent);
-                        } else {
-                            startService(intent);
-                        }
-                    } catch (Throwable t) {
-                        try {
-                            startService(intent);
-                        } catch (Throwable ignored) {}
-                    }
-                } else if (!proxyEnabled) {
+                if (isVpn) {
+                    // VPN is active: proxy must stay in sleep mode!
+                    return;
+                }
+
+                if (manualEnabled && !soundgram.wsproxy.TgWsProxyService.isRunning) {
+                    // User manually started bypass through settings -> start it
+                    soundgram.wsproxy.ProxyAutoDetector.startProxyService(this, prefs);
+                } else if (!manualEnabled && !autoStart) {
+                    // Auto-start is OFF and user did not manually start bypass: ensure proxy is disabled
                     android.content.SharedPreferences mainPrefs = getSharedPreferences("mainconfig", Context.MODE_PRIVATE);
                     if (mainPrefs.getBoolean("proxy_enabled", false) && "127.0.0.1".equals(mainPrefs.getString("proxy_ip", ""))) {
                         mainPrefs.edit().putBoolean("proxy_enabled", false).apply();
                         org.telegram.tgnet.ConnectionsManager.setProxySettings(false, "", 0, "", "", "");
                     }
                 }
+                // If autoStart is true and not manual, ProxyAutoDetector.init() checks TG DC connectivity after delay
             } catch (Exception e) {
                 e.printStackTrace();
             }
