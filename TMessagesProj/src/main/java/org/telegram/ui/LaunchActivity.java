@@ -452,6 +452,19 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         flagSecureReason.attach();
 
         super.onCreate(savedInstanceState);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                getSplashScreen().setOnExitAnimationListener(splashScreenView -> {
+                    try {
+                        android.view.View iconView = splashScreenView.getIconView();
+                        if (iconView instanceof android.widget.ImageView) {
+                            ((android.widget.ImageView) iconView).setImageDrawable(LauncherIconController.getActiveIconDrawable(this));
+                        }
+                    } catch (Throwable ignore) {}
+                    splashScreenView.remove();
+                });
+            } catch (Throwable ignore) {}
+        }
         setTheme(R.style.Theme_TMessages);
         // NimarkoGram: pin the window to sRGB (default colour mode). Some ROMs (e.g. the reported
         // PHY110 / "Android 36") auto-promote the window to wide colour gamut when a wide-gamut surface

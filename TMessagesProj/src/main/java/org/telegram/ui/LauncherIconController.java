@@ -24,18 +24,86 @@ public class LauncherIconController {
     private static final String KEY_ACTIVE_ICON = "active_icon";
     private static volatile LauncherIcon sCachedActiveIcon = null;
 
-    public static void tryFixLauncherIconIfNeeded() {
+    public static final String[] LEGACY_LAUNCHER_KEYS = new String[] {
+        "DefaultIcon",
+        "TelegramIcon",
+        "VintageIcon",
+        "AquaIcon",
+        "PremiumIcon",
+        "TurboIcon",
+        "NoxIcon",
+        "LavenderIcon",
+        "SolarIcon"
+    };
+
+    public static ComponentName getActiveLauncherComponent(Context ctx) {
+        if (ctx == null) ctx = ApplicationLoader.applicationContext;
         LauncherIcon active = getActiveIcon();
-        if (active != null && isEnabled(active)) {
-            return;
+        if (active != null) {
+            return active.getComponentName(ctx);
         }
+        return new ComponentName(ctx.getPackageName(), "org.telegram.messenger.BlueIcon");
+    }
+
+    public static void tryFixLauncherIconIfNeeded() {
+        Context ctx = ApplicationLoader.applicationContext;
+        if (ctx == null) return;
+        PackageManager pm = ctx.getPackageManager();
+        LauncherIcon active = getActiveIcon();
+        ComponentName activeComponent = active.getComponentName(ctx);
+
+        try {
+            int currentStatus = pm.getComponentEnabledSetting(activeComponent);
+            if (currentStatus != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                pm.setComponentEnabledSetting(activeComponent, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+            }
+        } catch (Throwable e) {
+            org.telegram.messenger.FileLog.e(e);
+        }
+
         for (LauncherIcon icon : LauncherIcon.values()) {
-            if (isEnabled(icon)) {
-                return;
+            if (icon != active) {
+                try {
+                    ComponentName comp = icon.getComponentName(ctx);
+                    int status = pm.getComponentEnabledSetting(comp);
+                    if (status != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
+                        pm.setComponentEnabledSetting(comp, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                    }
+                } catch (Throwable ignore) {}
             }
         }
 
-        setIcon(LauncherIcon.DEFAULT);
+        for (String legacyKey : LEGACY_LAUNCHER_KEYS) {
+            try {
+                ComponentName comp = new ComponentName(ctx.getPackageName(), "org.telegram.messenger." + legacyKey);
+                int status = pm.getComponentEnabledSetting(comp);
+                if (status != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
+                    pm.setComponentEnabledSetting(comp, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                }
+            } catch (Throwable ignore) {}
+        }
+
+        try {
+            android.content.Intent mainIntent = new android.content.Intent(android.content.Intent.ACTION_MAIN);
+            mainIntent.addCategory(android.content.Intent.CATEGORY_LAUNCHER);
+            mainIntent.setPackage(ctx.getPackageName());
+            java.util.List<android.content.pm.ResolveInfo> list = pm.queryIntentActivities(
+                    mainIntent,
+                    PackageManager.MATCH_ALL | PackageManager.GET_DISABLED_COMPONENTS
+            );
+            if (list != null) {
+                for (android.content.pm.ResolveInfo ri : list) {
+                    if (ri.activityInfo != null && ri.activityInfo.name != null) {
+                        if (!ri.activityInfo.name.equals(activeComponent.getClassName())) {
+                            ComponentName c = new ComponentName(ctx.getPackageName(), ri.activityInfo.name);
+                            pm.setComponentEnabledSetting(c, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                        }
+                    }
+                }
+            }
+        } catch (Throwable e) {
+            org.telegram.messenger.FileLog.e(e);
+        }
     }
 
     public static boolean isEnabled(LauncherIcon icon) {
@@ -133,11 +201,11 @@ public class LauncherIconController {
     // При смене иконки все неактивные алиасы отключаются, активный — включается.
     private static String[] getAllLauncherKeys() {
         LauncherIcon[] icons = LauncherIcon.values();
-        String[] keys = new String[icons.length + 1];
+        String[] keys = new String[icons.length + LEGACY_LAUNCHER_KEYS.length];
         for (int i = 0; i < icons.length; i++) {
             keys[i] = icons[i].key;
         }
-        keys[icons.length] = "DefaultIcon";
+        System.arraycopy(LEGACY_LAUNCHER_KEYS, 0, keys, icons.length, LEGACY_LAUNCHER_KEYS.length);
         return keys;
     }
 

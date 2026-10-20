@@ -3042,6 +3042,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         mainTabsActivityController = controller;
     }
 
+    public void openMusicTab() {
+        if (mainTabsActivityController != null && mainTabsActivityController.openTab(app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType.MUSIC)) {
+            return;
+        }
+        presentFragment(new soundgram.music.ChannelMusicFragment(0, false, 0, true));
+    }
+
 
     private android.net.Uri getUriForPath(String path) {
         if (android.text.TextUtils.isEmpty(path)) {
@@ -14876,6 +14883,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         // gated; see NimarkoChatMenuInjector for per-row CG-derived conditions.
         app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.injectArchived(io, this);
         app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.injectCalls(io, this);
+        app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.injectMusic(io, this);
         app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.injectScanQR(io, this);
         app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.injectCreateChannel(io, this);
         app.nimarkogram.messenger.utils.chats.NimarkoChatMenuInjector.injectGifts(io, currentAccount, getContext());

@@ -203,6 +203,17 @@ public final class NimarkoChatMenuInjector {
         });
     }
 
+    public static void injectMusic(ItemOptions io, BaseFragment fragment) {
+        if (io == null || fragment == null) return;
+        io.add(R.drawable.baseline_music_note_24, getString(R.string.Music), () -> {
+            if (fragment instanceof DialogsActivity) {
+                ((DialogsActivity) fragment).openMusicTab();
+            } else {
+                fragment.presentFragment(new soundgram.music.ChannelMusicFragment(0, false, 0, true));
+            }
+        });
+    }
+
     public static void injectGifts(ItemOptions io, int currentAccount, Context context) {
         if (io == null || context == null) return;
         final MessagesController mc = MessagesController.getInstance(currentAccount);

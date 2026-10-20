@@ -1029,6 +1029,20 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsView.invalidate();
     }
 
+    public boolean openTab(app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType type) {
+        if (type == null) return false;
+        int position = app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE.getPosition(type);
+        if (position < 0 || position >= getFragmentsCount()) return false;
+        if (viewPager != null) {
+            if (viewPager.getCurrentPosition() != position) {
+                selectTab(position, true);
+                viewPager.scrollToPosition(position);
+            }
+            return true;
+        }
+        return false;
+    }
+
 
     public interface TabFragmentDelegate {
         default boolean canParentTabsSlide(MotionEvent ev, boolean forward) {
@@ -1419,6 +1433,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                         .withEndAction(() -> checkUi_tabsPosition())
                         .start();
             }
+        }
+
+        @Override
+        public boolean openTab(app.nimarkogram.messenger.utils.ui.MainTabsManager.TabType type) {
+            return MainTabsActivity.this.openTab(type);
         }
     }
 

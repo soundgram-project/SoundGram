@@ -356,6 +356,7 @@ public class MusicPlayerService extends Service implements NotificationCenter.No
         String contentText = messageObject.getMusicAuthor();
         AudioInfo audioInfo = MediaController.getInstance().getAudioInfo();
         Intent intent = new Intent(ApplicationLoader.applicationContext, LaunchActivity.class);
+        intent.setComponent(org.telegram.ui.LauncherIconController.getActiveLauncherComponent(ApplicationLoader.applicationContext));
         if (messageObject.isMusic()) {
             intent.setAction("com.tmessages.openplayer");
             intent.addCategory(Intent.CATEGORY_LAUNCHER);

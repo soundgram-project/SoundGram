@@ -86,6 +86,8 @@ public class NotificationsService extends Service implements NotificationCenter.
 
     private void startInForeground() {
         Intent intent = new Intent(this, LaunchActivity.class);
+        intent.setComponent(org.telegram.ui.LauncherIconController.getActiveLauncherComponent(this));
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         PendingIntent pendingIntent = PendingIntent.getActivity(

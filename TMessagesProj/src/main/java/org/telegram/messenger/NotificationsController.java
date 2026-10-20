@@ -392,6 +392,7 @@ public class NotificationsController extends BaseController implements Notificat
                         ? LocaleController.getString(R.string.NotificationWalletTonConnectRequest)
                         : LocaleController.formatString(R.string.NotificationWalletTonConnectRequestDapp, dapp);
                 Intent intent = new Intent(ApplicationLoader.applicationContext, LaunchActivity.class);
+                intent.setComponent(org.telegram.ui.LauncherIconController.getActiveLauncherComponent(ApplicationLoader.applicationContext));
                 intent.setAction(Intent.ACTION_VIEW);
                 intent.setData(Uri.parse("tg://resolve?domain=sendgrams"));
                 intent.putExtra("currentAccount", currentAccount);
@@ -4623,8 +4624,10 @@ public class NotificationsController extends BaseController implements Notificat
             }
 
             Intent intent = new Intent(ApplicationLoader.applicationContext, LaunchActivity.class);
+            intent.setComponent(org.telegram.ui.LauncherIconController.getActiveLauncherComponent(ApplicationLoader.applicationContext));
             intent.setAction("com.tmessages.openchat" + Math.random() + Integer.MAX_VALUE);
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            intent.addCategory(Intent.CATEGORY_LAUNCHER);
             if (lastMessageObject != null && lastMessageObject.isOauthPush) {
                 intent.putExtra("oauth_url", lastMessageObject.localName);
             }
@@ -5617,6 +5620,7 @@ public class NotificationsController extends BaseController implements Notificat
             }
 
             Intent intent = new Intent(ApplicationLoader.applicationContext, LaunchActivity.class);
+            intent.setComponent(org.telegram.ui.LauncherIconController.getActiveLauncherComponent(ApplicationLoader.applicationContext));
             intent.setAction("com.tmessages.openchat" + Math.random() + Integer.MAX_VALUE);
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);
