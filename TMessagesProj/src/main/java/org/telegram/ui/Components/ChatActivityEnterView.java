@@ -14377,21 +14377,11 @@ public class ChatActivityEnterView extends FrameLayout implements
         return emojiViewVisible || botKeyboardViewVisible;
     }
 
-    private boolean isPersistentBotKeyboardShowing() {
-        return isPopupShowing()
-                && currentPopupContentType == POPUP_CONTENT_BOT_KEYBOARD
-                && botReplyMarkup != null
-                && botReplyMarkup.is_persistent
-                && botButtonsMessageObject != null;
-    }
-
-    /**
-     * A persistent bot reply keyboard deliberately cannot be dismissed with Back. It therefore
-     * must not consume the chat's Back gesture either, otherwise predictive Back is rejected on
-     * every attempt and the user can never leave the dialog while the keyboard is visible.
-     */
-    public boolean isPopupDismissibleByBack() {
-        return isPopupShowing() && !isPersistentBotKeyboardShowing();
+    public boolean canHidePopupByBackButton() {
+        if (!isPopupShowing()) {
+            return false;
+        }
+        return !(currentPopupContentType == POPUP_CONTENT_BOT_KEYBOARD && botReplyMarkup != null && botReplyMarkup.is_persistent && botButtonsMessageObject != null);
     }
 
     public boolean closeCreationLinkDialog(boolean invoked) {
