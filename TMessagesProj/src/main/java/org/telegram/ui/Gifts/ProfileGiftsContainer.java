@@ -317,20 +317,16 @@ public class ProfileGiftsContainer extends FrameLayout implements NotificationCe
                     }
                     final int fromPosition = viewHolder.getAdapterPosition();
                     final int toPosition = target.getAdapterPosition();
-                    // Adapter positions include the tabs/header spacer and can
-                    // also include loading/footer rows. Resolve the actual
-                    // gift indices by object identity instead of forwarding UI
-                    // positions into the model list.
-                    final int fromGiftIndex = list.indexOf(fromGift);
-                    final int toGiftIndex = list.indexOf(toGift);
-                    if (fromGiftIndex < 0 || toGiftIndex < 0 || fromGiftIndex == toGiftIndex) {
+                    final int fromIndex = list.gifts.indexOf(getSavedGift(viewHolder));
+                    final int toIndex = list.gifts.indexOf(getSavedGift(target));
+                    if (fromIndex < 0 || toIndex < 0) {
                         return false;
                     }
                     if (isCollection) {
-                        list.reorder(fromGiftIndex, toGiftIndex);
+                        list.reorder(fromIndex, toIndex);
                         parent.collections.updateIcon(list.collectionId);
                     } else {
-                        list.reorderPinned(fromGiftIndex, toGiftIndex);
+                        list.reorderPinned(fromIndex, toIndex);
                     }
                     listView.adapter.notifyItemMoved(fromPosition, toPosition);
                     listView.adapter.updateWithoutNotify();
