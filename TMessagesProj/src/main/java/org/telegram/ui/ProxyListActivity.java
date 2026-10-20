@@ -903,6 +903,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
     @SuppressLint("ApplySharedPref")
     private void disableWsProxy() {
+        try {
+            ApplicationLoader.applicationContext.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE)
+                    .edit().putBoolean("enabled", false).putBoolean("manual_enabled", false).commit();
+        } catch (Throwable ignore) {}
         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
         SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean("proxy_enabled", false);

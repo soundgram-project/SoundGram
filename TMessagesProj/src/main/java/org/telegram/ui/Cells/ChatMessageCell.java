@@ -4406,7 +4406,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 int offset = dp(27);
                 area2 = x >= buttonX + offset && x <= buttonX + offset + side && y >= buttonY + offset && y <= buttonY + offset + side;
             }
-            boolean allowClickButtons = currentMessageObject == null || !currentMessageObject.hasMediaSpoilers() || currentMessageObject.isMediaSpoilersRevealed || buttonState == 1;
+            boolean allowClickButtons = currentMessageObject == null || !currentMessageObject.hasMediaSpoilers() || currentMessageObject.isMediaSpoilersRevealed || buttonState == 1 || buttonState == 0;
             if (area2) {
                 miniButtonPressed = 1;
                 invalidate();
@@ -4469,7 +4469,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 } else if (buttonPressed == 1) {
                     buttonPressed = 0;
                     playSoundEffect(SoundEffectConstants.CLICK);
-                    if (drawVideoImageButton) {
+                    if (currentMessageObject != null && currentMessageObject.hasMediaSpoilers() && !currentMessageObject.isMediaSpoilersRevealed) {
+                        if (buttonState == 0) {
+                            didPressButton(true, drawVideoImageButton || documentAttachType == DOCUMENT_ATTACH_TYPE_VIDEO);
+                        }
+                        didClickedImage();
+                    } else if (drawVideoImageButton) {
                         didClickedImage();
                     } else {
                         didPressButton(true, false);
@@ -4482,7 +4487,13 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     invalidate();
                 } else if (imagePressed) {
                     imagePressed = false;
-                    if (buttonState == -1 || buttonState == 1 && isRoundVideo || buttonState == 2 || buttonState == 3 || drawVideoImageButton) {
+                    if (currentMessageObject != null && currentMessageObject.hasMediaSpoilers() && !currentMessageObject.isMediaSpoilersRevealed) {
+                        playSoundEffect(SoundEffectConstants.CLICK);
+                        if (buttonState == 0) {
+                            didPressButton(true, drawVideoImageButton || documentAttachType == DOCUMENT_ATTACH_TYPE_VIDEO);
+                        }
+                        didClickedImage();
+                    } else if (buttonState == -1 || buttonState == 1 && isRoundVideo || buttonState == 2 || buttonState == 3 || drawVideoImageButton) {
                         playSoundEffect(SoundEffectConstants.CLICK);
                         didClickedImage();
                     } else if (buttonState == 0) {
@@ -15746,6 +15757,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
             if (currentMessagesGroup != null) {
                 radialProgress.setProgress(0f, false);
+            }
+        } else if (currentMessageObject.type == MessageObject.TYPE_PHOTO) {
+            if (buttonState == 0 || photoImage.hasNotThumb()) {
+                photoImage.setForceLoading(true);
             }
         }
 

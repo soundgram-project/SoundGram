@@ -368,16 +368,53 @@ public class TgWsProxyService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        int notifPort = currentPort > 0 ? currentPort : 1443;
-        if (intent != null) {
-            notifPort = intent.getIntExtra(EXTRA_PORT, notifPort);
+        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            userStopped = true;
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(Service.STOP_FOREGROUND_REMOVE);
+                } else {
+                    stopForeground(true);
+                }
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.cancel(NOTIFICATION_ID);
+                }
+            } catch (Throwable ignore) {}
+            new Thread(this::stopProxy, "proxy-stop").start();
+            return START_NOT_STICKY;
         }
-        ensureForegroundNotification(notifPort);
+
+        SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+        boolean enabled = prefs.getBoolean("enabled", false);
+        boolean manual = prefs.getBoolean("manual_enabled", false);
+        boolean autoStart = prefs.getBoolean("auto_start", true);
 
         if (intent == null || intent.getAction() == null) {
+            if (!enabled || (!manual && !autoStart)) {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        stopForeground(Service.STOP_FOREGROUND_REMOVE);
+                    } else {
+                        stopForeground(true);
+                    }
+                    NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                    if (nm != null) {
+                        nm.cancel(NOTIFICATION_ID);
+                    }
+                } catch (Throwable ignore) {}
+                stopSelf();
+                return START_NOT_STICKY;
+            }
+            int notifPort = currentPort > 0 ? currentPort : 1443;
+            ensureForegroundNotification(notifPort);
             tryAutoStart();
             return START_STICKY;
         }
+
+        int notifPort = currentPort > 0 ? currentPort : 1443;
+        notifPort = intent.getIntExtra(EXTRA_PORT, notifPort);
+        ensureForegroundNotification(notifPort);
 
         switch (intent.getAction()) {
             case ACTION_START: {
@@ -612,11 +649,17 @@ public class TgWsProxyService extends Service {
      */
     private void stopProxy() {
         stopProxyInternal();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(Service.STOP_FOREGROUND_REMOVE);
-        } else {
-            stopForeground(true);
-        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(Service.STOP_FOREGROUND_REMOVE);
+            } else {
+                stopForeground(true);
+            }
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(NOTIFICATION_ID);
+            }
+        } catch (Throwable ignore) {}
         stopSelf();
     }
 
@@ -888,9 +931,10 @@ public class TgWsProxyService extends Service {
         stopWatchdog();
         if (!userStopped && !ProxyAutoDetector.isVpnActive(this)) {
             SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+            boolean enabled = prefs.getBoolean("enabled", false);
             boolean manual = prefs.getBoolean("manual_enabled", false);
             boolean autoStart = prefs.getBoolean("auto_start", true);
-            if (manual || autoStart) {
+            if (enabled && (manual || autoStart)) {
                 scheduleServiceRestart(3000);
             }
         }

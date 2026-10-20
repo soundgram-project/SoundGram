@@ -1291,29 +1291,85 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         // Стеклянный фон хедера убран по просьбе
         headerContainer.setBackgroundColor(android.graphics.Color.TRANSPARENT);
 
-        artistRecyclerView = new RecyclerListView(context);
+        artistRecyclerView = new RecyclerListView(context) {
+            private float startX, startY;
+            private boolean isDisallowing = false;
+
+            @Override
+            public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+                switch (ev.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        startX = ev.getX();
+                        startY = ev.getY();
+                        isDisallowing = false;
+                        requestDisallowInterceptTouchEvent(true);
+                        break;
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        float dx = Math.abs(ev.getX() - startX);
+                        float dy = Math.abs(ev.getY() - startY);
+                        if (dx > dy && dx > AndroidUtilities.dp(4)) {
+                            if (!isDisallowing) {
+                                requestDisallowInterceptTouchEvent(true);
+                                isDisallowing = true;
+                            }
+                        } else if (dy > dx && dy > AndroidUtilities.dp(8)) {
+                            requestDisallowInterceptTouchEvent(false);
+                            isDisallowing = false;
+                        }
+                        break;
+                    case android.view.MotionEvent.ACTION_UP:
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        requestDisallowInterceptTouchEvent(false);
+                        isDisallowing = false;
+                        break;
+                }
+                return super.dispatchTouchEvent(ev);
+            }
+        };
         artistRecyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
         artistAdapter = new ArtistAdapter(context);
         artistRecyclerView.setAdapter(artistAdapter);
         artistRecyclerView.setVisibility(View.GONE);
-        artistRecyclerView.setOnTouchListener((v, event) -> {
-            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN || event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
-                v.getParent().requestDisallowInterceptTouchEvent(true);
-            }
-            return false;
-        });
 
-        albumsRecyclerView = new RecyclerListView(context);
+        albumsRecyclerView = new RecyclerListView(context) {
+            private float startX, startY;
+            private boolean isDisallowing = false;
+
+            @Override
+            public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+                switch (ev.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        startX = ev.getX();
+                        startY = ev.getY();
+                        isDisallowing = false;
+                        requestDisallowInterceptTouchEvent(true);
+                        break;
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        float dx = Math.abs(ev.getX() - startX);
+                        float dy = Math.abs(ev.getY() - startY);
+                        if (dx > dy && dx > AndroidUtilities.dp(4)) {
+                            if (!isDisallowing) {
+                                requestDisallowInterceptTouchEvent(true);
+                                isDisallowing = true;
+                            }
+                        } else if (dy > dx && dy > AndroidUtilities.dp(8)) {
+                            requestDisallowInterceptTouchEvent(false);
+                            isDisallowing = false;
+                        }
+                        break;
+                    case android.view.MotionEvent.ACTION_UP:
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        requestDisallowInterceptTouchEvent(false);
+                        isDisallowing = false;
+                        break;
+                }
+                return super.dispatchTouchEvent(ev);
+            }
+        };
         albumsRecyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
         albumsAdapter = new AlbumAdapter(context);
         albumsRecyclerView.setAdapter(albumsAdapter);
         albumsRecyclerView.setVisibility(View.GONE);
-        albumsRecyclerView.setOnTouchListener((v, event) -> {
-            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN || event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
-                v.getParent().requestDisallowInterceptTouchEvent(true);
-            }
-            return false;
-        });
 
         createSearchMenu(context, headerContainer);
 

@@ -328,11 +328,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
             .setAllocator(new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE))
             .setBufferDurationsMs(
-                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                isStory ? DefaultLoadControl.DEFAULT_MIN_BUFFER_MS : 15000,
                 DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
-                isStory ? 1000 : 100,
-                isStory ? 1000
-                        : DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                isStory ? 1000 : 150,
+                isStory ? 1000 : 500)
             .setTargetBufferBytes(DefaultLoadControl.DEFAULT_TARGET_BUFFER_BYTES)
             .setPrioritizeTimeOverSizeThresholds(
                 DefaultLoadControl.DEFAULT_PRIORITIZE_TIME_OVER_SIZE_THRESHOLDS)

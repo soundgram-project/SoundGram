@@ -560,7 +560,7 @@ public class MentionsAdapter extends RecyclerListView.SelectionAdapter implement
     private void processFoundUser(TLRPC.User user) {
         contextUsernameReqid = 0;
         locationProvider.stop();
-        if (user != null && user.bot && user.bot_inline_placeholder != null) {
+        if (user != null && user.bot) {
             foundContextBot = user;
             if (user != null && user.id != searchResultBotContextSwitchUserId) {
                 searchResultBotContextSwitch = null;
@@ -863,7 +863,7 @@ public class MentionsAdapter extends RecyclerListView.SelectionAdapter implement
                 searchResultBotWebViewSwitch = res.switch_webview;
                 for (int a = 0; a < res.results.size(); a++) {
                     TLRPC.BotInlineResult result = res.results.get(a);
-                    if (!(result.document instanceof TLRPC.TL_document) && !(result.photo instanceof TLRPC.TL_photo) && !"game".equals(result.type) && result.content == null && result.send_message instanceof TLRPC.TL_botInlineMessageMediaAuto) {
+                    if (!(result.document instanceof TLRPC.TL_document) && !(result.photo instanceof TLRPC.TL_photo) && !"game".equals(result.type) && !"voice".equals(result.type) && !"audio".equals(result.type) && !"music".equals(result.type) && result.content == null && result.send_message instanceof TLRPC.TL_botInlineMessageMediaAuto) {
                         res.results.remove(a);
                         a--;
                     }

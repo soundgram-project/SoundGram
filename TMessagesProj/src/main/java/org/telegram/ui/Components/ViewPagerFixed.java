@@ -2353,7 +2353,7 @@ public class ViewPagerFixed extends FrameLayout {
             }
             child.getHitRect(rect);
             if (rect.contains((int) x, (int) y)) {
-                if (child.canScrollHorizontally(-1)) {
+                if (child.canScrollHorizontally(-1) || child.canScrollHorizontally(1)) {
                     return child;
                 } else if (child instanceof ViewGroup) {
                     View v = findScrollingChild((ViewGroup) child, x - rect.left, y - rect.top);

@@ -1755,9 +1755,13 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                                             soundgram.music.SoundGramStatsManager.recordPlaybackSecond(currentPlayingMessageObject.currentAccount);
                                         }
 
+                                        long remaining = duration - progress;
+                                        if (remaining > 0 && remaining <= 20000 && !isPreloadingNextTrack) {
+                                            preloadNextTrack();
+                                        }
+
                                         int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
                                         if (cfMs > 0 && duration > cfMs * 2 && !isCrossfadingToNext && audioPlayer != null && audioPlayer.isPlaying() && seekToProgressPending == 0) {
-                                            long remaining = duration - progress;
                                             if (remaining > 0 && remaining <= cfMs) {
                                                 if (hasNextMusicMessage()) {
                                                     isCrossfadingToNext = true;
@@ -3238,6 +3242,42 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         return null;
     }
 
+    private boolean isPreloadingNextTrack = false;
+    private int preloadingNextTrackId = 0;
+
+    private void preloadNextTrack() {
+        MessageObject next = getNextMessage();
+        if (next == null || next.getId() == preloadingNextTrackId) {
+            return;
+        }
+        preloadingNextTrackId = next.getId();
+        isPreloadingNextTrack = true;
+        if (next.messageOwner != null && next.messageOwner.attachPath != null && (next.messageOwner.attachPath.startsWith("http://") || next.messageOwner.attachPath.startsWith("https://"))) {
+            final String urlStr = next.messageOwner.attachPath;
+            Utilities.globalQueue.postRunnable(() -> {
+                try {
+                    java.net.URL url = new java.net.URL(urlStr);
+                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:124.0) Gecko/124.0 Firefox/124.0");
+                    conn.setRequestProperty("Range", "bytes=0-131071");
+                    conn.setConnectTimeout(5000);
+                    conn.setReadTimeout(5000);
+                    conn.connect();
+                    java.io.InputStream in = conn.getInputStream();
+                    byte[] buf = new byte[8192];
+                    int read = 0;
+                    while (read < 131072 && in.read(buf) != -1) {
+                        read += buf.length;
+                    }
+                    in.close();
+                    conn.disconnect();
+                } catch (Throwable ignore) {}
+            });
+        } else if (next.getDocument() != null) {
+            FileLoader.getInstance(next.currentAccount).loadFile(next.getDocument(), next, FileLoader.PRIORITY_LOW, next.shouldEncryptPhotoOrVideo() ? 2 : 0);
+        }
+    }
+
     private boolean traversePlaylist(ArrayList<MessageObject> playlist, int direction) {
         boolean last = false;
         final int wasCurrentPlaylistNum = currentPlaylistNum;
@@ -3324,6 +3364,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
         MessageObject nextAudio = currentPlayList.get(nextIndex);
         if (nextAudio.messageOwner != null && nextAudio.messageOwner.attachPath != null && (nextAudio.messageOwner.attachPath.startsWith("http://") || nextAudio.messageOwner.attachPath.startsWith("https://"))) {
+            preloadNextTrack();
             return;
         }
         File file = null;
@@ -3955,6 +3996,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
         cleanupPlayer(notify, false);
         isCrossfadingToNext = false;
+        isPreloadingNextTrack = false;
+        preloadingNextTrackId = 0;
         shouldSavePositionForCurrentAudio = null;
         lastSaveTime = 0;
         lastPlaybackStatsTickMs = SystemClock.elapsedRealtime();
@@ -4172,7 +4215,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             try {
                 int cfMsEarly = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
                 boolean isMusicTrackEarly = messageObject.isMusic();
-                boolean shouldFadeInEarly = !messageObject.isVoice() && (cfMsEarly > 0 && isMusicTrackEarly || LaunchActivity.isResumed);
+                boolean shouldFadeInEarly = !messageObject.isVoice() && (cfMsEarly > 0 && isMusicTrackEarly);
                 audioPlayer = new VideoPlayer();
                 if (shouldFadeInEarly) {
                     try {
@@ -4383,7 +4426,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 }
                 int cfMs = soundgram.music.SoundGramConfig.getCrossfadeDurationMs();
                 boolean isMusicTrack = messageObject.isMusic();
-                boolean shouldFadeIn = !messageObject.isVoice() && (cfMs > 0 && isMusicTrack || LaunchActivity.isResumed);
+                boolean shouldFadeIn = !messageObject.isVoice() && (cfMs > 0 && isMusicTrack);
                 if (!messageObject.isVoice()) {
                     if (audioVolumeAnimator != null) {
                         audioVolumeAnimator.removeAllListeners();
