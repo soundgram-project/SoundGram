@@ -25,6 +25,7 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
@@ -407,6 +408,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
     public ArrayList<MessageObject> savedAlbumMessages = new ArrayList<>();
     private RecyclerListView albumsRecyclerView;
     private AlbumAdapter albumsAdapter; // Адаптер для альбомов добавим ниже
+    private NestedHorizontalScrollView albumsExpandedView;
+    private NestedHorizontalScrollView playlistsCollapsedView;
     private ViewGroup tabStrip;
     private soundgram.ui.RadioSectionStripView radioSectionStrip;
     private androidx.viewpager.widget.ViewPager viewPager;
@@ -1305,22 +1308,36 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         requestDisallowInterceptTouchEvent(true);
                         break;
                     case android.view.MotionEvent.ACTION_MOVE:
-                        float dx = Math.abs(ev.getX() - startX);
-                        float dy = Math.abs(ev.getY() - startY);
+                        float rawDx = ev.getX() - startX;
+                        float rawDy = ev.getY() - startY;
+                        float dx = Math.abs(rawDx);
+                        float dy = Math.abs(rawDy);
                         if (dx > dy && dx > AndroidUtilities.dp(4)) {
-                            if (!isDisallowing) {
-                                requestDisallowInterceptTouchEvent(true);
-                                isDisallowing = true;
+                            int direction = rawDx > 0 ? -1 : 1;
+                            if (canScrollHorizontally(direction)) {
+                                if (!isDisallowing) {
+                                    requestDisallowInterceptTouchEvent(true);
+                                    isDisallowing = true;
+                                }
+                            } else {
+                                if (isDisallowing) {
+                                    requestDisallowInterceptTouchEvent(false);
+                                    isDisallowing = false;
+                                }
                             }
                         } else if (dy > dx && dy > AndroidUtilities.dp(8)) {
-                            requestDisallowInterceptTouchEvent(false);
-                            isDisallowing = false;
+                            if (isDisallowing) {
+                                requestDisallowInterceptTouchEvent(false);
+                                isDisallowing = false;
+                            }
                         }
                         break;
                     case android.view.MotionEvent.ACTION_UP:
                     case android.view.MotionEvent.ACTION_CANCEL:
-                        requestDisallowInterceptTouchEvent(false);
-                        isDisallowing = false;
+                        if (isDisallowing) {
+                            requestDisallowInterceptTouchEvent(false);
+                            isDisallowing = false;
+                        }
                         break;
                 }
                 return super.dispatchTouchEvent(ev);
@@ -1345,22 +1362,36 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         requestDisallowInterceptTouchEvent(true);
                         break;
                     case android.view.MotionEvent.ACTION_MOVE:
-                        float dx = Math.abs(ev.getX() - startX);
-                        float dy = Math.abs(ev.getY() - startY);
+                        float rawDx = ev.getX() - startX;
+                        float rawDy = ev.getY() - startY;
+                        float dx = Math.abs(rawDx);
+                        float dy = Math.abs(rawDy);
                         if (dx > dy && dx > AndroidUtilities.dp(4)) {
-                            if (!isDisallowing) {
-                                requestDisallowInterceptTouchEvent(true);
-                                isDisallowing = true;
+                            int direction = rawDx > 0 ? -1 : 1;
+                            if (canScrollHorizontally(direction)) {
+                                if (!isDisallowing) {
+                                    requestDisallowInterceptTouchEvent(true);
+                                    isDisallowing = true;
+                                }
+                            } else {
+                                if (isDisallowing) {
+                                    requestDisallowInterceptTouchEvent(false);
+                                    isDisallowing = false;
+                                }
                             }
                         } else if (dy > dx && dy > AndroidUtilities.dp(8)) {
-                            requestDisallowInterceptTouchEvent(false);
-                            isDisallowing = false;
+                            if (isDisallowing) {
+                                requestDisallowInterceptTouchEvent(false);
+                                isDisallowing = false;
+                            }
                         }
                         break;
                     case android.view.MotionEvent.ACTION_UP:
                     case android.view.MotionEvent.ACTION_CANCEL:
-                        requestDisallowInterceptTouchEvent(false);
-                        isDisallowing = false;
+                        if (isDisallowing) {
+                            requestDisallowInterceptTouchEvent(false);
+                            isDisallowing = false;
+                        }
                         break;
                 }
                 return super.dispatchTouchEvent(ev);
@@ -1404,6 +1435,12 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     float dx = ev.getX() - initialX;
                     float dy = ev.getY() - initialY;
                     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > AndroidUtilities.dp(8)) {
+                        if (canScroll(this, false, (int) dx, (int) ev.getX(), (int) ev.getY())) {
+                            return false;
+                        }
+                        if (isTouchInsideScrollableChild(ev.getRawX(), ev.getRawY(), dx)) {
+                            return false;
+                        }
                         int current = getCurrentItem();
                         int max = getAdapter() != null ? getAdapter().getCount() - 1 : 0;
                         if ((dx > 0 && current == 0) || (dx < 0 && current == max)) {
@@ -1457,6 +1494,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 } else if (action == android.view.MotionEvent.ACTION_MOVE) {
                     float dx = ev.getX() - initialX;
                     float dy = ev.getY() - initialY;
+                    if (isTouchInsideScrollableChild(ev.getRawX(), ev.getRawY(), dx)) {
+                        return false;
+                    }
                     int current = getCurrentItem();
                     int max = getAdapter() != null ? getAdapter().getCount() - 1 : 0;
                     if ((dx > 0 && current == 0) || (dx < 0 && current == max)) {
@@ -3791,7 +3831,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         searchHeaderLayout.addView(searchInputRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         // Горизонтальная лента чипов: «всё», «треки», «исполнители», «альбомы», «из чатов»
-        HorizontalScrollView chipsScroll = new HorizontalScrollView(context);
+        NestedHorizontalScrollView chipsScroll = new NestedHorizontalScrollView(context);
         chipsScroll.setHorizontalScrollBarEnabled(false);
         chipsScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
@@ -4808,7 +4848,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         playlistsContentFrame.addView(playlistsExpandedView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         // 2) Свёрнутая горизонтальная лента плейлистов
-        final HorizontalScrollView playlistsCollapsedView = new HorizontalScrollView(context);
+        playlistsCollapsedView = new NestedHorizontalScrollView(context);
         playlistsCollapsedView.setHorizontalScrollBarEnabled(false);
         playlistsCollapsedView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         playlistsCollapsedView.setVisibility(View.GONE);
@@ -4828,7 +4868,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         FrameLayout albumsSectionContent = new FrameLayout(context);
 
         // 1) Развёрнутый горизонтальный ряд обложек
-        final HorizontalScrollView albumsExpandedView = new HorizontalScrollView(context);
+        albumsExpandedView = new NestedHorizontalScrollView(context);
         albumsExpandedView.setHorizontalScrollBarEnabled(false);
         albumsExpandedView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
@@ -10751,6 +10791,85 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 outRect.top = 0;
             }
         }
+    }
+
+    public static class NestedHorizontalScrollView extends HorizontalScrollView {
+        private float startX, startY;
+        private boolean isDisallowing = false;
+
+        public NestedHorizontalScrollView(Context context) {
+            super(context);
+        }
+
+        @Override
+        public boolean dispatchTouchEvent(MotionEvent ev) {
+            switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    startX = ev.getX();
+                    startY = ev.getY();
+                    isDisallowing = false;
+                    requestDisallowInterceptTouchEvent(true);
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    float rawDx = ev.getX() - startX;
+                    float rawDy = ev.getY() - startY;
+                    float absDx = Math.abs(rawDx);
+                    float absDy = Math.abs(rawDy);
+                    if (absDx > absDy && absDx > AndroidUtilities.dp(4)) {
+                        int direction = rawDx > 0 ? -1 : 1;
+                        if (canScrollHorizontally(direction)) {
+                            if (!isDisallowing) {
+                                requestDisallowInterceptTouchEvent(true);
+                                isDisallowing = true;
+                            }
+                        } else {
+                            if (isDisallowing) {
+                                requestDisallowInterceptTouchEvent(false);
+                                isDisallowing = false;
+                            }
+                        }
+                    } else if (absDy > absDx && absDy > AndroidUtilities.dp(6)) {
+                        if (isDisallowing) {
+                            requestDisallowInterceptTouchEvent(false);
+                            isDisallowing = false;
+                        }
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (isDisallowing) {
+                        requestDisallowInterceptTouchEvent(false);
+                        isDisallowing = false;
+                    }
+                    break;
+            }
+            return super.dispatchTouchEvent(ev);
+        }
+    }
+
+    private boolean isTouchInsideScrollableChild(float rawX, float rawY, float dx) {
+        int direction = dx > 0 ? -1 : 1;
+        if (isTouchInsideView(albumsExpandedView, rawX, rawY) && albumsExpandedView.canScrollHorizontally(direction)) {
+            return true;
+        }
+        if (isTouchInsideView(playlistsCollapsedView, rawX, rawY) && playlistsCollapsedView.canScrollHorizontally(direction)) {
+            return true;
+        }
+        if (isTouchInsideView(albumsRecyclerView, rawX, rawY) && albumsRecyclerView.canScrollHorizontally(direction)) {
+            return true;
+        }
+        if (isTouchInsideView(artistRecyclerView, rawX, rawY) && artistRecyclerView.canScrollHorizontally(direction)) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isTouchInsideView(View view, float rawX, float rawY) {
+        if (view == null || view.getVisibility() != View.VISIBLE || !view.isShown()) return false;
+        int[] loc = new int[2];
+        view.getLocationOnScreen(loc);
+        return rawX >= loc[0] && rawX <= loc[0] + view.getWidth()
+                && rawY >= loc[1] && rawY <= loc[1] + view.getHeight();
     }
 
     public static String getLocalizedGenre(String genreKey) {
