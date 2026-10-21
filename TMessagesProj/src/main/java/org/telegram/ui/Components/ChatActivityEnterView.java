@@ -14235,12 +14235,16 @@ public class ChatActivityEnterView extends FrameLayout implements
         return hidePopup(byBackButton, forceAnimate, true);
     }
 
+    public boolean isPersistentBotKeyboardShowing() {
+        return currentPopupContentType == POPUP_CONTENT_BOT_KEYBOARD && botReplyMarkup != null && botReplyMarkup.is_persistent;
+    }
+
     public boolean hidePopup(boolean byBackButton, boolean forceAnimate, boolean waitKeyboardOpen) {
         if (isPopupShowing()) {
-            if (byBackButton && isPersistentBotKeyboardShowing()) {
-                return false;
-            }
             if (currentPopupContentType == POPUP_CONTENT_BOT_KEYBOARD && botReplyMarkup != null && byBackButton && botButtonsMessageObject != null) {
+                if (botReplyMarkup.is_persistent) {
+                    return false;
+                }
                 MessagesController.getMainSettings(currentAccount).edit().putInt("closed_botkeyboard_" + getTopicKeyString(), botButtonsMessageObject.getId()).apply();
             }
             if (byBackButton && searchingType != 0 || forceAnimate) {

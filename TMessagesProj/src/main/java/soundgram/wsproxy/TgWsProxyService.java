@@ -425,9 +425,9 @@ public class TgWsProxyService extends Service {
                     if (ProxyAutoDetector.isVpnActive(this)) {
                         break;
                     }
-                    SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
-                    boolean manual = prefs.getBoolean("manual_enabled", false);
-                    boolean autoStart = prefs.getBoolean("auto_start", true);
+                    prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
+                    manual = prefs.getBoolean("manual_enabled", false);
+                    autoStart = prefs.getBoolean("auto_start", true);
                     if (!manual && !autoStart) {
                         break;
                     }
