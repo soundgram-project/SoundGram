@@ -69,15 +69,7 @@ public class ChatActivityTopPanelLayout extends AnimatedLinearLayout {
 
     private boolean isTranslateView(View view) {
         if (view == null) return false;
-        Class<?> cls = view.getClass();
-        while (cls != null && cls != Object.class) {
-            String name = cls.getName();
-            if (name.contains("Translate")) {
-                return true;
-            }
-            cls = cls.getSuperclass();
-        }
-        return false;
+        return view.getClass().getName().contains("Translate");
     }
 
     @Override

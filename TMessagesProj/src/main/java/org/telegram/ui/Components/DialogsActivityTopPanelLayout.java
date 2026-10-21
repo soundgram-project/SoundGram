@@ -188,7 +188,6 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
         if (getMetadata().getTotalVisibility() == 0) return;
-        checkBoundsAndClipping();
 
         if (backgroundDrawable != null) {
             backgroundDrawable.draw(canvas);

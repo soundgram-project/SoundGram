@@ -533,7 +533,7 @@ public class SeekBarView extends FrameLayout {
 
         if (isWavy && (timestamps == null || timestamps.isEmpty()) && !twoSided) {
             drawWavySeekBar(canvas, left, right, centerY, thumbX);
-            if (!org.telegram.messenger.MediaController.getInstance().isMessagePaused()) {
+            if (isShown() && !org.telegram.messenger.MediaController.getInstance().isMessagePaused()) {
                 postInvalidateOnAnimation();
             }
         } else if (hasCustomLineWidthValue && lineWidthDp >= 16) {

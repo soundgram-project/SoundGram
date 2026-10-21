@@ -102,7 +102,7 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         titleTextView.setTypeface(AndroidUtilities.bold());
         titleTextView.setSingleLine(true);
         titleTextView.setEllipsize(TextUtils.TruncateAt.MARQUEE);
-        titleTextView.setSelected(true);
+        titleTextView.setSelected(false);
         titleTextView.setHorizontallyScrolling(true);
         textLayout.addView(titleTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
@@ -223,18 +223,24 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
             }
             return true;
         });
-
-        updateTrackData();
     }
 
     public void setExpandProgress(float progress) {
         if (progress <= 0f) {
-            setVisibility(INVISIBLE);
+            if (getVisibility() != GONE) {
+                setVisibility(GONE);
+            }
             setAlpha(0f);
+            if (titleTextView != null) {
+                titleTextView.setSelected(false);
+            }
             return;
         }
         if (getVisibility() != VISIBLE) {
             setVisibility(VISIBLE);
+            if (titleTextView != null) {
+                titleTextView.setSelected(true);
+            }
         }
 
         setAlpha(Math.min(1f, progress * 2.2f));
@@ -440,7 +446,9 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingProgressDidChanged);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagePlayingDidReset);
-        updateTrackData();
+        if (getVisibility() == VISIBLE) {
+            updateTrackData();
+        }
     }
 
     @Override
@@ -453,6 +461,9 @@ public class DynamicIslandView extends FrameLayout implements NotificationCenter
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
+        if (getVisibility() != VISIBLE) {
+            return;
+        }
         if (id == NotificationCenter.messagePlayingPlayStateChanged) {
             if (playPauseDrawable != null) {
                 playPauseDrawable.setPause(!MediaController.getInstance().isMessagePaused(), true);
