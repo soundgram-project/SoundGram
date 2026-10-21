@@ -928,9 +928,6 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     }
 
     public void togglePlayerExpansion() {
-        if (!isChat()) {
-            return;
-        }
         if (currentStyle != STYLE_AUDIO_PLAYER) {
             return;
         }
@@ -956,9 +953,6 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     }
 
     public void expandPlayer(boolean animated) {
-        if (!isChat()) {
-            return;
-        }
         if (isPlayerExpanded && expandProgress == 1f) {
             return;
         }
@@ -1088,7 +1082,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
         }
         AnimatedLinearLayout topPanel = getTopPanelLayout();
         if (expandProgress > 0f) {
-            float extraHeight = isChat() ? AndroidUtilities.dp(68) * expandProgress : 0f;
+            float extraHeight = AndroidUtilities.dp(68) * expandProgress;
             if (topPanel instanceof DialogsActivityTopPanelLayout) {
                 ((DialogsActivityTopPanelLayout) topPanel).setExtraHeight(extraHeight);
             } else if (topPanel instanceof ChatActivityTopPanelLayout) {
@@ -1879,7 +1873,7 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, AndroidUtilities.dp2(getStyleHeight()));
+        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(getStyleHeight()), MeasureSpec.EXACTLY));
         if (islandView != null && islandView.getVisibility() != GONE) {
             islandView.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(104), MeasureSpec.EXACTLY));
         }

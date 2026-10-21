@@ -1308,36 +1308,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         requestDisallowInterceptTouchEvent(true);
                         break;
                     case android.view.MotionEvent.ACTION_MOVE:
-                        float rawDx = ev.getX() - startX;
-                        float rawDy = ev.getY() - startY;
-                        float dx = Math.abs(rawDx);
-                        float dy = Math.abs(rawDy);
+                        float dx = Math.abs(ev.getX() - startX);
+                        float dy = Math.abs(ev.getY() - startY);
                         if (dx > dy && dx > AndroidUtilities.dp(4)) {
-                            int direction = rawDx > 0 ? -1 : 1;
-                            if (canScrollHorizontally(direction)) {
-                                if (!isDisallowing) {
-                                    requestDisallowInterceptTouchEvent(true);
-                                    isDisallowing = true;
-                                }
-                            } else {
-                                if (isDisallowing) {
-                                    requestDisallowInterceptTouchEvent(false);
-                                    isDisallowing = false;
-                                }
+                            if (!isDisallowing) {
+                                requestDisallowInterceptTouchEvent(true);
+                                isDisallowing = true;
                             }
                         } else if (dy > dx && dy > AndroidUtilities.dp(8)) {
-                            if (isDisallowing) {
-                                requestDisallowInterceptTouchEvent(false);
-                                isDisallowing = false;
-                            }
+                            requestDisallowInterceptTouchEvent(false);
+                            isDisallowing = false;
                         }
                         break;
                     case android.view.MotionEvent.ACTION_UP:
                     case android.view.MotionEvent.ACTION_CANCEL:
-                        if (isDisallowing) {
-                            requestDisallowInterceptTouchEvent(false);
-                            isDisallowing = false;
-                        }
+                        requestDisallowInterceptTouchEvent(false);
+                        isDisallowing = false;
                         break;
                 }
                 return super.dispatchTouchEvent(ev);
@@ -1362,36 +1348,22 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         requestDisallowInterceptTouchEvent(true);
                         break;
                     case android.view.MotionEvent.ACTION_MOVE:
-                        float rawDx = ev.getX() - startX;
-                        float rawDy = ev.getY() - startY;
-                        float dx = Math.abs(rawDx);
-                        float dy = Math.abs(rawDy);
+                        float dx = Math.abs(ev.getX() - startX);
+                        float dy = Math.abs(ev.getY() - startY);
                         if (dx > dy && dx > AndroidUtilities.dp(4)) {
-                            int direction = rawDx > 0 ? -1 : 1;
-                            if (canScrollHorizontally(direction)) {
-                                if (!isDisallowing) {
-                                    requestDisallowInterceptTouchEvent(true);
-                                    isDisallowing = true;
-                                }
-                            } else {
-                                if (isDisallowing) {
-                                    requestDisallowInterceptTouchEvent(false);
-                                    isDisallowing = false;
-                                }
+                            if (!isDisallowing) {
+                                requestDisallowInterceptTouchEvent(true);
+                                isDisallowing = true;
                             }
                         } else if (dy > dx && dy > AndroidUtilities.dp(8)) {
-                            if (isDisallowing) {
-                                requestDisallowInterceptTouchEvent(false);
-                                isDisallowing = false;
-                            }
+                            requestDisallowInterceptTouchEvent(false);
+                            isDisallowing = false;
                         }
                         break;
                     case android.view.MotionEvent.ACTION_UP:
                     case android.view.MotionEvent.ACTION_CANCEL:
-                        if (isDisallowing) {
-                            requestDisallowInterceptTouchEvent(false);
-                            isDisallowing = false;
-                        }
+                        requestDisallowInterceptTouchEvent(false);
+                        isDisallowing = false;
                         break;
                 }
                 return super.dispatchTouchEvent(ev);
@@ -1494,9 +1466,6 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 } else if (action == android.view.MotionEvent.ACTION_MOVE) {
                     float dx = ev.getX() - initialX;
                     float dy = ev.getY() - initialY;
-                    if (isTouchInsideScrollableChild(ev.getRawX(), ev.getRawY(), dx)) {
-                        return false;
-                    }
                     int current = getCurrentItem();
                     int max = getAdapter() != null ? getAdapter().getCount() - 1 : 0;
                     if ((dx > 0 && current == 0) || (dx < 0 && current == max)) {
@@ -10795,55 +10764,71 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     public static class NestedHorizontalScrollView extends HorizontalScrollView {
         private float startX, startY;
-        private boolean isDisallowing = false;
 
         public NestedHorizontalScrollView(Context context) {
             super(context);
         }
 
         @Override
-        public boolean dispatchTouchEvent(MotionEvent ev) {
+        public boolean onInterceptTouchEvent(MotionEvent ev) {
             switch (ev.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     startX = ev.getX();
                     startY = ev.getY();
-                    isDisallowing = false;
-                    requestDisallowInterceptTouchEvent(true);
                     break;
                 case MotionEvent.ACTION_MOVE:
-                    float rawDx = ev.getX() - startX;
-                    float rawDy = ev.getY() - startY;
-                    float absDx = Math.abs(rawDx);
-                    float absDy = Math.abs(rawDy);
+                    float dx = ev.getX() - startX;
+                    float dy = ev.getY() - startY;
+                    float absDx = Math.abs(dx);
+                    float absDy = Math.abs(dy);
                     if (absDx > absDy && absDx > AndroidUtilities.dp(4)) {
-                        int direction = rawDx > 0 ? -1 : 1;
+                        int direction = dx > 0 ? -1 : 1;
                         if (canScrollHorizontally(direction)) {
-                            if (!isDisallowing) {
-                                requestDisallowInterceptTouchEvent(true);
-                                isDisallowing = true;
+                            android.view.ViewParent p = getParent();
+                            if (p != null) {
+                                p.requestDisallowInterceptTouchEvent(true);
                             }
-                        } else {
-                            if (isDisallowing) {
-                                requestDisallowInterceptTouchEvent(false);
-                                isDisallowing = false;
-                            }
+                            return true;
                         }
                     } else if (absDy > absDx && absDy > AndroidUtilities.dp(6)) {
-                        if (isDisallowing) {
-                            requestDisallowInterceptTouchEvent(false);
-                            isDisallowing = false;
+                        android.view.ViewParent p = getParent();
+                        if (p != null) {
+                            p.requestDisallowInterceptTouchEvent(false);
                         }
+                        return false;
                     }
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    if (isDisallowing) {
-                        requestDisallowInterceptTouchEvent(false);
-                        isDisallowing = false;
+                    android.view.ViewParent p = getParent();
+                    if (p != null) {
+                        p.requestDisallowInterceptTouchEvent(false);
                     }
                     break;
             }
-            return super.dispatchTouchEvent(ev);
+            return super.onInterceptTouchEvent(ev);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent ev) {
+            if (ev.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                float dx = ev.getX() - startX;
+                int direction = dx > 0 ? -1 : 1;
+                android.view.ViewParent p = getParent();
+                if (p != null) {
+                    if (canScrollHorizontally(direction)) {
+                        p.requestDisallowInterceptTouchEvent(true);
+                    } else {
+                        p.requestDisallowInterceptTouchEvent(false);
+                    }
+                }
+            } else if (ev.getActionMasked() == MotionEvent.ACTION_UP || ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                android.view.ViewParent p = getParent();
+                if (p != null) {
+                    p.requestDisallowInterceptTouchEvent(false);
+                }
+            }
+            return super.onTouchEvent(ev);
         }
     }
 
