@@ -53,7 +53,7 @@ import app.nimarkogram.messenger.preferences.helpers.SettingsHelper;
 
 public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActivity {
 
-    private static final int MAX_CONFIG_IMPORT_BYTES = 2 * 1024 * 1024;
+    private static final int MAX_CONFIG_IMPORT_BYTES = 5 * 1024 * 1024;
 
     private final int springAnimationRow = 1;
     private final int actionbarCrossfadeRow = 2;
@@ -553,12 +553,6 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         } else if (requestCode == REQ_IMPORT_CONFIG) {
             try (InputStream is = parentActivity.getContentResolver().openInputStream(uri)) {
                 if (is == null) throw new java.io.IOException("Unable to open config");
-                try (android.content.res.AssetFileDescriptor afd = parentActivity.getContentResolver()
-                        .openAssetFileDescriptor(uri, "r")) {
-                    if (afd != null && afd.getLength() > MAX_CONFIG_IMPORT_BYTES) {
-                        throw new java.io.IOException("Config is too large");
-                    }
-                }
                 ByteArrayOutputStream bos = new ByteArrayOutputStream(8192);
                 byte[] buf = new byte[4096];
                 int n;
@@ -572,6 +566,9 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
                 }
                 String json = new String(bos.toByteArray(), StandardCharsets.UTF_8);
                 if (NimarkoConfigBackup.looksLikeBackup(json) && NimarkoConfigBackup.importJson(json)) {
+                    if (listView != null && listView.adapter != null) {
+                        listView.adapter.update(true);
+                    }
                     showRestartBulletin();
                 } else {
                     Toast.makeText(context, getString(R.string.NM_Config_ImportEmpty), Toast.LENGTH_SHORT).show();

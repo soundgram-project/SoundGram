@@ -36,6 +36,7 @@ import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLoader;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaDataController;
@@ -560,7 +561,7 @@ public class MentionsAdapter extends RecyclerListView.SelectionAdapter implement
     private void processFoundUser(TLRPC.User user) {
         contextUsernameReqid = 0;
         locationProvider.stop();
-        if (user != null && user.bot) {
+        if (user != null && user.bot && user.bot_inline_placeholder != null) {
             foundContextBot = user;
             if (user != null && user.id != searchResultBotContextSwitchUserId) {
                 searchResultBotContextSwitch = null;
@@ -752,27 +753,35 @@ public class MentionsAdapter extends RecyclerListView.SelectionAdapter implement
                     searchingContextUsername = username;
                     TLObject object = messagesController.getUserOrChat(searchingContextUsername);
                     if (object instanceof TLRPC.User) {
-                        processFoundUser((TLRPC.User) object);
-                    } else {
-                        TLRPC.TL_contacts_resolveUsername req = new TLRPC.TL_contacts_resolveUsername();
-                        req.username = searchingContextUsername;
-                        contextUsernameReqid = ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
-                            if (searchingContextUsername == null || !searchingContextUsername.equals(username)) {
-                                return;
-                            }
-                            TLRPC.User user = null;
-                            if (error == null) {
-                                TLRPC.TL_contacts_resolvedPeer res = (TLRPC.TL_contacts_resolvedPeer) response;
-                                if (!res.users.isEmpty()) {
-                                    user = res.users.get(0);
-                                    messagesController.putUser(user, false);
-                                    messagesStorage.putUsersAndChats(res.users, null, true, true);
-                                }
-                            }
+                        TLRPC.User user = (TLRPC.User) object;
+                        if (user.bot && user.access_hash != 0 && user.bot_inline_placeholder != null) {
                             processFoundUser(user);
-                            contextUsernameReqid = 0;
-                        }));
+                            return;
+                        } else if (!user.bot && user.access_hash != 0) {
+                            processFoundUser(user);
+                            return;
+                        }
                     }
+                    TLRPC.TL_contacts_resolveUsername req = new TLRPC.TL_contacts_resolveUsername();
+                    req.username = searchingContextUsername;
+                    contextUsernameReqid = ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                        if (searchingContextUsername == null || !searchingContextUsername.equals(username)) {
+                            return;
+                        }
+                        TLRPC.User user = null;
+                        if (error == null) {
+                            TLRPC.TL_contacts_resolvedPeer res = (TLRPC.TL_contacts_resolvedPeer) response;
+                            if (!res.users.isEmpty()) {
+                                user = res.users.get(0);
+                                messagesController.putUser(user, false);
+                                messagesStorage.putUsersAndChats(res.users, null, true, true);
+                            }
+                        } else {
+                            FileLog.e("searchForContextBot resolveUsername error: " + error.text);
+                        }
+                        processFoundUser(user);
+                        contextUsernameReqid = 0;
+                    }));
                 }
             }
         };
@@ -851,6 +860,9 @@ public class MentionsAdapter extends RecyclerListView.SelectionAdapter implement
             } else if (delegate != null) {
                 delegate.onContextSearch(false);
             }
+            if (error != null) {
+                FileLog.e("searchForContextBotResults error: " + error.code + " " + error.text);
+            }
             if (response instanceof TLRPC.TL_messages_botResults) {
                 TLRPC.TL_messages_botResults res = (TLRPC.TL_messages_botResults) response;
                 if (!cache && res.cache_time != 0) {
@@ -863,7 +875,7 @@ public class MentionsAdapter extends RecyclerListView.SelectionAdapter implement
                 searchResultBotWebViewSwitch = res.switch_webview;
                 for (int a = 0; a < res.results.size(); a++) {
                     TLRPC.BotInlineResult result = res.results.get(a);
-                    if (!(result.document instanceof TLRPC.TL_document) && !(result.photo instanceof TLRPC.TL_photo) && !"game".equals(result.type) && !"voice".equals(result.type) && !"audio".equals(result.type) && !"music".equals(result.type) && result.content == null && result.send_message instanceof TLRPC.TL_botInlineMessageMediaAuto) {
+                    if (!(result.document instanceof TLRPC.TL_document) && !(result.photo instanceof TLRPC.TL_photo) && !"game".equals(result.type) && result.content == null && result.send_message instanceof TLRPC.TL_botInlineMessageMediaAuto) {
                         res.results.remove(a);
                         a--;
                     }
@@ -1133,7 +1145,7 @@ public class MentionsAdapter extends RecyclerListView.SelectionAdapter implement
             if (index > 0) {
                 username = text.substring(1, index);
                 query = text.substring(index + 1);
-            } else if (text.charAt(len - 1) == 't' && text.charAt(len - 2) == 'o' && text.charAt(len - 3) == 'b') {
+            } else if (len >= 4 && text.charAt(len - 1) == 't' && text.charAt(len - 2) == 'o' && text.charAt(len - 3) == 'b') {
                 username = text.substring(1);
                 query = "";
             } else {

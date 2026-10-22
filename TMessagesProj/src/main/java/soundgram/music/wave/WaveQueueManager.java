@@ -130,14 +130,16 @@ public final class WaveQueueManager {
 
         // Металл
         Set<String> metalBlocked = new HashSet<>(Arrays.asList(
-                "pop", "поп", "k-pop", "к-поп", "lo-fi", "lofi", "лофай", "jazz", "джаз",
-                "blues", "блюз", "phonk", "фонк", "rap", "рэп", "hip hop", "trap"
+                "pop", "поп", "попса", "k-pop", "к-поп", "lo-fi", "lofi", "лофай", "jazz", "джаз",
+                "blues", "блюз", "phonk", "фонк", "rap", "рэп", "hip hop", "trap", "шансон",
+                "дискотека", "эстрада"
         ));
         CLUSTER_BLOCKED_KEYWORDS.put("металл", metalBlocked);
 
         // Пост-панк
         Set<String> postPunkBlocked = new HashSet<>(Arrays.asList(
-                "phonk", "фонк", "trap", "треп", "k-pop", "к-поп", "deathcore", "edm", "rave"
+                "phonk", "фонк", "trap", "треп", "k-pop", "к-поп", "deathcore", "edm", "rave",
+                "шансон", "попса", "дискотека", "эстрада", "рэп", "хип-хоп"
         ));
         CLUSTER_BLOCKED_KEYWORDS.put("пост-панк", postPunkBlocked);
 
@@ -145,16 +147,31 @@ public final class WaveQueueManager {
         Set<String> phonkBlocked = new HashSet<>(Arrays.asList(
                 "classical", "классика", "jazz", "джаз", "indie folk", "к-поп", "kpop",
                 "symphony", "acoustic ballad", "русский рок", "шансон", "дискотека",
-                "эстрада", "медляк", "вальс", "deathcore", "grunge", "рок-н-ролл"
+                "эстрада", "медляк", "вальс", "deathcore", "grunge", "рок-н-ролл",
+                "попса", "диско", "хиты 80", "хиты 90", "хиты 2000", "русские хиты",
+                "караоке", "огурец", "смешарики", "тикток", "tiktok remix", "meme"
         ));
         CLUSTER_BLOCKED_KEYWORDS.put("фонк", phonkBlocked);
 
         // Ло-фай
         Set<String> lofiBlocked = new HashSet<>(Arrays.asList(
                 "deathcore", "death metal", "heavy metal", "hard rock", "hyperpop",
-                "phonk", "drill", "screamo"
+                "phonk", "drill", "screamo", "дискотека", "шансон", "попса"
         ));
         CLUSTER_BLOCKED_KEYWORDS.put("ло-фай", lofiBlocked);
+
+        // Синтвейв
+        Set<String> synthwaveBlocked = new HashSet<>(Arrays.asList(
+                "шансон", "попса", "дискотека", "эстрада", "рэп", "хип-хоп",
+                "death metal", "deathcore", "phonk", "фонк"
+        ));
+        CLUSTER_BLOCKED_KEYWORDS.put("синтвейв", synthwaveBlocked);
+
+        // Инди
+        Set<String> indieBlocked = new HashSet<>(Arrays.asList(
+                "шансон", "дискотека", "эстрада", "phonk", "фонк", "hardstyle", "deathcore"
+        ));
+        CLUSTER_BLOCKED_KEYWORDS.put("инди", indieBlocked);
 
         // Электроника
         Set<String> electroBlocked = new HashSet<>(Arrays.asList(
@@ -417,7 +434,29 @@ public final class WaveQueueManager {
      * Наполняет якорный пул из YouTube Music и локального контекста (30% волны).
      */
     private void populateInitialAnchors() {
-        if (waveMode == MODE_ARTIST && !targetName.isEmpty()) {
+        if (waveMode == MODE_GENRE && !targetName.isEmpty()) {
+            int moodIdx = SeedSelector.parseMoodIndex(SmartRadioEngine.currentConfig.mood, SmartRadioEngine.currentConfig.moodProgress);
+            List<SeedSelector.CanonicalSeed> canonicals = SeedSelector.getCanonicalSeedsForGenre(targetName, moodIdx);
+            if (canonicals != null && !canonicals.isEmpty()) {
+                List<InnerTubeClient.RawTrack> canonicalTracks = new ArrayList<>();
+                for (SeedSelector.CanonicalSeed s : canonicals) {
+                    if (s != null && s.title != null && s.artist != null) {
+                        canonicalTracks.add(new InnerTubeClient.RawTrack(null, s.title, s.artist, 0));
+                    }
+                }
+                List<InnerTubeClient.RawTrack> anchors = new ArrayList<>();
+                List<InnerTubeClient.RawTrack> discovery = new ArrayList<>();
+                for (int i = 0; i < canonicalTracks.size(); i++) {
+                    if (i % 2 == 0) {
+                        anchors.add(canonicalTracks.get(i));
+                    } else {
+                        discovery.add(canonicalTracks.get(i));
+                    }
+                }
+                addCandidatesFiltered(anchorPool, anchors);
+                addCandidatesFiltered(discoveryPool, discovery);
+            }
+        } else if (waveMode == MODE_ARTIST && !targetName.isEmpty()) {
             List<InnerTubeClient.RawTrack> artistSongs = InnerTubeClient.searchSongs(targetName + " популярные песни", 8, cancelFlag);
             if (artistSongs != null) {
                 List<InnerTubeClient.RawTrack> artistAnchors = new ArrayList<>();
@@ -861,18 +900,56 @@ public final class WaveQueueManager {
             String g = !targetName.isEmpty() ? targetName : "default";
             int moodIdx = SeedSelector.parseMoodIndex(SmartRadioEngine.currentConfig.mood, SmartRadioEngine.currentConfig.moodProgress);
 
-            // А. Ротация точных запросов в YouTube Music
-            List<String> queries = SeedSelector.getGenreSearchQueries(g, moodIdx);
-            int qIdx = Math.abs(playedTracksCount.get() + sRandom.nextInt(5)) % Math.max(1, queries.size());
-            String query = queries.get(qIdx);
-
-            List<InnerTubeClient.RawTrack> searchTracks = InnerTubeClient.searchSongs(query, 20, cancelFlag);
-            if (searchTracks != null && !searchTracks.isEmpty()) {
-                Collections.shuffle(searchTracks, sRandom);
-                addCandidatesFiltered(discoveryPool, searchTracks);
+            // А. Загрузка editorial-плейлистов Deezer по жанру (настоящие студийные хиты жанра)
+            String dzQuery = SeedSelector.getDeezerGenreQuery(g);
+            if (dzQuery != null && !dzQuery.isEmpty()) {
+                try {
+                    ArrayList<MusicWebSearcher.WebTrack> dzTracks = MusicWebSearcher.getGenreTracksSync(dzQuery);
+                    if (dzTracks != null && !dzTracks.isEmpty()) {
+                        Collections.shuffle(dzTracks, sRandom);
+                        List<InnerTubeClient.RawTrack> dzRaw = new ArrayList<>();
+                        for (MusicWebSearcher.WebTrack wt : dzTracks) {
+                            if (wt != null && wt.title != null && wt.artist != null) {
+                                dzRaw.add(new InnerTubeClient.RawTrack(null, wt.title, wt.artist, ChannelMusicFragment.parseDuration(wt.duration), null, wt.coverUrl));
+                            }
+                        }
+                        addCandidatesFiltered(discoveryPool, dzRaw);
+                    }
+                } catch (Exception ignored) {}
             }
 
-            // Б. Радио YouTube Music по недавно проигранным трекам текущей сессии
+            // Б. Пополнение каноническими треками эпох из встроенного каталога (если кандидатов мало)
+            List<SeedSelector.CanonicalSeed> canonicals = SeedSelector.getCanonicalSeedsForGenre(g, moodIdx);
+            if (canonicals != null && !canonicals.isEmpty()) {
+                List<InnerTubeClient.RawTrack> canonRaw = new ArrayList<>();
+                for (SeedSelector.CanonicalSeed cs : canonicals) {
+                    if (cs != null && cs.title != null && cs.artist != null) {
+                        canonRaw.add(new InnerTubeClient.RawTrack(null, cs.title, cs.artist, 0));
+                    }
+                }
+                Collections.shuffle(canonRaw, sRandom);
+                addCandidatesFiltered(anchorPool, canonRaw);
+            }
+
+            // В. Похожие топовые артисты жанра через Deezer API
+            if (canonicals != null && !canonicals.isEmpty()) {
+                SeedSelector.CanonicalSeed sample = canonicals.get(sRandom.nextInt(Math.min(10, canonicals.size())));
+                if (sample != null && sample.artist != null) {
+                    try {
+                        ArrayList<String> simArtists = MusicWebSearcher.getSimilarArtistsSync(sample.artist);
+                        if (simArtists != null && !simArtists.isEmpty()) {
+                            for (String simArt : simArtists.subList(0, Math.min(3, simArtists.size()))) {
+                                List<InnerTubeClient.RawTrack> artSongs = InnerTubeClient.searchSongs(simArt + " популярные", 4, cancelFlag);
+                                if (artSongs != null && !artSongs.isEmpty()) {
+                                    addCandidatesFiltered(discoveryPool, artSongs);
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // Г. Радио YouTube Music по недавно проигранным трекам текущей сессии
             List<MessageObject> recentTracks = getRecentSessionTracks(2);
             for (MessageObject m : recentTracks) {
                 String author = m.getMusicAuthor();
@@ -894,7 +971,7 @@ public final class WaveQueueManager {
                 }
             }
 
-            // В. Дополнительная порция из корзины эпох YouTube Music если кандидатов мало
+            // Д. Дополнительная порция из корзины эпох YouTube Music если кандидатов всё ещё мало
             if (discoveryPool.size() < 15) {
                 List<String> moreSeeds = SeedSelector.selectSeedsByGenre(g, SmartRadioEngine.currentConfig.mood, cancelFlag);
                 for (String sid : moreSeeds) {

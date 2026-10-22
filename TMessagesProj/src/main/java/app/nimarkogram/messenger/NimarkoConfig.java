@@ -56,6 +56,51 @@ public final class NimarkoConfig {
         }
     }
 
+    public static void reloadConfig() {
+        SETTINGS_WRITE_LOCK.lock();
+        try {
+            SharedPreferences prefs = getPreferences();
+            java.lang.reflect.Field[] fields = NimarkoConfig.class.getDeclaredFields();
+            for (java.lang.reflect.Field field : fields) {
+                int mods = field.getModifiers();
+                if (!java.lang.reflect.Modifier.isStatic(mods) || java.lang.reflect.Modifier.isFinal(mods)) continue;
+                String name = field.getName();
+                if (!prefs.contains(name)) continue;
+                try {
+                    field.setAccessible(true);
+                    Class<?> type = field.getType();
+                    if (type == boolean.class || type == Boolean.class) {
+                        field.setBoolean(null, prefs.getBoolean(name, field.getBoolean(null)));
+                    } else if (type == int.class || type == Integer.class) {
+                        field.setInt(null, prefs.getInt(name, field.getInt(null)));
+                    } else if (type == long.class || type == Long.class) {
+                        field.setLong(null, prefs.getLong(name, field.getLong(null)));
+                    } else if (type == float.class || type == Float.class) {
+                        field.setFloat(null, prefs.getFloat(name, field.getFloat(null)));
+                    } else if (type == String.class) {
+                        field.set(null, prefs.getString(name, (String) field.get(null)));
+                    } else if (Set.class.isAssignableFrom(type)) {
+                        field.set(null, prefs.getStringSet(name, (Set<String>) field.get(null)));
+                    }
+                } catch (Throwable t) {
+                    org.telegram.messenger.FileLog.e("Failed to reload field " + name, t);
+                }
+            }
+            try {
+                folderColors = loadFolderColors();
+                folderBadgeMode = loadFolderBadgeMode();
+                messageMenuOrder = loadMessageMenuOrder();
+                reloadMsgFilters();
+                askPasscodeBeforeDelete = loadDeleteAuthenticationSetting();
+                askBiometricsBeforeDelete = askPasscodeBeforeDelete;
+            } catch (Throwable t) {
+                org.telegram.messenger.FileLog.e(t);
+            }
+        } finally {
+            SETTINGS_WRITE_LOCK.unlock();
+        }
+    }
+
     private static final class LockedEditor implements SharedPreferences.Editor {
         private final SharedPreferences.Editor delegate;
 

@@ -7793,7 +7793,7 @@ public class ChatActivity extends BaseFragment implements
                 if (getParentActivity() == null || result.content == null) {
                     return;
                 }
-                if (result.type.equals("video") || result.type.equals("web_player_video")) {
+                if ("video".equals(result.type) || "web_player_video".equals(result.type)) {
                     int[] size = MessageObject.getInlineResultWidthAndHeight(result);
                     EmbedBottomSheet.show(ChatActivity.this, null, botContextProvider, result.title != null ? result.title : "", result.description, result.content.url, result.content.url, size[0], size[1], isKeyboardVisible());
                 } else {

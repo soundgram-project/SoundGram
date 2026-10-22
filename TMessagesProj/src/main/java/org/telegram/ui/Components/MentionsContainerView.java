@@ -680,11 +680,11 @@ public class MentionsContainerView extends FrameLayout implements NotificationCe
                     delegate.replaceText(start, len, code, true);
                 }
                 updateVisibility(false);
-            } if (object instanceof TLRPC.BotInlineResult) {
+            } else if (object instanceof TLRPC.BotInlineResult) {
                 TLRPC.BotInlineResult result = (TLRPC.BotInlineResult) object;
-                if ((result.type.equals("photo") && (result.photo != null || result.content != null) ||
-                        result.type.equals("gif") && (result.document != null || result.content != null) ||
-                        result.type.equals("video") && (result.document != null/* || result.content_url != null*/))) {
+                if (result.type != null && (("photo".equals(result.type) && (result.photo != null || result.content != null)) ||
+                        ("gif".equals(result.type) && (result.document != null || result.content != null)) ||
+                        ("video".equals(result.type) && result.document != null/* || result.content_url != null*/))) {
                     ArrayList<Object> arrayList = botContextResults = new ArrayList<>(getAdapter().getSearchResultBotContext());
                     PhotoViewer.getInstance().setParentActivity(baseFragment, resourcesProvider);
                     PhotoViewer.getInstance().openPhotoForSelect(arrayList, getAdapter().getItemPosition(position), 3, false, botContextProvider, null);

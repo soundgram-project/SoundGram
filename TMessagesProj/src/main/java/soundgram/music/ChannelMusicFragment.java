@@ -192,6 +192,9 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
 
     @Override
     public boolean canParentTabsSlide(android.view.MotionEvent ev, boolean forward) {
+        if (isSearching) {
+            return false;
+        }
         if (viewPager == null || viewPager.getAdapter() == null) {
             return true;
         }
@@ -1416,10 +1419,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                         int current = getCurrentItem();
                         int max = getAdapter() != null ? getAdapter().getCount() - 1 : 0;
                         if ((dx > 0 && current == 0) || (dx < 0 && current == max)) {
-                            if (isDisallowed) {
-                                getParent().requestDisallowInterceptTouchEvent(false);
-                                isDisallowed = false;
-                            }
+                            getParent().requestDisallowInterceptTouchEvent(false);
+                            isDisallowed = false;
                             return false;
                         } else {
                             if (!isDisallowed) {
@@ -1469,10 +1470,8 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                     int current = getCurrentItem();
                     int max = getAdapter() != null ? getAdapter().getCount() - 1 : 0;
                     if ((dx > 0 && current == 0) || (dx < 0 && current == max)) {
-                        if (isDisallowed) {
-                            getParent().requestDisallowInterceptTouchEvent(false);
-                            isDisallowed = false;
-                        }
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                        isDisallowed = false;
                         return false;
                     }
                 }

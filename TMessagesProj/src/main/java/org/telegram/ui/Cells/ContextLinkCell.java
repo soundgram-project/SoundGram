@@ -463,13 +463,17 @@ public class ContextLinkCell extends FrameLayout implements DownloadController.F
         } else if (inlineResult != null) {
             if (inlineResult.photo != null) {
                 documentAttachType = DOCUMENT_ATTACH_TYPE_PHOTO;
-            } else if (inlineResult.type.equals("audio")) {
+            } else if ("audio".equals(inlineResult.type)) {
                 documentAttachType = DOCUMENT_ATTACH_TYPE_MUSIC;
-            } else if (inlineResult.type.equals("voice")) {
+            } else if ("voice".equals(inlineResult.type)) {
                 documentAttachType = DOCUMENT_ATTACH_TYPE_AUDIO;
             }
         }
         if (documentAttachType == DOCUMENT_ATTACH_TYPE_AUDIO || documentAttachType == DOCUMENT_ATTACH_TYPE_MUSIC) {
+            if (documentAttach == null && (inlineResult == null || inlineResult.content == null || TextUtils.isEmpty(inlineResult.content.url))) {
+                documentAttachType = DOCUMENT_ATTACH_TYPE_NONE;
+                return;
+            }
             TLRPC.TL_message message = new TLRPC.TL_message();
             message.out = true;
             message.id = -Utilities.random.nextInt();
@@ -792,7 +796,7 @@ public class ContextLinkCell extends FrameLayout implements DownloadController.F
             if (documentAttachType == DOCUMENT_ATTACH_TYPE_AUDIO || documentAttachType == DOCUMENT_ATTACH_TYPE_MUSIC) {
                 radialProgress.setProgressColor(Theme.getColor(buttonPressed ? Theme.key_chat_inAudioSelectedProgress : Theme.key_chat_inAudioProgress, resourcesProvider));
                 radialProgress.draw(canvas);
-            } else if (inlineResult != null && inlineResult.type.equals("file")) {
+            } else if (inlineResult != null && "file".equals(inlineResult.type)) {
                 int w = Theme.chat_inlineResultFile.getIntrinsicWidth();
                 int h = Theme.chat_inlineResultFile.getIntrinsicHeight();
                 int x = (int) (linkImageView.getImageX() + (AndroidUtilities.dp(52) - w) / 2);
@@ -800,7 +804,7 @@ public class ContextLinkCell extends FrameLayout implements DownloadController.F
                 canvas.drawRect(linkImageView.getImageX(), linkImageView.getImageY(), linkImageView.getImageX() + AndroidUtilities.dp(52), linkImageView.getImageY() + AndroidUtilities.dp(52), LetterDrawable.paint);
                 Theme.chat_inlineResultFile.setBounds(x, y, x + w, y + h);
                 Theme.chat_inlineResultFile.draw(canvas);
-            } else if (inlineResult != null && (inlineResult.type.equals("audio") || inlineResult.type.equals("voice"))) {
+            } else if (inlineResult != null && ("audio".equals(inlineResult.type) || "voice".equals(inlineResult.type))) {
                 int w = Theme.chat_inlineResultAudio.getIntrinsicWidth();
                 int h = Theme.chat_inlineResultAudio.getIntrinsicHeight();
                 int x = (int) (linkImageView.getImageX() + (AndroidUtilities.dp(52) - w) / 2);
@@ -808,7 +812,7 @@ public class ContextLinkCell extends FrameLayout implements DownloadController.F
                 canvas.drawRect(linkImageView.getImageX(), linkImageView.getImageY(), linkImageView.getImageX() + AndroidUtilities.dp(52), linkImageView.getImageY() + AndroidUtilities.dp(52), LetterDrawable.paint);
                 Theme.chat_inlineResultAudio.setBounds(x, y, x + w, y + h);
                 Theme.chat_inlineResultAudio.draw(canvas);
-            } else if (inlineResult != null && (inlineResult.type.equals("venue") || inlineResult.type.equals("geo"))) {
+            } else if (inlineResult != null && ("venue".equals(inlineResult.type) || "geo".equals(inlineResult.type))) {
                 int w = Theme.chat_inlineResultLocation.getIntrinsicWidth();
                 int h = Theme.chat_inlineResultLocation.getIntrinsicHeight();
                 int x = (int) (linkImageView.getImageX() + (AndroidUtilities.dp(52) - w) / 2);
@@ -896,7 +900,7 @@ public class ContextLinkCell extends FrameLayout implements DownloadController.F
                         if (documentAttach != null) {
                             fileName = FileLoader.getAttachFileName(documentAttach);
                             cacheFile = FileLoader.getInstance(currentAccount).getPathToAttach(documentAttach);
-                        } else if (inlineResult.content instanceof TLRPC.TL_webDocument) {
+                        } else if (inlineResult != null && inlineResult.content instanceof TLRPC.TL_webDocument && inlineResult.content.url != null) {
                             fileName = Utilities.MD5(inlineResult.content.url) + "." + ImageLoader.getHttpUrlExtension(inlineResult.content.url, documentAttachType == DOCUMENT_ATTACH_TYPE_MUSIC ? "mp3" : "ogg");
                             cacheFile = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), fileName);
                         }
@@ -909,13 +913,13 @@ public class ContextLinkCell extends FrameLayout implements DownloadController.F
                                 currentPhotoObject = FileLoader.getClosestPhotoSizeWithSize(inlineResult.photo.sizes, AndroidUtilities.getPhotoSize(), true);
                                 fileName = FileLoader.getAttachFileName(currentPhotoObject);
                                 cacheFile = FileLoader.getInstance(currentAccount).getPathToAttach(currentPhotoObject);
-                            } else if (inlineResult.content instanceof TLRPC.TL_webDocument) {
+                            } else if (inlineResult.content instanceof TLRPC.TL_webDocument && inlineResult.content.url != null) {
                                 fileName = Utilities.MD5(inlineResult.content.url) + "." + ImageLoader.getHttpUrlExtension(inlineResult.content.url, FileLoader.getMimeTypePart(inlineResult.content.mime_type));
                                 cacheFile = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), fileName);
                                 if (documentAttachType == DOCUMENT_ATTACH_TYPE_GIF && inlineResult.thumb instanceof TLRPC.TL_webDocument && "video/mp4".equals(inlineResult.thumb.mime_type)) {
                                     fileName = null;
                                 }
-                            } else if (inlineResult.thumb instanceof TLRPC.TL_webDocument) {
+                            } else if (inlineResult.thumb instanceof TLRPC.TL_webDocument && inlineResult.thumb.url != null) {
                                 fileName = Utilities.MD5(inlineResult.thumb.url) + "." + ImageLoader.getHttpUrlExtension(inlineResult.thumb.url, FileLoader.getMimeTypePart(inlineResult.thumb.mime_type));
                                 cacheFile = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), fileName);
                             }

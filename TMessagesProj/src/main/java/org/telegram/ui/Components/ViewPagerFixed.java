@@ -641,12 +641,6 @@ public class ViewPagerFixed extends FrameLayout {
             additionalOffset = 0;
         }
 
-        if (!startedTracking && ev != null) {
-            View child = findScrollingChild(this, ev.getX(), ev.getY());
-            if (child != null && (child.canScrollHorizontally(1) || child.canScrollHorizontally(-1))) {
-                return false;
-            }
-        }
         if (ev != null && ev.getAction() == MotionEvent.ACTION_DOWN && !startedTracking && !maybeStartTracking) {
             startedTrackingPointerId = ev.getPointerId(0);
             maybeStartTracking = true;
@@ -674,7 +668,10 @@ public class ViewPagerFixed extends FrameLayout {
             if (maybeStartTracking && !startedTracking) {
                 int dxLocal = (int) (ev.getX() - startedTrackingX);
                 if (Math.abs(dxLocal) >= touchSlop && Math.abs(dxLocal) > dy) {
-                    prepareForMoving(ev, dx < 0);
+                    int scrollDir = dxLocal < 0 ? 1 : -1;
+                    if (findScrollingChild(this, ev.getX(), ev.getY(), scrollDir) == null) {
+                        prepareForMoving(ev, dx < 0);
+                    }
                 }
             } else if (startedTracking) {
                 float scrollProgress = Math.abs(dx) / (float) viewPages[0].getMeasuredWidth();
@@ -707,7 +704,10 @@ public class ViewPagerFixed extends FrameLayout {
                 velY = velocityTracker.getYVelocity();
                 if (!startedTracking) {
                     if (Math.abs(velX) >= 3000 && Math.abs(velX) > Math.abs(velY)) {
-                        prepareForMoving(ev, velX < 0);
+                        int scrollDir = velX < 0 ? 1 : -1;
+                        if (findScrollingChild(this, ev.getX(), ev.getY(), scrollDir) == null) {
+                            prepareForMoving(ev, velX < 0);
+                        }
                     }
                 }
             } else {
@@ -2344,19 +2344,20 @@ public class ViewPagerFixed extends FrameLayout {
         }
     }
 
-    private View findScrollingChild(ViewGroup parent, float x, float y) {
+    private View findScrollingChild(ViewGroup parent, float x, float y, int direction) {
         int n = parent.getChildCount();
+        Rect childRect = new Rect();
         for (int i = 0; i < n; i++) {
             View child = parent.getChildAt(i);
             if (child.getVisibility() != View.VISIBLE) {
                 continue;
             }
-            child.getHitRect(rect);
-            if (rect.contains((int) x, (int) y)) {
-                if (child.canScrollHorizontally(-1) || child.canScrollHorizontally(1)) {
+            child.getHitRect(childRect);
+            if (childRect.contains((int) x, (int) y)) {
+                if (child.canScrollHorizontally(direction)) {
                     return child;
                 } else if (child instanceof ViewGroup) {
-                    View v = findScrollingChild((ViewGroup) child, x - rect.left, y - rect.top);
+                    View v = findScrollingChild((ViewGroup) child, x - childRect.left, y - childRect.top, direction);
                     if (v != null) {
                         return v;
                     }
@@ -2364,6 +2365,12 @@ public class ViewPagerFixed extends FrameLayout {
             }
         }
         return null;
+    }
+
+    private View findScrollingChild(ViewGroup parent, float x, float y) {
+        View v1 = findScrollingChild(parent, x, y, -1);
+        if (v1 != null) return v1;
+        return findScrollingChild(parent, x, y, 1);
     }
 
     public void drawForBlur(Canvas blurCanvas) {

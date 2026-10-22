@@ -264,12 +264,7 @@ public final class InnerTubeClient {
                 } else if (videoId != null && !videoId.isEmpty()) {
                     body.put("videoId", videoId);
                     body.put("playlistId", "RDAMVM" + videoId);
-                    JSONObject watchCfg = new JSONObject();
-                    JSONObject musicCfg = new JSONObject();
-                    musicCfg.put("hasPersistentPlaylistPanel", false);
-                    musicCfg.put("musicVideoType", "MUSIC_VIDEO_TYPE_ATV");
-                    watchCfg.put("watchEndpointMusicConfig", musicCfg);
-                    body.put("watchEndpointMusicSupportedConfigs", watchCfg);
+                    body.put("isAudioOnly", true);
                 } else {
                     return new NextResult(null, null);
                 }
@@ -279,6 +274,9 @@ public final class InnerTubeClient {
                     JSONObject json = new JSONObject(resp);
                     List<RawTrack> tracks = new ArrayList<>();
                     collectPanelVideos(json, tracks);
+                    if (tracks.isEmpty()) {
+                        collectSearchSongs(json, tracks, 25);
+                    }
                     String nextContinuation = findContinuationToken(json);
                     if (!tracks.isEmpty()) {
                         return new NextResult(tracks, nextContinuation);

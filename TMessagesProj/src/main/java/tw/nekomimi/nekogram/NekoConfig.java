@@ -276,6 +276,7 @@ public class NekoConfig {
                 loadSingleConfig(configs.get(i));
             }
 
+            datacenterInfos.clear();
             for (int a = 1; a <= 5; a++) {
                 datacenterInfos.add(new DatacenterInfo(a));
             }

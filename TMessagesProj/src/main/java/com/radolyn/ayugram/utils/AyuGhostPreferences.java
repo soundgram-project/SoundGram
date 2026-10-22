@@ -269,6 +269,13 @@ public class AyuGhostPreferences {
         getPrefs().edit().putInt(KEY_PC_MODE, value).apply();
     }
 
+    public static void resetPerChatList() {
+        synchronized (perChatList) {
+            perChatList.clear();
+            perChatListLoaded = false;
+        }
+    }
+
     private static void ensurePerChatListLoaded() {
         if (!perChatListLoaded) {
             synchronized (perChatList) {

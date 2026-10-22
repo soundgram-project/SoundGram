@@ -149,6 +149,15 @@ public final class SeedSelector {
             return null;
         }
 
+        public List<CanonicalSeed> getAllSeeds() {
+            List<CanonicalSeed> list = new ArrayList<>();
+            if (era2022_2026 != null) Collections.addAll(list, era2022_2026);
+            if (era2015_2022 != null) Collections.addAll(list, era2015_2022);
+            if (era2010_2015 != null) Collections.addAll(list, era2010_2015);
+            if (eraPre2010 != null) Collections.addAll(list, eraPre2010);
+            return list;
+        }
+
         public List<CanonicalSeed> pickSampleSeeds(int count) {
             List<CanonicalSeed> chosen = new ArrayList<>();
             Set<String> seen = new HashSet<>();
@@ -1787,6 +1796,54 @@ public final class SeedSelector {
             moodIndex = MOOD_ENERGETIC;
         }
         return buckets[moodIndex];
+    }
+
+    public static List<CanonicalSeed> getCanonicalSeedsForGenre(String genre, int moodIndex) {
+        String normalized = normalizeGenre(genre);
+        EraSeedBucket[] buckets = GENRE_MAP.get(normalized);
+        if (buckets == null) {
+            buckets = GENRE_MAP.get("default");
+        }
+        if (buckets == null) return Collections.emptyList();
+        if (moodIndex < 0 || moodIndex >= buckets.length) {
+            moodIndex = MOOD_ENERGETIC;
+        }
+        List<CanonicalSeed> result = new ArrayList<>();
+        if (buckets[moodIndex] != null) {
+            result.addAll(buckets[moodIndex].getAllSeeds());
+        }
+        for (int i = 0; i < buckets.length; i++) {
+            if (i != moodIndex && buckets[i] != null) {
+                result.addAll(buckets[i].getAllSeeds());
+            }
+        }
+        return result;
+    }
+
+    public static String getDeezerGenreQuery(String genre) {
+        String g = normalizeGenre(genre);
+        switch (g) {
+            case "фонк": return "drift phonk";
+            case "рок": return "rock";
+            case "металл": return "metal";
+            case "пост-панк": return "post-punk";
+            case "ло-фай": return "lo-fi";
+            case "поп": return "pop";
+            case "электроника": return "electronic";
+            case "инди": return "indie rock";
+            case "синтвейв": return "synthwave";
+            case "к-поп": return "k-pop";
+            case "джаз": return "jazz";
+            case "блюз": return "blues";
+            case "классика": return "classical";
+            case "эмбиент": return "ambient";
+            case "альтернатива": return "alternative rock";
+            case "гиперпоп": return "hyperpop";
+            case "эмо-рэп": return "emo rap";
+            case "рэп": return "rap";
+            case "хип-хоп": return "hip hop";
+            default: return "hits";
+        }
     }
 
     /**

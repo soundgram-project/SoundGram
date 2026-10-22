@@ -6840,6 +6840,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
 
                 if (newMsg.from_id != null) {
                     reqSend.send_as = getMessagesController().getInputPeer(newMsg.from_id);
+                    if (reqSend.send_as instanceof TLRPC.TL_inputPeerChannel) {
+                        reqSend.flags |= 8192;
+                    }
                 }
                 reqSend.hide_via = !params.containsKey("bot");
                 if (replyToStoryItem != null) {
@@ -8890,6 +8893,20 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         }
                         performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
                         return;
+                    } else if (error != null && error.text != null && (
+                            "MESSAGE_ID_INVALID".equalsIgnoreCase(error.text) ||
+                            "REPLY_TO_INVALID".equalsIgnoreCase(error.text) ||
+                            error.text.contains("MESSAGE_ID") ||
+                            error.text.contains("REPLY_TO")
+                    ) && req instanceof TLRPC.TL_messages_sendInlineBotResult && ((TLRPC.TL_messages_sendInlineBotResult) req).reply_to != null) {
+                        final TLRPC.TL_messages_sendInlineBotResult r = (TLRPC.TL_messages_sendInlineBotResult) req;
+                        r.reply_to = null;
+                        r.flags &= ~1;
+                        if (newMsgObj != null && newMsgObj.reply_to != null) {
+                            newMsgObj.flags &= ~8;
+                        }
+                        performSendMessageRequest(r, msgObj, originalPath, parentMessage, check, delayedMessage, parentObject, params, scheduled);
+                        return;
                     } else {
                         AlertsCreator.processError(currentAccount, error, null, req);
                         isSentError = true;
@@ -10638,7 +10655,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     } else {
                         finalPath = result.content.url;
                     }
-                    switch (result.type) {
+                    if (result.type != null) {
+                        switch (result.type) {
                         case "audio":
                         case "voice":
                         case "file":
@@ -10823,6 +10841,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             }
                             break;
                         }
+                    }
                     }
                 }
                 final String finalPathFinal = finalPath;
@@ -12831,6 +12850,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             params.retryMessageObject = retryMessageObject;
             params.entities = entities;
             params.replyMarkup = replyMarkup;
+            params.params = messageParams;
             if (com.radolyn.ayugram.utils.AyuGhostPreferences.getMuteSend() == 1
                     || (com.radolyn.ayugram.utils.AyuGhostPreferences.getMuteSend() == 2 && com.radolyn.ayugram.utils.AyuGhostPreferences.isGhostModeActive())) {
                 notify = false;

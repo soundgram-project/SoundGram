@@ -295,7 +295,11 @@ public class MusicWebSearcher {
                 String wtTitle = wt.title != null ? wt.title.toLowerCase() : "";
                 String wtArtist = wt.artist != null ? wt.artist.toLowerCase() : "";
                 boolean tMatch = wtTitle.contains(lowerTitle) || lowerTitle.contains(wtTitle);
-                boolean aMatch = lowerArtist.isEmpty() || isArtistMatch(wt.artist, cleanArtist) || wtArtist.contains(lowerArtist) || lowerArtist.contains(wtArtist);
+                boolean aMatch = lowerArtist.isEmpty() || isArtistMatch(wt.artist, cleanArtist);
+                if (!aMatch && !lowerArtist.isEmpty() && !wtArtist.isEmpty()) {
+                    if (lowerArtist.length() >= 4 && wtArtist.contains(lowerArtist)) aMatch = true;
+                    else if (wtArtist.length() >= 4 && lowerArtist.contains(wtArtist)) aMatch = true;
+                }
                 if (tMatch && aMatch) {
                     return wt;
                 }
@@ -2440,10 +2444,17 @@ public class MusicWebSearcher {
             boolean titleMatch = hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle)
                     || (!normExpectedTitle.isEmpty() && (normHitTitle.contains(normExpectedTitle) || normExpectedTitle.contains(normHitTitle)));
 
-            boolean exactArtistMatch = hitArtist.equals(cleanExpectedArtist)
+            boolean exactArtistMatch = isArtistMatch(wt.artist, expectedArtist)
+                    || hitArtist.equals(cleanExpectedArtist)
                     || (!normExpectedArtist.isEmpty() && normHitArtist.equals(normExpectedArtist));
-            boolean artistMatch = exactArtistMatch || hitArtist.contains(cleanExpectedArtist) || cleanExpectedArtist.contains(hitArtist)
-                    || (!normExpectedArtist.isEmpty() && (normHitArtist.contains(normExpectedArtist) || normExpectedArtist.contains(normHitArtist)));
+            boolean artistMatch = exactArtistMatch;
+            if (!artistMatch && !cleanExpectedArtist.isEmpty() && !hitArtist.isEmpty()) {
+                if (cleanExpectedArtist.length() >= 4 && hitArtist.contains(cleanExpectedArtist)) {
+                    artistMatch = true;
+                } else if (hitArtist.length() >= 4 && cleanExpectedArtist.contains(hitArtist)) {
+                    artistMatch = true;
+                }
+            }
 
             if (!cleanExpectedArtist.isEmpty() && !artistMatch) {
                 continue;
