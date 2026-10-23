@@ -77,7 +77,7 @@ public class TgWsProxyService extends Service {
     // engine becomes unresponsive (e.g. after aggressive OS memory reclaim).
     private volatile int watchdogFailCount = 0;
     private static final int WATCHDOG_MAX_FAILS   = 2;
-    private static final int WATCHDOG_INTERVAL_MS = 5_000;
+    private static final int WATCHDOG_INTERVAL_MS = 15_000;
     private Thread watchdogThread;
 
     // Startup watchdog: if port doesn't open within 7s → force kill + restart
@@ -85,10 +85,10 @@ public class TgWsProxyService extends Service {
     private static int consecutiveStartupFails = 0;
     private static final int MAX_STARTUP_FAILS = 3;
 
-    // Connection loss monitor: if proxy port is unreachable for >3s while running
+    // Connection loss monitor: if proxy port is unreachable for >12s while running
     // → reset CF cooldowns and restart so native engine picks a fresh domain
-    private static final int LOSS_THRESHOLD_MS   = 3_000;
-    private static final int LOSS_PROBE_INTERVAL = 1_500;
+    private static final int LOSS_THRESHOLD_MS   = 12_000;
+    private static final int LOSS_PROBE_INTERVAL = 8_000;
     private Thread lossMonitorThread;
 
     // Single shared lock for start/stop serialization
@@ -911,8 +911,10 @@ public class TgWsProxyService extends Service {
     private void acquireWakeLock() {
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TGWS:Proxy");
-            wakeLock.acquire(Long.MAX_VALUE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TGWS:Proxy");
+                wakeLock.acquire(15_000L);
+            }
         } catch (Exception e) { Log.w(TAG, "WakeLock", e); }
     }
 

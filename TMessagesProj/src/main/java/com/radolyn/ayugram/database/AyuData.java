@@ -89,34 +89,57 @@ public class AyuData {
     };
 
     static {
-        create();
+        try {
+            create();
+        } catch (Throwable t) {
+            FileLog.e("AyuData init error", t);
+        }
     }
 
     public static synchronized void create() {
-        database = Room.databaseBuilder(ApplicationLoader.applicationContext, AyuDatabase.class, AyuConstants.AYU_DATABASE)
-                .allowMainThreadQueries()
-                .fallbackToDestructiveMigrationOnDowngrade()
-                .addMigrations(MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
-                .build();
+        if (ApplicationLoader.applicationContext == null) {
+            return;
+        }
+        try {
+            database = Room.databaseBuilder(ApplicationLoader.applicationContext, AyuDatabase.class, AyuConstants.AYU_DATABASE)
+                    .allowMainThreadQueries()
+                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .addMigrations(MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26)
+                    .build();
 
-        editedMessageDao = database.editedMessageDao();
-        deletedMessageDao = database.deletedMessageDao();
-        lastSeenDao = database.lastSeenDao();
+            editedMessageDao = database.editedMessageDao();
+            deletedMessageDao = database.deletedMessageDao();
+            lastSeenDao = database.lastSeenDao();
+        } catch (Throwable t) {
+            FileLog.e("AyuData buildDatabase error", t);
+        }
     }
 
-    public static AyuDatabase getDatabase() {
+    public static synchronized AyuDatabase getDatabase() {
+        if (database == null) {
+            create();
+        }
         return database;
     }
 
-    public static EditedMessageDao getEditedMessageDao() {
+    public static synchronized EditedMessageDao getEditedMessageDao() {
+        if (editedMessageDao == null && getDatabase() != null) {
+            editedMessageDao = database.editedMessageDao();
+        }
         return editedMessageDao;
     }
 
-    public static DeletedMessageDao getDeletedMessageDao() {
+    public static synchronized DeletedMessageDao getDeletedMessageDao() {
+        if (deletedMessageDao == null && getDatabase() != null) {
+            deletedMessageDao = database.deletedMessageDao();
+        }
         return deletedMessageDao;
     }
 
-    public static LastSeenDao getLastSeenDao() {
+    public static synchronized LastSeenDao getLastSeenDao() {
+        if (lastSeenDao == null && getDatabase() != null) {
+            lastSeenDao = database.lastSeenDao();
+        }
         return lastSeenDao;
     }
 

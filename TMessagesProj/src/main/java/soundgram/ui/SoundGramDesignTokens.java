@@ -180,17 +180,54 @@ public class SoundGramDesignTokens {
         return COLOR_LINE_STRONG;
     }
 
+    public static boolean isDark() {
+        updateColors();
+        return AndroidUtilities.computePerceivedBrightness(getBgColor()) < 0.65f;
+    }
+
     public static int getPlaylistCardColor() {
         updateColors();
         int bg = getBgColor();
-        int card = Theme.getColor(Theme.key_windowBackgroundGray);
-        if (card == 0 || isTooClose(card, bg)) {
-            card = Theme.getColor(Theme.key_chat_inBubble);
+        if (isDark()) {
+            int card = Theme.getColor(Theme.key_windowBackgroundGray);
+            if (card == 0 || isTooClose(card, bg)) {
+                card = Theme.getColor(Theme.key_chat_inBubble);
+            }
+            if (card == 0 || isTooClose(card, bg)) {
+                card = Theme.getColor(Theme.key_dialogBackground);
+            }
+            return ensureContrast(card, bg, 0.09f);
+        } else {
+            int card = Theme.getColor(Theme.key_windowBackgroundGray);
+            if (card == 0 || isTooClose(card, bg)) {
+                card = ColorUtils.blendARGB(bg, Color.BLACK, 0.045f);
+            }
+            return card;
         }
-        if (card == 0 || isTooClose(card, bg)) {
-            card = Theme.getColor(Theme.key_dialogBackground);
+    }
+
+    public static int resolvePlaylistCardColor(int tintColor) {
+        updateColors();
+        int bg = getBgColor();
+        if (isDark()) {
+            return tintColor != 0 ? tintColor : getPlaylistCardColor();
         }
-        return ensureContrast(card, bg, 0.09f);
+        int baseCard = getPlaylistCardColor();
+        if (tintColor == 0) {
+            return baseCard;
+        }
+        int r = Color.red(tintColor);
+        int g = Color.green(tintColor);
+        int b = Color.blue(tintColor);
+        int avg = (r + g + b) / 3;
+        int dr = r - avg;
+        int dg = g - avg;
+        int db = b - avg;
+        int cr = Math.min(255, Math.max(0, Color.red(baseCard) + dr * 2));
+        int cg = Math.min(255, Math.max(0, Color.green(baseCard) + dg * 2));
+        int cb = Math.min(255, Math.max(0, Color.blue(baseCard) + db * 2));
+        int tintedLight = Color.rgb(cr, cg, cb);
+        return ColorUtils.blendARGB(baseCard, tintedLight, 0.70f);
     }
 
     public static GradientDrawable makePlaylistCardDrawable(float tl, float tr, float br, float bl) {
@@ -198,8 +235,9 @@ public class SoundGramDesignTokens {
     }
 
     public static GradientDrawable makePlaylistCardDrawable(float tl, float tr, float br, float bl, int tintColor) {
-        int color = tintColor != 0 ? tintColor : getPlaylistCardColor();
-        return makeAsymmetricDrawable(color, getLineStrongColor(), 1f, tl, tr, br, bl);
+        int color = resolvePlaylistCardColor(tintColor);
+        int strokeColor = isDark() ? getLineStrongColor() : ColorUtils.blendARGB(getBgColor(), Color.BLACK, 0.09f);
+        return makeAsymmetricDrawable(color, strokeColor, 0.75f, tl, tr, br, bl);
     }
 
     public static GradientDrawable makeAsymmetricDrawable(int color, float tl, float tr, float br, float bl) {

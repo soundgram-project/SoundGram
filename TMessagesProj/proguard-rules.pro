@@ -85,7 +85,26 @@
 -dontwarn java.beans.ConstructorProperties
 -dontwarn java.beans.Transient
 
+# Room Database & DAOs
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Dao interface * { *; }
+-keep class * extends androidx.room.Entity { *; }
+-keep @androidx.room.Entity class * { *; }
+-keep class androidx.room.** { *; }
+-dontwarn androidx.room.paging.**
+
+# AyuGram, NekoGram, NimarkoGram, SoundGram
+-keep class com.radolyn.ayugram.** { *; }
+-keep interface com.radolyn.ayugram.** { *; }
+-keep class tw.nekomimi.nekogram.** { *; }
+-keep interface tw.nekomimi.nekogram.** { *; }
+-keep class app.nimarkogram.** { *; }
+-keep interface app.nimarkogram.** { *; }
+-keep class soundgram.** { *; }
+-keep interface soundgram.** { *; }
+
 # Use -keep to explicitly keep any other classes shrinking would remove
 #-dontoptimize
 #-dontobfuscate
+
 

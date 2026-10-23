@@ -85,165 +85,163 @@ public class GhostPreferencesActivity extends BasePreferencesActivity {
         boolean active = AyuGhostPreferences.isGhostModeActive();
         items.add(SettingsHelper.asSwitchCG(ID_GHOST_MASTER,
                         loc("Призрачный режим", "Ghost mode"),
-                        loc("Главный переключатель всех функций", "Master switch for all features"))
+                        loc("Главный переключатель режима невидимки", "Master switch for ghost mode"))
                 .setChecked(active));
         items.add(UItem.asShadow(null));
 
-        if (active) {
-            // Section: Stealth Settings
-            items.add(UItem.asHeader(loc("Режим призрака", "Ghost mode")));
+        // Section: Stealth Settings
+        items.add(UItem.asHeader(loc("Скрытность", "Stealth")));
 
-            items.add(SettingsHelper.asSwitchCG(ID_INSTANT_OFFLINE,
-                            loc("Мгновенный оффлайн", "Instant offline"),
-                            loc("Автоматически скрывать онлайн после любого действия", "Automatically hide online status after any action"))
-                    .setChecked(AyuGhostPreferences.isInstantOfflineConfigured()));
+        items.add(SettingsHelper.asSwitchCG(ID_INSTANT_OFFLINE,
+                        loc("Мгновенный оффлайн", "Instant offline"),
+                        loc("Автоматически скрывать онлайн после любого действия", "Automatically hide online status after any action"))
+                .setChecked(AyuGhostPreferences.isInstantOfflineConfigured()));
 
-            items.add(SettingsHelper.asSwitchCG(ID_BLOCK_TYPING,
-                            loc("Скрыть «печатает...»", "Hide typing status"),
-                            loc("Собеседник не увидит, что вы набираете текст", "Others won't see when you're typing"))
-                    .setChecked(AyuGhostPreferences.isBlockTypingConfigured()));
+        items.add(SettingsHelper.asSwitchCG(ID_BLOCK_TYPING,
+                        loc("Скрыть «печатает...»", "Hide typing status"),
+                        loc("Собеседник не увидит, что вы набираете текст", "Others won't see when you're typing"))
+                .setChecked(AyuGhostPreferences.isBlockTypingConfigured()));
 
-            items.add(SettingsHelper.asSwitchCG(ID_BLOCK_READ,
-                            loc("Не отправлять прочтение", "Don't send read receipts"),
-                            loc("Сообщения останутся непрочитанными для отправителя", "Messages will appear unread to the sender"))
-                    .setChecked(AyuGhostPreferences.isBlockReadConfigured()));
+        items.add(SettingsHelper.asSwitchCG(ID_BLOCK_READ,
+                        loc("Не отправлять прочтение", "Don't send read receipts"),
+                        loc("Сообщения останутся непрочитанными для отправителя", "Messages will appear unread to the sender"))
+                .setChecked(AyuGhostPreferences.isBlockReadConfigured()));
 
-            items.add(SettingsHelper.asSwitchCG(ID_BLOCK_STORIES,
-                            loc("Скрыть просмотр историй", "Hide story views"),
-                            loc("Автор не увидит вас в списке просмотревших", "Story author won't see you in the viewers list"))
-                    .setChecked(AyuGhostPreferences.isBlockStoriesConfigured()));
+        items.add(SettingsHelper.asSwitchCG(ID_BLOCK_STORIES,
+                        loc("Скрыть просмотр историй", "Hide story views"),
+                        loc("Автор не увидит вас в списке просмотревших", "Story author won't see you in the viewers list"))
+                .setChecked(AyuGhostPreferences.isBlockStoriesConfigured()));
 
-            items.add(SettingsHelper.asSwitchCG(ID_BLOCK_CHANNEL_VIEWS,
-                            loc("Скрыть просмотры каналов", "Hide channel views"),
-                            loc("Счётчик просмотров поста не увеличится", "The post view counter won't increase"))
-                    .setChecked(AyuGhostPreferences.isBlockChannelViewsConfigured()));
+        items.add(SettingsHelper.asSwitchCG(ID_BLOCK_CHANNEL_VIEWS,
+                        loc("Скрыть просмотры каналов", "Hide channel views"),
+                        loc("Счётчик просмотров поста не увеличится", "The post view counter won't increase"))
+                .setChecked(AyuGhostPreferences.isBlockChannelViewsConfigured()));
 
-            int muteVal = AyuGhostPreferences.getMuteSend();
-            String muteSubtitle = muteVal == 1
-                    ? loc("Всегда", "Always")
-                    : (muteVal == 2
-                    ? loc("Только в призрачном режиме", "Ghost mode only")
-                    : loc("Выключено", "Disabled"));
-            items.add(UItem.asButton(ID_MUTE_SEND, R.drawable.msg_mute, loc("Беззвучная отправка", "Silent sending"), muteSubtitle));
+        int muteVal = AyuGhostPreferences.getMuteSend();
+        String muteSubtitle = muteVal == 1
+                ? loc("Всегда", "Always")
+                : (muteVal == 2
+                ? loc("Только в призрачном режиме", "Ghost mode only")
+                : loc("Выключено", "Disabled"));
+        items.add(UItem.asButton(ID_MUTE_SEND, R.drawable.msg_mute, loc("Беззвучная отправка", "Silent sending"), muteSubtitle));
 
-            items.add(UItem.asShadow(null));
+        items.add(UItem.asShadow(null));
 
-            // Section: Deleted & Ephemeral Messages
-            items.add(UItem.asHeader(loc("Удалённое и исчезающее", "Deleted & Ephemeral")));
+        // Section: Deleted & Ephemeral Messages
+        items.add(UItem.asHeader(loc("Удалённое и исчезающее", "Deleted & Ephemeral")));
 
-            items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED,
-                            loc("Сохранять удалённые", "Save deleted messages"),
-                            loc("Перехватывать сообщения, которые удалил собеседник", "Intercept messages deleted by others"))
-                    .setChecked(NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()));
+        items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED,
+                        loc("Сохранять удалённые", "Save deleted messages"),
+                        loc("Перехватывать сообщения, которые удалил собеседник", "Intercept messages deleted by others"))
+                .setChecked(NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()));
 
-            if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
-                items.add(SettingsHelper.asSwitchCG(ID_SAVE_MEDIA,
-                                LocaleController.getString(R.string.MessageSavingSaveMedia),
-                                LocaleController.getString(R.string.MessageSavingSaveMediaHint))
-                        .setChecked(NaConfig.INSTANCE.getMessageSavingSaveMedia().Bool()));
+        if (NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
+            items.add(SettingsHelper.asSwitchCG(ID_SAVE_MEDIA,
+                            LocaleController.getString(R.string.MessageSavingSaveMedia),
+                            LocaleController.getString(R.string.MessageSavingSaveMediaHint))
+                    .setChecked(NaConfig.INSTANCE.getMessageSavingSaveMedia().Bool()));
 
-                items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED_BOT,
-                                LocaleController.getString(R.string.SaveDeletedMessageForBot))
-                        .setChecked(NaConfig.INSTANCE.getSaveDeletedMessageForBot().Bool()));
+            items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED_BOT,
+                            LocaleController.getString(R.string.SaveDeletedMessageForBot))
+                    .setChecked(NaConfig.INSTANCE.getSaveDeletedMessageForBot().Bool()));
 
-                items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED_BOT_USER,
-                                LocaleController.getString(R.string.SaveDeletedMessageForBotUser))
-                        .setChecked(NaConfig.INSTANCE.getSaveDeletedMessageForBotUser().Bool()));
+            items.add(SettingsHelper.asSwitchCG(ID_SAVE_DELETED_BOT_USER,
+                            LocaleController.getString(R.string.SaveDeletedMessageForBotUser))
+                    .setChecked(NaConfig.INSTANCE.getSaveDeletedMessageForBotUser().Bool()));
 
-                items.add(SettingsHelper.asSwitchCG(ID_TRANSLUCENT_DELETED,
-                                LocaleController.getString(R.string.TranslucentDeletedMessages))
-                        .setChecked(NaConfig.INSTANCE.getTranslucentDeletedMessages().Bool()));
+            items.add(SettingsHelper.asSwitchCG(ID_TRANSLUCENT_DELETED,
+                            LocaleController.getString(R.string.TranslucentDeletedMessages))
+                    .setChecked(NaConfig.INSTANCE.getTranslucentDeletedMessages().Bool()));
 
-                items.add(SettingsHelper.asSwitchCG(ID_USE_DELETED_ICON,
-                                LocaleController.getString(R.string.UseDeletedIcon))
-                        .setChecked(NaConfig.INSTANCE.getUseDeletedIcon().Bool()));
+            items.add(SettingsHelper.asSwitchCG(ID_USE_DELETED_ICON,
+                            LocaleController.getString(R.string.UseDeletedIcon))
+                    .setChecked(NaConfig.INSTANCE.getUseDeletedIcon().Bool()));
 
-                items.add(UItem.asButton(ID_VIEW_DELETED, R.drawable.msg_delete_solar,
-                        LocaleController.getString(R.string.ViewDeleted)));
-            }
-
-            items.add(SettingsHelper.asSwitchCG(ID_KEEP_ONCE,
-                            loc("Сохранять исчезающие", "Save ephemeral media"),
-                            loc("Фото, видео и кружки для однократного просмотра не удаляются", "View-once photos, videos and voice messages won't be deleted"))
-                    .setChecked(AyuGhostPreferences.isKeepOnceConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_SAVE_EDITS,
-                            loc("Сохранять историю изменений", "Save edit history"),
-                            loc("Сохранять все версии отредактированных сообщений", "Save all versions of edited messages"))
-                    .setChecked(NaConfig.INSTANCE.getEnableSaveEditsHistory().Bool()));
-
-            items.add(UItem.asButton(ID_CLEAR_DATABASE, R.drawable.msg_clear_solar,
-                    LocaleController.getString(R.string.ClearMessageDatabase)).red());
-
-            items.add(UItem.asShadow(null));
-
-            // Section: Tweaks / Misc
-            items.add(UItem.asHeader(loc("Разное", "Misc")));
-
-            items.add(SettingsHelper.asSwitchCG(ID_BLOCK_MEDIA_SEEN,
-                            loc("Не помечать медиа просмотренным", "Don't mark media as seen"),
-                            loc("Голосовые, видео и кружки не отмечаются прослушанными", "Voice, video and round messages stay unmarked"))
-                    .setChecked(AyuGhostPreferences.isBlockMediaSeenConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_ALLOW_SCREENSHOTS,
-                            loc("Разрешить скриншоты", "Allow screenshots"),
-                            loc("Снимать скриншоты в защищённых чатах", "Take screenshots in protected chats"))
-                    .setChecked(AyuGhostPreferences.isAllowScreenshotsConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_NO_SCREENSHOT_NOTIFY,
-                            loc("Скрывать свои скриншоты", "Hide my screenshots"),
-                            loc("Собеседник не узнает о скриншоте в секретном чате", "The peer won't know about a screenshot in a secret chat"))
-                    .setChecked(AyuGhostPreferences.isNoScreenshotNotifyConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_BYPASS_FORWARD,
-                            loc("Пересылка отовсюду", "Forward from anywhere"),
-                            loc("Пересылать из чатов с запретом на пересылку", "Forward from chats with forwarding restrictions"))
-                    .setChecked(AyuGhostPreferences.isBypassForwardConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_ALLOW_COPY,
-                            loc("Разрешить копирование", "Allow copying"),
-                            loc("Копировать и выделять текст в чатах с запретом на пересылку", "Copy and select text in chats with forwarding restrictions"))
-                    .setChecked(AyuGhostPreferences.isAllowCopyConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_BYPASS_SAVE,
-                            loc("Разрешить сохранение", "Allow saving"),
-                            loc("Сохранять и скачивать медиа в чатах с запретом на пересылку", "Save and download media in chats with forwarding restrictions"))
-                    .setChecked(AyuGhostPreferences.isBypassSaveConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_BYPASS_STORY,
-                            loc("Сохранение сторис", "Save restricted stories"),
-                            loc("Сохранять сторис из чатов с запретом", "Save stories from chats with forwarding restrictions"))
-                    .setChecked(AyuGhostPreferences.isBypassStoryConfigured()));
-
-            items.add(SettingsHelper.asSwitchCG(ID_HIDE_RECOMMENDED,
-                            loc("Скрыть похожие каналы", "Hide similar channels"),
-                            loc("Убирает блоки рекомендованных каналов в чатах и профиле", "Removes recommended channel blocks in chats and profile"))
-                    .setChecked(AyuGhostPreferences.isHideRecommendedConfigured()));
-
-            items.add(UItem.asShadow(null));
-
-            // Section: Per-Chat Scoping
-            items.add(UItem.asHeader(loc("По чатам", "Per-chat")));
-
-            items.add(SettingsHelper.asSwitchCG(ID_PERCHAT_ENABLED,
-                            loc("Действовать по списку чатов", "Scope by chat list"),
-                            loc("Применять блокировки чтения, печати, историй и просмотров только к выбранным чатам", "Apply read, typing, story and view blocking only to selected chats"))
-                    .setChecked(AyuGhostPreferences.getPerchatEnabled()));
-
-            if (AyuGhostPreferences.getPerchatEnabled()) {
-                int pcMode = AyuGhostPreferences.getPcMode();
-                String pcModeSubtitle = pcMode == 0
-                        ? loc("Белый список (только выбранные)", "Whitelist (only selected)")
-                        : loc("Чёрный список (все, кроме выбранных)", "Blacklist (all except selected)");
-                items.add(UItem.asButton(ID_PC_MODE, loc("Режим списка", "List mode"), pcModeSubtitle));
-
-                int count = AyuGhostPreferences.getPerChatList().size();
-                String countText = count + " " + loc("чатов", "chats");
-                items.add(UItem.asButton(ID_PC_MANAGE, loc("Управление списком чатов", "Manage chat list"), countText));
-            }
-
-            items.add(UItem.asShadow(null));
+            items.add(UItem.asButton(ID_VIEW_DELETED, R.drawable.msg_delete_solar,
+                    LocaleController.getString(R.string.ViewDeleted)));
         }
+
+        items.add(SettingsHelper.asSwitchCG(ID_KEEP_ONCE,
+                        loc("Сохранять исчезающие", "Save ephemeral media"),
+                        loc("Фото, видео и кружки для однократного просмотра не удаляются", "View-once photos, videos and voice messages won't be deleted"))
+                .setChecked(AyuGhostPreferences.isKeepOnceConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_SAVE_EDITS,
+                        loc("Сохранять историю изменений", "Save edit history"),
+                        loc("Сохранять все версии отредактированных сообщений", "Save all versions of edited messages"))
+                .setChecked(NaConfig.INSTANCE.getEnableSaveEditsHistory().Bool()));
+
+        items.add(UItem.asButton(ID_CLEAR_DATABASE, R.drawable.msg_clear_solar,
+                LocaleController.getString(R.string.ClearMessageDatabase)).red());
+
+        items.add(UItem.asShadow(null));
+
+        // Section: Tweaks / Misc / TOS
+        items.add(UItem.asHeader(loc("Обход ограничений (TOS)", "Restrictions bypass (TOS)")));
+
+        items.add(SettingsHelper.asSwitchCG(ID_ALLOW_SCREENSHOTS,
+                        loc("Разрешить скриншоты", "Allow screenshots"),
+                        loc("Снимать скриншоты в защищённых чатах", "Take screenshots in protected chats"))
+                .setChecked(AyuGhostPreferences.isAllowScreenshotsConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_NO_SCREENSHOT_NOTIFY,
+                        loc("Скрывать свои скриншоты", "Hide my screenshots"),
+                        loc("Собеседник не узнает о скриншоте в секретном чате", "The peer won't know about a screenshot in a secret chat"))
+                .setChecked(AyuGhostPreferences.isNoScreenshotNotifyConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_BYPASS_FORWARD,
+                        loc("Пересылка отовсюду", "Forward from anywhere"),
+                        loc("Пересылать из чатов с запретом на пересылку", "Forward from chats with forwarding restrictions"))
+                .setChecked(AyuGhostPreferences.isBypassForwardConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_ALLOW_COPY,
+                        loc("Разрешить копирование", "Allow copying"),
+                        loc("Копировать и выделять текст в чатах с запретом на пересылку", "Copy and select text in chats with forwarding restrictions"))
+                .setChecked(AyuGhostPreferences.isAllowCopyConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_BYPASS_SAVE,
+                        loc("Разрешить сохранение", "Allow saving"),
+                        loc("Сохранять и скачивать медиа в чатах с запретом на пересылку", "Save and download media in chats with forwarding restrictions"))
+                .setChecked(AyuGhostPreferences.isBypassSaveConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_BYPASS_STORY,
+                        loc("Сохранение сторис", "Save restricted stories"),
+                        loc("Сохранять сторис из чатов с запретом", "Save stories from chats with forwarding restrictions"))
+                .setChecked(AyuGhostPreferences.isBypassStoryConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_BLOCK_MEDIA_SEEN,
+                        loc("Не помечать медиа просмотренным", "Don't mark media as seen"),
+                        loc("Голосовые, видео и кружки не отмечаются прослушанными", "Voice, video and round messages stay unmarked"))
+                .setChecked(AyuGhostPreferences.isBlockMediaSeenConfigured()));
+
+        items.add(SettingsHelper.asSwitchCG(ID_HIDE_RECOMMENDED,
+                        loc("Скрыть похожие каналы", "Hide similar channels"),
+                        loc("Убирает блоки рекомендованных каналов в чатах и профиле", "Removes recommended channel blocks in chats and profile"))
+                .setChecked(AyuGhostPreferences.isHideRecommendedConfigured()));
+
+        items.add(UItem.asShadow(null));
+
+        // Section: Per-Chat Scoping
+        items.add(UItem.asHeader(loc("По чатам", "Per-chat")));
+
+        items.add(SettingsHelper.asSwitchCG(ID_PERCHAT_ENABLED,
+                        loc("Действовать по списку чатов", "Scope by chat list"),
+                        loc("Применять блокировки чтения, печати, историй и просмотров только к выбранным чатам", "Apply read, typing, story and view blocking only to selected chats"))
+                .setChecked(AyuGhostPreferences.getPerchatEnabled()));
+
+        if (AyuGhostPreferences.getPerchatEnabled()) {
+            int pcMode = AyuGhostPreferences.getPcMode();
+            String pcModeSubtitle = pcMode == 0
+                    ? loc("Белый список (только выбранные)", "Whitelist (only selected)")
+                    : loc("Чёрный список (все, кроме выбранных)", "Blacklist (all except selected)");
+            items.add(UItem.asButton(ID_PC_MODE, loc("Режим списка", "List mode"), pcModeSubtitle));
+
+            int count = AyuGhostPreferences.getPerChatList().size();
+            String countText = count + " " + loc("чатов", "chats");
+            items.add(UItem.asButton(ID_PC_MANAGE, loc("Управление списком чатов", "Manage chat list"), countText));
+        }
+
+        items.add(UItem.asShadow(null));
     }
 
     @Override

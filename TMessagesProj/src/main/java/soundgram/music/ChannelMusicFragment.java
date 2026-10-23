@@ -4257,7 +4257,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
             label.setText(m.title);
             label.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
             label.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-            label.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+            label.setTextColor(SoundGramDesignTokens.getTextMutedColor());
             label.setSingleLine(true);
             label.setEllipsize(TextUtils.TruncateAt.END);
             label.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -4353,7 +4353,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 title.setText(m.title);
                 title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
                 title.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-                title.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                title.setTextColor(SoundGramDesignTokens.getTextColor());
                 title.setSingleLine(true);
                 title.setEllipsize(TextUtils.TruncateAt.END);
                 textCol.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -4362,7 +4362,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 sub.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(m.trackCount));
                 sub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
                 sub.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-                sub.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                sub.setTextColor(SoundGramDesignTokens.getTextMutedColor());
                 textCol.addView(sub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
 
                 heroCard.addView(textCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
@@ -4647,7 +4647,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 tE.setText(eM.title);
                 tE.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
                 tE.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-                tE.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+                tE.setTextColor(SoundGramDesignTokens.getTextColor());
                 tE.setSingleLine(true);
                 tE.setEllipsize(TextUtils.TruncateAt.END);
                 eText.addView(tE);
@@ -4656,7 +4656,7 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
                 sE.setText(soundgram.ui.SoundGramDesignTokens.formatTracksCount(eM.trackCount));
                 sE.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
                 sE.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-                sE.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+                sE.setTextColor(SoundGramDesignTokens.getTextMutedColor());
                 eText.addView(sE, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
 
                 eCard.addView(eText, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1.0f));
@@ -4790,13 +4790,13 @@ public class ChannelMusicFragment extends BaseFragment implements NotificationCe
         mainTitle.setText("Библиотека");
         mainTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 38);
         mainTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        mainTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT);
+        mainTitle.setTextColor(SoundGramDesignTokens.getTextColor());
         titleBlock.addView(mainTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         librarySubTitle = new TextView(context);
         librarySubTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         librarySubTitle.setTypeface(AndroidUtilities.getTypeface("fonts/rmono.ttf") != null ? AndroidUtilities.getTypeface("fonts/rmono.ttf") : android.graphics.Typeface.MONOSPACE);
-        librarySubTitle.setTextColor(SoundGramDesignTokens.COLOR_TEXT_MUTED);
+        librarySubTitle.setTextColor(SoundGramDesignTokens.getTextMutedColor());
         librarySubTitle.setLetterSpacing(0.02f);
         titleBlock.addView(librarySubTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
 
