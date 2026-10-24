@@ -73,23 +73,15 @@ public class TgWsProxyService extends Service {
     private volatile boolean userStopped = false;
     private volatile boolean destroyed = false;
 
-    // Health watchdog: probes the local port and auto-restarts if the native
-    // engine becomes unresponsive (e.g. after aggressive OS memory reclaim).
-    private volatile int watchdogFailCount = 0;
-    private static final int WATCHDOG_MAX_FAILS   = 2;
-    private static final int WATCHDOG_INTERVAL_MS = 15_000;
-    private Thread watchdogThread;
-
     // Startup watchdog: if port doesn't open within 7s → force kill + restart
     private static final int STARTUP_TIMEOUT_MS = 7_000;
     private static int consecutiveStartupFails = 0;
     private static final int MAX_STARTUP_FAILS = 3;
 
-    // Connection loss monitor: if proxy port is unreachable for >12s while running
-    // → reset CF cooldowns and restart so native engine picks a fresh domain
-    private static final int LOSS_THRESHOLD_MS   = 12_000;
-    private static final int LOSS_PROBE_INTERVAL = 8_000;
-    private Thread lossMonitorThread;
+    // Unified health & loss monitor (10s interval)
+    private static final int MONITOR_INTERVAL_MS = 10_000;
+    private Thread monitorThread;
+    private CountDownLatch runningLatch;
 
     // Single shared lock for start/stop serialization
     private final Object proxyLock = new Object();
@@ -622,19 +614,14 @@ public class TgWsProxyService extends Service {
                     consecutiveStartupFails = 0;
                     applyTelegramProxySettings();
 
-                    // Start the health watchdog now that the port is confirmed open.
-                    startWatchdog(port);
+                    // Start unified health & loss monitor
+                    startUnifiedMonitor(port);
                     schedulePeriodicHeartbeat();
 
-                    // ── Connection loss monitor ───────────────────────────
-                    // Проверяет порт каждые 2с. Если недоступен >5с — сбрасывает
-                    // CF cooldown'ы (нативный движок выберет новый домен сам)
-                    // и перезапускает прокси.
-                    startLossMonitor(port);
-
-                    while (isRunning && !sStopInProgress.get()) {
-                        Thread.sleep(2000);
-                    }
+                    runningLatch = new CountDownLatch(1);
+                    try {
+                        runningLatch.await();
+                    } catch (InterruptedException ignored) {}
 
                 } catch (Exception e) {
                     Log.e(TAG, "Error", e);
@@ -677,7 +664,10 @@ public class TgWsProxyService extends Service {
             }
             sendStateBroadcast(); // immediate UI update
 
-            stopWatchdog();
+            if (runningLatch != null) {
+                runningLatch.countDown();
+            }
+            stopUnifiedMonitor();
 
             final CountDownLatch latch = new CountDownLatch(1);
 
@@ -771,123 +761,50 @@ public class TgWsProxyService extends Service {
     }
 
     // -------------------------------------------------------------------------
-    // Health watchdog
+    // Unified Health & Loss Monitor
     // -------------------------------------------------------------------------
 
-    /** Starts a background thread that probes the proxy port every WATCHDOG_INTERVAL_MS.
-     *  After WATCHDOG_MAX_FAILS consecutive probe failures it triggers a full restart.
-     *  This catches cases where the Go native engine silently dies (OOM, deadlock)
-     *  while the Java service object is still alive. */
-    private void startWatchdog(int port) {
-        stopWatchdog();
-        watchdogFailCount = 0;
-        watchdogThread = new Thread(() -> {
+    private void startUnifiedMonitor(int port) {
+        stopUnifiedMonitor();
+        monitorThread = new Thread(() -> {
+            int failCount = 0;
             while (!Thread.currentThread().isInterrupted() && isRunning && !destroyed) {
                 try {
-                    Thread.sleep(WATCHDOG_INTERVAL_MS);
+                    Thread.sleep(MONITOR_INTERVAL_MS);
                 } catch (InterruptedException e) {
                     break;
                 }
                 if (!isRunning || destroyed) break;
 
-                boolean alive = isPortOpen("127.0.0.1", port, 600);
+                boolean alive = isPortOpen("127.0.0.1", port, 1000);
                 if (alive) {
-                    watchdogFailCount = 0;
+                    failCount = 0;
                 } else {
-                    watchdogFailCount++;
-                    Log.w(TAG, "Watchdog probe fail " + watchdogFailCount + "/" + WATCHDOG_MAX_FAILS);
-                    if (watchdogFailCount >= WATCHDOG_MAX_FAILS) {
-                        Log.e(TAG, "Watchdog: native proxy unresponsive — restarting");
-                        watchdogFailCount = 0;
+                    failCount++;
+                    Log.w(TAG, "Proxy monitor: probe failed " + failCount + "/2");
+                    if (failCount >= 2) {
+                        Log.e(TAG, "Proxy monitor: native proxy unresponsive — resetting cooldowns and restarting");
+                        failCount = 0;
                         new Thread(() -> {
-                            // Clear stale cooldowns before restart so new connections
-                            // don't hit leftover 429 blocks from the failed session
                             NativeProxy.resetCooldowns();
                             stopProxyInternal();
                             if (!destroyed && !userStopped) {
                                 restartFromPrefs();
                             }
-                        }, "proxy-watchdog-restart").start();
+                        }, "proxy-monitor-restart").start();
                         break;
                     }
                 }
             }
-        }, "proxy-watchdog");
-        watchdogThread.setDaemon(true);
-        watchdogThread.start();
+        }, "proxy-monitor");
+        monitorThread.setDaemon(true);
+        monitorThread.start();
     }
 
-    private void stopWatchdog() {
-        if (watchdogThread != null) {
-            watchdogThread.interrupt();
-            watchdogThread = null;
-        }
-        stopLossMonitor();
-    }
-
-    // ── Connection loss monitor ───────────────────────────────────────────
-
-    private void startLossMonitor(int port) {
-        stopLossMonitor();
-        lossMonitorThread = new Thread(() -> {
-            long lossStartMs = 0;
-            boolean inLoss = false;
-
-            while (!Thread.currentThread().isInterrupted() && isRunning && !destroyed) {
-                try {
-                    Thread.sleep(LOSS_PROBE_INTERVAL);
-                } catch (InterruptedException e) {
-                    break;
-                }
-                if (!isRunning || destroyed) break;
-
-                boolean alive = isPortOpen("127.0.0.1", port, 1200);
-
-                if (alive) {
-                    if (inLoss) {
-                        Log.i(TAG, "LossMonitor: соединение восстановлено");
-                        inLoss = false;
-                        lossStartMs = 0;
-                    }
-                } else {
-                    if (!inLoss) {
-                        inLoss = true;
-                        lossStartMs = System.currentTimeMillis();
-                        Log.w(TAG, "LossMonitor: потеря соединения");
-                    } else {
-                        long lostMs = System.currentTimeMillis() - lossStartMs;
-                        if (lostMs >= LOSS_THRESHOLD_MS) {
-                            Log.e(TAG, "LossMonitor: соединение потеряно на " + lostMs
-                                    + "ms — сброс CF cooldown + перезапуск");
-                            inLoss = false;
-                            lossStartMs = 0;
-
-                            // Сбрасываем CF cooldown'ы — нативный движок сам выберет
-                            // другой рабочий CF домен из своего кэша
-                            new Thread(() -> {
-                                NativeProxy.resetCooldowns();
-                                if (!destroyed && !userStopped && !sStopInProgress.get()) {
-                                    stopProxyInternal();
-                                    restartFromPrefs();
-                                }
-                            }, "proxy-loss-restart").start();
-
-                            // Даём время на перезапуск перед следующей проверкой
-                            try { Thread.sleep(3000); } catch (InterruptedException e) { break; }
-                        }
-                    }
-                }
-            }
-            Log.i(TAG, "LossMonitor: поток завершён");
-        }, "proxy-loss-monitor");
-        lossMonitorThread.setDaemon(true);
-        lossMonitorThread.start();
-    }
-
-    private void stopLossMonitor() {
-        if (lossMonitorThread != null) {
-            lossMonitorThread.interrupt();
-            lossMonitorThread = null;
+    private void stopUnifiedMonitor() {
+        if (monitorThread != null) {
+            monitorThread.interrupt();
+            monitorThread = null;
         }
     }
 
@@ -930,7 +847,7 @@ public class TgWsProxyService extends Service {
     @Override
     public void onDestroy() {
         destroyed = true;
-        stopWatchdog();
+        stopUnifiedMonitor();
         if (!userStopped && !ProxyAutoDetector.isVpnActive(this)) {
             SharedPreferences prefs = getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
             boolean enabled = prefs.getBoolean("enabled", false);

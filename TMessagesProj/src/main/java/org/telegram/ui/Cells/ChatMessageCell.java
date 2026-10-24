@@ -1331,8 +1331,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private boolean isSoundGramUser;
     private android.graphics.Rect soundGramBadgeRect = new android.graphics.Rect();
     private boolean soundGramBadgePressed;
-    private static android.animation.ValueAnimator soundGramGlowAnimator;
-    private static float soundGramGlowAlpha = 1f;
+    private Drawable soundGramBadgeDrawable;
 
     private RoundVideoPlayingDrawable roundVideoPlayingDrawable;
 
@@ -6884,19 +6883,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             .addGlobal(NotificationCenter.stopSpoilers)
             .addGlobal(NotificationCenter.emojiLoaded)
             .addGlobal(NotificationCenter.didUpdatePremiumGiftStickers);
-        if (soundGramGlowAnimator == null) {
-            soundGramGlowAnimator = android.animation.ValueAnimator.ofFloat(0.4f, 1f);
-            soundGramGlowAnimator.setDuration(1500);
-            soundGramGlowAnimator.setRepeatCount(android.animation.ValueAnimator.INFINITE);
-            soundGramGlowAnimator.setRepeatMode(android.animation.ValueAnimator.REVERSE);
-            soundGramGlowAnimator.addUpdateListener(animation -> {
-                soundGramGlowAlpha = (float) animation.getAnimatedValue();
-                if (isSoundGramUser) {
-                    invalidate();
-                }
-            });
-            soundGramGlowAnimator.start();
-        }
+
 
         if (currentMessageObject != null) {
             currentMessageObject.animateComments = false;
@@ -22239,56 +22226,24 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
             if (isSoundGramUser) {
                 int offset = (currentNameStatusDrawable != null && !currentNameStatusDrawable.isEmpty()) ? dp(24) : 0;
-                Drawable soundGramBadge = androidx.core.content.ContextCompat.getDrawable(getContext(), org.telegram.messenger.R.drawable.ic_soundgram_badge).mutate();
-                soundGramBadge = new AnimatedEmojiDrawable.WrapSizeDrawable(soundGramBadge, AndroidUtilities.dp(24), AndroidUtilities.dp(24)) {
-                    private android.graphics.Paint glowPaint;
-                    private org.telegram.ui.Components.Premium.StarParticlesView.Drawable particlesDrawable;
-                    @Override
-                    public void draw(@androidx.annotation.NonNull Canvas canvas) {
-                        if (glowPaint == null) {
-                            glowPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                            int glowColor = androidx.core.graphics.ColorUtils.setAlphaComponent(color, (int) (90 * soundGramGlowAlpha));
-                            glowPaint.setShader(new android.graphics.RadialGradient(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), new int[]{glowColor, 0}, null, android.graphics.Shader.TileMode.CLAMP));
-                            
-                            particlesDrawable = new org.telegram.ui.Components.Premium.StarParticlesView.Drawable(15);
-                            particlesDrawable.type = 100;
-                            particlesDrawable.roundEffect = true;
-                            particlesDrawable.useRotate = false;
-                            particlesDrawable.useScale = true;
-                            particlesDrawable.checkBounds = true;
-                            particlesDrawable.size1 = 1;
-                            particlesDrawable.k1 = particlesDrawable.k2 = particlesDrawable.k3 = 0.98f;
-                            particlesDrawable.colorKey = Theme.key_chats_verifiedBackground;
-                            particlesDrawable.resourcesProvider = resourcesProvider;
-                            particlesDrawable.init();
-                        } else {
-                            int glowColor = androidx.core.graphics.ColorUtils.setAlphaComponent(color, (int) (90 * soundGramGlowAlpha));
-                            glowPaint.setShader(new android.graphics.RadialGradient(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), new int[]{glowColor, 0}, null, android.graphics.Shader.TileMode.CLAMP));
-                        }
-                        canvas.save();
-                        canvas.translate(getBounds().left, getBounds().top);
-                        canvas.drawCircle(AndroidUtilities.dp(12), AndroidUtilities.dp(12), AndroidUtilities.dp(12), glowPaint);
-                        
-                        android.graphics.Rect pBounds = new android.graphics.Rect(0, 0, AndroidUtilities.dp(24), AndroidUtilities.dp(24));
-                        particlesDrawable.rect.set(pBounds);
-                        particlesDrawable.rect2.set(pBounds);
-                        particlesDrawable.onDraw(canvas);
-                        canvas.restore();
-                        
-                        super.draw(canvas);
-                        ChatMessageCell.this.invalidate();
+                if (soundGramBadgeDrawable == null) {
+                    soundGramBadgeDrawable = androidx.core.content.ContextCompat.getDrawable(getContext(), org.telegram.messenger.R.drawable.ic_soundgram_badge);
+                    if (soundGramBadgeDrawable != null) {
+                        soundGramBadgeDrawable = soundGramBadgeDrawable.mutate();
                     }
-                };
+                }
                 int badgeLeft = (int) (Math.abs(nx) + (viaNameWidth > 0 ? viaNameWidth - dp(4 + 28) : nameLayoutWidth) + dp(2)) + offset;
                 int badgeTop = (int) (ny + nameLayout.getHeight() / 2 - dp(12));
                 soundGramBadgeRect.set(badgeLeft, badgeTop, badgeLeft + dp(24), badgeTop + dp(24));
-                soundGramBadge.setBounds(
-                    badgeLeft,
-                    badgeTop,
-                    badgeLeft + dp(24),
-                    badgeTop + dp(24)
-                );
-                soundGramBadge.draw(canvas);
+                if (soundGramBadgeDrawable != null) {
+                    soundGramBadgeDrawable.setBounds(
+                        badgeLeft,
+                        badgeTop,
+                        badgeLeft + dp(24),
+                        badgeTop + dp(24)
+                    );
+                    soundGramBadgeDrawable.draw(canvas);
+                }
             } else {
                 soundGramBadgeRect.setEmpty();
             }

@@ -152,14 +152,6 @@ public abstract class AyuHistoryHook {
                     }
                     messagesById.put(mappedMessage.id, mappedMessage);
                     MessagesStorage.addUsersAndChatsFromMessage(mappedMessage, usersToLoad, chatsToLoad, null);
-                } else {
-                    MessageObject existing = existingById.get((long) mid);
-                    if (existing != null) {
-                        existing.deleted = true;
-                        if (existing.messageOwner != null) {
-                            existing.messageOwner.ayuDeleted = true;
-                        }
-                    }
                 }
             }
         }

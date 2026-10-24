@@ -32,6 +32,28 @@ import java.util.regex.Pattern;
 public class MusicWebSearcher {
 
     private static final ExecutorService SEARCH_EXECUTOR = Executors.newFixedThreadPool(8);
+
+    private static final Pattern PATTERN_BRACKETS  = Pattern.compile("(?i)\\[.*?\\]|\\(.*?\\)");
+    private static final Pattern PATTERN_HTML_TAGS = Pattern.compile("<[^>]*>");
+    private static final Pattern PATTERN_DATA_SRC  = Pattern.compile("data-src=[\"']([^\"']+)[\"']");
+    private static final Pattern PATTERN_SRC       = Pattern.compile("src=[\"']([^\"']+)[\"']");
+    private static final Pattern PATTERN_CSS_URL   = Pattern.compile("url\\(['\"]?([^'\")]+)['\"]?\\)");
+    private static final Pattern PATTERN_ALPHANUM  = Pattern.compile("[^a-zа-я0-9]");
+
+    public static String stripBrackets(String input) {
+        if (input == null) return "";
+        return PATTERN_BRACKETS.matcher(input).replaceAll("").trim();
+    }
+
+    public static String stripHtml(String input) {
+        if (input == null) return "";
+        return PATTERN_HTML_TAGS.matcher(input).replaceAll("").trim();
+    }
+
+    public static String stripNonAlphanumeric(String input) {
+        if (input == null) return "";
+        return PATTERN_ALPHANUM.matcher(input).replaceAll("");
+    }
     // ── Кэш результатов поиска (TTL 10 минут, до 200 записей) ─────────────────
     private static final java.util.concurrent.ConcurrentHashMap<String, ArrayList<WebTrack>> searchResultCache
             = new java.util.concurrent.ConcurrentHashMap<>();
@@ -77,7 +99,7 @@ public class MusicWebSearcher {
 
         private String cleanString(String input) {
             if (input == null) return "Unknown";
-            String noHtml = input.replaceAll("<[^>]*>", "").trim();
+            String noHtml = stripHtml(input);
             try { return URLDecoder.decode(noHtml, "UTF-8"); } catch (Exception e) { return noHtml; }
         }
     }
@@ -233,8 +255,8 @@ public class MusicWebSearcher {
     public static WebTrack resolveHitmosSync(String title, String artist) {
         if (title == null || title.isEmpty()) return null;
         try {
-            String cleanTitle = title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
-            String cleanArtist = artist != null ? artist.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim() : "";
+            String cleanTitle = stripBrackets(title);
+            String cleanArtist = artist != null ? stripBrackets(artist) : "";
             String primaryArtist = cleanArtist.split("[,&/]|\\bfeat\\b|\\bft\\b")[0].trim();
 
             // 1. Поиск: "Артист Название"
@@ -339,16 +361,16 @@ public class MusicWebSearcher {
 
     private static String extractImageSafe(String content) {
         String img = "";
-        Matcher m1 = Pattern.compile("data-src=[\"']([^\"']+)[\"']").matcher(content);
+        Matcher m1 = PATTERN_DATA_SRC.matcher(content);
         if (m1.find()) img = m1.group(1);
         else {
-            Matcher m2 = Pattern.compile("src=[\"']([^\"']+)[\"']").matcher(content);
+            Matcher m2 = PATTERN_SRC.matcher(content);
             if (m2.find()) {
                 String s = m2.group(1);
                 if (!s.contains(".js") && !s.contains(".css")) img = s;
             }
             else {
-                Matcher m3 = Pattern.compile("url\\(['\"]?([^'\")]+)['\"]?\\)").matcher(content);
+                Matcher m3 = PATTERN_CSS_URL.matcher(content);
                 if (m3.find()) img = m3.group(1);
             }
         }
@@ -360,7 +382,7 @@ public class MusicWebSearcher {
     public static void loadAlbumWithDeezerFallback(String albumTitle, String artistName, ArtistProfileCallback callback) {
         new Thread(() -> {
             try {
-                String cTitle = albumTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                String cTitle = stripBrackets(albumTitle);
                 String dSearch = "https://api.deezer.com/search/album?q=" + URLEncoder.encode(artistName + " " + cTitle, "UTF-8");
                 String dResp = fetchHtml(dSearch);
 
@@ -393,13 +415,16 @@ public class MusicWebSearcher {
                     // Emit tracklist instantly to UI so album displays in milliseconds
                     AndroidUtilities.runOnUIThread(() -> callback.onResult(new ArrayList<>(), initialTracks));
 
-                    // Asynchronously resolve direct stream URLs in background
-                    SEARCH_EXECUTOR.execute(() -> {
-                        for (int i = 0; i < tracksArr.length(); i++) {
+                    // Asynchronously resolve direct stream URLs in background in parallel
+                    for (int i = 0; i < tracksArr.length(); i++) {
+                        JSONObject trackObj = tracksArr.optJSONObject(i);
+                        if (trackObj == null) continue;
+                        final String trackTitle = trackObj.optString("title", "");
+                        final int exactDuration = trackObj.optInt("duration", 0);
+
+                        SEARCH_EXECUTOR.execute(() -> {
                             try {
-                                String trackTitle = tracksArr.getJSONObject(i).getString("title");
-                                String trackClean = trackTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
-                                int exactDuration = tracksArr.getJSONObject(i).getInt("duration");
+                                String trackClean = stripBrackets(trackTitle);
 
                                 String trackSearchUrl = "https://ru.hitmoz.org/search?q=" + URLEncoder.encode(artistName + " " + trackClean, "UTF-8");
                                 String trackHtml = fetchHtml(trackSearchUrl);
@@ -452,8 +477,8 @@ public class MusicWebSearcher {
                             } catch (Throwable t) {
                                 FileLog.e(t);
                             }
-                        }
-                    });
+                        });
+                    }
                 } else {
                     AndroidUtilities.runOnUIThread(callback::onFailed);
                 }
@@ -714,9 +739,9 @@ public class MusicWebSearcher {
 
                 // Обогащаем обложки треков Hitmos из Deezer
                 for (WebTrack dt : deezerTracks) {
-                    String cleanDtTitle = dt.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
+                    String cleanDtTitle = stripBrackets(dt.title).toLowerCase();
                     for (WebTrack existing : tracks) {
-                        String cleanExTitle = existing.title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
+                        String cleanExTitle = stripBrackets(existing.title).toLowerCase();
                         if ((cleanExTitle.equals(cleanDtTitle) || cleanExTitle.contains(cleanDtTitle) || cleanDtTitle.contains(cleanExTitle))
                                 && (isArtistMatch(existing.artist, dt.artist) || existing.artist.equalsIgnoreCase(dt.artist))) {
                             if ((existing.coverUrl == null || existing.coverUrl.isEmpty()) && !dt.coverUrl.isEmpty()) {
@@ -1024,7 +1049,7 @@ public class MusicWebSearcher {
                         cover = obj.getJSONObject("album").optString("cover_xl", "");
                     }
 
-                    String cleanTitle = title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                    String cleanTitle = stripBrackets(title);
 
                     // Стратегия 1: "Имя артиста + название"
                     ArrayList<WebTrack> results = new ArrayList<>();
@@ -1766,7 +1791,7 @@ public class MusicWebSearcher {
                         Matcher mImg = Pattern.compile("[\\\\]*\"src[\\\\]*\"\\s*:\\s*[\\\\]*\"(https?://static\\.hitmos\\.fm/[^\"]+?)[\\\\]*\"").matcher(snip);
                         String img = mImg.find() ? mImg.group(1).replace("\\/", "/") : "";
                         String cardArtist = extract(snip, "class=[\"']card__subtitle[\"'][^>]*>\\s*(.*?)\\s*</");
-                        String albArtist = (cardArtist != null && !cardArtist.isEmpty()) ? cardArtist.replaceAll("<[^>]*>", "").trim() : "";
+                        String albArtist = (cardArtist != null && !cardArtist.isEmpty()) ? stripHtml(cardArtist) : "";
                         if (albArtist.isEmpty() && title.contains(" - ")) {
                             String[] p = title.split(" - ", 2);
                             albArtist = p[0].trim();
@@ -1807,8 +1832,8 @@ public class MusicWebSearcher {
 
             synchronized (tracks) {
                 tracks.add(new WebTrack(
-                        title != null ? title.replaceAll("<[^>]*>", "").trim() : "Unknown",
-                        artist != null ? artist.replaceAll("<[^>]*>", "").trim() : "Unknown",
+                        title != null ? stripHtml(title) : "Unknown",
+                        artist != null ? stripHtml(artist) : "Unknown",
                         downloadUrl,
                         duration != null ? duration : "0:00",
                         cover
@@ -1821,7 +1846,7 @@ public class MusicWebSearcher {
             String url = mArt.group(1);
             if (!url.startsWith("http")) url = "https://ru.hitmoz.org" + url;
             String innerHtml = mArt.group(2);
-            String name = innerHtml.replaceAll("<[^>]*>", "").trim();
+            String name = stripHtml(innerHtml);
 
             boolean alreadySeen;
             synchronized (seen) {
@@ -1842,12 +1867,12 @@ public class MusicWebSearcher {
             String innerHtml = mAlb.group(2);
             String cardTitle = extract(innerHtml, "class=[\"']card__title[\"'][^>]*>\\s*(.*?)\\s*</");
             String title = (cardTitle != null && !cardTitle.isEmpty())
-                    ? cardTitle.replaceAll("<[^>]*>", "").trim()
-                    : innerHtml.replaceAll("<[^>]*>", "").trim();
+                    ? stripHtml(cardTitle)
+                    : stripHtml(innerHtml);
 
             String cardArtist = extract(innerHtml, "class=[\"']card__subtitle[\"'][^>]*>\\s*(.*?)\\s*</");
             String artist = (cardArtist != null && !cardArtist.isEmpty())
-                    ? cardArtist.replaceAll("<[^>]*>", "").trim() : "";
+                    ? stripHtml(cardArtist) : "";
             if (artist.isEmpty() && title.contains(" - ")) {
                 String[] p = title.split(" - ", 2);
                 artist = p[0].trim();
@@ -1899,7 +1924,7 @@ public class MusicWebSearcher {
                 }
 
                 if (artistId <= 0) {
-                    String cleanArtist = finalArtistName.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                    String cleanArtist = stripBrackets(finalArtistName);
                     String searchUrl = "https://api.deezer.com/search/artist?q=" + URLEncoder.encode(cleanArtist, "UTF-8");
                     String response = fetchHtml(searchUrl);
                     if (!response.isEmpty()) {
@@ -2130,7 +2155,7 @@ public class MusicWebSearcher {
                     final String trackTitle = allTracks.get(idx)[0];
                     final int duration = Integer.parseInt(allTracks.get(idx)[1]);
                     final String cover = allTracks.get(idx)[2];
-                    final String cleanTitle = trackTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim();
+                    final String cleanTitle = stripBrackets(trackTitle);
 
                     executor.submit(() -> {
                         try {
@@ -2355,8 +2380,8 @@ public class MusicWebSearcher {
      */
     public static WebTrack searchTrackStrict(String artist, String title, int flags) {
         try {
-            String cleanT = title != null ? title.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim() : "";
-            String cleanA = artist != null ? artist.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim() : "";
+            String cleanT = title != null ? stripBrackets(title) : "";
+            String cleanA = artist != null ? stripBrackets(artist) : "";
             String query = (cleanA + " " + cleanT).trim();
             String cacheKey = "strict:" + query.toLowerCase();
 
@@ -2427,10 +2452,10 @@ public class MusicWebSearcher {
     }
 
     private static WebTrack findBestMatch(ArrayList<WebTrack> hitmosResults, String expectedTitle, String expectedArtist, int expectedDuration, boolean strictArtist) {
-        String cleanExpectedTitle = expectedTitle.replaceAll("(?i)\\[.*?\\]|\\(.*?\\)", "").trim().toLowerCase();
+        String cleanExpectedTitle = stripBrackets(expectedTitle).toLowerCase();
         String cleanExpectedArtist = expectedArtist.toLowerCase().trim();
-        String normExpectedTitle = cleanExpectedTitle.replaceAll("[^a-zа-я0-9]", "");
-        String normExpectedArtist = cleanExpectedArtist.replaceAll("[^a-zа-я0-9]", "");
+        String normExpectedTitle = stripNonAlphanumeric(cleanExpectedTitle);
+        String normExpectedArtist = stripNonAlphanumeric(cleanExpectedArtist);
 
         WebTrack best = null;
         int bestScore = -1;
@@ -2438,8 +2463,8 @@ public class MusicWebSearcher {
         for (WebTrack wt : hitmosResults) {
             String hitTitle = wt.title.toLowerCase();
             String hitArtist = wt.artist.toLowerCase().trim();
-            String normHitTitle = hitTitle.replaceAll("[^a-zа-я0-9]", "");
-            String normHitArtist = hitArtist.replaceAll("[^a-zа-я0-9]", "");
+            String normHitTitle = stripNonAlphanumeric(hitTitle);
+            String normHitArtist = stripNonAlphanumeric(hitArtist);
 
             boolean titleMatch = hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle)
                     || (!normExpectedTitle.isEmpty() && (normHitTitle.contains(normExpectedTitle) || normExpectedTitle.contains(normHitTitle)));
@@ -2490,7 +2515,7 @@ public class MusicWebSearcher {
                     continue;
                 }
                 String hitTitle = wt.title.toLowerCase();
-                String normHitTitle = hitTitle.replaceAll("[^a-zа-я0-9]", "");
+                String normHitTitle = stripNonAlphanumeric(hitTitle);
                 if (hitTitle.contains(cleanExpectedTitle) || cleanExpectedTitle.contains(hitTitle)
                         || (!normExpectedTitle.isEmpty() && (normHitTitle.contains(normExpectedTitle) || normExpectedTitle.contains(normHitTitle)))) {
                     return wt;

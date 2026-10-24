@@ -56,6 +56,7 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
     private static Context sContext;
     private static final ProxyAutoDetector sDelegate = new ProxyAutoDetector();
     private static volatile long lastConnectionCheckTime = 0;
+    private static volatile long sLastAutoCheckTime = 0;
 
     public static void init(Context context) {
         if (isInitialized) return;
@@ -358,6 +359,11 @@ public class ProxyAutoDetector implements NotificationCenter.NotificationCenterD
 
     public static void checkAndAutoEnable(Context ctx) {
         if (ctx == null) return;
+        long now = System.currentTimeMillis();
+        if (now - sLastAutoCheckTime < 6000) {
+            return;
+        }
+        sLastAutoCheckTime = now;
         SharedPreferences prefs = ctx.getSharedPreferences("tgwsproxy", Context.MODE_PRIVATE);
 
         // 1. If auto_start is OFF: bypass MUST NOT start automatically

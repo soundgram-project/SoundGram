@@ -45,6 +45,8 @@ public class AyuMessagesController {
     private final java.util.concurrent.ConcurrentHashMap<Long, java.util.concurrent.ConcurrentHashMap<Integer, Long>> skipSavingMessages = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<Long, java.util.concurrent.ConcurrentHashMap<Integer, Long>> saveForMyselfMessages = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long SKIP_SAVING_TIMEOUT_MS = 120_000L;
+    private final androidx.collection.LruCache<String, Boolean> isDeletedCache = new androidx.collection.LruCache<>(1000);
+    private final androidx.collection.LruCache<String, Boolean> hasRevisionsCache = new androidx.collection.LruCache<>(1000);
 
     public void skipSavingNextDelete(long dialogId, int messageId) {
         long now = System.currentTimeMillis();
@@ -228,6 +230,8 @@ public class AyuMessagesController {
                 }
         );
 
+        hasRevisionsCache.put(prefs.getUserId() + "_" + prefs.getDialogId() + "_" + prefs.getMessageId(), true);
+
         AndroidUtilities.runOnUIThread(() -> NotificationCenter.getInstance(prefs.getAccountId()).postNotificationName(AyuConstants.MESSAGE_EDITED_NOTIFICATION, prefs.getDialogId(), prefs.getMessageId()));
     }
 
@@ -311,6 +315,8 @@ public class AyuMessagesController {
             return;
         }
 
+        isDeletedCache.put(prefs.getUserId() + "_" + prefs.getDialogId() + "_" + prefs.getMessageId(), true);
+
         if (msg != null && msg.reactions != null) {
             processDeletedReactions(fakeMsgId, msg.reactions);
         }
@@ -347,7 +353,17 @@ public class AyuMessagesController {
     }
 
     public boolean hasAnyRevisions(long userId, long dialogId, int messageId) {
-        return editedMessageDao.hasAnyRevisions(userId, dialogId, messageId);
+        String key = userId + "_" + dialogId + "_" + messageId;
+        Boolean cached = hasRevisionsCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        if (editedMessageDao == null) {
+            editedMessageDao = AyuData.getEditedMessageDao();
+        }
+        boolean res = editedMessageDao != null && editedMessageDao.hasAnyRevisions(userId, dialogId, messageId);
+        hasRevisionsCache.put(key, res);
+        return res;
     }
 
     public List<EditedMessage> getRevisions(long userId, long dialogId, int messageId) {
@@ -355,11 +371,18 @@ public class AyuMessagesController {
     }
 
     public boolean isDeleted(long userId, long dialogId, int messageId) {
+        String key = userId + "_" + dialogId + "_" + messageId;
+        Boolean cached = isDeletedCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
         try {
             if (deletedMessageDao == null) {
                 deletedMessageDao = AyuData.getDeletedMessageDao();
             }
-            return deletedMessageDao != null && deletedMessageDao.getMessage(userId, dialogId, messageId) != null;
+            boolean res = deletedMessageDao != null && deletedMessageDao.getMessage(userId, dialogId, messageId) != null;
+            isDeletedCache.put(key, res);
+            return res;
         } catch (Exception e) {
             return false;
         }
@@ -413,6 +436,7 @@ public class AyuMessagesController {
         }
 
         deletedMessageDao.delete(userId, dialogId, messageId);
+        isDeletedCache.put(userId + "_" + dialogId + "_" + messageId, false);
 
         if (!TextUtils.isEmpty(msg.message.mediaPath)) {
             var p = new File(msg.message.mediaPath);
@@ -435,6 +459,7 @@ public class AyuMessagesController {
         editedMessageDao.deleteByDialogIdAndMessageIds(dialogId, messageIds);
 
         for (int messageId : messageIds) {
+            isDeletedCache.put(userId + "_" + dialogId + "_" + messageId, false);
             var msg = getMessage(userId, dialogId, messageId);
             if (msg == null) {
                 continue;

@@ -102,7 +102,7 @@ public class AyuSavePreferences {
                         countDownLatch.countDown();
                     });
                     try {
-                        countDownLatch.await();
+                        countDownLatch.await(40, java.util.concurrent.TimeUnit.MILLISECONDS);
                     } catch (Exception ignored) {
                     }
                 }
