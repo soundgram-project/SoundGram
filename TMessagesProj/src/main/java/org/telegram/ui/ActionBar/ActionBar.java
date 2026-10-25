@@ -760,7 +760,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     // The original NimarkoGram left-aligned title width formula (used when not centred / when sliding back left).
     private int getLeftAlignedTitleAvailableWidth(int width, int textLeft) {
-        return width - (menu != null ? menu.getMeasuredWidth() : 0) - dp(16) - textLeft - titleRightMargin;
+        int titleMenuWidth = menu != null ? menu.getMeasuredWidth() - (isSearchFieldVisible ? 0 : menu.getClosingSearchFieldWidth()) : 0;
+        return width - titleMenuWidth - dp(16) - textLeft - titleRightMargin;
     }
 
     private int getAnimatedCenterTitleX(int target) {
