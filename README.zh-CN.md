@@ -1,22 +1,22 @@
 <p align="center">
-  <img src="docs/assets/nimarkogram-icon.png" width="128" height="128" alt="NimarkoGram 图标">
+  <img src="docs/assets/soundgram-icon.png" width="128" height="128" alt="SoundGram 图标">
 </p>
 
-<h1 align="center">NimarkoGram</h1>
+<h1 align="center">SoundGram</h1>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.ru.md">Русский</a> · <strong>简体中文</strong>
 </p>
 
 <p align="center">
-  面向 Android 的开源非官方 Telegram 客户端，提供深度定制、媒体工具与插件支持。
+  面向 Android 的开源非官方 Telegram 客户端，提供强大的音乐体验、音频增强、深度定制与隐私工具。
 </p>
 
 <p align="center">
-  <img alt="NimarkoGram 12.9.2" src="https://img.shields.io/badge/NimarkoGram-12.9.2-ff4fa3">
+  <img alt="SoundGram 13.1.1" src="https://img.shields.io/badge/SoundGram-13.1.1-ff4fa3">
   <a href="LICENSE"><img alt="GPL-2.0 许可证" src="https://img.shields.io/badge/license-GPL--2.0-6f42c1"></a>
   <img alt="Android 7.0 及更高版本" src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white">
-  <img alt="Telegram 12.9.2" src="https://img.shields.io/badge/Telegram-12.9.2-26A5E4?logo=telegram&logoColor=white">
+  <img alt="Telegram 13.1.1" src="https://img.shields.io/badge/Telegram-13.1.1-26A5E4?logo=telegram&logoColor=white">
 </p>
 
 <p align="center">
@@ -24,24 +24,25 @@
   <a href="#从源码构建">构建</a> ·
   <a href="#插件平台">插件</a> ·
   <a href="CONTRIBUTING.md">参与贡献</a> ·
-  <a href="https://github.com/Ettacent/NimarkoGram/issues">问题反馈</a>
+  <a href="https://github.com/soundgram-project/SoundGram/issues">问题反馈</a>
 </p>
 
 > [!IMPORTANT]
-> NimarkoGram 是基于官方 Telegram Android 源码的独立项目，与 Telegram Messenger Inc. 不存在隶属关系，也未获得其官方认可。
+> SoundGram 是基于 Telegram for Android 官方源代码的独立项目，与 Telegram Messenger Inc. 无关联且未获得其认可。
 
-## 项目简介
+## 关于项目
 
-NimarkoGram 在保留官方客户端使用体验的基础上扩展了 [Telegram for Android](https://github.com/DrKLO/Telegram)。项目重点包括灵活的界面定制、更完善的相机与媒体流程、隐私与网络工具，以及完整的扩展平台。
+SoundGram 在保留 Telegram 经典体验的同时，对 [Telegram for Android](https://github.com/DrKLO/Telegram) 进行扩展。项目重点关注强大的内置音乐体验、音频钩子与音效调节、灵活的界面外观、增强的相机与媒体工作流、隐私控制以及插件扩展支持。
 
 ## 功能
 
-- 丰富的外观设置，包括 Monet 动态配色、图标包、标签页、聊天标题和个人资料定制。
-- 改进的 CameraX、视频消息、媒体、故事和剪贴板工作流。
-- 额外的隐私、生物识别、翻译、过滤和聊天管理工具。
-- 内置网络工具与通话传输选项，并支持配置服务地址。
-- 支持 Python 与 DEX 插件、方法钩子、依赖管理、安全生命周期和兼容 API。
-- 单个 standalone APK 同时支持 ARM64 与 ARMv7。
+- **音乐与音效：** 内置高级播放器、音频钩子、曲目搜索、带动态波形的个人资料音乐小组件及音效自定义。
+- **界面与主题：** 丰富的视觉自定义、Monet 动态取色、图标包、居中标题、平滑动画、可配置标签页及对话头部。
+- **隐私与安全：** 幽灵模式、防截图控制、隐藏手机号、已读回执控制和防撤回历史记录。
+- **媒体增强：** 改进的 CameraX、视频留言、故事、高品质音频录制与播放。
+- **网络与代理：** 集成 WebSocket 代理、MTProto 及灵活的端点路由。
+- **插件扩展：** 支持 Python 和 DEX 插件、钩子桥接、依赖管理及安全的生命周期控制。
+- **架构支持：** 在单个 fat/standalone APK 中同时支持 ARM64 与 ARMv7。
 
 ## 从源码构建
 
@@ -53,69 +54,62 @@ NimarkoGram 在保留官方客户端使用体验的基础上扩展了 [Telegram 
 | Android SDK / Build Tools | 36 / 36.0.0 |
 | Android NDK | 26.3.11579264 |
 | CMake | 3.22.1 |
-| Python | 3.11，用于 Chaquopy 构建环境 |
+| Python | 用于 Chaquopy 的 3.11 环境 |
 
-克隆仓库及所有原生子模块：
+克隆仓库及原生子模块：
 
 ```bash
-git clone --recursive https://github.com/Ettacent/NimarkoGram.git
-cd NimarkoGram
+git clone --recursive https://github.com/soundgram-project/SoundGram.git
+cd SoundGram
 ```
 
-创建本地配置文件：
+创建本地配置：
 
 ```bash
 cp private.properties.example private.properties
 ```
 
-填写从 [my.telegram.org](https://my.telegram.org) 获取的 `TELEGRAM_API_ID` 和 `TELEGRAM_API_HASH`。请勿公开 `private.properties`、签名密钥或服务配置文件。
+添加来自 [my.telegram.org](https://my.telegram.org) 的 `TELEGRAM_API_ID` 与 `TELEGRAM_API_HASH`。
 
-构建同时支持两种 ARM 架构的 standalone APK：
+构建发布版 APK：
 
 ```bash
-./gradlew :TMessagesProj_AppStandalone:assembleAfatStandalone
+./gradlew :TMessagesProj_App:assembleAfatRelease
 ```
 
-APK 输出位置：
+输出的 APK 路径为：
 
 ```text
-TMessagesProj_AppStandalone/build/outputs/apk/afat/standalone/app.apk
+TMessagesProj_App/build/outputs/apk/afat/release/app.apk
 ```
-
-如需更快的本地 ARM64 单架构构建，请添加 `-PngArm64Only`。更多配置与故障排除信息请参阅[完整构建指南](docs/BUILDING.md)。
 
 ## 插件平台
 
-插件实现位于 `TMessagesProj/src/main/java/app/nimarkogram/messenger/plugins` 和 `TMessagesProj/src/main/python`。其中包含 Python 运行时、钩子桥接、包管理、插件 UI 模型、DEX 加载以及生命周期协调。
-
-`com.exteragram` 命名空间下的包和相关 Python 别名仅用于兼容现有第三方插件，不会改变 NimarkoGram 的应用 ID 或品牌。
+插件实现位于 `TMessagesProj/src/main/java/app/nimarkogram/messenger/plugins` 和 `TMessagesProj/src/main/python`，涵盖 Python 运行环境、钩子桥接、包管理、插件 UI 模型、DEX 加载以及生命周期调度。
 
 ## Telegram API
 
-每个独立构建都必须使用自己的 Telegram API 凭据。请阅读[获取 API ID](https://core.telegram.org/api/obtaining_api_id)、[Telegram API](https://core.telegram.org/api) 与 [MTProto](https://core.telegram.org/mtproto) 文档。
+每个独立构建均须使用自己的 Telegram API 凭据。请参阅 Telegram 文档了解 [获取 API ID](https://core.telegram.org/api/obtaining_api_id)、[Telegram API](https://core.telegram.org/api) 和 [MTProto](https://core.telegram.org/mtproto)。
 
 ## 项目结构
 
 | 路径 | 用途 |
 | --- | --- |
-| `TMessagesProj` | Telegram 核心、NimarkoGram 功能和 Android 资源 |
+| `TMessagesProj` | Telegram 核心、SoundGram 特性与 Android 资源 |
 | `TMessagesProj/src/main/python` | Python 插件 API 与运行时 |
-| `TMessagesProj_AppStandalone` | NimarkoGram standalone 应用 |
-| `TMessagesProj/jni` | 原生代码与第三方原生库 |
-| `third_party/pine` | 固定版本的 Pine 钩子引擎源码 |
-| `patches/pine-nimarkogram.patch` | 可复现的 NimarkoGram Pine 修改 |
+| `TMessagesProj_App` | SoundGram 应用程序目标 |
+| `TMessagesProj/jni` | 原生代码与第三方库 (tgcalls, webrtc 等) |
+| `third_party/pine` | 固定的 Pine 钩子引擎源码 |
 
-## 贡献与安全
+## 鸣谢
 
-欢迎使用中文、英语或俄语提交错误报告和范围明确的 pull request。提交更改前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全漏洞请按照 [SECURITY.md](SECURITY.md) 通过私有 security advisory 报告，不要创建公开 issue。
-
-## 致谢
-
-- [Telegram for Android](https://github.com/DrKLO/Telegram)，本项目的上游客户端。
-- [Cherrygram](https://github.com/arsLan4k1390/Cherrygram)，部分保留源码归属说明的开源界面组件来源。
-- [Pine](https://github.com/canyie/pine)，钩子运行时所使用的引擎。
-- 本仓库中保留了许可证和版权声明的所有开源库维护者。
+- [Telegram for Android](https://github.com/DrKLO/Telegram)
+- [AyuGram](https://github.com/AyuGram/AyuGram4A)
+- [Cherrygram](https://github.com/arsLan4k1390/Cherrygram)
+- [Nagram](https://github.com/NextAlone/Nagram) / [Nekogram](https://github.com/Nekogram/Nekogram)
+- [exteraGram](https://github.com/exteraSquad/exteraGram)
+- [Pine](https://github.com/canyie/pine)
 
 ## 许可证
 
-NimarkoGram 采用 [GNU General Public License v2.0](LICENSE) 发布。Telegram 与随附的第三方组件保留各自的版权和许可证声明。
+SoundGram 基于 [GNU General Public License v2.0](LICENSE) 分发。Telegram 及捆绑的第三方组件保留各自的版权与许可声明。
