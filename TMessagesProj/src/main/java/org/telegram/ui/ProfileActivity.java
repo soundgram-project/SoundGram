@@ -15505,10 +15505,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             phoneNumber = vcardPhone;
                         } else if (user != null && !TextUtils.isEmpty(user.phone)) {
                             // NG: braille-mask the displayed phone when archive biometric lock is on (CG parity, ProfileActivity:13449).
-                            text = app.nimarkogram.messenger.utils.chats.NimarkoChatsPasswordHelper.replaceStringToSpoilers(
-                                    PhoneFormat.getInstance().format("+ " + user.phone),
-                                    true
-                            );
+                            if (app.nimarkogram.messenger.NimarkoConfig.disableHidePhone) {
+                                text = PhoneFormat.getInstance().format("+" + user.phone);
+                            } else {
+                                text = app.nimarkogram.messenger.utils.chats.NimarkoChatsPasswordHelper.replaceStringToSpoilers(
+                                        PhoneFormat.getInstance().format("+ " + user.phone),
+                                        true
+                                );
+                            }
                             phoneNumber = user.phone;
                         } else {
                             text = LocaleController.getString(R.string.PhoneHidden);
@@ -15607,10 +15611,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         String value;
                         if (user != null && user.phone != null && user.phone.length() != 0) {
                             // NG: braille-mask the user's own number when archive biometric lock is on (CG parity, ProfileActivity:13550).
-                            value = app.nimarkogram.messenger.utils.chats.NimarkoChatsPasswordHelper.replaceStringToSpoilers(
-                                    PhoneFormat.getInstance().format("+ " + user.phone),
-                                    true
-                            );
+                            if (app.nimarkogram.messenger.NimarkoConfig.disableHidePhone) {
+                                value = PhoneFormat.getInstance().format("+" + user.phone);
+                            } else {
+                                value = app.nimarkogram.messenger.utils.chats.NimarkoChatsPasswordHelper.replaceStringToSpoilers(
+                                        PhoneFormat.getInstance().format("+ " + user.phone),
+                                        true
+                                );
+                            }
                         } else {
                             value = LocaleController.getString(R.string.NumberUnknown);
                         }

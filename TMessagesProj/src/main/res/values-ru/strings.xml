@@ -1026,6 +1026,8 @@
     <string name="NM_PredictiveBackAnimation">Предиктивный жест назад</string>
     <string name="NM_AutoOpenArchive">Автоматически открывать архив</string>
     <string name="NM_AutoOpenArchive_Desc">Автоматически открывать архив при потягивании списка чатов вниз.</string>
+    <string name="NM_DisableHidePhone">Отключить скрытие номера</string>
+    <string name="NM_DisableHidePhone_Desc">Показывать номер телефона в профиле без скрытия и размытия.</string>
     <string name="CP_SilenceNonContacts">Заглушить не-контакты</string>
     <string name="CP_SilenceNonContacts_Desc">Включать звук уведомлений только для контактов.</string>
     <string name="NM_ResidentNotification">Постоянное уведомление</string>

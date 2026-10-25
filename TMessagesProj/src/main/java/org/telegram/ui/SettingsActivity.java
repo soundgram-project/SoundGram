@@ -556,7 +556,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         titleView.setText(UserObject.getUserName(user));
         final StringBuilder sb = new StringBuilder();
         if (user != null) {
-            if (hidePhoneNumber) {
+            if (hidePhoneNumber && !app.nimarkogram.messenger.NimarkoConfig.disableHidePhone) {
                 sb.append(app.nimarkogram.messenger.utils.chats.NimarkoChatsPasswordHelper.replaceStringToSpoilers(
                         PhoneFormat.getInstance().format("+ " + user.phone),
                         true

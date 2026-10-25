@@ -81,6 +81,7 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
     private final int deletedGiftsRow = 15;
     private final int localPremiumEmojisRow = 16;
     private final int autoOpenArchiveRow = 21;
+    private final int disableHidePhoneRow = 22;
 
     private boolean uiAlive;
     private int uiGeneration;
@@ -197,6 +198,9 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         );
         items.add(SettingsHelper.asSwitchCG(localPremiumEmojisRow, getString(R.string.NM_GEN_LocalPremiumEmoji), getString(R.string.NM_GEN_LocalPremiumEmoji_Desc))
                 .setChecked(NimarkoConfig.localPremiumEmojis)
+        );
+        items.add(SettingsHelper.asSwitchCG(disableHidePhoneRow, getString(R.string.NM_DisableHidePhone), getString(R.string.NM_DisableHidePhone_Desc))
+                .setChecked(NimarkoConfig.disableHidePhone)
         );
         items.add(UItem.asShadow(null));
 
@@ -337,6 +341,9 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         } else if (item.id == localPremiumEmojisRow) {
             NimarkoConfig.toggleLocalPremiumEmojis();
             SettingsHelper.updateCheckState(view, NimarkoConfig.localPremiumEmojis);
+        } else if (item.id == disableHidePhoneRow) {
+            NimarkoConfig.toggleDisableHidePhone();
+            SettingsHelper.updateCheckState(view, NimarkoConfig.disableHidePhone);
         } else if (item.id == exportConfigRow) {
             exportConfig();
         } else if (item.id == importConfigRow) {

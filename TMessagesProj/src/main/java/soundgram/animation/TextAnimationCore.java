@@ -10,6 +10,7 @@ import android.text.Layout;
 import android.text.Spannable;
 import android.text.TextPaint;
 import android.text.method.PasswordTransformationMethod;
+import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.ReplacementSpan;
 import android.util.Log;
@@ -29,6 +30,28 @@ import org.json.JSONObject;
 public class TextAnimationCore {
     private static final Object LOCK = new Object();
     private static TextAnimationCore instance;
+
+    public static class AnimHiddenSpan extends ForegroundColorSpan {
+        public AnimHiddenSpan() {
+            super(0);
+        }
+    }
+
+    public boolean isEnabled() {
+        return this.initialized && this.enabled;
+    }
+
+    public void cleanupSpans(View view) {
+        removeHiddenSpans(view, this.states.get(view));
+    }
+
+    public void cleanupAllSpans() {
+        for (Map.Entry<View, AnimationState> entry : new ArrayList<>(this.states.entrySet())) {
+            restoreSystemCursor(entry.getKey(), entry.getValue());
+            restoreSystemSelectionHandles((EditText) entry.getKey(), entry.getValue());
+            removeHiddenSpans(entry.getKey(), entry.getValue());
+        }
+    }
     private Class<?> chatActivityEditTextCaptionClass;
     private Class<?> editTextBoldCursorClass;
     private Class<?> editTextCaptionClass;
@@ -123,7 +146,11 @@ public class TextAnimationCore {
                 str = "{}";
             }
             JSONObject jSONObject = new JSONObject(str);
+            boolean wasEnabled = this.enabled;
             this.enabled = optBoolean(jSONObject, "enabled", true);
+            if (wasEnabled && !this.enabled) {
+                cleanupAllSpans();
+            }
             this.duration = Math.max(1, optInt(jSONObject, "duration", 300));
             this.blurEnabled = optBoolean(jSONObject, "blur_enabled", true);
             this.blurDuration = Math.max(1, optInt(jSONObject, "blur_duration", 300));
@@ -312,6 +339,7 @@ public class TextAnimationCore {
     public static void beforeDraw(View view, Canvas canvas) {
         TextAnimationCore core = getInstance();
         if (!core.initialized || !core.enabled) {
+            core.cleanupSpans(view);
             return;
         }
 
@@ -675,14 +703,18 @@ public class TextAnimationCore {
                 animationState.hiddenSpans = new HashMap<>();
             }
             int length = text.length();
+            int lastLineStart = getLastLineStart(editText);
             for (Map.Entry<Integer, CharAnimData> entry : animationState.charStartTimes.entrySet()) {
                 int intValue = entry.getKey();
                 CharAnimData value = entry.getValue();
                 if (intValue >= 0 && intValue < length) {
+                    if (!this.animateAllLines && intValue < lastLineStart) {
+                        continue;
+                    }
                     int min = Math.min(length, value.length + intValue);
-                    ForegroundColorSpan foregroundColorSpan = new ForegroundColorSpan(0);
-                    editable.setSpan(foregroundColorSpan, intValue, min, 33);
-                    animationState.hiddenSpans.put(intValue, foregroundColorSpan);
+                    AnimHiddenSpan animHiddenSpan = new AnimHiddenSpan();
+                    editable.setSpan(animHiddenSpan, intValue, min, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    animationState.hiddenSpans.put(intValue, animHiddenSpan);
                 }
             }
         } catch (Throwable th) {
@@ -691,16 +723,27 @@ public class TextAnimationCore {
 
     private void removeHiddenSpans(View view, AnimationState animationState) {
         try {
-            if ((view instanceof EditText) && animationState.hiddenSpans != null && !animationState.hiddenSpans.isEmpty()) {
+            if (view instanceof EditText) {
                 Editable text = ((EditText) view).getText();
-                if (!(text instanceof Spannable)) {
-                    return;
+                if (text instanceof Spannable) {
+                    Spannable editable = (Spannable) text;
+                    AnimHiddenSpan[] animSpans = editable.getSpans(0, editable.length(), AnimHiddenSpan.class);
+                    if (animSpans != null && animSpans.length > 0) {
+                        for (AnimHiddenSpan s : animSpans) {
+                            editable.removeSpan(s);
+                        }
+                    }
+                    ForegroundColorSpan[] fSpans = editable.getSpans(0, editable.length(), ForegroundColorSpan.class);
+                    if (fSpans != null && fSpans.length > 0) {
+                        for (ForegroundColorSpan s : fSpans) {
+                            if (s.getForegroundColor() == 0) {
+                                editable.removeSpan(s);
+                            }
+                        }
+                    }
                 }
-                Spannable editable = (Spannable) text;
-                Iterator<Object> it = animationState.hiddenSpans.values().iterator();
-                while (it.hasNext()) {
-                    editable.removeSpan(it.next());
-                }
+            }
+            if (animationState != null && animationState.hiddenSpans != null) {
                 animationState.hiddenSpans.clear();
             }
         } catch (Throwable th) {
@@ -823,8 +866,9 @@ public class TextAnimationCore {
             }
         }
         int i3 = (int) (f4 * i);
-        if (i3 > 0) {
-            animationState.sharedPaint.setAlpha(i3);
+        int drawAlpha = Math.max(i3, (int) (i * Math.max(0.15f, f3)));
+        if (drawAlpha > 0 || !this.blurEnabled || this.blurRadius <= 0) {
+            animationState.sharedPaint.setAlpha(drawAlpha);
             animationState.sharedPaint.setMaskFilter(null);
             canvas.drawText(str, f, f2, animationState.sharedPaint);
         }

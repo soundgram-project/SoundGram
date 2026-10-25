@@ -338,6 +338,12 @@ public final class NimarkoConfig {
         getEditor().putBoolean("autoOpenArchive", autoOpenArchive).apply();
     }
 
+    public static boolean disableHidePhone = getPreferences().getBoolean("disableHidePhone", false);
+    public static void toggleDisableHidePhone() {
+        disableHidePhone = !disableHidePhone;
+        getEditor().putBoolean("disableHidePhone", disableHidePhone).apply();
+    }
+
     public static boolean forwardWithoutAuthor = getPreferences().getBoolean("forwardWithoutAuthor", false);
     public static void toggleForwardWithoutAuthor() {
         forwardWithoutAuthor = !forwardWithoutAuthor;

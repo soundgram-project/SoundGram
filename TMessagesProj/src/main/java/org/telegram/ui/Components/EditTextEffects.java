@@ -142,6 +142,7 @@ public class EditTextEffects extends EditText {
 
         removeCallbacks(spoilerTimeout);
         AnimatedEmojiSpan.release(this, animatedEmojiDrawables);
+        soundgram.animation.TextAnimationCore.getInstance().cleanupSpans(this);
     }
 
     public void recycleEmojis() {
@@ -164,6 +165,9 @@ public class EditTextEffects extends EditText {
     @Override
     protected void onTextChanged(CharSequence text, int start, int lengthBefore, int lengthAfter) {
         super.onTextChanged(text, start, lengthBefore, lengthAfter);
+        if (!soundgram.animation.TextAnimationCore.getInstance().isEnabled()) {
+            soundgram.animation.TextAnimationCore.getInstance().cleanupSpans(this);
+        }
         if (!suppressOnTextChanged) {
             invalidateEffects();
 

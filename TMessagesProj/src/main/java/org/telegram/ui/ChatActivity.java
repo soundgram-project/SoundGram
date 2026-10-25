@@ -24849,7 +24849,7 @@ public class ChatActivity extends BaseFragment implements
                                 processNewMessages(arrayList);
                             }
                         } else {
-                            processDeletedMessages(ids, ChatObject.isChannel(currentChat) ? dialog_id : 0, false);
+                            processDeletedMessages(ids, ChatObject.isChannel(currentChat) ? -dialog_id : 0, false);
                         }
                     }
                 } else {
@@ -27621,6 +27621,10 @@ public class ChatActivity extends BaseFragment implements
             } else {
                 return;
             }
+        } else if (currentEncryptedChat != null) {
+            if (channelId != dialog_id) {
+                return;
+            }
         } else if (channelId != 0) {
             return;
         }
@@ -27720,7 +27724,8 @@ public class ChatActivity extends BaseFragment implements
                 } else if (isDeletePermitted || shouldSkip) {
                     com.radolyn.ayugram.messages.AyuMessagesController.getInstance().delete(UserConfig.getInstance(currentAccount).clientUserId, dialog_id, mid);
                 }
-                boolean keepForAyu = !isAlreadyDeleted
+                boolean keepForAyu = (chatMode == MODE_DEFAULT || chatMode == MODE_SAVED)
+                        && !isAlreadyDeleted
                         && !shouldSkip
                         && !isDeletePermitted
                         && (!isMyMessage || isSaveForMyself)
@@ -35090,7 +35095,7 @@ public class ChatActivity extends BaseFragment implements
 
         TLRPC.User currentUser = getUserConfig().getCurrentUser();
         boolean hasServerPremium = currentUser != null && currentUser.premium;
-        if (visibleReaction != null && visibleReaction.documentId != 0 && !hasServerPremium) {
+        if (visibleReaction != null && visibleReaction.documentId != 0 && !hasServerPremium && !primaryMessage.hasReaction(visibleReaction)) {
             new PremiumFeatureBottomSheet(ChatActivity.this, PremiumPreviewFragment.PREMIUM_FEATURE_ANIMATED_EMOJI, true).show();
             return;
         }

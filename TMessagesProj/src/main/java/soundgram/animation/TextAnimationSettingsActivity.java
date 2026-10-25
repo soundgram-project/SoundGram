@@ -69,67 +69,42 @@ public class TextAnimationSettingsActivity extends BasePreferencesActivity {
     public void onClick(UItem item, View view, int position, float x, float y) {
         SharedPreferences p = TextAnimationLoader.getPreferences();
         int id = item.id;
+        boolean v;
         if (id == ID_ENABLED) {
-            boolean v = !p.getBoolean("text_anim_enabled", true);
+            v = !p.getBoolean("text_anim_enabled", true);
             p.edit().putBoolean("text_anim_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_IGNORE_SPACES) {
-            boolean v = !p.getBoolean("text_anim_ignore_spaces", true);
+            v = !p.getBoolean("text_anim_ignore_spaces", true);
             p.edit().putBoolean("text_anim_ignore_spaces", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_ANIMATE_ALL_LINES) {
-            boolean v = !p.getBoolean("text_anim_animate_all_lines", false);
+            v = !p.getBoolean("text_anim_animate_all_lines", false);
             p.edit().putBoolean("text_anim_animate_all_lines", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_DELETE_ANIM_ENABLED) {
-            boolean v = !p.getBoolean("text_anim_delete_anim_enabled", true);
+            v = !p.getBoolean("text_anim_delete_anim_enabled", true);
             p.edit().putBoolean("text_anim_delete_anim_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_BLUR_ENABLED) {
-            boolean v = !p.getBoolean("text_anim_blur_enabled", true);
+            v = !p.getBoolean("text_anim_blur_enabled", true);
             p.edit().putBoolean("text_anim_blur_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_SLIDE_ENABLED) {
-            boolean v = !p.getBoolean("text_anim_slide_enabled", true);
+            v = !p.getBoolean("text_anim_slide_enabled", true);
             p.edit().putBoolean("text_anim_slide_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_SCALE_ENABLED) {
-            boolean v = !p.getBoolean("text_anim_scale_enabled", false);
+            v = !p.getBoolean("text_anim_scale_enabled", false);
             p.edit().putBoolean("text_anim_scale_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_ROTATE_ENABLED) {
-            boolean v = !p.getBoolean("text_anim_rotate_enabled", false);
+            v = !p.getBoolean("text_anim_rotate_enabled", false);
             p.edit().putBoolean("text_anim_rotate_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_CURSOR_ENABLED) {
-            boolean v = !p.getBoolean("text_anim_cursor_enabled", true);
+            v = !p.getBoolean("text_anim_cursor_enabled", true);
             p.edit().putBoolean("text_anim_cursor_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
         } else if (id == ID_LIQUID_CURSOR) {
-            boolean v = !p.getBoolean("text_anim_liquid_cursor_enabled", false);
+            v = !p.getBoolean("text_anim_liquid_cursor_enabled", false);
             p.edit().putBoolean("text_anim_liquid_cursor_enabled", v).apply();
-            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(v);
-            }
+        } else {
+            return;
         }
+        item.checked = v;
+        app.nimarkogram.messenger.preferences.helpers.SettingsHelper.updateCheckState(view, v);
         TextAnimationLoader.updateSettings();
     }
 }

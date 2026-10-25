@@ -165,7 +165,8 @@ final class NimarkoSettingsSearchIndex {
                 14, R.string.EP_SlowNetworkMode);
         rows(entries, guid, SCREEN_GENERAL, R.drawable.msg_settings_solar,
                 R.string.NM_Cat_General, R.string.NM_GEN_MiscHeader,
-                21, R.string.NM_AutoOpenArchive);
+                21, R.string.NM_AutoOpenArchive,
+                22, R.string.NM_DisableHidePhone);
         rows(entries, guid, SCREEN_GENERAL, R.drawable.msg_settings_solar,
                 R.string.NM_Cat_General, R.string.NM_SettingsSectionGiftsEmoji,
                 15, R.string.NM_GEN_DeletedGifts,
@@ -567,6 +568,7 @@ final class NimarkoSettingsSearchIndex {
         if (titleRes == R.string.EP_SlowNetworkMode) return R.string.NM_SettingsDesc_SlowNetwork;
         if (titleRes == R.string.NM_GEN_DeletedGifts) return R.string.NM_GEN_DeletedGifts_Desc;
         if (titleRes == R.string.NM_GEN_LocalPremiumEmoji) return R.string.NM_GEN_LocalPremiumEmoji_Desc;
+        if (titleRes == R.string.NM_DisableHidePhone) return R.string.NM_DisableHidePhone_Desc;
         if (titleRes == R.string.NM_Config_Export) return R.string.NM_Config_Export_Desc;
         if (titleRes == R.string.NM_Config_Import) return R.string.NM_Config_Import_Desc;
         if (titleRes == R.string.AP_IconReplacements) return R.string.NM_SettingsDesc_IconPack;

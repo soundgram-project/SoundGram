@@ -14689,15 +14689,25 @@ public class MessagesStorage extends BaseController {
                     for (int a = 0, N = dialogs.size(); a < N; a++) {
                         long dialogId = dialogs.keyAt(a);
                         ArrayList<Integer> mids = dialogs.valueAt(a);
+                        long chId = 0L;
+                        if (DialogObject.isChatDialog(dialogId)) {
+                            TLRPC.Chat chat = getChat(-dialogId);
+                            if (ChatObject.isChannel(chat)) {
+                                chId = -dialogId;
+                            }
+                        } else if (DialogObject.isEncryptedDialog(dialogId)) {
+                            chId = dialogId;
+                        }
+                        final long channelIdToSend = chId;
                         if (xyz.nextalone.nagram.NaConfig.INSTANCE.getEnableSaveDeletedMessages().Bool()) {
                             final long dialogIdFinal = dialogId;
                             final ArrayList<Integer> midsFinal = new ArrayList<>(mids);
                             AndroidUtilities.runOnUIThread(() -> {
                                 getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, midsFinal);
-                                getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, midsFinal, 0L, false);
+                                getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, midsFinal, channelIdToSend, false);
                             });
                         } else {
-                            AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, mids, 0L, false));
+                            AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, mids, channelIdToSend, false));
                             updateDialogsWithReadMessagesInternal(mids, null, null, null, null);
                             markMessagesAsDeletedInternal(dialogId, mids, true, 0, 0);
                             updateDialogsWithDeletedMessagesInternal(dialogId, 0, mids, null);

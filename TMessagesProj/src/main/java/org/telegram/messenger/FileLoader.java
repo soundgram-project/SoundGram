@@ -1441,7 +1441,14 @@ public class FileLoader extends BaseController {
                 return new File(path);
             }
         }
-        return new File(dir, getAttachFileName(attach, ext));
+        File result = new File(dir, getAttachFileName(attach, ext));
+        if (!result.exists()) {
+            File saved = new File(com.radolyn.ayugram.messages.AyuMessagesController.attachmentsPath, result.getName());
+            if (saved.exists()) {
+                return saved;
+            }
+        }
+        return result;
     }
 
     public FilePathDatabase getFileDatabase() {
