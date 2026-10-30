@@ -41,7 +41,6 @@ SoundGram расширяет возможности [Telegram для Android](ht
 - **Приватность и безопасность:** Режим призрака, управление защитой от скриншотов, скрытие номеров телефонов, выборочные отчеты о прочтении и история удаленных сообщений.
 - **Медиа:** Расширенный CameraX, видеосообщения, истории, высококачественная запись и воспроизведение аудио.
 - **Сеть и прокси:** Поддержка WebSocket-прокси, MTProto и гибкая маршрутизация.
-- **Плагины:** Поддержка Python и DEX плагинов с мостом хуков, управлением зависимостями и безопасным жизненным циклом.
 - **Архитектура:** Единый fat/standalone APK с поддержкой ARM64 и ARMv7.
 
 ## Сборка из исходного кода
@@ -83,10 +82,6 @@ cp private.properties.example private.properties
 TMessagesProj_App/build/outputs/apk/afat/release/app.apk
 ```
 
-## Платформа плагинов
-
-Реализация плагинов находится в `TMessagesProj/src/main/java/app/nimarkogram/messenger/plugins` и `TMessagesProj/src/main/python`. Она включает среду выполнения Python, мост перехватов, управление пакетами, UI-модели плагинов, загрузку DEX и координацию жизненного цикла.
-
 ## Telegram API
 
 Каждая независимая сборка должна использовать собственные ключи Telegram API. Ознакомьтесь с документацией по [получению API ID](https://core.telegram.org/api/obtaining_api_id), [Telegram API](https://core.telegram.org/api) и [MTProto](https://core.telegram.org/mtproto).
@@ -96,11 +91,8 @@ TMessagesProj_App/build/outputs/apk/afat/release/app.apk
 | Путь | Назначение |
 | --- | --- |
 | `TMessagesProj` | Ядро Telegram, функционал SoundGram и ресурсы Android |
-| `TMessagesProj/src/main/python` | API и рантайм плагинов на Python |
 | `TMessagesProj_App` | Основное приложение SoundGram |
 | `TMessagesProj/jni` | Нативный код и сторонние библиотеки (tgcalls, webrtc и др.) |
-| `third_party/pine` | Движок хуков Pine |
-
 ## Участие и безопасность
 
 Сообщения об ошибках и пулл-реквесты приветствуются. Перед отправкой изменений ознакомьтесь с [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -112,7 +104,6 @@ TMessagesProj_App/build/outputs/apk/afat/release/app.apk
 - [Cherrygram](https://github.com/arsLan4k1390/Cherrygram)
 - [Nagram](https://github.com/NextAlone/Nagram) / [Nekogram](https://github.com/Nekogram/Nekogram)
 - [exteraGram](https://github.com/exteraSquad/exteraGram)
-- [Pine](https://github.com/canyie/pine), движок хуков.
 
 ## Лицензия
 
