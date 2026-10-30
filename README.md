@@ -21,7 +21,6 @@
 <p align="center">
   <a href="#features">Features</a> ·
   <a href="#build-from-source">Build</a> ·
-  <a href="#plugin-platform">Plugins</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
   <a href="https://github.com/soundgram-project/SoundGram/issues">Issues</a>
 </p>
