@@ -5,8 +5,7 @@
 <h1 align="center">SoundGram</h1>
 
 <p align="center">
-  <a href="README.md">English</a> · <strong>Русский</strong> · <a href="README.zh-CN.md">简体中文</a>
-</p>
+  <a href="README.md">English</a> · <strong>Русский</strong> 
 
 <p align="center">
   Открытый неофициальный клиент Telegram для Android с мощными музыкальными возможностями, улучшением звука, расширенной кастомизацией и инструментами приватности.
@@ -22,7 +21,6 @@
 <p align="center">
   <a href="#возможности">Возможности</a> ·
   <a href="#сборка-из-исходного-кода">Сборка</a> ·
-  <a href="#платформа-плагинов">Плагины</a> ·
   <a href="CONTRIBUTING.md">Участие</a> ·
   <a href="https://github.com/soundgram-project/SoundGram/issues">Ошибки</a>
 </p>
