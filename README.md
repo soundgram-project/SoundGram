@@ -5,8 +5,7 @@
 <h1 align="center">SoundGram</h1>
 
 <p align="center">
-  <strong>English</strong> · <a href="README.ru.md">Русский</a> · <a href="README.zh-CN.md">简体中文</a>
-</p>
+  <strong>English</strong> · <a href="README.ru.md">Русский</a> 
 
 <p align="center">
   An open-source, unofficial Telegram client for Android with powerful music capabilities, audio enhancement, advanced customization and privacy controls.
@@ -32,7 +31,7 @@
 
 ## About
 
-SoundGram extends [Telegram for Android](https://github.com/DrKLO/Telegram) while preserving the familiar Telegram experience. The project focuses on a powerful integrated music experience, rich audio hooks and equalizer, flexible appearance controls, improved camera and media workflows, privacy features, network tools and plugin support.
+SoundGram extends [Telegram for Android](https://github.com/DrKLO/Telegram) while preserving the familiar Telegram experience. The project focuses on a powerful integrated music experience, rich audio hooks and equalizer, flexible appearance controls, improved camera and media workflows, privacy features, network tools.
 
 ## Features
 
@@ -41,7 +40,6 @@ SoundGram extends [Telegram for Android](https://github.com/DrKLO/Telegram) whil
 - **Privacy & Security:** Ghost mode options, screenshot protection controls, hiding phone numbers, selective read receipts and anti-recall history.
 - **Media Tools:** Enhanced CameraX, video-messages, stories, high-quality audio recording and playback.
 - **Network & Proxies:** WebSocket proxy integration, MTProto, and flexible endpoint routing.
-- **Plugins & Extensibility:** Support for Python and DEX plugins with hook bridge, dependency management and safe lifecycle handling.
 - **Architecture:** ARM64 and ARMv7 support in a single standalone/afat APK.
 
 ## Build from source
@@ -54,7 +52,6 @@ SoundGram extends [Telegram for Android](https://github.com/DrKLO/Telegram) whil
 | Android SDK / Build Tools | 36 / 36.0.0 |
 | Android NDK | 26.3.11579264 |
 | CMake | 3.22.1 |
-| Python | 3.11 for Chaquopy environment |
 
 Clone the repository and all native submodules:
 
@@ -83,10 +80,6 @@ The APK is written to:
 TMessagesProj_App/build/outputs/apk/afat/release/app.apk
 ```
 
-## Plugin platform
-
-The plugin implementation lives in `TMessagesProj/src/main/java/app/nimarkogram/messenger/plugins` and `TMessagesProj/src/main/python`. It includes the Python runtime, hook bridge, package management, plugin UI models, DEX loading and lifecycle coordination.
-
 ## Telegram API
 
 Every independent build must use its own Telegram API credentials. Read Telegram's documentation for [obtaining an API ID](https://core.telegram.org/api/obtaining_api_id), the [Telegram API](https://core.telegram.org/api) and [MTProto](https://core.telegram.org/mtproto).
@@ -95,11 +88,9 @@ Every independent build must use its own Telegram API credentials. Read Telegram
 
 | Path | Purpose |
 | --- | --- |
-| `TMessagesProj` | Telegram core, SoundGram features and Android resources |
-| `TMessagesProj/src/main/python` | Python plugin API and runtime |
+| `TMessagesProj` | Telegram core, SoundGram features and Android resources 
 | `TMessagesProj_App` | SoundGram application target |
 | `TMessagesProj/jni` | Native code and third-party native libraries (tgcalls, webrtc, etc.) |
-| `third_party/pine` | Pinned Pine hook-engine source |
 
 ## Contributing and security
 
@@ -112,7 +103,6 @@ Bug reports and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.m
 - [Cherrygram](https://github.com/arsLan4k1390/Cherrygram)
 - [Nagram](https://github.com/NextAlone/Nagram) / [Nekogram](https://github.com/Nekogram/Nekogram)
 - [exteraGram](https://github.com/exteraSquad/exteraGram)
-- [Pine](https://github.com/canyie/pine), used by the hook runtime.
 
 ## License
 
